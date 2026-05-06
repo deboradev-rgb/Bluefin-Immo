@@ -1,3 +1,7 @@
+import Popular from "./pages/Popular";
+import Hotels from "./pages/Hotels";
+import City from "./pages/City";
+
 export type Page =
   | 'home'
   | 'search-logements'
@@ -19,11 +23,15 @@ export type Page =
   | 'about'
   | 'blog'
   | 'terms'
-  | 'not-found';
+  | 'not-found'
+  | 'popular'      // Nouvelle page
+  | 'hotels'       // Nouvelle page
+  | 'city';        // Nouvelle page
 
 export type Route = {
   name: Page;
   id?: string;
+  city?: string;   // Pour la page city
 };
 
 export function parseRoute(path: string): Route {
@@ -31,6 +39,12 @@ export function parseRoute(path: string): Route {
   const segments = cleaned.split('/').filter(Boolean);
 
   if (segments.length === 0) return { name: 'home' };
+  
+  // Nouvelles routes
+  if (segments[0] === 'popular') return { name: 'popular' };
+  if (segments[0] === 'hotels') return { name: 'hotels' };
+  if (segments[0] === 'city' && segments[1]) return { name: 'city', city: segments[1] };
+  
   if (segments[0] === 's') {
     return { name: segments[1] === 'hotels' ? 'search-hotels' : 'search-logements' };
   }
@@ -69,6 +83,12 @@ export function routeToPath(route: Route): string {
   switch (route.name) {
     case 'home':
       return '/';
+    case 'popular':
+      return '/popular';
+    case 'hotels':
+      return '/hotels';
+    case 'city':
+      return `/city/${route.city ?? 'cotonou'}`;
     case 'search-logements':
       return '/s/logements';
     case 'search-hotels':
