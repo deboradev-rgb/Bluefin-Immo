@@ -1,6 +1,11 @@
 import { Facebook, Instagram, MessageCircle, Globe } from 'lucide-react';
+import type { Route } from '../router';
 
-export function Footer() {
+interface FooterProps {
+  onNavigate?: (route: Route) => void;
+}
+
+export function Footer({ onNavigate }: FooterProps) {
   return (
     <footer className="bg-[#0f2940] text-white mt-16">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-10 lg:py-12">
@@ -8,8 +13,24 @@ export function Footer() {
           <div>
             <h4 className="font-bold mb-4">Bluefin-Immo</h4>
             <ul className="space-y-2 text-sm text-white/70">
-              <li><a href="#" className="hover:text-white transition-colors">À propos</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.({ name: 'about' })}
+                  className="hover:text-white transition-colors"
+                >
+                  À propos
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.({ name: 'blog' })}
+                  className="hover:text-white transition-colors"
+                >
+                  Blog
+                </button>
+              </li>
               <li><a href="#" className="hover:text-white transition-colors">Carrières</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Presse</a></li>
             </ul>
@@ -18,7 +39,15 @@ export function Footer() {
           <div>
             <h4 className="font-bold mb-4">Voyageurs</h4>
             <ul className="space-y-2 text-sm text-white/70">
-              <li><a href="#" className="hover:text-white transition-colors">Aide & Support</a></li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.({ name: 'help' })}
+                  className="hover:text-white transition-colors"
+                >
+                  Aide & Support
+                </button>
+              </li>
               <li><a href="#" className="hover:text-white transition-colors">Annulation</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Paiement Mobile Money</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Guide du voyageur</a></li>
@@ -28,7 +57,15 @@ export function Footer() {
           <div>
             <h4 className="font-bold mb-4">Hôtes</h4>
             <ul className="space-y-2 text-sm text-white/70">
-              <li><a href="#" className="hover:text-white transition-colors">Devenir hôte</a></li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.({ name: 'publish' })}
+                  className="hover:text-white transition-colors"
+                >
+                  Devenir hôte
+                </button>
+              </li>
               <li><a href="#" className="hover:text-white transition-colors">Centre de ressources</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Assurance hôte</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Forum de la communauté</a></li>

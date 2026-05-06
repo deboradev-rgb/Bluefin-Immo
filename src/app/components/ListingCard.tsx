@@ -9,7 +9,7 @@ interface ListingCardProps {
   reviewCount: number;
   price: number;
   priceEur?: number;
-  badge?: 'certified' | 'superhost' | 'new';
+  badge?: string;
   amenities?: string[];
   location?: string;
   onClick?: () => void;
@@ -50,11 +50,13 @@ export function ListingCard({
           <div className={`absolute top-3 left-3 px-3 py-1.5 rounded-full text-xs font-medium text-white ${
             badge === 'certified' ? 'bg-[#00c9a7]' :
             badge === 'superhost' ? 'bg-[#0f2940]' :
-            'bg-[#6b7280]'
+            badge === 'new' ? 'bg-[#6b7280]' :
+            'bg-[#0f2940]'
           }`}>
             {badge === 'certified' ? 'Certifié Bluefin' :
              badge === 'superhost' ? 'Superhost' :
-             'Nouveau'}
+             badge === 'new' ? 'Nouveau' :
+             badge}
           </div>
         )}
       </div>

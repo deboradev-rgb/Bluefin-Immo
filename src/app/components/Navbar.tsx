@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Search, User, Globe, Menu, X, MapPin } from 'lucide-react';
-import type { Page } from '../App';
+import type { Route } from '../router';
 
 interface NavbarProps {
   onOpenSearch?: () => void;
   onGoHome?: () => void;
-  currentPage?: Page;
+  onNavigate?: (route: Route) => void;
+  currentPage?: Route['name'];
 }
 
-export function Navbar({ onOpenSearch, onGoHome, currentPage }: NavbarProps) {
+export function Navbar({ onOpenSearch, onGoHome, onNavigate, currentPage }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [lang, setLang] = useState('FR');
   const [currency, setCurrency] = useState('XOF');
@@ -83,10 +84,16 @@ export function Navbar({ onOpenSearch, onGoHome, currentPage }: NavbarProps) {
               <option>EUR</option>
             </select>
           </div>
-          <button className="text-[#0f2940] px-4 py-2 rounded-full hover:bg-[#f4fffe] transition-colors font-medium text-sm">
+          <button
+            onClick={() => onNavigate?.({ name: 'account' })}
+            className="text-[#0f2940] px-4 py-2 rounded-full hover:bg-[#f4fffe] transition-colors font-medium text-sm"
+          >
             Connexion
           </button>
-          <button className="bg-[#0f2940] text-white px-5 py-2 rounded-full hover:bg-[#1a3a52] transition-colors font-medium text-sm">
+          <button
+            onClick={() => onNavigate?.({ name: 'publish' })}
+            className="bg-[#0f2940] text-white px-5 py-2 rounded-full hover:bg-[#1a3a52] transition-colors font-medium text-sm"
+          >
             Devenir hôte
           </button>
         </div>
@@ -128,13 +135,22 @@ export function Navbar({ onOpenSearch, onGoHome, currentPage }: NavbarProps) {
               <option>EUR</option>
             </select>
           </div>
-          <button className="w-full text-left text-[#0f2940] py-2 text-sm font-medium border-b border-[#e2f5f2]">
+          <button
+            onClick={() => onNavigate?.({ name: 'account' })}
+            className="w-full text-left text-[#0f2940] py-2 text-sm font-medium border-b border-[#e2f5f2]"
+          >
             Connexion
           </button>
-          <button className="w-full text-left text-[#0f2940] py-2 text-sm font-medium border-b border-[#e2f5f2]">
+          <button
+            onClick={() => onNavigate?.({ name: 'profile', id: 'me' })}
+            className="w-full text-left text-[#0f2940] py-2 text-sm font-medium border-b border-[#e2f5f2]"
+          >
             Créer un compte
           </button>
-          <button className="w-full bg-[#00c9a7] text-white py-3 rounded-full font-medium text-sm">
+          <button
+            onClick={() => onNavigate?.({ name: 'publish' })}
+            className="w-full bg-[#00c9a7] text-white py-3 rounded-full font-medium text-sm"
+          >
             Devenir hôte
           </button>
         </div>

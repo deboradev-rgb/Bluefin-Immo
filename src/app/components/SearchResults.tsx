@@ -74,11 +74,13 @@ const listings = [
 interface SearchResultsProps {
   onSelectListing?: () => void;
   onBack?: () => void;
+  mode?: 'logements' | 'hotels';
 }
 
-export function SearchResults({ onSelectListing, onBack }: SearchResultsProps) {
+export function SearchResults({ onSelectListing, onBack, mode = 'logements' }: SearchResultsProps) {
   const [activeFilter, setActiveFilter] = useState(0);
   const [showMap, setShowMap] = useState(false);
+  const title = mode === 'hotels' ? 'Hôtels et résidences à Cotonou' : "Résultats de recherche d'hébergements";
 
   return (
     <div className="bg-white min-h-screen">
@@ -140,7 +142,7 @@ export function SearchResults({ onSelectListing, onBack }: SearchResultsProps) {
                   Retour
                 </button>
                 <h2 className="text-lg lg:text-2xl font-bold text-[#0f2940]">
-                  Plus de 300 logements à Cotonou
+                  {title}
                 </h2>
               </div>
               <p className="text-sm text-[#6b7280]">6–9 mai · 2 voyageurs</p>
