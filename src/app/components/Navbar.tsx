@@ -31,18 +31,22 @@ export function Navbar({ onGoHome, onNavigate, currentPage }: NavbarProps) {
   
   const searchRef = useRef<HTMLDivElement>(null);
 
-  const navItems = [
-    { name: 'Logement', icon: Home, route: { name: 'accommodation' } as Route },
-    { name: 'Expérience', icon: Star, route: { name: 'experiences' } as Route },
-    { name: 'Service', icon: Server, route: { name: 'services' } as Route }
-  ];
+  // Dans ton Navbar.tsx, modifie navItems :
 
-  const isActive = (itemName: string) => {
-    if (itemName === 'Logement' && currentPage === 'accommodation') return true;
-    if (itemName === 'Expérience' && currentPage === 'experiences') return true;
-    if (itemName === 'Service' && currentPage === 'services') return true;
-    return false;
-  };
+const navItems = [
+  { name: 'Logement', icon: Home, route: { name: 'search-logements' } as Route },  // Redirige vers SearchPage
+  { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route },     // Redirige vers ExperiencePage
+  { name: 'Service', icon: Server, route: { name: 'services' } as Route } ,
+    // Redirige vers BecomeHostPage
+];
+
+const isActive = (itemName: string) => {
+  if (itemName === 'Logement' && currentPage === 'search-logements') return true;
+  if (itemName === 'Expérience' && currentPage === 'experience') return true;
+  if (itemName === 'Service' && currentPage === 'services') return true;
+
+  return false;
+};
 
   // Fermer les popups au clic en dehors
   useEffect(() => {
@@ -180,14 +184,14 @@ export function Navbar({ onGoHome, onNavigate, currentPage }: NavbarProps) {
           {/* Right actions — complètement à droite */}
           <div className="hidden lg:flex items-center gap-3 flex-shrink-0 ml-auto">
             <button
-              onClick={() => onNavigate?.({ name: 'publish' })}
+              onClick={() => onNavigate?.({ name: 'become-host' })}
               className="relative px-6 py-2.5 rounded-full overflow-hidden group bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white font-medium text-sm transition-all duration-300 hover:shadow-lg hover:scale-105"
             >
               <span className="relative z-10">Devenir hôte</span>
               <span className="absolute inset-0 bg-gradient-to-r from-[#00c9a7] to-[#00b396] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
             </button>
             <button
-              onClick={() => onNavigate?.({ name: 'account' })}
+              onClick={() => onNavigate?.({ name: 'auth' })}
               className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#00c9a7]/10 to-transparent text-[#0f2940] font-medium text-sm transition-all duration-300 hover:shadow-md hover:scale-105 flex items-center gap-2 border border-[#00c9a7]/20"
             >
               <LogIn className="w-4 h-4" />

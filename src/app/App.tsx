@@ -24,6 +24,13 @@ import {
   BlogPage,
   TermsPage,
   NotFoundPage,
+  PopularPage,      // Ajoutez cette ligne
+  HotelsPage,       // Ajoutez cette ligne
+  CityPage,         // Ajoutez cette ligne
+  ExperiencePage,
+  ServicesPage,
+  BecomeHost,
+  AuthPage
 } from './pages';
 import { parseRoute, routeToPath, tabFromPage, routeFromTab, type Route } from './router';
 
@@ -64,28 +71,34 @@ export default function App() {
         onNavigate={navigate}
         currentPage={route.name}
       />
-
-      {route.name === 'home' && <HomePage onNavigate={navigate} />}
-      {route.name === 'search-logements' && <SearchPage mode="logements" onNavigate={navigate} />}
-      {route.name === 'search-hotels' && <SearchPage mode="hotels" onNavigate={navigate} />}
-      {route.name === 'listing' && <ListingPage id={route.id} onNavigate={navigate} />}
-      {route.name === 'booking' && <BookingPage id={route.id} onNavigate={navigate} />}
-      {route.name === 'confirmation' && <ConfirmationPage id={route.id} onNavigate={navigate} />}
-      {route.name === 'profile' && <ProfilePage id={route.id} onNavigate={navigate} />}
-      {route.name === 'account' && <AccountPage onNavigate={navigate} />}
-      {route.name === 'account-reservations' && <AccountReservationsPage onNavigate={navigate} />}
-      {route.name === 'host-dashboard' && <HostDashboardPage onNavigate={navigate} />}
-      {route.name === 'host-annonces' && <HostListingsPage onNavigate={navigate} />}
-      {route.name === 'host-calendrier' && <HostCalendarPage onNavigate={navigate} />}
-      {route.name === 'host-reservations' && <HostReservationsPage onNavigate={navigate} />}
-      {route.name === 'messages' && <MessagesPage />}
-      {route.name === 'favorites' && <FavoritesPage onNavigate={navigate} />}
-      {route.name === 'publish' && <PublishListingPage />}
-      {route.name === 'help' && <HelpPage />}
-      {route.name === 'about' && <AboutPage />}
-      {route.name === 'blog' && <BlogPage onNavigate={navigate} />}
-      {route.name === 'terms' && <TermsPage />}
-      {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
+{route.name === 'home' && <HomePage onNavigate={navigate} />}
+{route.name === 'search-logements' && <SearchPage mode="logements" onNavigate={navigate} />}
+{route.name === 'search-hotels' && <SearchPage mode="hotels" onNavigate={navigate} />}
+{route.name === 'listing' && <ListingPage id={route.id} onNavigate={navigate} />}
+{route.name === 'booking' && <BookingPage id={route.id} onNavigate={navigate} />}
+{route.name === 'confirmation' && <ConfirmationPage id={route.id} onNavigate={navigate} />}
+{route.name === 'profile' && <ProfilePage id={route.id} onNavigate={navigate} />}
+{route.name === 'account' && <AccountPage onNavigate={navigate} />}
+{route.name === 'account-reservations' && <AccountReservationsPage onNavigate={navigate} />}
+{route.name === 'host-dashboard' && <HostDashboardPage onNavigate={navigate} />}
+{route.name === 'host-annonces' && <HostListingsPage onNavigate={navigate} />}
+{route.name === 'host-calendrier' && <HostCalendarPage onNavigate={navigate} />}
+{route.name === 'host-reservations' && <HostReservationsPage onNavigate={navigate} />}
+{route.name === 'messages' && <MessagesPage />}
+{route.name === 'favorites' && <FavoritesPage onNavigate={navigate} />}
+{route.name === 'publish' && <PublishListingPage />}
+{route.name === 'help' && <HelpPage />}
+{route.name === 'about' && <AboutPage />}
+{route.name === 'blog' && <BlogPage onNavigate={navigate} />}
+{route.name === 'terms' && <TermsPage />}
+{route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
+{route.name === 'popular' && <PopularPage onNavigate={navigate} />}
+{route.name === 'hotels' && <HotelsPage onNavigate={navigate} />}
+{route.name === 'city' && <CityPage city={route.city} onNavigate={navigate} />}
+{route.name === 'experience' && <ExperiencePage onNavigate={navigate} />}
+{route.name === 'services' && <ServicesPage onNavigate={navigate} />}
+{route.name === 'become-host' && <BecomeHost onNavigate={navigate} />}
+{route.name === 'auth' && <AuthPage onNavigate={navigate} />}
 
       <Footer onNavigate={navigate} />
 

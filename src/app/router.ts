@@ -1,16 +1,18 @@
-import Popular from "./pages/Popular";
-import Hotels from "./pages/Hotels";
-import City from "./pages/City";
+// routes.ts
+import { SearchPage, ExperiencePage, ServicesPage } from "./pages";
 
 export type Page =
   | 'home'
   | 'search-logements'
   | 'search-hotels'
+  | 'experience'
+  | 'services'
   | 'listing'
   | 'booking'
   | 'confirmation'
   | 'profile'
   | 'account'
+  |'become-host'
   | 'account-reservations'
   | 'host-dashboard'
   | 'host-annonces'
@@ -24,14 +26,15 @@ export type Page =
   | 'blog'
   | 'terms'
   | 'not-found'
-  | 'popular'      // Nouvelle page
-  | 'hotels'       // Nouvelle page
-  | 'city';        // Nouvelle page
+  | 'popular'
+  | 'hotels'
+  | 'city'
+  | 'auth';
 
 export type Route = {
   name: Page;
   id?: string;
-  city?: string;   // Pour la page city
+  city?: string;
 };
 
 export function parseRoute(path: string): Route {
@@ -40,10 +43,19 @@ export function parseRoute(path: string): Route {
 
   if (segments.length === 0) return { name: 'home' };
   
-  // Nouvelles routes
+  // Nouvelles routes pour les pages principales
   if (segments[0] === 'popular') return { name: 'popular' };
   if (segments[0] === 'hotels') return { name: 'hotels' };
   if (segments[0] === 'city' && segments[1]) return { name: 'city', city: segments[1] };
+  if (segments[0] === 'experience') return { name: 'experience' };
+  if (segments[0] === 'services') return { name: 'services' };
+  if (segments[0] === 'become-host') return { name: 'become-host' };
+  if (segments[0] === 'devenir-hote') return { name: 'become-host' };
+  if (segments[0] === 'auth') return { name: 'auth' };
+  if (segments[0] === 'connexion') return { name: 'auth' };
+  
+
+
   
   if (segments[0] === 's') {
     return { name: segments[1] === 'hotels' ? 'search-hotels' : 'search-logements' };
@@ -89,6 +101,15 @@ export function routeToPath(route: Route): string {
       return '/hotels';
     case 'city':
       return `/city/${route.city ?? 'cotonou'}`;
+    case 'experience':
+      return '/experience';
+    case 'become-host':
+      return '/devenir-hote';
+ 
+    case 'auth':
+      return '/auth';
+    case 'services':
+      return '/services';
     case 'search-logements':
       return '/s/logements';
     case 'search-hotels':
