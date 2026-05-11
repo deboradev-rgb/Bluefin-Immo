@@ -567,7 +567,7 @@ const isActive = (itemName: string) => {
             
             <button
               onClick={() => {
-                onNavigate?.({ name: 'publish' });
+                onNavigate?.({ name: 'become-host' });
                 setMenuOpen(false);
               }}
               className="w-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white py-4 rounded-xl font-medium text-base relative overflow-hidden group"
@@ -578,7 +578,7 @@ const isActive = (itemName: string) => {
             
             <button
               onClick={() => {
-                onNavigate?.({ name: 'account' });
+                onNavigate?.({ name: 'auth' });
                 setMenuOpen(false);
               }}
               className="w-full text-[#0f2940] py-4 rounded-xl font-medium text-base border-2 border-[#00c9a7]/30 hover:border-[#00c9a7] transition-all flex items-center justify-center gap-2"

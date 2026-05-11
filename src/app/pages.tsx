@@ -19,7 +19,7 @@ import {
   Settings,
   Bell,
   User,
-  AlertCircle, Eye, Lock, EyeOff, Google,
+  AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,
   Clock,
   X as CloseIcon, ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
   MapPin, Bath, Bed, Filter, ChevronDown, Share2, Award, Crown, Key, Smartphone, Phone, Camera, Image
@@ -61,6 +61,8 @@ type HotelProperty = {
     avatar?: string;
     price?:number
   }>;
+
+  
 };interface PageProps {
   onNavigate?: (route: Route) => void;
 }
@@ -1380,6 +1382,20 @@ const HostDashboard = ({ onLogout, userData }: { onLogout: () => void; userData:
 };
 
 
+// Types pour l'utilisateur
+export type UserRole = "traveler" | "host" | "visitor";
+export type UserData = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  languages?: string[];
+  avatar?: string;
+  createdAt: string;
+  isHost?: boolean;
+};
 
 const getMapUrl = (query: string) =>
   `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
@@ -2813,50 +2829,257 @@ export function ConfirmationPage({ onNavigate }: PageProps & { id?: string }) {
 }
 
 // ==================== PROFILE PAGE ====================
+
+
 export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
+  const [user, setUser] = useState<UserData | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedUser, setEditedUser] = useState<Partial<UserData>>({});
+
+  useEffect(() => {
+    // Récupérer l'utilisateur connecté
+    const storedUser = localStorage.getItem("bluefin_user");
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
+      setEditedUser(userData);
+    } else {
+      // Rediriger vers la page de connexion si non connecté
+      onNavigate?.({ name: 'auth' });
+    }
+  }, []);
+
+  const handleSave = () => {
+    if (user) {
+      const updatedUser = { ...user, ...editedUser };
+      setUser(updatedUser);
+      localStorage.setItem("bluefin_user", JSON.stringify(updatedUser));
+      
+      // Mettre à jour dans la liste des utilisateurs
+      const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
+      const index = users.findIndex((u: UserData) => u.id === user.id);
+      if (index !== -1) {
+        users[index] = updatedUser;
+        localStorage.setItem("bluefin_users", JSON.stringify(users));
+      }
+      
+      setIsEditing(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("bluefin_user");
+    onNavigate?.({ name: 'home' });
+  };
+
+  const handleBecomeHost = () => {
+    onNavigate?.({ name: 'become-host' });
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#00c9a7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Récupérer le rôle en français
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case "traveler": return "Voyageur";
+      case "host": return "Hôte";
+      default: return "Visiteur";
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "traveler": return <Compass className="w-5 h-5" />;
+      case "host": return <Home className="w-5 h-5" />;
+      default: return <Briefcase className="w-5 h-5" />;
+    }
+  };
+
   return (
-    <div className="bg-white min-h-screen py-10">
+    <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb] py-6">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Bouton retour */}
+        <button
+          onClick={() => onNavigate?.({ name: 'home' })}
+          className="mb-6 flex items-center gap-2 text-[#0f2940] hover:text-[#00c9a7] transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          <span className="text-sm">Retour à l'accueil</span>
+        </button>
+
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="bg-[#f4fffe] rounded-[2rem] p-8 flex-1">
+          {/* Colonne gauche - Informations profil */}
+          <div className="bg-white rounded-[2rem] p-6 sm:p-8 flex-1 shadow-lg">
+            {/* En-tête avec avatar */}
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 rounded-full bg-[#0f2940] flex items-center justify-center text-white text-2xl font-bold">M</div>
-              <div>
-                <h1 className="text-2xl font-bold text-[#0f2940]">Marie Dupont</h1>
-                <p className="text-sm text-[#6b7280]">Voyageuse & Superhost</p>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
               </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-2xl font-bold text-[#0f2940]">{user.firstName} {user.lastName}</h1>
+                  <span className="px-3 py-1 bg-[#f4fffe] text-[#00c9a7] rounded-full text-xs font-medium flex items-center gap-1">
+                    {getRoleIcon(user.role)}
+                    {getRoleLabel(user.role)}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500 mt-1">Membre depuis {new Date(user.createdAt).toLocaleDateString('fr-FR')}</p>
+              </div>
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <Edit2 className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl bg-white p-5 border border-[#e2f5f2]">
-                <div className="text-xs uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Contact</div>
-                <p className="text-sm text-[#0f2940]">marie@bluefin-immo.com</p>
-                <p className="text-sm text-[#0f2940]">+229 90 00 00 00</p>
+
+            {/* Formulaire d'édition ou affichage des informations */}
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                    <input
+                      type="text"
+                      value={editedUser.firstName || ""}
+                      onChange={(e) => setEditedUser({ ...editedUser, firstName: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                    <input
+                      type="text"
+                      value={editedUser.lastName || ""}
+                      onChange={(e) => setEditedUser({ ...editedUser, lastName: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={editedUser.email || ""}
+                    onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={editedUser.phone || ""}
+                    onChange={(e) => setEditedUser({ ...editedUser, phone: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 bg-[#00c9a7] text-white py-2 rounded-xl font-semibold hover:bg-[#00b892] transition-colors"
+                  >
+                    Enregistrer
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="flex-1 border border-gray-300 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
-              <div className="rounded-3xl bg-white p-5 border border-[#e2f5f2]">
-                <div className="text-xs uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Langues</div>
-                <p className="text-sm text-[#0f2940]">Français, Anglais, Fon</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
+                    <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
+                      <Mail className="w-4 h-4" />
+                      <span className="text-xs uppercase tracking-wider">Email</span>
+                    </div>
+                    <p className="text-sm text-[#0f2940]">{user.email}</p>
+                  </div>
+                  <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
+                    <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
+                      <Phone className="w-4 h-4" />
+                      <span className="text-xs uppercase tracking-wider">Téléphone</span>
+                    </div>
+                    <p className="text-sm text-[#0f2940]">{user.phone || "Non renseigné"}</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
+                  <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-xs uppercase tracking-wider">Membre depuis</span>
+                  </div>
+                  <p className="text-sm text-[#0f2940]">{new Date(user.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                </div>
+                {/* Badges et statistiques */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-current" />
+                    Nouveau membre
+                  </span>
+                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" />
+                    Compte vérifié
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="space-y-4 max-w-md">
+          {/* Colonne droite - Actions */}
+          <div className="space-y-4 max-w-md w-full">
             <button
               onClick={() => onNavigate?.({ name: 'account' })}
-              className="w-full bg-[#00c9a7] text-white px-6 py-4 rounded-full font-semibold hover:bg-[#00b396] transition-colors"
+              className="w-full bg-white border border-[#e2f5f2] text-[#0f2940] px-6 py-4 rounded-2xl font-semibold hover:shadow-md transition-all flex items-center justify-center gap-2"
             >
+              <User className="w-5 h-5 text-[#00c9a7]" />
               Mon compte
             </button>
             <button
               onClick={() => onNavigate?.({ name: 'messages' })}
-              className="w-full border border-[#e2f5f2] text-[#0f2940] px-6 py-4 rounded-full hover:bg-[#f4fffe] transition-colors"
+              className="w-full bg-white border border-[#e2f5f2] text-[#0f2940] px-6 py-4 rounded-2xl font-semibold hover:shadow-md transition-all flex items-center justify-center gap-2"
             >
+              <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
               Messages
             </button>
             <button
               onClick={() => onNavigate?.({ name: 'favorites' })}
-              className="w-full border border-[#e2f5f2] text-[#0f2940] px-6 py-4 rounded-full hover:bg-[#f4fffe] transition-colors"
+              className="w-full bg-white border border-[#e2f5f2] text-[#0f2940] px-6 py-4 rounded-2xl font-semibold hover:shadow-md transition-all flex items-center justify-center gap-2"
             >
+              <Heart className="w-5 h-5 text-[#00c9a7]" />
               Favoris
+            </button>
+
+            {/* Bouton Devenir hôte - visible seulement si l'utilisateur n'est pas déjà hôte */}
+            {user.role !== "host" && user.isHost !== true && (
+              <button
+                onClick={handleBecomeHost}
+                className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white px-6 py-4 rounded-2xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Home className="w-5 h-5" />
+                Devenir hôte
+              </button>
+            )}
+
+            {/* Bouton Déconnexion */}
+            <button
+              onClick={handleLogout}
+              className="w-full border border-red-200 text-red-600 px-6 py-4 rounded-2xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 mt-4"
+            >
+              <LogOut className="w-5 h-5" />
+              Se déconnecter
             </button>
           </div>
         </div>
@@ -2864,7 +3087,6 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
     </div>
   );
 }
-
 // ==================== ACCOUNT PAGE ====================
 export function AccountPage({ onNavigate }: PageProps) {
   return (
@@ -3616,26 +3838,39 @@ export function BecomeHost({ onNavigate }: PageProps) {
 }
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
+// ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
+
 
 export function AuthPage({ onNavigate }: PageProps) {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<UserRole>("traveler");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
     firstName: "",
     lastName: "",
+    phone: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Vérifier si l'utilisateur est déjà connecté
+  useEffect(() => {
+    const storedUser = localStorage.getItem("bluefin_user");
+    if (storedUser && mode === "login") {
+      onNavigate?.({ name: 'profile' });
+    }
+  }, [mode, onNavigate]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) {
-      setErrors({ ...errors, [e.target.name]: "" });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -3683,22 +3918,55 @@ export function AuthPage({ onNavigate }: PageProps) {
 
     setLoading(true);
     
-    // Simulation d'appel API
     setTimeout(() => {
       setLoading(false);
-      if (mode === "login") {
+      
+      if (mode === "signup") {
+        const newUser: UserData = {
+          id: Date.now().toString(),
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          role: selectedRole,
+          phone: formData.phone,
+          languages: ["Français"],
+          createdAt: new Date().toISOString(),
+          isHost: selectedRole === "host",
+        };
+        
+        const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
+        const existingUser = users.find((u: UserData) => u.email === formData.email);
+        
+        if (existingUser) {
+          setErrors({ email: "Cet email est déjà utilisé" });
+          return;
+        }
+        
+        users.push(newUser);
+        localStorage.setItem("bluefin_users", JSON.stringify(users));
+        localStorage.setItem("bluefin_user", JSON.stringify(newUser));
+        
+        setSuccessMessage("Inscription réussie ! Redirection vers votre profil...");
+        setTimeout(() => {
+          onNavigate?.({ name: 'profile' });
+        }, 1500);
+      } 
+      else if (mode === "login") {
+        const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
+        const user = users.find((u: UserData) => u.email === formData.email);
+        
+        if (!user) {
+          setErrors({ email: "Aucun compte trouvé avec cet email" });
+          return;
+        }
+        
+        localStorage.setItem("bluefin_user", JSON.stringify(user));
         setSuccessMessage("Connexion réussie ! Redirection...");
         setTimeout(() => {
-          onNavigate?.({ name: 'home' });
+          onNavigate?.({ name: 'profile' });
         }, 1500);
-      } else if (mode === "signup") {
-        setSuccessMessage("Inscription réussie ! Vous pouvez maintenant vous connecter.");
-        setTimeout(() => {
-          setMode("login");
-          setSuccessMessage("");
-          setFormData({ ...formData, password: "", confirmPassword: "" });
-        }, 2000);
-      } else if (mode === "forgot") {
+      } 
+      else if (mode === "forgot") {
         setSuccessMessage("Un lien de réinitialisation a été envoyé à votre adresse email.");
         setTimeout(() => {
           setMode("login");
@@ -3712,16 +3980,39 @@ export function AuthPage({ onNavigate }: PageProps) {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      setSuccessMessage("Connexion avec Google réussie ! Redirection...");
+      const googleUser: UserData = {
+        id: "google_" + Date.now(),
+        firstName: "Utilisateur",
+        lastName: "Google",
+        email: `google_${Date.now()}@gmail.com`,
+        role: selectedRole,
+        createdAt: new Date().toISOString(),
+        isHost: false,
+      };
+      
+      localStorage.setItem("bluefin_user", JSON.stringify(googleUser));
+      
+      const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
+      if (!users.find((u: UserData) => u.email === googleUser.email)) {
+        users.push(googleUser);
+        localStorage.setItem("bluefin_users", JSON.stringify(users));
+      }
+      
+      setSuccessMessage("Connexion avec Google réussie !");
       setTimeout(() => {
-        onNavigate?.({ name: 'home' });
+        onNavigate?.({ name: 'profile' });
       }, 1500);
     }, 1000);
   };
 
+  const roles = [
+    { id: "traveler" as const, name: "Voyageur", icon: Compass, description: "Je cherche à réserver des logements" },
+    { id: "host" as const, name: "Hôte", icon: Home, description: "Je souhaite louer mon logement" },
+    { id: "visitor" as const, name: "Visiteur", icon: Briefcase, description: "Je découvre la plateforme" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
-      {/* En-tête */}
       <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center gap-4 z-20">
         <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition-all">
           <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
@@ -3733,13 +4024,11 @@ export function AuthPage({ onNavigate }: PageProps) {
         </h1>
       </div>
 
-      <div className="flex items-center justify-center px-4 py-12">
+      <div className="flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
-          {/* Carte du formulaire */}
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
-            <div className="p-8">
-              {/* Logo / Titre */}
-              <div className="text-center mb-8">
+            <div className="p-6 sm:p-8">
+              <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-2xl font-bold text-white">B</span>
                 </div>
@@ -3755,126 +4044,162 @@ export function AuthPage({ onNavigate }: PageProps) {
                 </p>
               </div>
 
-              {/* Message de succès */}
               {successMessage && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
                   <Check className="w-5 h-5 text-green-500" />
                   <p className="text-sm text-green-700">{successMessage}</p>
                 </div>
               )}
 
-              {/* Formulaire */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Champs pour l'inscription */}
                 {mode === "signup" && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input
-                            type="text"
-                            name="firstName"
-                            value={formData.firstName}
-                            onChange={handleChange}
-                            placeholder="Jean"
-                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all ${errors.firstName ? 'border-red-500' : 'border-gray-200'}`}
-                          />
-                        </div>
-                        {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                          <input
-                            type="text"
-                            name="lastName"
-                            value={formData.lastName}
-                            onChange={handleChange}
-                            placeholder="Dupont"
-                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all ${errors.lastName ? 'border-red-500' : 'border-gray-200'}`}
-                          />
-                        </div>
-                        {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
-                      </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {roles.map((role) => {
+                        const Icon = role.icon;
+                        return (
+                          <button
+                            key={role.id}
+                            type="button"
+                            onClick={() => setSelectedRole(role.id)}
+                            className={`p-3 rounded-xl border-2 text-center transition-all ${
+                              selectedRole === role.id
+                                ? "border-[#00c9a7] bg-[#00c9a7]/10"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <Icon className={`w-6 h-6 mx-auto mb-1 ${selectedRole === role.id ? "text-[#00c9a7]" : "text-gray-400"}`} />
+                            <p className={`text-xs font-medium ${selectedRole === role.id ? "text-[#0F2940]" : "text-gray-500"}`}>
+                              {role.name}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </>
+                  </div>
                 )}
 
-                {/* Email */}
+                {mode === "signup" && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleChange}
+                          placeholder="Prénom"
+                          className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.firstName ? 'border-red-500' : 'border-gray-200'}`}
+                        />
+                      </div>
+                      {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleChange}
+                          placeholder="Nom"
+                          className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.lastName ? 'border-red-500' : 'border-gray-200'}`}
+                        />
+                      </div>
+                      {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
+                    </div>
+                  </div>
+                )}
+
                 {(mode === "login" || mode === "signup" || mode === "forgot") && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Adresse email</label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
                         type="email"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="vous@exemple.com"
-                        className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                        className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
                       />
                     </div>
                     {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
                   </div>
                 )}
 
-                {/* Mot de passe (sauf pour mot de passe oublié) */}
+                {mode === "signup" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        placeholder="+229 XX XX XX XX"
+                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {mode !== "forgot" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
                         type={showPassword ? "text" : "password"}
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
                         placeholder="••••••••"
-                        className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all ${errors.password ? 'border-red-500' : 'border-gray-200'}`}
+                        className={`w-full pl-9 pr-10 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.password ? 'border-red-500' : 'border-gray-200'}`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                     {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
                   </div>
                 )}
 
-                {/* Confirmation mot de passe (uniquement pour inscription) */}
                 {mode === "signup" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
                         type={showConfirmPassword ? "text" : "password"}
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
                         placeholder="••••••••"
-                        className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'}`}
+                        className={`w-full pl-9 pr-10 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'}`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
-                        {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                     {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
                   </div>
                 )}
 
-                {/* Lien mot de passe oublié */}
                 {mode === "login" && (
                   <div className="text-right">
                     <button
@@ -3891,15 +4216,14 @@ export function AuthPage({ onNavigate }: PageProps) {
                   </div>
                 )}
 
-                {/* Bouton de soumission */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {loading ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Chargement...</span>
                     </div>
                   ) : (
@@ -3912,38 +4236,35 @@ export function AuthPage({ onNavigate }: PageProps) {
                 </button>
               </form>
 
-              {/* Séparateur */}
               {(mode === "login" || mode === "signup") && (
-                <div className="flex items-center gap-4 my-6">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-sm text-gray-400">ou</span>
-                  <div className="flex-1 h-px bg-gray-200" />
-                </div>
+                <>
+                  <div className="flex items-center gap-4 my-5">
+                    <div className="flex-1 h-px bg-gray-200" />
+                    <span className="text-xs text-gray-400">ou</span>
+                    <div className="flex-1 h-px bg-gray-200" />
+                  </div>
+
+                  <button
+                    onClick={handleGoogleLogin}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    <span className="text-gray-700 font-medium">
+                      {mode === "login" ? "Continuer avec Google" : "S'inscrire avec Google"}
+                    </span>
+                  </button>
+                </>
               )}
 
-              {/* Bouton Google */}
-              {(mode === "login" || mode === "signup") && (
-                <button
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-xl py-3 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                  </svg>
-                  <span className="text-gray-700 font-medium">
-                    {mode === "login" ? "Continuer avec Google" : "S'inscrire avec Google"}
-                  </span>
-                </button>
-              )}
-
-              {/* Lien pour basculer entre connexion et inscription */}
-              <div className="text-center mt-6">
+              <div className="text-center mt-5">
                 {mode === "login" && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     Pas encore de compte ?{" "}
                     <button
                       onClick={() => {
@@ -3958,7 +4279,7 @@ export function AuthPage({ onNavigate }: PageProps) {
                   </p>
                 )}
                 {mode === "signup" && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     Déjà un compte ?{" "}
                     <button
                       onClick={() => {
@@ -3973,7 +4294,7 @@ export function AuthPage({ onNavigate }: PageProps) {
                   </p>
                 )}
                 {mode === "forgot" && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     <button
                       onClick={() => {
                         setMode("login");
@@ -3990,23 +4311,14 @@ export function AuthPage({ onNavigate }: PageProps) {
             </div>
           </div>
 
-          {/* Mentions légales */}
-          <p className="text-center text-xs text-gray-400 mt-8">
-            En continuant, vous acceptez nos{' '}
-            <button onClick={() => onNavigate?.({ name: 'terms' })} className="text-[#00c9a7] hover:underline">
-              Conditions générales
-            </button>{' '}
-            et notre{' '}
-            <button onClick={() => onNavigate?.({ name: 'terms' })} className="text-[#00c9a7] hover:underline">
-              Politique de confidentialité
-            </button>
+          <p className="text-center text-[10px] text-gray-400 mt-6">
+            En continuant, vous acceptez nos Conditions générales et notre Politique de confidentialité
           </p>
         </div>
       </div>
     </div>
   );
 }
-
 
 // ==================== HOTELS PAGE ====================
 
