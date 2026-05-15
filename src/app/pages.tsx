@@ -2737,49 +2737,35 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  // Dans PropertyDetailModal, remplacez la section des images par :
+  // Générer des images variées pour une propriété si elle n'en a pas
+  const getPropertyImages = (property: HotelProperty): string[] => {
+    if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+      return property.images;
+    }
+    
+    const baseImage = property.image;
+    const imageVariants = [
+      baseImage,
+      property.type === 'Villa' ? 'https://images.unsplash.com/photo-1613977257363-707ba9347c6c?w=800&q=80' :
+      property.type === 'Appartement' ? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80' :
+      property.type === 'Studio' ? 'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80' :
+      'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80',
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
+      'https://images.unsplash.com/photo-1494526585095-c41746248156?w=800&q=80'
+    ];
+    
+    const uniqueImages = [...new Set(imageVariants)];
+    while (uniqueImages.length < 5) {
+      uniqueImages.push(baseImage);
+    }
+    
+    return uniqueImages.slice(0, 5);
+  };
 
-// Générer des images variées pour une propriété si elle n'en a pas
-const getPropertyImages = (property: HotelProperty): string[] => {
-  // Si la propriété a déjà des images, les utiliser
-  if (property.images && Array.isArray(property.images) && property.images.length > 0) {
-    return property.images;
-  }
-  
-  // Sinon, générer des images variées basées sur l'ID ou le titre
-  const baseImage = property.image;
-  const imageVariants = [
-    baseImage,
-    // Images thématiques selon le type de logement
-    property.type === 'Villa' ? 'https://images.unsplash.com/photo-1613977257363-707ba9347c6c?w=800&q=80' :
-    property.type === 'Appartement' ? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80' :
-    property.type === 'Studio' ? 'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80' :
-    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
-    'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80',
-    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
-    'https://images.unsplash.com/photo-1494526585095-c41746248156?w=800&q=80'
-  ];
-  
-  // Éviter les doublons et s'assurer d'avoir au moins 5 images
-  const uniqueImages = [...new Set(imageVariants)];
-  while (uniqueImages.length < 5) {
-    uniqueImages.push(baseImage);
-  }
-  
-  return uniqueImages.slice(0, 5);
-};
-
-// Utilisation dans le composant :
-const images = getPropertyImages(property);
-
-  // ✅ AJOUTEZ CECI : Valeur de prix sécurisée (gère priceNumber ou price)
+  const images = getPropertyImages(property);
   const nightlyPrice = property.priceNumber || property.price || 0;
   
-  // Valeurs par défaut pour éviter les erreurs
-  // const images = property.images && Array.isArray(property.images) && property.images.length > 0 
-  //   ? property.images 
-  //   : [property.image, property.image, property.image, property.image, property.image];
-    
   const host = property.host || "Hôte vérifié";
   const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
   const hostSince = property.hostSince || "1 an";
@@ -2794,7 +2780,6 @@ const images = getPropertyImages(property);
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
-  // ✅ UTILISEZ nightlyPrice AU LIEU DE property.priceNumber
   const nights = 2;
   const subtotal = nightlyPrice * nights;
   const cleaningFee = 15000;
@@ -2815,13 +2800,6 @@ const images = getPropertyImages(property);
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  // Filtrer les images pour avoir exactement 4 images supplémentaires
-  const extraImages = images.slice(1, 5);
-  // S'assurer qu'il y a au moins 4 images, sinon répéter
-  while (extraImages.length < 4) {
-    extraImages.push(property.image);
-  }
-
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
       <div className="min-h-screen">
@@ -2840,7 +2818,7 @@ const images = getPropertyImages(property);
         </div>
         
         <div className="max-w-6xl mx-auto px-4 py-6">
-          {/* Galerie d'images principale */}
+          {/* Galerie d'images principale - 4 images conservée */}
           <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
             <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
               <img 
@@ -2992,13 +2970,11 @@ const images = getPropertyImages(property);
               </div>
             </div>
 
-            {/* Colonne de droite - Réservation */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Bloc de réservation */}
+            {/* Colonne de droite - Réservation seulement (sans la section "Plus de photos") */}
+            <div className="lg:col-span-1">
               <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
                 <div className="flex justify-between items-center">
                   <div>
-                    {/* ✅ UTILISEZ nightlyPrice ICI */}
                     <span className="text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
                     <span className="text-gray-500"> / nuit</span>
                   </div>
@@ -3045,30 +3021,6 @@ const images = getPropertyImages(property);
                   Réserver
                 </button>
                 <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
-              </div>
-
-              {/* 4 images supplémentaires */}
-              <div className="border rounded-2xl p-4 bg-gray-50">
-                <h3 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-[#00c9a7]" />
-                  Plus de photos
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {extraImages.map((img, idx) => (
-                    <div 
-                      key={idx} 
-                      className="relative rounded-xl overflow-hidden cursor-pointer group"
-                      onClick={() => setSelectedImageIndex(idx + 1)}
-                    >
-                      <img 
-                        src={img} 
-                        alt={`${property.title} - supplément ${idx + 1}`} 
-                        className="w-full h-24 object-cover transition-transform duration-300 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
@@ -3937,11 +3889,17 @@ export function PopularPage({ onNavigate }: PageProps) {
   const getMapUrl = () => "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
 
   // PropertyModal avec toutes les fonctionnalités de l'ancienne version
-  const PropertyModal = ({ property, onClose, onReserve }: any) => {
-    const images = property.images && Array.isArray(property.images) && property.images.length > 0 
-      ? property.images 
-      : [property.image, property.image, property.image, property.image];
-      
+ const PropertyModal = ({ property, onClose, onReserve }: any) => {
+    // États locaux au modal
+    const [showAllAmenities, setShowAllAmenities] = useState(false);
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [currentTestimonial, setCurrentTestimonial] = useState(0);
+    const [animate, setAnimate] = useState(false);
+    const [checkIn, setCheckIn] = useState("15/05/2026");
+    const [checkOut, setCheckOut] = useState("17/05/2026");
+    const [guests, setGuests] = useState(1);
+    const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
+    
     const host = property.host || "Hôte vérifié";
     const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
     const hostSince = property.hostSince || "1 an";
@@ -3997,28 +3955,7 @@ export function PopularPage({ onNavigate }: PageProps) {
           </div>
           
           <div className="max-w-6xl mx-auto px-4 py-6">
-            {/* Galerie d'images principale */}
-            <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
-              <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
-                <img 
-                  src={images[0]} 
-                  alt={property.title} 
-                  className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" 
-                />
-              </div>
-              {images.slice(1, 5).map((img: string, i: number) => (
-                <div key={i} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(i + 1)}>
-                  <img 
-                    src={img} 
-                    alt={`${property.title} - ${i + 2}`} 
-                    className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" 
-                  />
-                </div>
-              ))}
-              <button className="absolute bottom-4 right-4 bg-white rounded-lg px-4 py-2 text-sm font-medium shadow-md hover:shadow-lg transition-all hover:bg-gray-100">
-                Afficher toutes les photos
-              </button>
-            </div>
+            {/* Galerie d'images supprimée */}
 
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Colonne de gauche */}
@@ -4187,7 +4124,7 @@ export function PopularPage({ onNavigate }: PageProps) {
                     </div>
                   </div>
                   <button 
-                    onClick={onReserve} 
+                    onClick={() => onReserve(property)} 
                     className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-bold text-lg hover:bg-[#00b892] transition-all hover:scale-105 transform shadow-md"
                   >
                     Réserver
@@ -4201,7 +4138,6 @@ export function PopularPage({ onNavigate }: PageProps) {
       </div>
     );
   };
-
   const CheckoutModalComponent = ({ property, totalPrice, onClose }: any) => (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
