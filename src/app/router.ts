@@ -1,5 +1,4 @@
-import { SearchPage, ExperiencePage, ServicesPage } from "./pages";
-
+// routes.ts
 export type Page =
   | 'home'
   | 'search-logements'
@@ -28,12 +27,16 @@ export type Page =
   | 'popular'
   | 'hotels'
   | 'city'
-  | 'auth';
+  | 'auth'
+  | 'site-functioning'
+  | 'company-info'
+  | 'footer-info';
 
 export type Route = {
   name: Page;
   id?: string;
   city?: string;
+  type?: 'privacy' | 'cgu';
 };
 
 export function parseRoute(path: string): Route {
@@ -53,6 +56,17 @@ export function parseRoute(path: string): Route {
   if (segments[0] === 'auth') return { name: 'auth' };
   if (segments[0] === 'connexion') return { name: 'auth' };
   if (segments[0] === 'login') return { name: 'auth' };
+  
+  // Nouvelles pages d'information
+  if (segments[0] === 'a-propos' || segments[0] === 'about') return { name: 'about' };
+  if (segments[0] === 'aide' || segments[0] === 'help') return { name: 'help' };
+  if (segments[0] === 'blog') return { name: 'blog' };
+  if (segments[0] === 'mentions-legales') return { name: 'terms' };
+  if (segments[0] === 'confidentialite') return { name: 'terms', type: 'privacy' };
+  if (segments[0] === 'cgu') return { name: 'terms', type: 'cgu' };
+  if (segments[0] === 'fonctionnement') return { name: 'site-functioning' };
+  if (segments[0] === 'entreprise') return { name: 'company-info' };
+  if (segments[0] === 'footer') return { name: 'footer-info' };
   
   if (segments[0] === 's') {
     return { name: segments[1] === 'hotels' ? 'search-hotels' : 'search-logements' };
@@ -80,10 +94,6 @@ export function parseRoute(path: string): Route {
   if (segments[0] === 'messages') return { name: 'messages' };
   if (segments[0] === 'favoris') return { name: 'favorites' };
   if (segments[0] === 'publier-annonce') return { name: 'publish' };
-  if (segments[0] === 'aide') return { name: 'help' };
-  if (segments[0] === 'a-propos') return { name: 'about' };
-  if (segments[0] === 'blog') return { name: 'blog' };
-  if (segments[0] === 'mentions-legales') return { name: 'terms' };
 
   return { name: 'not-found' };
 }
@@ -106,6 +116,22 @@ export function routeToPath(route: Route): string {
       return '/auth';
     case 'services':
       return '/services';
+    case 'about':
+      return '/a-propos';
+    case 'help':
+      return '/aide';
+    case 'blog':
+      return '/blog';
+    case 'terms':
+      if (route.type === 'privacy') return '/confidentialite';
+      if (route.type === 'cgu') return '/cgu';
+      return '/mentions-legales';
+    case 'site-functioning':
+      return '/fonctionnement';
+    case 'company-info':
+      return '/entreprise';
+    case 'footer-info':
+      return '/footer';
     case 'search-logements':
       return '/s/logements';
     case 'search-hotels':
@@ -136,14 +162,6 @@ export function routeToPath(route: Route): string {
       return '/favoris';
     case 'publish':
       return '/publier-annonce';
-    case 'help':
-      return '/aide';
-    case 'about':
-      return '/a-propos';
-    case 'blog':
-      return '/blog';
-    case 'terms':
-      return '/mentions-legales';
     default:
       return '/404';
   }

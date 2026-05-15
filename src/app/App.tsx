@@ -30,9 +30,16 @@ import {
   ExperiencePage,
   ServicesPage,
   BecomeHost,
-  AuthPage
+  AuthPage,
+  SiteFunctioningPage,
+  CompanyInfoPage   
+  
 } from './pages';
 import { parseRoute, routeToPath, tabFromPage, routeFromTab, type Route } from './router';
+
+// ========== NOUVELLES PAGES À IMPORTER ==========
+// Assurez-vous que ces pages existent dans votre fichier pages.tsx
+// ou importez-les depuis des fichiers séparés
 
 export default function App() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname));
@@ -66,21 +73,21 @@ export default function App() {
   }
 
   // Gestionnaire pour la navigation mobile (inclut l'onglet auth)
-  // Gestionnaire pour la navigation mobile (inclut l'onglet auth)
-const handleMobileNavigate = (tab: Tab) => {
-  console.log("🔵 Navigation mobile - Onglet cliqué:", tab);
+  const handleMobileNavigate = (tab: Tab) => {
+    console.log("🔵 Navigation mobile - Onglet cliqué:", tab);
+    
+    const route = routeFromTab(tab);
+    console.log("🟢 Route générée:", route);
+    
+    // Naviguer vers la route correspondante (y compris 'home')
+    navigate(route);
+    
+    // Mettre à jour l'onglet actif pour les onglets standards
+    if (tab !== 'auth') {
+      setMobileNavActive(tab);
+    }
+  };
   
-  const route = routeFromTab(tab);
-  console.log("🟢 Route générée:", route);
-  
-  // Naviguer vers la route correspondante (y compris 'home')
-  navigate(route);
-  
-  // Mettre à jour l'onglet actif pour les onglets standards
-  if (tab !== 'auth') {
-    setMobileNavActive(tab);
-  }
-};
   return (
     <div className="min-h-screen bg-white">
       <Navbar
@@ -90,6 +97,7 @@ const handleMobileNavigate = (tab: Tab) => {
         currentPage={route.name}
       />
       
+      {/* Pages principales */}
       {route.name === 'home' && <HomePage onNavigate={navigate} />}
       {route.name === 'search-logements' && <SearchPage mode="logements" onNavigate={navigate} />}
       {route.name === 'search-hotels' && <SearchPage mode="hotels" onNavigate={navigate} />}
@@ -99,27 +107,43 @@ const handleMobileNavigate = (tab: Tab) => {
       {route.name === 'profile' && <ProfilePage id={route.id} onNavigate={navigate} />}
       {route.name === 'account' && <AccountPage onNavigate={navigate} />}
       {route.name === 'account-reservations' && <AccountReservationsPage onNavigate={navigate} />}
+      
+      {/* Pages hôte */}
       {route.name === 'host-dashboard' && <HostDashboardPage onNavigate={navigate} />}
       {route.name === 'host-annonces' && <HostListingsPage onNavigate={navigate} />}
       {route.name === 'host-calendrier' && <HostCalendarPage onNavigate={navigate} />}
       {route.name === 'host-reservations' && <HostReservationsPage onNavigate={navigate} />}
 
-      {route.name === 'messages' && <MessagesPage />}
+      {/* Pages utilisateur */}
+      {route.name === 'messages' && <MessagesPage onNavigate={navigate} />}
       {route.name === 'favorites' && <FavoritesPage onNavigate={navigate} />}
-      {route.name === 'publish' && <PublishListingPage />}
-      {route.name === 'help' && <HelpPage />}
-      {route.name === 'about' && <AboutPage />}
+      {route.name === 'publish' && <PublishListingPage onNavigate={navigate} />}
+      
+      {/* Pages d'aide et informations */}
+      {route.name === 'help' && <HelpPage onNavigate={navigate} />}
+      {route.name === 'about' && <AboutPage onNavigate={navigate} />}
       {route.name === 'blog' && <BlogPage onNavigate={navigate} />}
-      {route.name === 'terms' && <TermsPage />}
-      {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
+      {route.name === 'terms' && <TermsPage onNavigate={navigate} />}
+      
+      {/* Pages de contenu */}
       {route.name === 'popular' && <PopularPage onNavigate={navigate} />}
       {route.name === 'hotels' && <HotelsPage onNavigate={navigate} />}
       {route.name === 'city' && <CityPage city={route.city} onNavigate={navigate} />}
       {route.name === 'experience' && <ExperiencePage onNavigate={navigate} />}
       {route.name === 'services' && <ServicesPage onNavigate={navigate} />}
+      
+      {/* Pages d'authentification et hôte */}
       {route.name === 'become-host' && <BecomeHost onNavigate={navigate} />}
       {route.name === 'auth' && <AuthPage onNavigate={navigate} />}
 
+       {route.name === 'site-functioning' && <SiteFunctioningPage onNavigate={navigate} />}
+      {route.name === 'company-info' && <CompanyInfoPage onNavigate={navigate} />}
+      {/* {route.name === 'footer-info' && <FooterPage onNavigate={navigate} />} */}
+      
+      
+      {/* Page 404 */}
+      {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
+      
       <Footer onNavigate={navigate} />
 
       <div className="lg:hidden">

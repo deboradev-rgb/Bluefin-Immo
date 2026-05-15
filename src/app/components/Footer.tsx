@@ -86,16 +86,16 @@ export function Footer({ onNavigate }: FooterProps) {
                 <h3 className="text-lg font-semibold text-white mb-4">Accueil de voyageurs</h3>
                 <ul className="space-y-3 text-sm text-slate-300">
                   <li><a href="#" className="hover:text-white transition-colors">Accueil de voyageurs</a></li>
-                  <li><button onClick={() => onNavigate?.({ name: 'publish' })} className="hover:text-white transition-colors">Mettez votre logement sur BF-Immo</button></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Proposez votre expérience sur BF-Immo</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Proposez votre service sur BF-Immo</a></li>
+                  <li><button onClick={() => onNavigate?.({ name: 'publish' })} className="hover:text-white transition-colors">Mettez votre logement sur Bluefin-Immo</button></li>
+                  <li><a href="become-host" className="hover:text-white transition-colors">Proposez votre expérience sur Bluefin-Immo</a></li>
+                  <li><a href="become-host" className="hover:text-white transition-colors">Proposez votre service sur Bluefin-Immo</a></li>
                   {/* <li><a href="#" className="hover:text-white transition-colors">AirCover pour les hôtes</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Ressources pour les hôtes</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Forum de la communauté</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Hébergement responsable</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Participez à un cours gratuit pour les hôtes</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Trouver un co‑hôte</a></li> */}
-                  <li><a href="#" className="hover:text-white transition-colors">Parrainer un hôte</a></li>
+                  <li><a href="become-host" className="hover:text-white transition-colors">Parrainer un hôte</a></li>
                 </ul>
               </div>
             </div>
@@ -106,9 +106,9 @@ export function Footer({ onNavigate }: FooterProps) {
         <div className="grid gap-8 lg:grid-cols-3 border-t border-slate-800 pt-10 text-sm text-slate-300">
           {/* BF-Immo */}
           <div>
-            <h3 className="font-semibold text-white mb-4">BF-Immo</h3>
+            <h3 className="font-semibold text-white mb-4">Bluefin-Immo</h3>
             <ul className="space-y-3">
-              <li><button onClick={() => onNavigate?.({ name: 'about' })} className="hover:text-white transition-colors">Blufin-Immo</button></li>
+            
               {/* <li><a href="#" className="hover:text-white transition-colors">Édition 2026</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Newsroom</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Carrières</a></li>
@@ -125,8 +125,8 @@ export function Footer({ onNavigate }: FooterProps) {
               <li><a href="#" className="hover:text-white transition-colors">Pied de page du site</a></li>
               <li><button onClick={() => onNavigate?.({ name: 'terms' })} className="hover:text-white transition-colors">Confidentialité</button></li>
               <li><button onClick={() => onNavigate?.({ name: 'terms' })} className="hover:text-white transition-colors">Conditions générales</button></li>
-              <li><a href="#" className="hover:text-white transition-colors">Fonctionnement du site</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Infos sur l'entreprise</a></li>
+              <li><a href="site-functioning " className="hover:text-white transition-colors">Fonctionnement du site</a></li>
+              <li><a href="company-info" className="hover:text-white transition-colors">Infos sur l'entreprise</a></li>
             </ul>
           </div>
 

@@ -5402,36 +5402,393 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
   );
 }
 
-// ==================== ABOUT PAGE ====================
-export function AboutPage() {
+// ========== PAGE ABOUT ==========
+export function AboutPage({ onNavigate }: PageProps) {
+  const values = [
+    { icon: Shield, title: "Confiance et sécurité", description: "Nous vérifions chaque annonce et protégeons vos transactions." },
+    { icon: Globe, title: "Communauté locale", description: "Nous mettons en relation voyageurs et hôtes africains." },
+    { icon: Sparkles, title: "Innovation", description: "Des outils modernes pour une expérience unique." },
+    { icon: Heart, title: "Hospitalité", description: "Le sens de l'accueil africain au cœur de notre plateforme." }
+  ];
+
+  const team = [
+    { name: "Jean K. ADJOVI", role: "CEO & Fondateur", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&q=80" },
+    { name: "Aïssatou DIALLO", role: "Directrice Produit", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80" },
+    { name: "Marc ZINSOU", role: "CTO", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80" },
+    { name: "Fatou CISSE", role: "Responsable Support", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80" }
+  ];
+
+  const stats = [
+    { value: "500+", label: "Logements actifs" },
+    { value: "10k+", label: "Voyageurs satisfaits" },
+    { value: "50+", label: "Villes couvertes" },
+    { value: "98%", label: "Taux de satisfaction" }
+  ];
+
   return (
-    <div className="bg-[#f4fffe] min-h-screen py-10">
-      <div className="max-w-[980px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="À propos de Bluefin-Immo" subtitle="La mission, l'histoire et l'engagement de Bluefin pour le Bénin.">
-          <div className="space-y-6 text-[#0f2940] text-sm leading-relaxed">
-            <p>Bluefin-Immo connecte les hébergements béninois au monde entier. Nous permettons aux voyageurs d'accéder à des annonces locales de qualité, tout en aidant les hôtes à digitaliser leur gestion de réservations et de paiements.</p>
-            <p>Notre plateforme privilégie le marché local du Bénin, avec un focus sur la sécurité, le paiement Mobile Money et l'expérience mobile-first.</p>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-3xl bg-white p-6 border border-[#e2f5f2]">
-                <div className="text-sm uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Vision</div>
-                <p>Devenir la plateforme de référence de l'hébergement au Bénin.</p>
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">À propos de Blufin-Immo</h1>
+      </div>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] py-16 text-white">
+        <div className="max-w-4xl mx-auto px-5 text-center">
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">Votre partenaire de confiance</h2>
+          <p className="text-xl text-white/80">La première plateforme de location de logements courte durée en Afrique de l'Ouest</p>
+        </div>
+      </section>
+
+      {/* Statistiques */}
+      <section className="py-12 border-b">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {stats.map((stat, idx) => (
+              <div key={idx} className="text-center">
+                <p className="text-3xl font-bold text-[#00c9a7]">{stat.value}</p>
+                <p className="text-gray-600 mt-1">{stat.label}</p>
               </div>
-              <div className="rounded-3xl bg-white p-6 border border-[#e2f5f2]">
-                <div className="text-sm uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Valeurs</div>
-                <p>Ouverture, confiance, chaleur locale et performance digitale.</p>
-              </div>
-              <div className="rounded-3xl bg-white p-6 border border-[#e2f5f2]">
-                <div className="text-sm uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Local</div>
-                <p>Un ancrage profond au Bénin avec des services adaptés au marché béninois.</p>
-              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Notre mission */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div>
+              <p className="text-[#00c9a7] font-semibold mb-2">Notre mission</p>
+              <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Révolutionner l'hébergement en Afrique</h2>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                Blufin-Immo est né d'une conviction : l'Afrique a besoin d'une plateforme de confiance 
+                pour faciliter la location de logements entre particuliers. Nous connectons voyageurs 
+                et hôtes locaux pour offrir des expériences authentiques et sécurisées.
+              </p>
+              <p className="text-gray-600 leading-relaxed">
+                Depuis notre lancement, nous avons accompagné des milliers de voyageurs dans leur découverte 
+                de l'Afrique de l'Ouest, tout en permettant aux hôtes de générer des revenus complémentaires.
+              </p>
+            </div>
+            <div className="rounded-2xl overflow-hidden shadow-xl">
+              <img 
+                src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80" 
+                alt="Mission" 
+                className="w-full h-96 object-cover"
+              />
             </div>
           </div>
-        </PageSection>
-      </div>
+        </div>
+      </section>
+
+      {/* Nos valeurs */}
+      <section className="bg-gray-50 py-12">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="text-center mb-10">
+            <p className="text-[#00c9a7] font-semibold mb-2">Nos valeurs</p>
+            <h2 className="text-3xl font-bold text-[#0F2940]">Ce qui nous guide au quotidien</h2>
+          </div>
+          <div className="grid md:grid-cols-4 gap-6">
+            {values.map((value, idx) => {
+              const Icon = value.icon;
+              return (
+                <div key={idx} className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition">
+                  <div className="w-16 h-16 mx-auto bg-[#00c9a7]/10 rounded-full flex items-center justify-center mb-4">
+                    <Icon className="w-8 h-8 text-[#00c9a7]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#0F2940] mb-2">{value.title}</h3>
+                  <p className="text-gray-600 text-sm">{value.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Équipe */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="text-center mb-10">
+            <p className="text-[#00c9a7] font-semibold mb-2">Notre équipe</p>
+            <h2 className="text-3xl font-bold text-[#0F2940]">Des passionnés à votre service</h2>
+          </div>
+          <div className="grid md:grid-cols-4 gap-6">
+            {team.map((member, idx) => (
+              <div key={idx} className="text-center">
+                <img 
+                  src={member.image} 
+                  alt={member.name} 
+                  className="w-32 h-32 rounded-full mx-auto object-cover mb-4 border-4 border-[#00c9a7]"
+                />
+                <h3 className="font-semibold text-[#0F2940]">{member.name}</h3>
+                <p className="text-gray-500 text-sm">{member.role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="bg-[#0F2940] py-12">
+        <div className="max-w-4xl mx-auto px-5 text-center text-white">
+          <h2 className="text-3xl font-bold mb-4">Prêt à rejoindre l'aventure ?</h2>
+          <p className="text-white/80 mb-6">Devenez hôte ou trouvez votre prochain logement sur Blufin-Immo</p>
+          <div className="flex gap-4 justify-center">
+            <button onClick={() => onNavigate?.({ name: 'become-host' })} className="bg-[#00c9a7] text-[#0F2940] px-6 py-3 rounded-full font-semibold hover:bg-[#00b892] transition">
+              Devenir hôte
+            </button>
+            <button onClick={() => onNavigate?.({ name: 'popular' })} className="border border-white px-6 py-3 rounded-full font-semibold hover:bg-white/10 transition">
+              Voir les logements
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
 
+// ========== PAGE SITE FUNCTIONING ==========
+export function SiteFunctioningPage({ onNavigate }: PageProps) {
+  const steps = [
+    {
+      number: "01",
+      title: "Recherchez votre logement",
+      description: "Utilisez notre moteur de recherche pour trouver le logement idéal selon votre destination, vos dates et votre budget.",
+      icon: Search,
+      color: "bg-blue-50"
+    },
+    {
+      number: "02",
+      title: "Réservez en toute sécurité",
+      description: "Choisissez votre logement, sélectionnez vos dates et procédez au paiement sécurisé via Mobile Money ou carte bancaire.",
+      icon: CreditCard,
+      color: "bg-green-50"
+    },
+    {
+      number: "03",
+      title: "Communiquez avec l'hôte",
+      description: "Échangez avec votre hôte pour organiser votre arrivée, poser vos questions et préparer votre séjour.",
+      icon: MessageCircle,
+      color: "bg-purple-50"
+    },
+    {
+      number: "04",
+      title: "Profitez de votre séjour",
+      description: "Une fois sur place, profitez de votre logement et n'hésitez pas à laisser un avis après votre départ.",
+      icon: Star,
+      color: "bg-yellow-50"
+    }
+  ];
+
+  const features = [
+    { icon: Shield, title: "Paiement sécurisé", desc: "Vos transactions sont protégées" },
+    { icon: Calendar, title: "Annulation flexible", desc: "Selon les politiques des hôtes" },
+    { icon: Users, title: "Support 24/7", desc: "Une équipe toujours disponible" },
+    { icon: Award, title: "Hôtes vérifiés", desc: "Des professionnels de confiance" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">Fonctionnement du site</h1>
+      </div>
+
+      {/* Hero */}
+      <section className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] py-12 text-white">
+        <div className="max-w-4xl mx-auto px-5 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Comment ça fonctionne ?</h2>
+          <p className="text-white/80">Une plateforme simple et intuitive pour trouver votre logement idéal</p>
+        </div>
+      </section>
+
+      {/* Étapes pour voyageurs */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <h2 className="text-3xl font-bold text-[#0F2940] text-center mb-4">Pour les voyageurs</h2>
+          <p className="text-gray-600 text-center mb-10">Réservez votre prochain séjour en quelques clics</p>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {steps.map((step, idx) => {
+              const Icon = step.icon;
+              return (
+                <div key={idx} className={`${step.color} rounded-2xl p-6 relative overflow-hidden`}>
+                  <div className="text-6xl font-bold text-gray-300/30 absolute top-4 right-4">{step.number}</div>
+                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4">
+                    <Icon className="w-7 h-7 text-[#00c9a7]" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#0F2940] mb-2">{step.title}</h3>
+                  <p className="text-gray-600 text-sm">{step.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Comment devenir hôte */}
+      <section className="bg-gray-50 py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Pour les hôtes</h2>
+            <p className="text-gray-600">Gagnez de l'argent en partageant votre logement</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-[#00c9a7]">1</span>
+              </div>
+              <h3 className="font-semibold text-[#0F2940] mb-2">Créez votre annonce</h3>
+              <p className="text-gray-500 text-sm">Décrivez votre logement, ajoutez des photos et fixez vos tarifs</p>
+            </div>
+            <div className="text-center">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-[#00c9a7]">2</span>
+              </div>
+              <h3 className="font-semibold text-[#0F2940] mb-2">Recevez des réservations</h3>
+              <p className="text-gray-500 text-sm">Les voyageurs réservent votre logement directement</p>
+            </div>
+            <div className="text-center">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-[#00c9a7]">3</span>
+              </div>
+              <h3 className="font-semibold text-[#0F2940] mb-2">Recevez vos paiements</h3>
+              <p className="text-gray-500 text-sm">Virements vers Mobile Money ou compte bancaire</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Fonctionnalités */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <h2 className="text-3xl font-bold text-[#0F2940] text-center mb-10">Pourquoi choisir Blufin-Immo ?</h2>
+          <div className="grid md:grid-cols-4 gap-6">
+            {features.map((feature, idx) => {
+              const Icon = feature.icon;
+              return (
+                <div key={idx} className="text-center p-4">
+                  <div className="w-14 h-14 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Icon className="w-7 h-7 text-[#00c9a7]" />
+                  </div>
+                  <h3 className="font-semibold text-[#0F2940] mb-1">{feature.title}</h3>
+                  <p className="text-gray-500 text-sm">{feature.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ========== PAGE COMPANY INFO ==========
+export function CompanyInfoPage({ onNavigate }: PageProps) {
+  const infoItems = [
+    { label: "Nom légal", value: "Blufin-Immo SARL" },
+    { label: "Forme juridique", value: "Société à Responsabilité Limitée" },
+    { label: "Capital social", value: "10 000 000 FCFA" },
+    { label: "RCCM", value: "RB/COT/2024/B/00123" },
+    { label: "IFU", value: "1234567890123" },
+    { label: "Siège social", value: "Cotonou, Bénin, 01 BP 1234" }
+  ];
+
+  const contacts = [
+    { icon: Phone, label: "Téléphone", value: "+229 01 23 45 67", desc: "Lun-Ven, 8h-18h" },
+    { icon: Mail, label: "Email", value: "contact@blufin-immo.com", desc: "Réponse sous 24h" },
+    { icon: MapPin, label: "Adresse", value: "Haie Vive, Cotonou, Bénin", desc: "En face de la mairie" }
+  ];
+
+  const missions = [
+    "Faciliter la location de logements courte durée en Afrique de l'Ouest",
+    "Sécuriser les transactions entre hôtes et voyageurs",
+    "Promouvoir le tourisme local et l'hospitalité africaine",
+    "Créer des opportunités économiques pour les propriétaires"
+  ];
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">Informations sur l'entreprise</h1>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-5 py-8">
+        {/* Logo et introduction */}
+        <div className="text-center mb-10">
+          <div className="w-24 h-24 bg-[#00c9a7] rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl font-bold text-white">B</span>
+          </div>
+          <h2 className="text-3xl font-bold text-[#0F2940] mb-2">Blufin-Immo</h2>
+          <p className="text-gray-500">La référence de la location courte durée en Afrique de l'Ouest</p>
+        </div>
+
+        {/* Cartes info */}
+        <div className="grid md:grid-cols-2 gap-6 mb-10">
+          {infoItems.map((item, idx) => (
+            <div key={idx} className="bg-gray-50 rounded-xl p-4">
+              <p className="text-sm text-gray-500 mb-1">{item.label}</p>
+              <p className="font-semibold text-[#0F2940]">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Contacts */}
+        <div className="mb-10">
+          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Nous contacter</h3>
+          <div className="grid md:grid-cols-3 gap-4">
+            {contacts.map((contact, idx) => {
+              const Icon = contact.icon;
+              return (
+                <div key={idx} className="border border-gray-200 rounded-xl p-4 text-center">
+                  <Icon className="w-8 h-8 text-[#00c9a7] mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">{contact.label}</p>
+                  <p className="font-semibold text-[#0F2940]">{contact.value}</p>
+                  <p className="text-xs text-gray-400 mt-1">{contact.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Notre mission */}
+        <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
+          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Notre mission</h3>
+          <ul className="space-y-3">
+            {missions.map((mission, idx) => (
+              <li key={idx} className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-[#00c9a7] mt-0.5" />
+                <span className="text-gray-700">{mission}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Certifications */}
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Certifications et agréments</h3>
+          <div className="flex flex-wrap gap-4">
+            {["Agrément tourisme", "Certification PCI DSS", "Membre ANTT", "Label Confiance Bénin"].map((cert, idx) => (
+              <div key={idx} className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2">
+                <Award className="w-4 h-4 text-[#00c9a7]" />
+                <span className="text-sm text-gray-700">{cert}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 // ==================== BLOG PAGE ====================
 export function BlogPage({ onNavigate }: PageProps) {
   return (
@@ -5456,18 +5813,118 @@ export function BlogPage({ onNavigate }: PageProps) {
   );
 }
 
-// ==================== TERMS PAGE ====================
-export function TermsPage() {
+// ========== PAGE TERMS (CONFIDENTIALITÉ & CGU) ==========
+export function TermsPage({ onNavigate, type }: PageProps & { type?: "privacy" | "cgu" }) {
+  const isPrivacy = type === "privacy";
+
+  const privacyContent = {
+    title: "Politique de confidentialité",
+    lastUpdated: "1er janvier 2026",
+    sections: [
+      {
+        title: "1. Collecte des informations",
+        content: "Nous collectons les informations que vous nous fournissez directement, notamment votre nom, adresse email, numéro de téléphone, et informations de paiement. Nous collectons également les informations relatives à vos réservations et à votre utilisation de la plateforme."
+      },
+      {
+        title: "2. Utilisation des informations",
+        content: "Vos informations sont utilisées pour : traiter vos réservations, vous contacter concernant vos voyages, améliorer nos services, personnaliser votre expérience, et assurer la sécurité de la plateforme."
+      },
+      {
+        title: "3. Protection des données",
+        content: "Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles pour protéger vos données contre tout accès non autorisé, perte ou destruction. Vos informations de paiement sont cryptées et traitées par des prestataires certifiés PCI DSS."
+      },
+      {
+        title: "4. Partage des informations",
+        content: "Nous partageons vos informations uniquement dans les cas suivants : avec les hôtes ou voyageurs pour faciliter les réservations, avec nos prestataires de services (paiement, support), ou lorsque la loi nous y oblige."
+      },
+      {
+        title: "5. Vos droits",
+        content: "Conformément à la réglementation, vous disposez d'un droit d'accès, de rectification, d'effacement et de portabilité de vos données. Vous pouvez exercer ces droits en nous contactant à dpo@blufin-immo.com."
+      },
+      {
+        title: "6. Cookies",
+        content: "Nous utilisons des cookies pour améliorer votre expérience de navigation, mémoriser vos préférences et analyser le trafic sur notre site. Vous pouvez gérer vos préférences de cookies dans les paramètres de votre navigateur."
+      }
+    ]
+  };
+
+  const cguContent = {
+    title: "Conditions Générales d'Utilisation",
+    lastUpdated: "1er janvier 2026",
+    sections: [
+      {
+        title: "1. Acceptation des conditions",
+        content: "En utilisant Blufin-Immo, vous acceptez pleinement et sans réserve les présentes conditions générales. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre plateforme."
+      },
+      {
+        title: "2. Rôle de Blufin-Immo",
+        content: "Blufin-Immo est une plateforme de mise en relation entre hôtes et voyageurs. Nous ne sommes pas propriétaires des logements et n'organisons pas les séjours. Notre rôle se limite à faciliter les réservations et à sécuriser les paiements."
+      },
+      {
+        title: "3. Réservations et paiements",
+        content: "Toute réservation effectuée sur la plateforme est engageante. Le paiement est collecté par nos soins et reversé à l'hôte après le début du séjour, conformément à nos conditions de paiement."
+      },
+      {
+        title: "4. Annulations et remboursements",
+        content: "Les conditions d'annulation sont définies par chaque hôte dans son annonce. En cas d'annulation par l'hôte, vous serez remboursé intégralement. En cas d'annulation par le voyageur, le remboursement dépend de la politique choisie par l'hôte."
+      },
+      {
+        title: "5. Obligations des hôtes",
+        content: "Les hôtes s'engagent à fournir un logement conforme à la description, propre et sécurisé. Ils doivent respecter la législation locale et déclarer leurs revenus locatifs conformément à la réglementation en vigueur."
+      },
+      {
+        title: "6. Obligations des voyageurs",
+        content: "Les voyageurs s'engagent à respecter les lieux, les règles de la maison, et à ne pas causer de nuisances. Tout dommage causé au logement devra être signalé et pourra donner lieu à une demande de dédommagement."
+      },
+      {
+        title: "7. Responsabilité",
+        content: "Blufin-Immo ne peut être tenu responsable des dommages indirects, pertes de données ou pertes d'exploitation. Notre responsabilité est limitée au montant payé pour la réservation concernée."
+      },
+      {
+        title: "8. Litiges",
+        content: "En cas de litige, nous mettons à disposition une médiation gratuite. Si aucun accord n'est trouvé, le litige sera soumis aux tribunaux de Cotonou, Bénin, conformément à la loi béninoise."
+      }
+    ]
+  };
+
+  const content = isPrivacy ? privacyContent : cguContent;
+
   return (
-    <div className="bg-[#f4fffe] min-h-screen py-10">
-      <div className="max-w-[980px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Mentions légales" subtitle="CGU, CGV, confidentialité et politique de cookies.">
-          <div className="space-y-6 text-sm text-[#0f2940] leading-relaxed">
-            <p><strong>Bluefin-Immo</strong> est une plateforme de réservation d'hébergements opérant depuis Cotonou, République du Bénin. Les services proposés sont destinés aux voyageurs et hôtes du Bénin et de l'international.</p>
-            <p>Notre politique de confidentialité respecte la loi n°2009-09 du Bénin sur la protection des données personnelles. Toutes les données utilisateur sont traitées avec sécurité et transparence.</p>
-            <p>Toutes les transactions sont facturées en FCFA et peuvent être accompagnées de frais de service Bluefin. Les conditions d'annulation et les modalités de paiement sont précisées sur chaque annonce.</p>
-          </div>
-        </PageSection>
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">{content.title}</h1>
+        <p className="text-sm text-gray-500 mt-1">Dernière mise à jour : {content.lastUpdated}</p>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-5 py-8">
+        <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
+          <p className="text-gray-700">
+            Chez Blufin-Immo, nous accordons une importance capitale à votre confiance. 
+            Cette page détaille nos engagements et vos droits concernant {isPrivacy ? "vos données personnelles" : "l'utilisation de notre plateforme"}.
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          {content.sections.map((section, idx) => (
+            <div key={idx} className="border-b border-gray-200 pb-6">
+              <h2 className="text-xl font-semibold text-[#0F2940] mb-3">{section.title}</h2>
+              <p className="text-gray-600 leading-relaxed">{section.content}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 bg-gray-50 rounded-xl p-6">
+          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
+          <p className="text-gray-600 text-sm">
+            Pour toute question relative à {isPrivacy ? "la confidentialité" : "nos conditions générales"}, 
+            vous pouvez nous contacter à :<br />
+            📧 legal@blufin-immo.com<br />
+            📞 +229 01 23 45 67
+          </p>
+        </div>
       </div>
     </div>
   );
