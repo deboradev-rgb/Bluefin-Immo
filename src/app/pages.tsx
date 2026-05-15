@@ -3117,7 +3117,7 @@ export function HomePage({ onNavigate }: PageProps) {
   const [destination, setDestination] = useState('');
 
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
-  console.log('❤️ Nombre de favoris:', favorites.length);
+
 
   const filterByDestination = (properties: any[]) => {
     if (!searchDestination) return properties;
@@ -3221,9 +3221,7 @@ export function HomePage({ onNavigate }: PageProps) {
   return (
     <div className="bg-white">
       {/* COMPTEUR DE FAVORIS TEMPORAIRE POUR TEST */}
-      <div className="fixed top-20 right-4 bg-black/80 text-white px-3 py-1 rounded-full text-sm z-50 shadow-lg">
-        ❤️ {favorites.length} favori(s)
-      </div>
+      
 
       <Hero 
         onSearch={(query) => onNavigate?.({ name: 'search-logements' })} 
@@ -5789,6 +5787,8 @@ export function CompanyInfoPage({ onNavigate }: PageProps) {
     </div>
   );
 }
+
+
 // ==================== BLOG PAGE ====================
 export function BlogPage({ onNavigate }: PageProps) {
   return (
