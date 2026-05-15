@@ -41,7 +41,7 @@ export function Footer({ onNavigate }: FooterProps) {
                     type="button"
                     onClick={() => { setSelectedFilter(item); setShowAllDestinations(false); }}
                     className={`rounded-full border px-4 py-2 transition ${selectedFilter === item ? "border-white bg-white/10 text-white" : "border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:text-white"}`}
-                  >
+                  > 
                     {item}
                   </button>
                 ))}
@@ -72,12 +72,12 @@ export function Footer({ onNavigate }: FooterProps) {
                 <h3 className="text-lg font-semibold text-white mb-4">Assistance</h3>
                 <ul className="space-y-3 text-sm text-slate-300">
                   <li><button onClick={() => onNavigate?.({ name: 'help' })} className="hover:text-white transition-colors">Centre d'aide</button></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Assistance sécurité</a></li>
+                  {/* <li><a href="#" className="hover:text-white transition-colors">Assistance sécurité</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">AirCover</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Lutte contre la discrimination</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Assistance handicap</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Options d'annulation</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">J'ai un problème de voisinage</a></li>
+                  <li><a href="#" className="hover:text-white transition-colors">J'ai un problème de voisinage</a></li> */}
                 </ul>
               </div>
 
@@ -89,12 +89,12 @@ export function Footer({ onNavigate }: FooterProps) {
                   <li><button onClick={() => onNavigate?.({ name: 'publish' })} className="hover:text-white transition-colors">Mettez votre logement sur BF-Immo</button></li>
                   <li><a href="#" className="hover:text-white transition-colors">Proposez votre expérience sur BF-Immo</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Proposez votre service sur BF-Immo</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">AirCover pour les hôtes</a></li>
+                  {/* <li><a href="#" className="hover:text-white transition-colors">AirCover pour les hôtes</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Ressources pour les hôtes</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Forum de la communauté</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Hébergement responsable</a></li>
                   <li><a href="#" className="hover:text-white transition-colors">Participez à un cours gratuit pour les hôtes</a></li>
-                  <li><a href="#" className="hover:text-white transition-colors">Trouver un co‑hôte</a></li>
+                  <li><a href="#" className="hover:text-white transition-colors">Trouver un co‑hôte</a></li> */}
                   <li><a href="#" className="hover:text-white transition-colors">Parrainer un hôte</a></li>
                 </ul>
               </div>
@@ -108,13 +108,13 @@ export function Footer({ onNavigate }: FooterProps) {
           <div>
             <h3 className="font-semibold text-white mb-4">BF-Immo</h3>
             <ul className="space-y-3">
-              <li><button onClick={() => onNavigate?.({ name: 'about' })} className="hover:text-white transition-colors">BF-Immo</button></li>
-              <li><a href="#" className="hover:text-white transition-colors">Édition 2026</a></li>
+              <li><button onClick={() => onNavigate?.({ name: 'about' })} className="hover:text-white transition-colors">Blufin-Immo</button></li>
+              {/* <li><a href="#" className="hover:text-white transition-colors">Édition 2026</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Newsroom</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Carrières</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Investisseurs</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Cartes cadeaux</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Séjours d'urgence BF-Immo.org</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Séjours d'urgence BF-Immo.org</a></li> */}
             </ul>
           </div>
 
@@ -133,7 +133,7 @@ export function Footer({ onNavigate }: FooterProps) {
           {/* Contact et locale */}
           <div className="space-y-4">
             <h3 className="font-semibold text-white">Contact et locale</h3>
-            <p className="text-slate-400 text-sm">BF IMMO – Plateforme de logement et services inspirés pour le Bénin et l'Afrique de l'Ouest.</p>
+            <p className="text-slate-400 text-sm">Bluefin-IMMO – Plateforme de logement et services inspirés pour le Bénin et l'Afrique de l'Ouest.</p>
             <p className="text-slate-400 text-sm">Service client 24/7 · Offre spéciale pour les hôtes au Bénin.</p>
           </div>
         </div>

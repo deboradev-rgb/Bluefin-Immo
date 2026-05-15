@@ -1,23 +1,79 @@
 import { useState } from 'react';
-import { Star, Users, Bed, Home, Bath, Wifi, Wind, Zap, Droplet, Lock, MapPin, ChevronLeft, Share, Heart } from 'lucide-react';
+import { Star, Users, Bed, Home, Bath, Wifi, Wind, Zap, Droplet, Lock, MapPin, ChevronLeft, Share, Heart, Check } from 'lucide-react';
 import { BookingWidget } from './BookingWidget';
 
+// Définissez l'interface pour une propriété
+interface HotelProperty {
+  id: number;
+  title: string;
+  location: string;
+  price: number;
+  priceDisplay: string;
+  priceNumber: number;
+  rating: number;
+  reviews: number;
+  image: string;
+  beds: number;
+  baths: number;
+  description: string;
+  type?: string;
+  category?: string;
+  city?: string;
+  images?: string[];
+  host?: string;
+  hostImage?: string;
+  hostSince?: string;
+  superhost?: boolean;
+  responseRate?: number;
+  responseTime?: string;
+  longDescription?: string;
+  amenities?: string[];
+}
+
 interface ListingDetailProps {
+  property: HotelProperty;  // <-- AJOUTEZ CETTE PROPRIÉTÉ
   onBack?: () => void;
   onOpenBooking?: () => void;
 }
 
-export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
+export function ListingDetail({ property, onBack, onOpenBooking }: ListingDetailProps) {
   const [liked, setLiked] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
 
-  const photos = [
-    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&h=800&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&h=400&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&h=400&fit=crop&auto=format',
-    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop&auto=format',
-  ];
+  // Vérification si property existe
+  if (!property) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+          <p className="text-gray-500">Chargement du logement...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Utiliser les photos de la propriété ou des valeurs par défaut
+  const photos = property.images && property.images.length > 0 
+    ? property.images 
+    : [property.image, property.image, property.image, property.image, property.image];
+
+  // Valeurs calculées à partir de la propriété
+  const hostInitial = property.host ? property.host.charAt(0).toUpperCase() : 'H';
+  const isSuperhost = property.superhost ?? true;
+  const totalGuests = property.beds ? property.beds * 2 : 4;
+  
+  // Équipements par défaut si non fournis
+  const amenitiesList = property.amenities || ["Wifi haut débit", "Climatisation", "Électricité 24h/24", "Eau courante", "Parking sécurisé"];
+  
+  // Icons pour les équipements
+  const getAmenityIcon = (amenity: string) => {
+    if (amenity.toLowerCase().includes('wifi')) return Wifi;
+    if (amenity.toLowerCase().includes('climat') || amenity.toLowerCase().includes('ac')) return Wind;
+    if (amenity.toLowerCase().includes('électricité') || amenity.toLowerCase().includes('groupe')) return Zap;
+    if (amenity.toLowerCase().includes('eau')) return Droplet;
+    if (amenity.toLowerCase().includes('parking')) return Lock;
+    return Check;
+  };
 
   return (
     <div className="bg-white pb-24 lg:pb-0">
@@ -53,37 +109,36 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             Retour aux résultats
           </button>
           <h1 className="text-3xl font-bold text-[#0f2940] mb-2">
-            Appartement moderne avec vue · Haie Vive
+            {property.title}
           </h1>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
-              <span className="font-medium">4.87</span>
-              <span className="text-[#6b7280]">(124 avis)</span>
+              <span className="font-medium">{property.rating}</span>
+              <span className="text-[#6b7280]">({property.reviews} avis)</span>
             </div>
             <span className="text-[#6b7280]">·</span>
-            <span className="text-[#6b7280]">Haie Vive, Cotonou, Bénin</span>
+            <span className="text-[#6b7280]">{property.location}, Bénin</span>
           </div>
         </div>
 
         {/* Mobile title */}
         <div className="lg:hidden mb-4">
           <h1 className="text-xl font-bold text-[#0f2940] mb-1">
-            Appartement moderne avec vue · Haie Vive
+            {property.title}
           </h1>
           <div className="flex items-center gap-3 text-sm flex-wrap">
             <div className="flex items-center gap-1">
               <Star className="w-3.5 h-3.5 fill-[#00c9a7] text-[#00c9a7]" />
-              <span className="font-medium text-[#0f2940]">4.87</span>
-              <span className="text-[#6b7280]">(124 avis)</span>
+              <span className="font-medium text-[#0f2940]">{property.rating}</span>
+              <span className="text-[#6b7280]">({property.reviews} avis)</span>
             </div>
             <span className="text-[#6b7280]">·</span>
-            <span className="text-[#6b7280] text-xs">Haie Vive, Cotonou</span>
+            <span className="text-[#6b7280] text-xs">{property.location}</span>
           </div>
         </div>
 
-        {/* Photo gallery */}
-        {/* Desktop: mosaic grid */}
+        {/* Photo gallery - Desktop */}
         <div className="hidden lg:grid grid-cols-4 gap-2 mb-8 rounded-2xl overflow-hidden h-[400px]">
           <div className="col-span-2 row-span-2">
             <img src={photos[0]} alt="Vue principale" className="w-full h-full object-cover" />
@@ -94,19 +149,19 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             </div>
           ))}
           <div className="col-span-1 relative bg-[#f4fffe]">
-            <img src={photos[4]} alt="Vue 5" className="w-full h-full object-cover" />
+            <img src={photos[4] || photos[0]} alt="Vue 5" className="w-full h-full object-cover" />
             <button className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-sm font-medium hover:bg-black/50 transition-colors">
               Voir toutes les photos
             </button>
           </div>
         </div>
 
-        {/* Mobile: swipeable single photo */}
+        {/* Photo gallery - Mobile */}
         <div className="lg:hidden mb-4">
           <div className="relative rounded-2xl overflow-hidden bg-[#f4fffe]" style={{ aspectRatio: '4/3' }}>
             <img src={photos[activePhoto]} alt="Photo" className="w-full h-full object-cover" />
             <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-              {photos.map((_, i) => (
+              {photos.slice(0, 5).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setActivePhoto(i)}
@@ -115,9 +170,8 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
               ))}
             </div>
           </div>
-          {/* Thumbnails */}
           <div className="flex gap-2 mt-2 overflow-x-auto scrollbar-hide">
-            {photos.map((photo, i) => (
+            {photos.slice(0, 5).map((photo, i) => (
               <button
                 key={i}
                 onClick={() => setActivePhoto(i)}
@@ -139,26 +193,28 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             <div className="flex items-start justify-between pb-6 border-b border-[#e2f5f2]">
               <div>
                 <h2 className="text-base lg:text-xl font-bold text-[#0f2940] mb-1">
-                  Appartement entier hébergé par Marie
+                  {property.type || 'Logement'} entier hébergé par {property.host || 'Hôte vérifié'}
                 </h2>
                 <div className="flex items-center gap-1.5 text-sm text-[#6b7280] flex-wrap">
-                  <span>4 voyageurs</span>
+                  <span>{totalGuests} voyageurs</span>
                   <span>·</span>
-                  <span>2 chambres</span>
+                  <span>{property.beds} chambres</span>
                   <span>·</span>
-                  <span>3 lits</span>
+                  <span>{property.beds} lits</span>
                   <span>·</span>
-                  <span>2 salles de bain</span>
+                  <span>{property.baths} salles de bain</span>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-[#0f2940] flex items-center justify-center text-white font-bold">
-                  M
+                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold shadow-md">
+                  {hostInitial}
                 </div>
                 <div className="flex flex-col gap-1">
-                  <div className="px-2.5 py-0.5 bg-[#00c9a7] text-white text-xs font-medium rounded-full text-center">
-                    Superhost
-                  </div>
+                  {isSuperhost && (
+                    <div className="px-2.5 py-0.5 bg-[#00c9a7] text-white text-xs font-medium rounded-full text-center">
+                      Superhost
+                    </div>
+                  )}
                   <div className="px-2.5 py-0.5 bg-[#0f2940] text-white text-xs font-medium rounded-full text-center">
                     Certifié
                   </div>
@@ -169,10 +225,10 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             {/* Key stats */}
             <div className="grid grid-cols-2 gap-3 lg:gap-4 pb-6 border-b border-[#e2f5f2]">
               {[
-                { Icon: Users, label: '4 voyageurs', desc: 'Idéal pour les familles' },
-                { Icon: Bed, label: '3 lits confortables', desc: '2 chambres spacieuses' },
-                { Icon: Home, label: 'Logement entier', desc: 'Vous aurez touta surface pour vous' },
-                { Icon: Bath, label: '2 salles de bain', desc: 'Modernes et équipées' },
+                { Icon: Users, label: `${totalGuests} voyageurs`, desc: 'Capacité maximale' },
+                { Icon: Bed, label: `${property.beds} lits confortables`, desc: `${property.beds} chambres spacieuses` },
+                { Icon: Home, label: 'Logement entier', desc: 'Vous aurez tout l\'espace pour vous' },
+                { Icon: Bath, label: `${property.baths} salles de bain`, desc: 'Modernes et équipées' },
               ].map(({ Icon, label, desc }) => (
                 <div key={label} className="flex items-start gap-2 lg:gap-3">
                   <Icon className="w-5 h-5 text-[#0f2940] flex-shrink-0 mt-0.5" />
@@ -188,23 +244,20 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             <div className="pb-6 border-b border-[#e2f5f2]">
               <h3 className="font-bold text-base lg:text-lg text-[#0f2940] mb-4">Points forts</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { icon: Wifi, label: 'WiFi haut débit', desc: 'Connexion fibre rapide' },
-                  { icon: Wind, label: 'Climatisation', desc: 'Dans toutes les pièces' },
-                  { icon: Zap, label: 'Groupe électrogène', desc: 'Électricité 24h/24' },
-                  { icon: Droplet, label: 'Eau courante', desc: 'Approvisionnement permanent' },
-                  { icon: Lock, label: 'Parking sécurisé', desc: 'Gardien 24h/24' },
-                ].map(({ icon: Icon, label, desc }) => (
-                  <div key={label} className="flex items-start gap-3 p-3 lg:p-4 bg-[#f4fffe] rounded-xl">
-                    <div className="w-8 h-8 lg:w-10 lg:h-10 bg-[#00c9a7]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-4 h-4 lg:w-5 lg:h-5 text-[#00c9a7]" />
+                {amenitiesList.slice(0, 5).map((amenity, index) => {
+                  const Icon = getAmenityIcon(amenity);
+                  return (
+                    <div key={index} className="flex items-start gap-3 p-3 lg:p-4 bg-[#f4fffe] rounded-xl">
+                      <div className="w-8 h-8 lg:w-10 lg:h-10 bg-[#00c9a7]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Icon className="w-4 h-4 lg:w-5 lg:h-5 text-[#00c9a7]" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm text-[#0f2940]">{amenity}</div>
+                        <div className="text-xs text-[#6b7280]">Inclus</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-medium text-sm text-[#0f2940]">{label}</div>
-                      <div className="text-xs text-[#6b7280]">{desc}</div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -212,52 +265,45 @@ export function ListingDetail({ onBack, onOpenBooking }: ListingDetailProps) {
             <div className="pb-6 border-b border-[#e2f5f2]">
               <h3 className="font-bold text-base lg:text-lg text-[#0f2940] mb-3">Description</h3>
               <p className="text-sm lg:text-base text-[#0f2940] leading-relaxed">
-                Magnifique appartement moderne situé dans le quartier prisé de Haie Vive à Cotonou.
-                Idéalement situé à proximité des ambassades, restaurants et commerces. L'appartement
-                dispose de tout le confort moderne : climatisation dans toutes les pièces, groupe
-                électrogène pour une alimentation électrique continue, WiFi haut débit et eau courante permanente.
-              </p>
-              <p className="text-sm lg:text-base text-[#0f2940] leading-relaxed mt-3">
-                Le quartier est sécurisé avec gardiennage 24h/24 et parking privé. À 10 minutes de
-                l'aéroport Cadjèhoun et 5 minutes de la plage de Fidjrossè.
+                {property.longDescription || property.description}
               </p>
             </div>
 
             {/* Location */}
             <div>
               <h3 className="font-bold text-base lg:text-lg text-[#0f2940] mb-3">Emplacement</h3>
-              <div className="bg-[#f4fffe] rounded-2xl h-48 lg:h-64 flex items-center justify-center border border-[#e2f5f2]">
+              <div className="bg-gradient-to-br from-[#f4fffe] to-[#e8fffb] rounded-2xl h-48 lg:h-64 flex items-center justify-center border border-[#e2f5f2]">
                 <div className="text-center text-[#6b7280]">
                   <MapPin className="w-10 h-10 mx-auto mb-2 text-[#00c9a7]" />
-                  <p className="font-medium text-[#0f2940]">Haie Vive, Cotonou</p>
-                  <p className="text-sm">10 min de l'aéroport · 5 min de la plage</p>
+                  <p className="font-medium text-[#0f2940]">{property.location}</p>
+                  <p className="text-sm">Bénin</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right: booking widget — desktop only */}
+          {/* Right: booking widget */}
           <div className="hidden lg:block lg:col-span-1">
-            <BookingWidget price={45000} priceEur={69} />
+            <BookingWidget price={property.priceNumber} priceEur={Math.round(property.priceNumber / 655)} />
           </div>
         </div>
       </div>
 
-      {/* Mobile sticky booking bar at bottom */}
+      {/* Mobile sticky booking bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2f5f2] px-4 py-3 flex items-center justify-between z-40 safe-area-pb">
         <div>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-[#0f2940]">45 000 XOF</span>
+            <span className="text-lg font-bold text-[#0f2940]">{property.priceNumber.toLocaleString()} FCFA</span>
             <span className="text-sm text-[#6b7280]">/nuit</span>
           </div>
           <div className="flex items-center gap-1 text-xs text-[#00c9a7]">
             <Star className="w-3 h-3 fill-[#00c9a7]" />
-            <span>4.87 · 124 avis</span>
+            <span>{property.rating} · {property.reviews} avis</span>
           </div>
         </div>
         <button
           onClick={onOpenBooking}
-          className="bg-[#00c9a7] text-white px-6 py-3 rounded-full font-medium hover:bg-[#00b396] transition-colors"
+          className="bg-[#00c9a7] text-white px-6 py-3 rounded-full font-medium hover:bg-[#00b396] transition-colors shadow-lg"
         >
           Réserver
         </button>

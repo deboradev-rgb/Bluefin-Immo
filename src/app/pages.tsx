@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookingWidget } from './components/BookingWidget';
@@ -8,6 +8,8 @@ import { FeatureCard } from './components/FeatureCard';
 import { Hero } from './components/Hero';
 import { ListingCard } from './components/ListingCard';
 import { ListingDetail } from './components/ListingDetail';
+import { useFavorites } from './hooks/useFavorites';
+import { PropertyCard } from './components/PropertyCard';
 import { 
   Zap, CheckCircle, Headphones, Home, Heart, MessageCircle, Calendar, 
   ShieldCheck, Rocket, BookOpen, Info, Bookmark, Star, CreditCard, Check, 
@@ -16,15 +18,33 @@ import {
   DollarSign,
   FileText,
   Mail,
-  Settings,
-  Bell,
-  User,
-  AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,
+  Settings, 
+  Bell,Search ,Monitor,Tablet, Menu,
+  AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield ,
   Clock,
   X as CloseIcon, ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
   MapPin, Bath, Bed, Filter, ChevronDown, Share2, Award, Crown, Key, Smartphone, Phone, Camera, Image
 } from 'lucide-react';
 import type { Route } from './router';
+
+
+
+
+
+// Fonction pour trouver une propriété par ID
+const findPropertyById = (id: string) => {
+  const numericId = parseInt(id);
+  console.log("Recherche de l'ID:", numericId);
+  console.log("Nombre total de propriétés:", allProperties.length);
+  console.log("IDs disponibles:", allProperties.map(p => p.id));
+  
+  const found = allProperties.find(p => p.id === numericId);
+  console.log("Trouvé:", found?.title);
+  return found;
+};
+
+// Au début de votre HomePage, ajoutez :
+
 
 // Remplacez l'interface stricte par un type plus flexible
 type HotelProperty = {
@@ -533,35 +553,35 @@ const hotelsProperties: HotelProperty[] = [
 
 
 
-const PropertyCard = ({ property, showDescription = false, onNavigate }: any) => (
-  <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-    <div className="relative overflow-hidden rounded-2xl">
-      <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-      <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10">
-        <Heart className="w-5 h-5" />
-      </button>
-    </div>
-    <div className="mt-3">
-      <div className="flex justify-between items-start gap-4">
-        <div>
-          <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-          <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-        </div>
-        <div className="flex items-center gap-1 text-sm text-gray-500">
-          <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-          <span className="font-medium text-[#0F2940]">{property.rating}</span>
-          <span>({property.reviews})</span>
-        </div>
-      </div>
-      {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-      <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-        <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-        <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
-      </div>
-      <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
-    </div>
-  </div>
-);
+// const PropertyCard = ({ property, showDescription = false, onNavigate }: any) => (
+//   <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
+//     <div className="relative overflow-hidden rounded-2xl">
+//       <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+//       <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10">
+//         <Heart className="w-5 h-5" />
+//       </button>
+//     </div>
+//     <div className="mt-3">
+//       <div className="flex justify-between items-start gap-4">
+//         <div>
+//           <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
+//           <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+//         </div>
+//         <div className="flex items-center gap-1 text-sm text-gray-500">
+//           <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
+//           <span className="font-medium text-[#0F2940]">{property.rating}</span>
+//           <span>({property.reviews})</span>
+//         </div>
+//       </div>
+//       {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
+//       <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+//         <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
+//         <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
+//       </div>
+//       <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
+//     </div>
+//   </div>
+// );
 
 const portonovoProperties = [
   { id: 7, title: 'Maison traditionnelle', location: 'Porto-Novo', price: 45000, priceDisplay: formatPrice(45000), rating: 4.6, reviews: 45, image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80', beds: 3, baths: 2, type: 'Maison', category: 'portonovo', city: 'Porto-Novo', description: 'Authentique maison traditionnelle.' },
@@ -686,6 +706,1201 @@ const allProperties = [
   ...ouidahProperties,
   ...grandpopoProperties,
 ];
+
+// ========== COMPOSANT GOOGLE LOGIN + FACE ID ==========
+const GoogleLoginModal = ({ onSuccess, onClose }: { onSuccess: (data: any) => void; onClose: () => void }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isFaceIdMode, setIsFaceIdMode] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [faceIdError, setFaceIdError] = useState("");
+  const [loginMethod, setLoginMethod] = useState<"email" | "google">("email");
+
+  // Simuler la vérification Face ID
+  const handleFaceIdVerification = () => {
+    setIsVerifying(true);
+    setFaceIdError("");
+    
+    // Simulation de la caméra Face ID
+    setTimeout(() => {
+      // 90% de chance de succès pour la simulation
+      const success = Math.random() > 0.1;
+      if (success) {
+        onSuccess({ 
+          name: "Jean Dupont", 
+          email: email || "jean.dupont@email.com",
+          verified: true,
+          faceIdVerified: true
+        });
+      } else {
+        setFaceIdError("Reconnaissance faciale échouée. Veuillez réessayer.");
+      }
+      setIsVerifying(false);
+    }, 2000);
+  };
+
+  const handleEmailLogin = () => {
+    if (!email || !password) {
+      setFaceIdError("Veuillez remplir tous les champs");
+      return;
+    }
+    setIsFaceIdMode(true);
+  };
+
+  const handleGoogleLogin = () => {
+    setIsFaceIdMode(true);
+  };
+
+  // Composant de capture d'identité (simulation)
+  const IdentityCapture = () => {
+    const [identityFile, setIdentityFile] = useState<File | null>(null);
+    const [identityPreview, setIdentityPreview] = useState<string>("");
+    const [identityType, setIdentityType] = useState<"cni" | "passeport" | "permis">("cni");
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        setIdentityFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setIdentityPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="identity-upload"
+          />
+          <label htmlFor="identity-upload" className="cursor-pointer block">
+            {identityPreview ? (
+              <div className="relative">
+                <img src={identityPreview} alt="Carte d'identité" className="mx-auto max-h-48 rounded-lg" />
+                <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                  <CheckCircle className="w-5 h-5 text-white" />
+                </div>
+              </div>
+            ) : (
+              <div className="py-8">
+                <Camera className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600">Cliquez pour prendre une photo ou télécharger</p>
+                <p className="text-xs text-gray-400 mt-2">PNG, JPG jusqu'à 5MB</p>
+              </div>
+            )}
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          {[
+            { id: "cni", label: "Carte d'identité" },
+            { id: "passeport", label: "Passeport" },
+            { id: "permis", label: "Permis de conduire" }
+          ].map(type => (
+            <button
+              key={type.id}
+              onClick={() => setIdentityType(type.id as any)}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
+                identityType === type.id 
+                  ? "bg-[#00c9a7] text-[#0F2940]" 
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {type.label}
+            </button>
+          ))}
+        </div>
+
+        {identityFile && (
+          <button 
+            onClick={() => {
+              if (identityFile) {
+                // Simuler la validation de l'identité
+                setIsFaceIdMode(false);
+                onSuccess({ 
+                  name: "Jean Dupont", 
+                  email: email || "jean.dupont@email.com",
+                  verified: true,
+                  faceIdVerified: true,
+                  identityVerified: true,
+                  identityType: identityType
+                });
+              }
+            }}
+            className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+          >
+            Vérifier mon identité
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  if (isFaceIdMode && !isVerifying) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-[#0F2940]">Vérification d'identité</h2>
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 text-center mb-6">
+              Pour devenir hôte, nous devons vérifier votre identité
+            </p>
+
+            <IdentityCapture />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isFaceIdMode && isVerifying) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-white rounded-3xl max-w-md w-full p-8 text-center">
+            <div className="w-24 h-24 mx-auto bg-[#00c9a7]/10 rounded-full flex items-center justify-center mb-6">
+              <Fingerprint className="w-12 h-12 text-[#00c9a7] animate-pulse" />
+            </div>
+            <h2 className="text-xl font-semibold text-[#0F2940] mb-2">Vérification Face ID</h2>
+            <p className="text-gray-500 mb-4">Regardez la caméra pour confirmer votre identité</p>
+            <div className="w-32 h-32 mx-auto border-4 border-[#00c9a7] rounded-full animate-pulse mb-4"></div>
+            {faceIdError && (
+              <p className="text-red-500 text-sm mb-4">{faceIdError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded-3xl max-w-md w-full p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-[#0F2940]">Connexion hôte</h2>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Mode de connexion */}
+          <div className="flex gap-2 mb-6">
+            <button
+              onClick={() => setLoginMethod("email")}
+              className={`flex-1 py-2 rounded-lg font-medium transition ${
+                loginMethod === "email" 
+                  ? "bg-[#00c9a7] text-[#0F2940]" 
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              Email
+            </button>
+            <button
+              onClick={() => setLoginMethod("google")}
+              className={`flex-1 py-2 rounded-lg font-medium transition ${
+                loginMethod === "google" 
+                  ? "bg-[#00c9a7] text-[#0F2940]" 
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              Google
+            </button>
+          </div>
+
+          {loginMethod === "email" ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                  placeholder="exemple@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-gray-500"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={handleEmailLogin}
+                className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+              >
+                Se connecter
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full flex items-center justify-center gap-3 border border-gray-300 py-3 rounded-xl hover:bg-gray-50 transition"
+            >
+              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+              <span className="font-medium">Continuer avec Google</span>
+            </button>
+          )}
+
+          <p className="text-center text-xs text-gray-500 mt-6">
+            En continuant, vous acceptez nos conditions d'utilisation et la politique de confidentialité
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ========== FORMULAIRE D'INSCRIPTION HÔTE ==========
+const RegistrationForm = ({ userData, onComplete, onBack }: any) => {
+  const [formData, setFormData] = useState({
+    firstName: userData?.name?.split(" ")[0] || "",
+    lastName: userData?.name?.split(" ")[1] || "",
+    phone: "",
+    address: "",
+    city: "Cotonou",
+    country: "Bénin"
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="max-w-2xl mx-auto p-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 mb-6">
+          <ArrowLeft className="w-5 h-5" /> Retour
+        </button>
+        
+        <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Complétez votre profil</h1>
+        <p className="text-gray-500 mb-8">Ces informations seront visibles par les voyageurs</p>
+
+        <div className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7]"
+              placeholder="+229 XX XX XX XX"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7]"
+              placeholder="Votre adresse complète"
+            />
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+              <select
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00c9a7]"
+              >
+                <option>Cotonou</option>
+                <option>Porto-Novo</option>
+                <option>Parakou</option>
+                <option>Abomey-Calavi</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pays</label>
+              <input
+                type="text"
+                value={formData.country}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                disabled
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={onComplete}
+            className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+          >
+            Continuer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ========== ENGAGEMENT COMMUNAUTAIRE ==========
+const CommunityCommitment = ({ onAccept, onBack }: any) => {
+  const commitments = [
+    "Je fournirai un logement propre et sécurisé",
+    "Je répondrai aux voyageurs dans les 24h",
+    "Je respecterai les politiques d'annulation choisies",
+    "Je traiterai les voyageurs avec respect et courtoisie"
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="max-w-2xl mx-auto p-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 mb-6">
+          <ArrowLeft className="w-5 h-5" /> Retour
+        </button>
+        
+        <div className="text-center mb-8">
+          <Shield className="w-16 h-16 text-[#00c9a7] mx-auto mb-4" />
+          <h1 className="text-2xl font-semibold text-[#0F2940]">Engagement communautaire</h1>
+          <p className="text-gray-500 mt-2">En devenant hôte, vous vous engagez à respecter nos valeurs</p>
+        </div>
+
+        <div className="space-y-4 mb-8">
+          {commitments.map((commitment, idx) => (
+            <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-[#f4fffe]">
+              <CheckCircle className="w-5 h-5 text-[#00c9a7]" />
+              <span className="text-gray-700">{commitment}</span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={onAccept}
+          className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+        >
+          J'accepte et je continue
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ========== ÉTAPES FACILES ==========
+const EasySteps = ({ onContinue, onQuit }: any) => {
+  const steps = [
+    { icon: Home, title: "Créez votre annonce", desc: "Décrivez votre logement en quelques étapes" },
+    { icon: Calendar, title: "Calendrier et tarifs", desc: "Définissez vos disponibilités et prix" },
+    { icon: Users, title: "Accueillez les voyageurs", desc: "Recevez des réservations et gérez vos hôtes" }
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="max-w-3xl mx-auto p-6">
+        <h1 className="text-2xl font-semibold text-[#0F2940] text-center mb-2">Comment ça marche ?</h1>
+        <p className="text-gray-500 text-center mb-8">Devenez hôte en 3 étapes simples</p>
+
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {steps.map((step, idx) => {
+            const Icon = step.icon;
+            return (
+              <div key={idx} className="text-center">
+                <div className="w-16 h-16 mx-auto bg-[#00c9a7]/10 rounded-full flex items-center justify-center mb-3">
+                  <Icon className="w-8 h-8 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940]">{step.title}</h3>
+                <p className="text-sm text-gray-500 mt-1">{step.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            onClick={onContinue}
+            className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+          >
+            Créer mon annonce
+          </button>
+          <button
+            onClick={onQuit}
+            className="flex-1 border border-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-50 transition"
+          >
+            Plus tard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ========== FORMULAIRE PROPRIÉTÉ ==========
+const PropertyForm = ({ onSaveAndQuit, userData, onGoToDashboard }: any) => {
+  const [propertyData, setPropertyData] = useState({
+    title: "",
+    type: "appartement",
+    guests: 2,
+    bedrooms: 1,
+    beds: 1,
+    bathrooms: 1,
+    price: 50000,
+    description: "",
+    address: "",
+    city: "Cotonou",
+    amenities: ["wifi", "climatisation"],
+    photos: [] as string[]
+  });
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const [photoPreview, setPhotoPreview] = useState<string[]>([]);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newPhotos = Array.from(files).map(file => URL.createObjectURL(file));
+      setPhotoPreview([...photoPreview, ...newPhotos]);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
+    else onGoToDashboard();
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const renderStep = () => {
+    switch(currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#0F2940]">Informations de base</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Titre de l'annonce</label>
+              <input
+                type="text"
+                value={propertyData.title}
+                onChange={(e) => setPropertyData({ ...propertyData, title: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                placeholder="Ex: Charmant appartement au cœur de Cotonou"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type de logement</label>
+              <select
+                value={propertyData.type}
+                onChange={(e) => setPropertyData({ ...propertyData, type: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="appartement">Appartement</option>
+                <option value="maison">Maison</option>
+                <option value="villa">Villa</option>
+                <option value="studio">Studio</option>
+                <option value="chambre">Chambre privée</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                rows={4}
+                value={propertyData.description}
+                onChange={(e) => setPropertyData({ ...propertyData, description: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                placeholder="Décrivez votre logement..."
+              />
+            </div>
+          </div>
+        );
+      case 2:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#0F2940]">Capacité et équipements</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Voyageurs max</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={propertyData.guests}
+                  onChange={(e) => setPropertyData({ ...propertyData, guests: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={propertyData.bedrooms}
+                  onChange={(e) => setPropertyData({ ...propertyData, bedrooms: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Lits</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={propertyData.beds}
+                  onChange={(e) => setPropertyData({ ...propertyData, beds: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={propertyData.bathrooms}
+                  onChange={(e) => setPropertyData({ ...propertyData, bathrooms: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      case 3:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#0F2940]">Photos</h2>
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotoUpload}
+                className="hidden"
+                id="photos-upload"
+              />
+              <label htmlFor="photos-upload" className="cursor-pointer block">
+                <Camera className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-600">Cliquez pour ajouter des photos</p>
+                <p className="text-xs text-gray-400">Minimum 5 photos recommandées</p>
+              </label>
+            </div>
+            {photoPreview.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mt-4">
+                {photoPreview.map((photo, idx) => (
+                  <img key={idx} src={photo} alt={`Photo ${idx + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      case 4:
+        return (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-[#0F2940]">Tarifs et disponibilités</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
+              <input
+                type="number"
+                value={propertyData.price}
+                onChange={(e) => setPropertyData({ ...propertyData, price: parseInt(e.target.value) })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Adresse exacte</label>
+              <input
+                type="text"
+                value={propertyData.address}
+                onChange={(e) => setPropertyData({ ...propertyData, address: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                placeholder="Numéro, rue, quartier"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ville</label>
+              <select
+                value={propertyData.city}
+                onChange={(e) => setPropertyData({ ...propertyData, city: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                <option>Cotonou</option>
+                <option>Porto-Novo</option>
+                <option>Parakou</option>
+                <option>Abomey-Calavi</option>
+              </select>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold text-[#0F2940]">Créer mon annonce</h1>
+          <button onClick={onSaveAndQuit} className="text-gray-500 hover:text-gray-700">
+            Sauvegarder et quitter
+          </button>
+        </div>
+
+        {/* Barre de progression */}
+        <div className="flex gap-2 mb-8">
+          {[1, 2, 3, 4].map(step => (
+            <div
+              key={step}
+              className={`flex-1 h-2 rounded-full transition ${
+                step <= currentStep ? "bg-[#00c9a7]" : "bg-gray-200"
+              }`}
+            />
+          ))}
+        </div>
+
+        {renderStep()}
+
+        <div className="flex gap-4 mt-8">
+          {currentStep > 1 && (
+            <button
+              onClick={handlePrevious}
+              className="flex-1 border border-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-50 transition"
+            >
+              Précédent
+            </button>
+          )}
+          <button
+            onClick={handleNext}
+            className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+          >
+            {currentStep === 4 ? "Publier mon annonce" : "Continuer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ========== DASHBOARD HÔTE ==========
+const HostDashboard = ({ onLogout, userData }: any) => {
+  const [activeTab, setActiveTab] = useState<"reservations" | "calendar" | "annonces" | "payouts">("reservations");
+
+  const stats = [
+    { label: "Réservations", value: "12", change: "+3", icon: Calendar },
+    { label: "Chiffre d'affaires", value: "1 250 000 FCFA", change: "+450 000", icon: DollarSign },
+    { label: "Avis", value: "4.9 ★", change: "+0.2", icon: Star },
+    { label: "Taux d'occupation", value: "78%", change: "+12%", icon: Users }
+  ];
+
+  const recentBookings = [
+    { id: 1, guest: "Marie K.", dates: "15-20 mai 2026", amount: "275 000 FCFA", status: "confirmée" },
+    { id: 2, guest: "Jean D.", dates: "22-25 mai 2026", amount: "180 000 FCFA", status: "en attente" },
+    { id: 3, guest: "Sophie L.", dates: "1-5 juin 2026", amount: "350 000 FCFA", status: "confirmée" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="sticky top-0 z-40 bg-white border-b px-5 py-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button onClick={onLogout} className="text-gray-500">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-xl font-semibold text-[#0F2940]">Tableau de bord hôte</h1>
+              <p className="text-sm text-gray-500">Bienvenue {userData?.name || "Hôte"}</p>
+            </div>
+          </div>
+          <button className="bg-[#00c9a7] text-[#0F2940] px-4 py-2 rounded-full text-sm font-medium">
+            + Nouvelle annonce
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-5 py-8">
+        {/* Statistiques */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat, idx) => {
+            const Icon = stat.icon;
+            return (
+              <div key={idx} className="bg-white rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <Icon className="w-5 h-5 text-[#00c9a7]" />
+                  <span className="text-xs text-green-600">{stat.change}</span>
+                </div>
+                <p className="text-2xl font-bold text-[#0F2940]">{stat.value}</p>
+                <p className="text-sm text-gray-500">{stat.label}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Onglets */}
+        <div className="flex gap-4 border-b mb-6">
+          {[
+            { id: "reservations", label: "Réservations" },
+            { id: "calendar", label: "Calendrier" },
+            { id: "annonces", label: "Mes annonces" },
+            { id: "payouts", label: "Paiements" }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`pb-3 px-2 font-medium transition ${
+                activeTab === tab.id 
+                  ? "text-[#00c9a7] border-b-2 border-[#00c9a7]" 
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Contenu des onglets */}
+        {activeTab === "reservations" && (
+          <div className="bg-white rounded-xl overflow-hidden shadow-sm">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-4 text-sm font-medium text-gray-500">Voyageur</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-500">Dates</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-500">Montant</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-500">Statut</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentBookings.map(booking => (
+                  <tr key={booking.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4">{booking.guest}</td>
+                    <td className="p-4 text-sm">{booking.dates}</td>
+                    <td className="p-4 font-medium">{booking.amount}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        booking.status === "confirmée" 
+                          ? "bg-green-100 text-green-700" 
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {booking.status}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <button className="text-[#00c9a7] text-sm">Voir</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === "calendar" && (
+          <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-500">
+            Calendrier des réservations (à implémenter)
+          </div>
+        )}
+
+        {activeTab === "annonces" && (
+          <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-500">
+            Liste de vos annonces (à implémenter)
+          </div>
+        )}
+
+        {activeTab === "payouts" && (
+          <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-500">
+            Historique des paiements (à implémenter)
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ========== BÉNÉFICES POUR LES HÔTES ==========
+const benefits = [
+  { icon: Shield, title: "Sécurité renforcée", description: "Vos données et paiements sont protégés 24h/24." },
+  { icon: Users, title: "Assistance 7j/7", description: "Une équipe dédiée vous accompagne dans votre activité." },
+  { icon: CreditCard, title: "Paiements rapides", description: "Virements vers mobile money ou compte bancaire sous 48h." },
+  { icon: Globe, title: "Visibilité internationale", description: "Votre logement est visible par des milliers de voyageurs." }
+];
+//========== COMPOSANT MODAL AVEC ONGLETS FILTRANTS ==========
+const ArticleModal = ({ article, onClose }: { article: { id: string; title: string; category: string; content: string }; onClose: () => void }) => {
+  const [activeDevice, setActiveDevice] = useState<"ordi" | "ios" | "android" | "mobile">("ordi");
+
+  // Contenu spécifique pour chaque appareil
+  const getDeviceContent = () => {
+    switch(activeDevice) {
+      case "ordi":
+        return {
+          title: "Ordinateur de bureau",
+          steps: [
+            "Cliquez sur Voyages, puis sélectionnez la réservation à annuler.",
+            "Sous Détails de la réservation, cliquez sur Annuler la réservation.",
+            "Choisissez la raison de l'annulation.",
+            "Cliquez sur Annuler la réservation."
+          ]
+        };
+      case "ios":
+        return {
+          title: "Application iOS",
+          steps: [
+            "Appuyez sur Voyages, puis sélectionnez la réservation.",
+            "Sous Détails, appuyez sur Annuler la réservation.",
+            "Choisissez la raison de l'annulation.",
+            "Appuyez sur Annuler la réservation."
+          ]
+        };
+      case "android":
+        return {
+          title: "Application Android",
+          steps: [
+            "Appuyez sur Voyages, puis sélectionnez la réservation.",
+            "Sous Détails, appuyez sur Annuler la réservation.",
+            "Choisissez la raison de l'annulation.",
+            "Appuyez sur Annuler la réservation."
+          ]
+        };
+      case "mobile":
+        return {
+          title: "Navigateur mobile",
+          steps: [
+            "Appuyez sur Voyages, puis sélectionnez la réservation.",
+            "Sous Détails, appuyez sur Annuler la réservation.",
+            "Choisissez la raison de l'annulation.",
+            "Appuyez sur Annuler la réservation."
+          ]
+        };
+      default:
+        return { title: "", steps: [] };
+    }
+  };
+
+  const deviceContent = getDeviceContent();
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm text-[#00c9a7] font-medium">Guide pratique • {article.category}</span>
+              <h2 className="text-2xl font-semibold text-[#0F2940]">{article.title}</h2>
+            </div>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
+          </div>
+          
+          <div className="p-6">
+            <div className="space-y-6">
+              <p className="text-gray-700">Vos projets ont changé et vous devez maintenant annuler votre réservation d'un logement ? Aucun problème.</p>
+              
+              <div className="bg-[#0F2940]/5 rounded-xl p-4 mb-4">
+                <h3 className="text-xl font-semibold text-[#0F2940] mt-2 mb-4">Dans cet article</h3>
+                <ul className="grid md:grid-cols-2 gap-2 list-disc pl-5">
+                  <li><a href="#annuler" className="text-[#00c9a7] hover:underline">Annuler une réservation</a></li>
+                  <li><a href="#conditions" className="text-[#00c9a7] hover:underline">Conditions d'annulation pour les séjours dans des logements</a></li>
+                  <li><a href="#consequences" className="text-[#00c9a7] hover:underline">Conséquences d'une annulation sur les réservations de service</a></li>
+                  <li><a href="#remboursement" className="text-[#00c9a7] hover:underline">Vérifiez si vous recevrez un remboursement avant d'annuler</a></li>
+                  <li><a href="#apres-arrivee" className="text-[#00c9a7] hover:underline">Si vous annulez après l'arrivée</a></li>
+                  <li><a href="#probleme" className="text-[#00c9a7] hover:underline">Si vous annulez en raison d'un problème pendant votre séjour</a></li>
+                  <li><a href="#service" className="text-[#00c9a7] hover:underline">Comment puis-je annuler un service ou une expérience ?</a></li>
+                </ul>
+              </div>
+
+              <h3 id="annuler" className="text-xl font-semibold text-[#0F2940] mt-6 mb-4 border-l-4 border-[#00c9a7] pl-3">Annuler une réservation</h3>
+              
+              {/* Onglets filtrants */}
+              <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
+                <button onClick={() => setActiveDevice("ordi")} className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${activeDevice === "ordi" ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                  <Monitor className="w-4 h-4" /> Ordinateur
+                </button>
+                <button onClick={() => setActiveDevice("ios")} className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${activeDevice === "ios" ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                  <Smartphone className="w-4 h-4" /> iOS
+                </button>
+                <button onClick={() => setActiveDevice("android")} className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${activeDevice === "android" ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                  <Smartphone className="w-4 h-4" /> Android
+                </button>
+                <button onClick={() => setActiveDevice("mobile")} className={`px-5 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${activeDevice === "mobile" ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                  <Tablet className="w-4 h-4" /> Mobile
+                </button>
+              </div>
+              
+              {/* Contenu de l'onglet actif */}
+              <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm mt-4">
+                <div className="flex items-center gap-3 mb-4">
+                  {activeDevice === "ordi" && <Monitor className="w-6 h-6 text-[#00c9a7]" />}
+                  {activeDevice === "ios" && <Smartphone className="w-6 h-6 text-[#00c9a7]" />}
+                  {activeDevice === "android" && <Smartphone className="w-6 h-6 text-[#00c9a7]" />}
+                  {activeDevice === "mobile" && <Tablet className="w-6 h-6 text-[#00c9a7]" />}
+                  <span className="font-semibold text-[#0F2940] text-lg">{deviceContent.title}</span>
+                </div>
+                <ol className="list-decimal pl-5 space-y-3 text-gray-700">
+                  {deviceContent.steps.map((step, idx) => (
+                    <li key={idx}>{step}</li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="bg-[#0F2940]/5 rounded-xl p-5 mt-4">
+                <p className="text-gray-700 leading-relaxed">Les délais d'annulation pour recevoir un remboursement sont calculés à partir de l'heure d'arrivée précisée pour le logement en question, dans le fuseau horaire local, ou 15h si aucune heure d'arrivée n'est spécifiée.</p>
+              </div>
+
+              <h3 id="conditions" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Conditions d'annulation pour les séjours dans des logements</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700 leading-relaxed">Pour les réservations de logements, les conditions d'annulation sont fixées par l'hôte et varient selon les annonces. Si un hôte a opté pour une politique avec une option de remboursement intégral, vous pouvez annuler la réservation gratuitement. Assurez-vous simplement d'annuler avant l'heure et la date indiquées.</p>
+                <p className="text-gray-700 mt-3 leading-relaxed">N'oubliez pas : pour certaines annonces, il est possible que la réservation ne soit pas remboursable, ou qu'elle ne le soit que partiellement, après certaines dates et heures. Dans ce cas, vous ne pourrez pas annuler votre réservation gratuitement. Dans les rares cas où un événement majeur sur votre lieu de destination vous empêcherait de bénéficier de votre réservation, vous pouvez être éligible à un remboursement en vertu de la Politique relative aux circonstances extraordinaires de Bf-Immo.</p>
+              </div>
+
+              <h3 id="consequences" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Conséquences d'une annulation de réservation de logement sur les réservations de service</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700">Si vous avez réservé des services dans le logement que vous annulez, n'oubliez pas que vous devez les annuler séparément ou contacter l'hôte concerné afin de trouver une autre solution.</p>
+              </div>
+
+              <h3 id="remboursement" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Vérifiez si vous recevrez un remboursement avant d'annuler</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700">Découvrez les remboursements auxquels vous avez droit en cas d'annulation d'une réservation d'un logement. N'oubliez pas : le montant remboursé ne sera jamais supérieur au montant payé au moment de l'annulation. Vous pouvez connaître le montant du remboursement avant ou après l'annulation de la réservation.</p>
+              </div>
+
+              <h3 id="apres-arrivee" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Si vous annulez après l'arrivée</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700">Si vous annulez votre réservation après votre arrivée, vous devez quitter le logement immédiatement.</p>
+              </div>
+
+              <h3 id="probleme" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Si vous annulez en raison d'un problème pendant votre séjour</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700">Si vous rencontrez un problème pendant votre séjour, vous pouvez demander à l'hôte d'y remédier, demander un remboursement partiel ou l'annulation de la réservation pour bénéficier d'un remboursement intégral. Avant d'annuler votre séjour, consultez les options qui s'offrent à vous en cas de problème pendant votre séjour.</p>
+              </div>
+
+              <h3 id="service" className="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Comment puis-je annuler un service ou une expérience ?</h3>
+              <div className="bg-[#0F2940]/5 rounded-xl p-5">
+                <p className="text-gray-700">Vous souhaitez annuler un service ou une expérience ? En général, vous pouvez annuler gratuitement jusqu'à 1 jour (24 heures) avant le début du service ou de l'expérience. Toutefois, certains services et expériences vous permettent d'annuler et d'obtenir un remboursement intégral jusqu'à 3 jours (72 heures) avant l'heure de début. Découvrez comment annuler votre réservation de service ou d'expérience en tant que voyageur.</p>
+              </div>
+
+              <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+                <p className="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+                <div className="flex gap-4 mt-3">
+                  <button className="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium hover:bg-[#00b892] transition">Oui</button>
+                  <button className="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium hover:bg-gray-50 transition">Non</button>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6 mt-8">
+                <h4 className="font-semibold text-[#0F2940] mb-3">Sur le même sujet</h4>
+                <ul className="space-y-2">
+                  <li><a href="#" className="text-[#00c9a7] text-sm hover:underline flex items-center gap-2"><ArrowRight className="w-3 h-3" /> Trouvez les conditions d'annulation qui s'appliquent à tout logement, service ou expérience</a></li>
+                  <li><a href="#" className="text-[#00c9a7] text-sm hover:underline flex items-center gap-2"><ArrowRight className="w-3 h-3" /> Remboursement auquel vous avez droit lorsque vous annulez une réservation de logement</a></li>
+                  <li><a href="#" className="text-[#00c9a7] text-sm hover:underline flex items-center gap-2"><ArrowRight className="w-3 h-3" /> Consulter le montant de votre remboursement avant ou après l'annulation</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ========== DONNÉES DES ARTICLES D'AIDE ==========
+const articlesData: Record<string, { title: string; category: string; content: string }> = {
+  "annuler-reservation": {
+    title: "Annuler votre réservation de logement",
+    category: "Voyageur",
+    content: "" // Le contenu est géré directement dans le modal
+  },
+  "modes-paiement": {
+    title: "Modes de paiement acceptés",
+    category: "Voyageur",
+    content: `
+      <div class="space-y-6">
+        <p class="text-gray-700">Nous acceptons plusieurs modes de paiement. Dans la plupart des pays, vous pouvez payer avec les principales cartes de crédit, ainsi que les cartes de débit qui peuvent être traitées comme des cartes de crédit. Nous acceptons également les portefeuilles numériques comme mobile money, ainsi que les services en ligne tels que Mastercard, Visa. Quel que soit votre mode de paiement, assurez la sécurité de vos transactions en les effectuant toujours sur Bf-Immo.</p>
+        
+        <div class="bg-[#0F2940]/5 rounded-xl p-4 mb-4">
+          <h3 class="text-lg font-semibold text-[#0F2940] mb-3">Dans cet article</h3>
+          <ul class="grid md:grid-cols-2 gap-2 list-disc pl-5">
+            <li><a href="#fedapay" class="text-[#00c9a7] hover:underline">Paiement différé avec FedaPay</a></li>
+            <li><a href="#options" class="text-[#00c9a7] hover:underline">Options de paiement disponibles dans la plupart des pays</a></li>
+            <li><a href="#options-pays" class="text-[#00c9a7] hover:underline">Options de paiement disponibles dans certains pays</a></li>
+            <li><a href="#securite" class="text-[#00c9a7] hover:underline">Assurez la sécurité de vos paiements en les effectuant toujours sur Bf-Immo</a></li>
+          </ul>
+        </div>
+
+        <h3 id="fedapay" class="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Paiement différé avec FedaPay</h3>
+        <div class="bg-[#0F2940]/5 rounded-xl p-5">
+          <p class="text-gray-700">Les résidents des États-Unis et du Canada ont la possibilité de payer avec Fedapay, ce qui leur permet de régler en plusieurs fois plutôt qu'en une seule fois. Fedapay accepte toutes les principales cartes de débit et de crédit (comme Visa et Mastercard). Les cartes prépayées ne sont pas acceptées. En savoir plus sur le paiement avec Fedapay.</p>
+        </div>
+
+        <h3 id="options" class="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Options de paiement disponibles dans la plupart des pays</h3>
+        <div class="bg-[#0F2940]/5 rounded-xl p-5">
+          <ul class="list-disc pl-5 space-y-2 text-gray-700">
+            <li>Visa, MasterCard, et les cartes de débit qui peuvent être traitées comme des cartes de crédit</li>
+            <li>Apple Pay</li>
+            <li>Mobile money</li>
+          </ul>
+        </div>
+
+        <h3 id="options-pays" class="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Options de paiement disponibles dans certains pays</h3>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="bg-[#0F2940]/5 rounded-xl p-4"><p class="font-semibold text-[#0F2940]">FedaPay :</p><p class="text-gray-700 text-sm">Bénin, Togo, Côte d'Ivoire, Sénégal, Mali, Niger, Burkina Faso, Guinée</p></div>
+          <div class="bg-[#0F2940]/5 rounded-xl p-4"><p class="font-semibold text-[#0F2940]">Mobile money :</p><p class="text-gray-700 text-sm">Bénin, Ouganda, Rwanda, Cameroun, Zambie (déploiement progressif selon les pays)</p></div>
+          <div class="bg-[#0F2940]/5 rounded-xl p-4 col-span-2"><p class="font-semibold text-[#0F2940]">Visa & MasterCard :</p><p class="text-gray-700 text-sm">Acceptée dans plus de 200 pays et territoires dans le monde</p></div>
+        </div>
+
+        <h3 id="securite" class="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Assurez la sécurité de vos paiements en les effectuant toujours sur Bf-Immo</h3>
+        <div class="bg-[#0F2940]/5 rounded-xl p-5">
+          <p class="text-gray-700">Les paiements en espèces ou effectués en dehors du site vont à l'encontre de nos Conditions de service et peuvent conduire à une exclusion de la communauté Bf-Immo. Lorsque vous payez en dehors de la plateforme, il nous est plus difficile de protéger vos données et vous vous exposez à un risque accru de fraudes et de failles de sécurité.</p>
+        </div>
+
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+          <p class="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+          <div class="flex gap-4 mt-3"><button class="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium">Oui</button><button class="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium">Non</button></div>
+        </div>
+      </div>
+    `
+  },
+  "modifier-date": {
+    title: "Modifier la date ou l'heure de votre réservation",
+    category: "Voyageur",
+    content: `
+      <div class="space-y-6">
+        <p class="text-gray-700">Si vous avez réservé un service ou une expérience, mais que la date ou l'heure ne vous convient plus, ne vous inquiétez pas, il y a une solution ! Vous avez peut-être la possibilité de modifier votre réservation en fonction des disponibilités de l'hôte et de ses conditions d'annulation.</p>
+        
+        <div class="bg-[#0F2940]/5 rounded-xl p-4 mb-4">
+          <h3 class="text-lg font-semibold text-[#0F2940] mb-3">Dans cet article</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><a href="#reprogrammer" class="text-[#00c9a7] hover:underline">Reprogrammer si la période d'annulation de l'hôte n'est pas terminée</a></li>
+            <li><a href="#comment" class="text-[#00c9a7] hover:underline">Comment reprogrammer la réservation d'un service ou d'une expérience</a></li>
+            <li><a href="#demander" class="text-[#00c9a7] hover:underline">Demander une modification de votre réservation si la période d'annulation de l'hôte est terminée</a></li>
+          </ul>
+        </div>
+
+        <h3 id="reprogrammer" class="text-xl font-semibold text-[#0F2940] mt-8 mb-4 border-l-4 border-[#00c9a7] pl-3">Reprogrammer si la période d'annulation de l'hôte n'est pas terminée</h3>
+        <div class="bg-[#0F2940]/5 rounded-xl p-5">
+          <p class="text-gray-700">Si la période d'annulation gratuite de votre réservation de service ou d'expérience n'est pas encore terminée, vous pouvez reprogrammer et réserver n'importe quelle autre heure ou date disponibles sur le calendrier de l'hôte.</p>
+        </div>
+
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+          <p class="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+          <div class="flex gap-4 mt-3"><button class="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium">Oui</button><button class="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium">Non</button></div>
+        </div>
+      </div>
+    `
+  },
+  "hote-annule": {
+    title: "Si votre hôte annule votre réservation de logement",
+    category: "Voyageur",
+    content: `
+      <div class="space-y-6">
+        <p class="text-gray-700">Bien que cette situation soit rare, un hôte peut parfois devoir annuler une réservation. Rassurez-vous : si l'hôte annule votre réservation avant l'arrivée, vous recevez un remboursement intégral.</p>
+        
+        <div class="bg-[#0F2940]/5 rounded-xl p-4 mb-4">
+          <h3 class="text-lg font-semibold text-[#0F2940] mb-3">Dans cet article</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><a href="#remboursement" class="text-[#00c9a7] hover:underline">Votre remboursement si l'hôte annule</a></li>
+            <li><a href="#aide" class="text-[#00c9a7] hover:underline">Aide pour effectuer une nouvelle réservation</a></li>
+            <li><a href="#prevenir" class="text-[#00c9a7] hover:underline">Comment nous vous préviendrons</a></li>
+            <li><a href="#demande" class="text-[#00c9a7] hover:underline">Si votre hôte vous demande d'annuler</a></li>
+          </ul>
+        </div>
+
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+          <p class="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+          <div class="flex gap-4 mt-3"><button class="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium">Oui</button><button class="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium">Non</button></div>
+        </div>
+      </div>
+    `
+  },
+  "quand-payer": {
+    title: "Quand vous payerez votre réservation",
+    category: "Voyageur",
+    content: `
+      <div class="space-y-6">
+        <p class="text-gray-700">Vous souhaitez savoir quand le montant de votre réservation sera débité ? Tout dépend du type de réservation et du mode de paiement. Dans la plupart des cas, votre mode de paiement est débité dès la confirmation de votre réservation.</p>
+        
+        <div class="bg-[#0F2940]/5 rounded-xl p-4 mb-4">
+          <h3 class="text-lg font-semibold text-[#0F2940] mb-3">Dans cet article</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><a href="#sejour-court" class="text-[#00c9a7] hover:underline">Séjours de moins de 28 nuits</a></li>
+            <li><a href="#sejour-long" class="text-[#00c9a7] hover:underline">Séjours de 28 nuits ou plus</a></li>
+            <li><a href="#paiements-programmes" class="text-[#00c9a7] hover:underline">Réservations avec paiements programmés</a></li>
+          </ul>
+        </div>
+
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+          <p class="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+          <div class="flex gap-4 mt-3"><button class="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium">Oui</button><button class="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium">Non</button></div>
+        </div>
+      </div>
+    `
+  },
+  "comment-reserver": {
+    title: "Comment réserver un logement ?",
+    category: "Voyageur",
+    content: `
+      <div class="space-y-6">
+        <p class="text-gray-700">Réserver un logement sur Bf-Immo est simple et rapide. Suivez ces étapes :</p>
+        
+        <div class="space-y-4">
+          <div class="flex gap-4 items-start p-4 bg-[#0F2940]/5 rounded-xl">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">1</div>
+            <div><h3 class="font-semibold text-[#0F2940]">Recherchez votre destination</h3><p class="text-gray-600">Utilisez la barre de recherche.</p></div>
+          </div>
+          <div class="flex gap-4 items-start p-4 bg-[#0F2940]/5 rounded-xl">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">2</div>
+            <div><h3 class="font-semibold text-[#0F2940]">Choisissez vos dates</h3><p class="text-gray-600">Sélectionnez l'arrivée et le départ.</p></div>
+          </div>
+          <div class="flex gap-4 items-start p-4 bg-[#0F2940]/5 rounded-xl">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">3</div>
+            <div><h3 class="font-semibold text-[#0F2940]">Indiquez le nombre de voyageurs</h3><p class="text-gray-600">Précisez adultes, enfants, bébés.</p></div>
+          </div>
+          <div class="flex gap-4 items-start p-4 bg-[#0F2940]/5 rounded-xl">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">4</div>
+            <div><h3 class="font-semibold text-[#0F2940]">Parcourez les annonces</h3><p class="text-gray-600">Filtrez et trouvez le logement idéal.</p></div>
+          </div>
+          <div class="flex gap-4 items-start p-4 bg-[#0F2940]/5 rounded-xl">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">5</div>
+            <div><h3 class="font-semibold text-[#0F2940]">Réservez</h3><p class="text-gray-600">Confirmez et payez en toute sécurité.</p></div>
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-8">
+          <p class="font-medium text-[#0F2940]">Cet article vous a-t-il été utile ?</p>
+          <div class="flex gap-4 mt-3"><button class="px-5 py-2 bg-[#00c9a7] text-[#0F2940] rounded-full text-sm font-medium">Oui</button><button class="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium">Non</button></div>
+        </div>
+      </div>
+    `
+  }
+};
 
 
 const asset = (filename: string) => `/src/app/assets/${filename}`;
@@ -1002,182 +2217,182 @@ const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () =>
 
 
 
-const benefits = [
-  { title: "Publier facilement", description: "Ajoutez votre logement en quelques minutes et atteignez des voyageurs du monde entier.", icon: Home },
-  { title: "Gérer vos revenus", description: "Suivez vos réservations, vos gains et vos performances en temps réel.", icon: Sparkles },
-  { title: "Séjour sécurisé", description: "Bénéficiez d'un système de réservation sécurisé et d'un support fiable.", icon: ShieldCheck },
-];
+// const benefits = [
+//   { title: "Publier facilement", description: "Ajoutez votre logement en quelques minutes et atteignez des voyageurs du monde entier.", icon: Home },
+//   { title: "Gérer vos revenus", description: "Suivez vos réservations, vos gains et vos performances en temps réel.", icon: Sparkles },
+//   { title: "Séjour sécurisé", description: "Bénéficiez d'un système de réservation sécurisé et d'un support fiable.", icon: ShieldCheck },
+// ];
 
 // ========== COMPOSANT DE CONNEXION GOOGLE ==========
-const GoogleLoginModal = ({ onSuccess, onClose }: { onSuccess: (userData: any) => void; onClose: () => void }) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+// const GoogleLoginModal = ({ onSuccess, onClose }: { onSuccess: (userData: any) => void; onClose: () => void }) => {
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleGoogleLogin = () => {
-    onSuccess({
-      email: "deboralokossou.dev@gmail.com",
-      firstName: "Débora",
-      lastName: "LOKOSSOU",
-      googleId: "123456789"
-    });
-  };
+//   const handleGoogleLogin = () => {
+//     onSuccess({
+//       email: "deboralokossou.dev@gmail.com",
+//       firstName: "Débora",
+//       lastName: "LOKOSSOU",
+//       googleId: "123456789"
+//     });
+//   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#0F2940]">{isSignUp ? "Créer un compte" : "Se connecter"}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-        </div>
+//   return (
+//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+//       <div className="bg-white rounded-2xl max-w-md w-full p-6">
+//         <div className="flex justify-between items-center mb-6">
+//           <h2 className="text-2xl font-semibold text-[#0F2940]">{isSignUp ? "Créer un compte" : "Se connecter"}</h2>
+//           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
+//         </div>
         
-        <button onClick={handleGoogleLogin} className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-full py-3 px-4 hover:bg-gray-50 transition-colors mb-4">
-          <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-          <span className="font-medium">Continuer avec Google</span>
-        </button>
+//         <button onClick={handleGoogleLogin} className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-full py-3 px-4 hover:bg-gray-50 transition-colors mb-4">
+//           <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+//           <span className="font-medium">Continuer avec Google</span>
+//         </button>
         
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-          <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">ou</span></div>
-        </div>
+//         <div className="relative my-4">
+//           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+//           <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">ou</span></div>
+//         </div>
         
-        <input type="email" placeholder="Adresse e-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
-        <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
+//         <input type="email" placeholder="Adresse e-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
+//         <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
         
-        <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">{isSignUp ? "S'inscrire" : "Se connecter"}</button>
+//         <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">{isSignUp ? "S'inscrire" : "Se connecter"}</button>
         
-        <p className="text-center text-sm text-gray-500 mt-4">
-          {isSignUp ? "Déjà un compte ?" : "Pas encore de compte ?"}
-          <button onClick={() => setIsSignUp(!isSignUp)} className="ml-1 text-[#00c9a7] font-medium">{isSignUp ? "Se connecter" : "S'inscrire"}</button>
-        </p>
-      </div>
-    </div>
-  );
-};
+//         <p className="text-center text-sm text-gray-500 mt-4">
+//           {isSignUp ? "Déjà un compte ?" : "Pas encore de compte ?"}
+//           <button onClick={() => setIsSignUp(!isSignUp)} className="ml-1 text-[#00c9a7] font-medium">{isSignUp ? "Se connecter" : "S'inscrire"}</button>
+//         </p>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ========== FORMULAIRE D'INSCRIPTION ==========
-const RegistrationForm = ({ userData, onComplete, onBack }: { userData: any; onComplete: (data: any) => void; onBack: () => void }) => {
-  const [formData, setFormData] = useState({
-    firstName: userData?.firstName || "",
-    lastName: userData?.lastName || "",
-    birthDate: "",
-    email: userData?.email || "",
-    receivePromotions: false
-  });
+// const RegistrationForm = ({ userData, onComplete, onBack }: { userData: any; onComplete: (data: any) => void; onBack: () => void }) => {
+//   const [formData, setFormData] = useState({
+//     firstName: userData?.firstName || "",
+//     lastName: userData?.lastName || "",
+//     birthDate: "",
+//     email: userData?.email || "",
+//     receivePromotions: false
+//   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.firstName || !formData.lastName || !formData.birthDate || !formData.email) {
-      alert("Veuillez remplir tous les champs obligatoires");
-      return;
-    }
-    onComplete(formData);
-  };
+//   const handleSubmit = (e: React.FormEvent) => {
+//     e.preventDefault();
+//     if (!formData.firstName || !formData.lastName || !formData.birthDate || !formData.email) {
+//       alert("Veuillez remplir tous les champs obligatoires");
+//       return;
+//     }
+//     onComplete(formData);
+//   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto p-4">
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white rounded-3xl max-w-2xl w-full p-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-[#0F2940]">Maintenant, créons votre compte</h2>
-            <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-          </div>
-          <p className="text-gray-600 mb-6">Ces informations sont obligatoires pour effectuer une réservation ou accueillir des voyageurs.</p>
+//   return (
+//     <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto p-4">
+//       <div className="min-h-screen flex items-center justify-center">
+//         <div className="bg-white rounded-3xl max-w-2xl w-full p-8">
+//           <div className="flex justify-between items-center mb-6">
+//             <h2 className="text-2xl font-semibold text-[#0F2940]">Maintenant, créons votre compte</h2>
+//             <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
+//           </div>
+//           <p className="text-gray-600 mb-6">Ces informations sont obligatoires pour effectuer une réservation ou accueillir des voyageurs.</p>
           
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nom officiel</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div><input type="text" placeholder="Prénom" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
-                <div><input type="text" placeholder="Nom" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">Veillez à ce que le nom corresponde à celui qui figure sur votre pièce d'identité.</p>
-            </div>
+//           <form onSubmit={handleSubmit}>
+//             <div className="mb-6">
+//               <label className="block text-sm font-medium text-gray-700 mb-2">Nom officiel</label>
+//               <div className="grid grid-cols-2 gap-4">
+//                 <div><input type="text" placeholder="Prénom" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
+//                 <div><input type="text" placeholder="Nom" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
+//               </div>
+//               <p className="text-xs text-gray-500 mt-2">Veillez à ce que le nom corresponde à celui qui figure sur votre pièce d'identité.</p>
+//             </div>
             
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date de naissance</label>
-              <input type="date" value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
-            </div>
+//             <div className="mb-6">
+//               <label className="block text-sm font-medium text-gray-700 mb-2">Date de naissance</label>
+//               <input type="date" value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
+//             </div>
             
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail</label>
-              <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
-              <p className="text-xs text-gray-500 mt-2">Nous vous enverrons vos confirmations de voyage et vos reçus par e-mail.</p>
-            </div>
+//             <div className="mb-6">
+//               <label className="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail</label>
+//               <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
+//               <p className="text-xs text-gray-500 mt-2">Nous vous enverrons vos confirmations de voyage et vos reçus par e-mail.</p>
+//             </div>
             
-            {userData?.googleId && <p className="text-sm text-gray-500 mb-4">Toutes les informations préremplies proviennent de Google.</p>}
+//             {userData?.googleId && <p className="text-sm text-gray-500 mb-4">Toutes les informations préremplies proviennent de Google.</p>}
             
-            <div className="mb-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={formData.receivePromotions} onChange={(e) => setFormData({...formData, receivePromotions: e.target.checked})} className="w-4 h-4 rounded border-gray-300 focus:ring-[#00c9a7]" />
-                <span className="text-sm text-gray-600">Je ne souhaite pas recevoir de promotions Airbnb.</span>
-              </label>
-            </div>
+//             <div className="mb-6">
+//               <label className="flex items-center gap-2 cursor-pointer">
+//                 <input type="checkbox" checked={formData.receivePromotions} onChange={(e) => setFormData({...formData, receivePromotions: e.target.checked})} className="w-4 h-4 rounded border-gray-300 focus:ring-[#00c9a7]" />
+//                 <span className="text-sm text-gray-600">Je ne souhaite pas recevoir de promotions Airbnb.</span>
+//               </label>
+//             </div>
             
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <p className="text-xs text-gray-500">En sélectionnant Accepter et continuer, j'accepte les Conditions de service, les Conditions de service relatives aux paiements et la Politique de non-discrimination et je reconnais avoir pris connaissance de la Politique de confidentialité.</p>
-            </div>
+//             <div className="bg-gray-50 rounded-xl p-4 mb-6">
+//               <p className="text-xs text-gray-500">En sélectionnant Accepter et continuer, j'accepte les Conditions de service, les Conditions de service relatives aux paiements et la Politique de non-discrimination et je reconnais avoir pris connaissance de la Politique de confidentialité.</p>
+//             </div>
             
-            <button type="submit" className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter et continuer</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-};
+//             <button type="submit" className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter et continuer</button>
+//           </form>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ========== ENGAGEMENT COMMUNAUTAIRE ==========
-const CommunityCommitment = ({ onAccept, onBack }: { onAccept: () => void; onBack: () => void }) => {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-lg w-full p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#0F2940]">Tout le monde a sa place ici</h2>
-          <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-        </div>
-        <p className="text-gray-700 mb-4">Lorsque vous rejoignez Airbnb, nous vous demandons d'accepter notre engagement de la communauté :</p>
-        <div className="bg-[#f4fffe] rounded-xl p-6 mb-6">
-          <p className="text-[#0F2940] italic">"Je m'engage à traiter avec respect et sans préjugés chacun des membres de la communauté, quels que soient sa couleur de peau, sa religion, sa nationalité, son origine, son handicap, son sexe, son identité de genre, son orientation sexuelle ou son âge."</p>
-        </div>
-        <button onClick={onAccept} className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter</button>
-      </div>
-    </div>
-  );
-};
+// const CommunityCommitment = ({ onAccept, onBack }: { onAccept: () => void; onBack: () => void }) => {
+//   return (
+//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+//       <div className="bg-white rounded-3xl max-w-lg w-full p-8">
+//         <div className="flex justify-between items-center mb-6">
+//           <h2 className="text-2xl font-semibold text-[#0F2940]">Tout le monde a sa place ici</h2>
+//           <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
+//         </div>
+//         <p className="text-gray-700 mb-4">Lorsque vous rejoignez Airbnb, nous vous demandons d'accepter notre engagement de la communauté :</p>
+//         <div className="bg-[#f4fffe] rounded-xl p-6 mb-6">
+//           <p className="text-[#0F2940] italic">"Je m'engage à traiter avec respect et sans préjugés chacun des membres de la communauté, quels que soient sa couleur de peau, sa religion, sa nationalité, son origine, son handicap, son sexe, son identité de genre, son orientation sexuelle ou son âge."</p>
+//         </div>
+//         <button onClick={onAccept} className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter</button>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ========== ÉTAPES FACILES ==========
-const EasySteps = ({ onContinue, onQuit }: { onContinue: () => void; onQuit: () => void }) => {
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#0F2940]">Commencer sur Airbnb, c'est facile</h2>
-          <button onClick={onQuit} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-        </div>
+// const EasySteps = ({ onContinue, onQuit }: { onContinue: () => void; onQuit: () => void }) => {
+//   return (
+//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+//       <div className="bg-white rounded-3xl max-w-md w-full p-8">
+//         <div className="flex justify-between items-center mb-6">
+//           <h2 className="text-2xl font-semibold text-[#0F2940]">Commencer sur Airbnb, c'est facile</h2>
+//           <button onClick={onQuit} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
+//         </div>
         
-        <div className="space-y-6">
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">1</div>
-            <div><h3 className="font-semibold text-[#0F2940]">Parlez-nous de votre logement</h3><p className="text-sm text-gray-600">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p></div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">2</div>
-            <div><h3 className="font-semibold text-[#0F2940]">Faites en sorte de vous démarquer</h3><p className="text-sm text-gray-600">Ajoutez au moins 5 photos, un titre et une description. Nous allons vous aider.</p></div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">3</div>
-            <div><h3 className="font-semibold text-[#0F2940]">Terminez et publiez</h3><p className="text-sm text-gray-600">Choisissez un prix de départ, vérifiez quelques détails, puis publiez votre annonce.</p></div>
-          </div>
-        </div>
+//         <div className="space-y-6">
+//           <div className="flex gap-4">
+//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">1</div>
+//             <div><h3 className="font-semibold text-[#0F2940]">Parlez-nous de votre logement</h3><p className="text-sm text-gray-600">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p></div>
+//           </div>
+//           <div className="flex gap-4">
+//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">2</div>
+//             <div><h3 className="font-semibold text-[#0F2940]">Faites en sorte de vous démarquer</h3><p className="text-sm text-gray-600">Ajoutez au moins 5 photos, un titre et une description. Nous allons vous aider.</p></div>
+//           </div>
+//           <div className="flex gap-4">
+//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">3</div>
+//             <div><h3 className="font-semibold text-[#0F2940]">Terminez et publiez</h3><p className="text-sm text-gray-600">Choisissez un prix de départ, vérifiez quelques détails, puis publiez votre annonce.</p></div>
+//           </div>
+//         </div>
         
-        <div className="flex gap-3 mt-8">
-          <button onClick={onQuit} className="flex-1 border border-gray-300 py-3 rounded-full text-[#0F2940] hover:bg-gray-50 transition-colors">Quitter</button>
-          <button onClick={onContinue} className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Commencer</button>
-        </div>
-      </div>
-    </div>
-  );
-};
+//         <div className="flex gap-3 mt-8">
+//           <button onClick={onQuit} className="flex-1 border border-gray-300 py-3 rounded-full text-[#0F2940] hover:bg-gray-50 transition-colors">Quitter</button>
+//           <button onClick={onContinue} className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Commencer</button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ========== MODAL DE RECHERCHE DE LOCALISATION ==========
 const LocationSearchModal = ({ onClose, onCoHostAvailable }: { onClose: () => void; onCoHostAvailable: (available: boolean) => void }) => {
@@ -1226,160 +2441,160 @@ const LocationSearchModal = ({ onClose, onCoHostAvailable }: { onClose: () => vo
 };
 
 // ========== FORMULAIRE PRINCIPAL DE LOGEMENT ==========
-const PropertyForm = ({ onSaveAndQuit, userData, onGoToDashboard }: { onSaveAndQuit: () => void; userData: any; onGoToDashboard: () => void }) => {
-  const [step, setStep] = useState(1);
-  const [showHelpModal, setShowHelpModal] = useState(false);
-  const [coHostAvailable, setCoHostAvailable] = useState<boolean | null>(null);
-  const [formData, setFormData] = useState({
-    propertyType: "", guests: 1, bedrooms: 1, beds: 1, bathrooms: 1, address: "", city: "", photos: [] as string[], title: "", description: "", price: 50
-  });
-  const [showLocationModal, setShowLocationModal] = useState(false);
-  const totalSteps = 3;
+// const PropertyForm = ({ onSaveAndQuit, userData, onGoToDashboard }: { onSaveAndQuit: () => void; userData: any; onGoToDashboard: () => void }) => {
+//   const [step, setStep] = useState(1);
+//   const [showHelpModal, setShowHelpModal] = useState(false);
+//   const [coHostAvailable, setCoHostAvailable] = useState<boolean | null>(null);
+//   const [formData, setFormData] = useState({
+//     propertyType: "", guests: 1, bedrooms: 1, beds: 1, bathrooms: 1, address: "", city: "", photos: [] as string[], title: "", description: "", price: 50
+//   });
+//   const [showLocationModal, setShowLocationModal] = useState(false);
+//   const totalSteps = 3;
 
-  const handleNext = () => { if (step < totalSteps) setStep(step + 1); };
-  const handlePrev = () => { if (step > 1) setStep(step - 1); };
-  const handleCheckCoHost = () => setShowLocationModal(true);
-  const handleSaveAndQuit = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onSaveAndQuit(); };
-  const handleGoToDashboard = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onGoToDashboard(); };
+//   const handleNext = () => { if (step < totalSteps) setStep(step + 1); };
+//   const handlePrev = () => { if (step > 1) setStep(step - 1); };
+//   const handleCheckCoHost = () => setShowLocationModal(true);
+//   const handleSaveAndQuit = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onSaveAndQuit(); };
+//   const handleGoToDashboard = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onGoToDashboard(); };
 
-  if (showLocationModal) return <LocationSearchModal onClose={() => setShowLocationModal(false)} onCoHostAvailable={setCoHostAvailable} />;
+//   if (showLocationModal) return <LocationSearchModal onClose={() => setShowLocationModal(false)} onCoHostAvailable={setCoHostAvailable} />;
 
-  return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex justify-between items-center z-20">
-        <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 text-[#00c9a7]"><HelpCircle className="w-5 h-5" />Questions</button>
-        <div className="flex items-center gap-2"><div className="text-sm text-gray-500">Étape {step}/{totalSteps}</div><button onClick={handleSaveAndQuit} className="text-sm text-gray-500 hover:text-gray-700">Enregistrer et quitter</button></div>
-      </div>
+//   return (
+//     <div className="min-h-screen bg-white">
+//       <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex justify-between items-center z-20">
+//         <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 text-[#00c9a7]"><HelpCircle className="w-5 h-5" />Questions</button>
+//         <div className="flex items-center gap-2"><div className="text-sm text-gray-500">Étape {step}/{totalSteps}</div><button onClick={handleSaveAndQuit} className="text-sm text-gray-500 hover:text-gray-700">Enregistrer et quitter</button></div>
+//       </div>
 
-      <div className="max-w-6xl mx-auto p-8">
-        {step === 1 && (
-          <div className="grid lg:grid-cols-2 gap-8 items-start">
-            <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3f5c] rounded-3xl p-8 text-white">
-              <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80" alt="Immeuble" className="w-full h-64 object-cover rounded-2xl mb-6" />
-              <h3 className="text-2xl font-bold mb-2">Parlez-nous de votre logement</h3>
-              <p className="text-white/80">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p>
-            </div>
-            <div className="space-y-6">
-              <div><label className="block text-sm font-medium mb-2">Type de logement</label><select value={formData.propertyType} onChange={(e) => setFormData({...formData, propertyType: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl"><option value="">Sélectionnez</option><option>Appartement</option><option>Maison</option><option>Villa</option><option>Studio</option><option>Chambre privée</option></select></div>
-              <div><label className="block text-sm font-medium mb-2">Nombre de voyageurs</label><input type="number" value={formData.guests} onChange={(e) => setFormData({...formData, guests: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
-              <div className="grid grid-cols-3 gap-4"><div><label>Chambres</label><input type="number" value={formData.bedrooms} onChange={(e) => setFormData({...formData, bedrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Lits</label><input type="number" value={formData.beds} onChange={(e) => setFormData({...formData, beds: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Salles de bain</label><input type="number" value={formData.bathrooms} onChange={(e) => setFormData({...formData, bathrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" step="0.5" min="0.5" /></div></div>
-              <div><label className="block text-sm font-medium mb-2">Adresse</label><input type="text" placeholder="Rue, numéro" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-              <div><label className="block text-sm font-medium mb-2">Ville</label><input type="text" placeholder="Cotonou, Porto-Novo, etc." value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-            </div>
-          </div>
-        )}
+//       <div className="max-w-6xl mx-auto p-8">
+//         {step === 1 && (
+//           <div className="grid lg:grid-cols-2 gap-8 items-start">
+//             <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3f5c] rounded-3xl p-8 text-white">
+//               <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80" alt="Immeuble" className="w-full h-64 object-cover rounded-2xl mb-6" />
+//               <h3 className="text-2xl font-bold mb-2">Parlez-nous de votre logement</h3>
+//               <p className="text-white/80">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p>
+//             </div>
+//             <div className="space-y-6">
+//               <div><label className="block text-sm font-medium mb-2">Type de logement</label><select value={formData.propertyType} onChange={(e) => setFormData({...formData, propertyType: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl"><option value="">Sélectionnez</option><option>Appartement</option><option>Maison</option><option>Villa</option><option>Studio</option><option>Chambre privée</option></select></div>
+//               <div><label className="block text-sm font-medium mb-2">Nombre de voyageurs</label><input type="number" value={formData.guests} onChange={(e) => setFormData({...formData, guests: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
+//               <div className="grid grid-cols-3 gap-4"><div><label>Chambres</label><input type="number" value={formData.bedrooms} onChange={(e) => setFormData({...formData, bedrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Lits</label><input type="number" value={formData.beds} onChange={(e) => setFormData({...formData, beds: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Salles de bain</label><input type="number" value={formData.bathrooms} onChange={(e) => setFormData({...formData, bathrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" step="0.5" min="0.5" /></div></div>
+//               <div><label className="block text-sm font-medium mb-2">Adresse</label><input type="text" placeholder="Rue, numéro" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
+//               <div><label className="block text-sm font-medium mb-2">Ville</label><input type="text" placeholder="Cotonou, Porto-Novo, etc." value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
+//             </div>
+//           </div>
+//         )}
 
-        {step === 2 && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div><label className="block text-sm font-medium mb-2">Photos (au moins 5)</label><div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center"><Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" /><p className="text-sm text-gray-500">Cliquez ou glissez pour ajouter des photos</p><p className="text-xs text-gray-400 mt-1">Ajoutez au moins 5 photos pour vous démarquer</p></div></div>
-            <div><label className="block text-sm font-medium mb-2">Titre de l'annonce</label><input type="text" placeholder="Un titre accrocheur" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-            <div><label className="block text-sm font-medium mb-2">Description</label><textarea rows={5} placeholder="Décrivez votre logement, ses atouts, le quartier..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-          </div>
-        )}
+//         {step === 2 && (
+//           <div className="max-w-3xl mx-auto space-y-6">
+//             <div><label className="block text-sm font-medium mb-2">Photos (au moins 5)</label><div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center"><Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" /><p className="text-sm text-gray-500">Cliquez ou glissez pour ajouter des photos</p><p className="text-xs text-gray-400 mt-1">Ajoutez au moins 5 photos pour vous démarquer</p></div></div>
+//             <div><label className="block text-sm font-medium mb-2">Titre de l'annonce</label><input type="text" placeholder="Un titre accrocheur" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
+//             <div><label className="block text-sm font-medium mb-2">Description</label><textarea rows={5} placeholder="Décrivez votre logement, ses atouts, le quartier..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
+//           </div>
+//         )}
 
-        {step === 3 && (
-          <div className="max-w-3xl mx-auto space-y-6">
-            <div><label className="block text-sm font-medium mb-2">Prix par nuit (FCFA)</label><input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
-            <div className="bg-gray-50 rounded-xl p-4"><h3 className="font-semibold mb-2">Récapitulatif</h3><div className="space-y-2 text-sm"><p><span className="text-gray-500">Type :</span> {formData.propertyType || "Non renseigné"}</p><p><span className="text-gray-500">Voyageurs :</span> {formData.guests}</p><p><span className="text-gray-500">Chambres/Lits/SDB :</span> {formData.bedrooms}/{formData.beds}/{formData.bathrooms}</p><p><span className="text-gray-500">Adresse :</span> {formData.address}, {formData.city}</p><p><span className="text-gray-500">Prix :</span> {formData.price} FCFA / nuit</p></div></div>
-            <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Publier l'annonce</button>
-          </div>
-        )}
+//         {step === 3 && (
+//           <div className="max-w-3xl mx-auto space-y-6">
+//             <div><label className="block text-sm font-medium mb-2">Prix par nuit (FCFA)</label><input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
+//             <div className="bg-gray-50 rounded-xl p-4"><h3 className="font-semibold mb-2">Récapitulatif</h3><div className="space-y-2 text-sm"><p><span className="text-gray-500">Type :</span> {formData.propertyType || "Non renseigné"}</p><p><span className="text-gray-500">Voyageurs :</span> {formData.guests}</p><p><span className="text-gray-500">Chambres/Lits/SDB :</span> {formData.bedrooms}/{formData.beds}/{formData.bathrooms}</p><p><span className="text-gray-500">Adresse :</span> {formData.address}, {formData.city}</p><p><span className="text-gray-500">Prix :</span> {formData.price} FCFA / nuit</p></div></div>
+//             <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Publier l'annonce</button>
+//           </div>
+//         )}
 
-        <div className="flex justify-between mt-8 pt-4 border-t">
-          <button onClick={handlePrev} disabled={step === 1} className={`px-6 py-2 rounded-full ${step === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border border-gray-300 hover:bg-gray-50"}`}><ChevronLeft className="w-5 h-5 inline" /> Retour</button>
-          <button onClick={handleNext} disabled={step === totalSteps} className={`px-6 py-2 rounded-full ${step === totalSteps ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#00c9a7] text-[#0F2940] font-semibold"}`}>Suivant <ChevronRight className="w-5 h-5 inline" /></button>
-        </div>
-      </div>
+//         <div className="flex justify-between mt-8 pt-4 border-t">
+//           <button onClick={handlePrev} disabled={step === 1} className={`px-6 py-2 rounded-full ${step === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border border-gray-300 hover:bg-gray-50"}`}><ChevronLeft className="w-5 h-5 inline" /> Retour</button>
+//           <button onClick={handleNext} disabled={step === totalSteps} className={`px-6 py-2 rounded-full ${step === totalSteps ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#00c9a7] text-[#0F2940] font-semibold"}`}>Suivant <ChevronRight className="w-5 h-5 inline" /></button>
+//         </div>
+//       </div>
 
-      {showHelpModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold text-[#0F2940]">Des questions ?</h2><button onClick={() => setShowHelpModal(false)} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button></div>
-            <button onClick={handleCheckCoHost} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border mb-3"><div className="flex items-center gap-3"><MessageCircle className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Discutez avec un Superhôte</h3><p className="text-xs text-gray-500">Recevez des réponses à vos questions rapidement.</p></div></div></button>
-            <button onClick={handleGoToDashboard} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border"><div className="flex items-center gap-3"><UserPlus className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Faites appel à un co-hôte local</h3><p className="text-xs text-gray-500">Gérez votre logement avec un co-hôte professionnel.</p></div></div></button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+//       {showHelpModal && (
+//         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+//           <div className="bg-white rounded-3xl max-w-md w-full p-6">
+//             <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold text-[#0F2940]">Des questions ?</h2><button onClick={() => setShowHelpModal(false)} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button></div>
+//             <button onClick={handleCheckCoHost} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border mb-3"><div className="flex items-center gap-3"><MessageCircle className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Discutez avec un Superhôte</h3><p className="text-xs text-gray-500">Recevez des réponses à vos questions rapidement.</p></div></div></button>
+//             <button onClick={handleGoToDashboard} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border"><div className="flex items-center gap-3"><UserPlus className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Faites appel à un co-hôte local</h3><p className="text-xs text-gray-500">Gérez votre logement avec un co-hôte professionnel.</p></div></div></button>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
 
 // ========== DASHBOARD HÔTE ==========
-const HostDashboard = ({ onLogout, userData }: { onLogout: () => void; userData: any }) => {
-  const [activeTab, setActiveTab] = useState<"today" | "calendar" | "listings" | "messages">("today");
+// const HostDashboard = ({ onLogout, userData }: { onLogout: () => void; userData: any }) => {
+//   const [activeTab, setActiveTab] = useState<"today" | "calendar" | "listings" | "messages">("today");
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-5 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button onClick={onLogout} className="text-gray-500 hover:text-gray-700"><ArrowLeft className="w-5 h-5" /></button>
-            <h1 className="text-xl font-semibold text-[#0F2940]">Espace hôte</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-sm hover:bg-gray-200">
-              <User className="w-4 h-4" /> {userData?.firstName || "Hôte"}
-            </button>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-5 pb-2 flex gap-1 overflow-x-auto">
-          <button onClick={() => setActiveTab("today")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "today" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Aujourd'hui</button>
-          <button onClick={() => setActiveTab("calendar")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "calendar" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Calendrier</button>
-          <button onClick={() => setActiveTab("listings")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "listings" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Annonces</button>
-          <button onClick={() => setActiveTab("messages")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "messages" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Messages</button>
-        </div>
-      </div>
+//   return (
+//     <div className="min-h-screen bg-gray-50">
+//       <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+//         <div className="max-w-7xl mx-auto px-5 py-4 flex justify-between items-center">
+//           <div className="flex items-center gap-4">
+//             <button onClick={onLogout} className="text-gray-500 hover:text-gray-700"><ArrowLeft className="w-5 h-5" /></button>
+//             <h1 className="text-xl font-semibold text-[#0F2940]">Espace hôte</h1>
+//           </div>
+//           <div className="flex items-center gap-3">
+//             <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-sm hover:bg-gray-200">
+//               <User className="w-4 h-4" /> {userData?.firstName || "Hôte"}
+//             </button>
+//           </div>
+//         </div>
+//         <div className="max-w-7xl mx-auto px-5 pb-2 flex gap-1 overflow-x-auto">
+//           <button onClick={() => setActiveTab("today")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "today" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Aujourd'hui</button>
+//           <button onClick={() => setActiveTab("calendar")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "calendar" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Calendrier</button>
+//           <button onClick={() => setActiveTab("listings")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "listings" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Annonces</button>
+//           <button onClick={() => setActiveTab("messages")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "messages" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Messages</button>
+//         </div>
+//       </div>
 
-      <div className="max-w-7xl mx-auto p-5">
-        {activeTab === "today" && (
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] rounded-2xl p-6 text-white">
-                <h2 className="text-2xl font-bold mb-2">Bienvenue, {userData?.firstName || "Hôte"} !</h2>
-                <p className="text-white/80">Votre espace de gestion vous permet de suivre vos réservations, gérer vos annonces et communiquer avec vos voyageurs.</p>
-              </div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <h3 className="font-semibold text-[#0F2940] mb-4">Résumé de votre activité</h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Annonces</p></div>
-                  <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Réservations</p></div>
-                  <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Messages</p></div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="font-semibold text-[#0F2940] mb-3">Conseils pour bien démarrer</h3>
-              <ul className="space-y-3 text-sm text-gray-600"><li>✓ Complétez votre profil</li><li>✓ Ajoutez des photos de qualité</li><li>✓ Définissez un prix compétitif</li><li>✓ Répondez rapidement aux messages</li></ul>
-            </div>
-          </div>
-        )}
+//       <div className="max-w-7xl mx-auto p-5">
+//         {activeTab === "today" && (
+//           <div className="grid lg:grid-cols-3 gap-6">
+//             <div className="lg:col-span-2 space-y-6">
+//               <div className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] rounded-2xl p-6 text-white">
+//                 <h2 className="text-2xl font-bold mb-2">Bienvenue, {userData?.firstName || "Hôte"} !</h2>
+//                 <p className="text-white/80">Votre espace de gestion vous permet de suivre vos réservations, gérer vos annonces et communiquer avec vos voyageurs.</p>
+//               </div>
+//               <div className="bg-white rounded-2xl p-6 shadow-sm">
+//                 <h3 className="font-semibold text-[#0F2940] mb-4">Résumé de votre activité</h3>
+//                 <div className="grid grid-cols-3 gap-4 text-center">
+//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Annonces</p></div>
+//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Réservations</p></div>
+//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Messages</p></div>
+//                 </div>
+//               </div>
+//             </div>
+//             <div className="bg-white rounded-2xl p-6 shadow-sm">
+//               <h3 className="font-semibold text-[#0F2940] mb-3">Conseils pour bien démarrer</h3>
+//               <ul className="space-y-3 text-sm text-gray-600"><li>✓ Complétez votre profil</li><li>✓ Ajoutez des photos de qualité</li><li>✓ Définissez un prix compétitif</li><li>✓ Répondez rapidement aux messages</li></ul>
+//             </div>
+//           </div>
+//         )}
 
-        {activeTab === "calendar" && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-[#0F2940] mb-4">Calendrier des disponibilités</h2>
-            <div className="grid grid-cols-7 gap-2">
-              {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(day => <div key={day} className="text-center font-medium py-2">{day}</div>)}
-              {Array.from({ length: 35 }).map((_, i) => (<div key={i} className="text-center p-3 border rounded-xl hover:bg-gray-50 cursor-pointer"><span className="text-sm">{i + 1}</span></div>))}
-            </div>
-          </div>
-        )}
+//         {activeTab === "calendar" && (
+//           <div className="bg-white rounded-2xl p-6 shadow-sm">
+//             <h2 className="text-xl font-semibold text-[#0F2940] mb-4">Calendrier des disponibilités</h2>
+//             <div className="grid grid-cols-7 gap-2">
+//               {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(day => <div key={day} className="text-center font-medium py-2">{day}</div>)}
+//               {Array.from({ length: 35 }).map((_, i) => (<div key={i} className="text-center p-3 border rounded-xl hover:bg-gray-50 cursor-pointer"><span className="text-sm">{i + 1}</span></div>))}
+//             </div>
+//           </div>
+//         )}
 
-        {activeTab === "listings" && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
-            <p className="text-gray-500 mb-4">Vous n'avez pas encore d'annonce</p>
-            <button className="bg-[#00c9a7] text-[#0F2940] px-6 py-2 rounded-full font-semibold">Créer ma première annonce</button>
-          </div>
-        )}
+//         {activeTab === "listings" && (
+//           <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
+//             <p className="text-gray-500 mb-4">Vous n'avez pas encore d'annonce</p>
+//             <button className="bg-[#00c9a7] text-[#0F2940] px-6 py-2 rounded-full font-semibold">Créer ma première annonce</button>
+//           </div>
+//         )}
 
-        {activeTab === "messages" && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
-            <p className="text-gray-500">Aucun message pour le moment</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+//         {activeTab === "messages" && (
+//           <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
+//             <p className="text-gray-500">Aucun message pour le moment</p>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
 
 
 // Types pour l'utilisateur
@@ -1522,10 +2737,48 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  // Dans PropertyDetailModal, remplacez la section des images par :
+
+// Générer des images variées pour une propriété si elle n'en a pas
+const getPropertyImages = (property: HotelProperty): string[] => {
+  // Si la propriété a déjà des images, les utiliser
+  if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+    return property.images;
+  }
+  
+  // Sinon, générer des images variées basées sur l'ID ou le titre
+  const baseImage = property.image;
+  const imageVariants = [
+    baseImage,
+    // Images thématiques selon le type de logement
+    property.type === 'Villa' ? 'https://images.unsplash.com/photo-1613977257363-707ba9347c6c?w=800&q=80' :
+    property.type === 'Appartement' ? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80' :
+    property.type === 'Studio' ? 'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80' :
+    'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+    'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80',
+    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
+    'https://images.unsplash.com/photo-1494526585095-c41746248156?w=800&q=80'
+  ];
+  
+  // Éviter les doublons et s'assurer d'avoir au moins 5 images
+  const uniqueImages = [...new Set(imageVariants)];
+  while (uniqueImages.length < 5) {
+    uniqueImages.push(baseImage);
+  }
+  
+  return uniqueImages.slice(0, 5);
+};
+
+// Utilisation dans le composant :
+const images = getPropertyImages(property);
+
+  // ✅ AJOUTEZ CECI : Valeur de prix sécurisée (gère priceNumber ou price)
+  const nightlyPrice = property.priceNumber || property.price || 0;
+  
   // Valeurs par défaut pour éviter les erreurs
-  const images = property.images && Array.isArray(property.images) && property.images.length > 0 
-    ? property.images 
-    : [property.image, property.image, property.image, property.image, property.image];
+  // const images = property.images && Array.isArray(property.images) && property.images.length > 0 
+  //   ? property.images 
+  //   : [property.image, property.image, property.image, property.image, property.image];
     
   const host = property.host || "Hôte vérifié";
   const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
@@ -1541,8 +2794,9 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
+  // ✅ UTILISEZ nightlyPrice AU LIEU DE property.priceNumber
   const nights = 2;
-  const subtotal = property.priceNumber * nights;
+  const subtotal = nightlyPrice * nights;
   const cleaningFee = 15000;
   const serviceFee = 12000;
   const total = subtotal + cleaningFee + serviceFee;
@@ -1615,7 +2869,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               {/* Informations principales */}
               <div className="border-b pb-4">
                 <div className="text-sm text-gray-500">
-                  Hôtel de luxe · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
+                  {property.type || 'Logement'} · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
                 </div>
                 <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
                 <div className="flex items-center gap-2 mt-2">
@@ -1632,7 +2886,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                 <Crown className="w-10 h-10 text-[#00c9a7]" />
                 <div>
                   <div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div>
-                  <div className="text-gray-600">Un des hôtels préférés des voyageurs au Bénin</div>
+                  <div className="text-gray-600">Un des logements préférés des voyageurs au Bénin</div>
                 </div>
               </div>
 
@@ -1667,7 +2921,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               {/* Équipements */}
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-xl text-[#0F2940]">Équipements premium</h3>
+                  <h3 className="font-semibold text-xl text-[#0F2940]">Équipements</h3>
                   <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
                     Voir tout
                   </button>
@@ -1687,7 +2941,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                   <Sparkles className="w-6 h-6 text-[#00c9a7]" />
                   Ce que nos clients disent
                 </h3>
-                <div>
+                <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
                   <div className="flex flex-col md:flex-row gap-6 items-start">
                     <div className="relative">
                       <img 
@@ -1719,7 +2973,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               {/* Calendrier */}
               <div className="border rounded-xl p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location.split(',')[0]}</h3>
+                  <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location?.split(',')[0] || property.location}</h3>
                   <button onClick={() => setShowCalendar(!showCalendar)} className="text-[#00c9a7] text-sm underline">
                     Sélectionner
                   </button>
@@ -1738,13 +2992,14 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               </div>
             </div>
 
-            {/* Colonne de droite - Réservation + 4 images supplémentaires */}
+            {/* Colonne de droite - Réservation */}
             <div className="lg:col-span-1 space-y-6">
               {/* Bloc de réservation */}
               <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="text-3xl font-bold text-[#0F2940]">{property.priceNumber.toLocaleString()} FCFA</span>
+                    {/* ✅ UTILISEZ nightlyPrice ICI */}
+                    <span className="text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
                     <span className="text-gray-500"> / nuit</span>
                   </div>
                   <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full">
@@ -1764,7 +3019,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                   </div>
                   <div className="p-3 border-t">
                     <div className="text-xs font-bold text-gray-500 uppercase">Voyageurs</div>
-                    <div className="font-medium">{guests} adulte</div>
+                    <div className="font-medium">{guests} adulte{guests > 1 ? 's' : ''}</div>
                   </div>
                 </div>
                 <div className="space-y-3 mb-5">
@@ -1792,7 +3047,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                 <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
               </div>
 
-              {/* 4 images supplémentaires à côté de la carte */}
+              {/* 4 images supplémentaires */}
               <div className="border rounded-2xl p-4 bg-gray-50">
                 <h3 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
                   <Camera className="w-4 h-4 text-[#00c9a7]" />
@@ -1822,7 +3077,6 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
     </div>
   );
 };
-
 // const PropertyCard = ({ property, showDescription = false, onNavigate }: any) => (
 //   <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
 //     <div className="relative overflow-hidden rounded-2xl">
@@ -1861,6 +3115,9 @@ export function HomePage({ onNavigate }: PageProps) {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchDestination, setSearchDestination] = useState('');
   const [destination, setDestination] = useState('');
+
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  console.log('❤️ Nombre de favoris:', favorites.length);
 
   const filterByDestination = (properties: any[]) => {
     if (!searchDestination) return properties;
@@ -1901,38 +3158,73 @@ export function HomePage({ onNavigate }: PageProps) {
     { title: 'Grand-Popo', key: 'grandpopo', properties: applyFilters(grandpopoProperties) },
   ].filter((cat) => cat.properties.length > 0);
 
-  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => (
-    <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-      <div className="relative overflow-hidden rounded-2xl">
-        <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-        <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
-          <Heart className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="mt-3">
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Star className="w-4 h-4 text-[#00c9a7]" />
-            <span className="font-medium text-[#0F2940]">{property.rating}</span>
-            <span>({property.reviews})</span>
-          </div>
+  // COMPOSANT PROPERTY CARD AVEC CŒUR FONCTIONNEL
+  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => {
+    const handleFavoriteClick = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Empêche la navigation vers la page détail
+      console.log('🔥 Clic sur le cœur pour:', property.title, 'ID:', property.id);
+      toggleFavorite(property);
+    };
+
+    return (
+      <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
+        <div className="relative overflow-hidden rounded-2xl">
+          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+          <button 
+            onClick={handleFavoriteClick}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
+          >
+            <Heart 
+              className={`w-5 h-5 transition-all duration-200 ${
+                isFavorite(property.id) 
+                  ? 'fill-red-500 text-red-500 scale-110' 
+                  : 'text-gray-700 hover:text-red-500'
+              }`} 
+            />
+          </button>
         </div>
-        {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-          <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-          <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
+        <div className="mt-3">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+              <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
+              <span className="font-medium text-[#0F2940]">{property.rating}</span>
+              <span>({property.reviews})</span>
+            </div>
+          </div>
+          {showDescription && property.description && (
+            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+            {property.beds && (
+              <div className="flex items-center gap-1">
+                <Bed className="w-4 h-4" />
+                <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            {property.baths && (
+              <div className="flex items-center gap-1">
+                <Bath className="w-4 h-4" />
+                <span>{property.baths} sdb</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
         </div>
-        <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-white">
+      {/* COMPTEUR DE FAVORIS TEMPORAIRE POUR TEST */}
+      <div className="fixed top-20 right-4 bg-black/80 text-white px-3 py-1 rounded-full text-sm z-50 shadow-lg">
+        ❤️ {favorites.length} favori(s)
+      </div>
+
       <Hero 
         onSearch={(query) => onNavigate?.({ name: 'search-logements' })} 
         onNavigate={(path, params) => onNavigate?.({ name: 'search-logements' })} 
@@ -2057,6 +3349,8 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchDestination, setSearchDestination] = useState('');
 
+  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+
   const guestLabel = () => {
     const totalGuests = guestCounts.adults + guestCounts.children;
     const parts = [] as string[];
@@ -2176,35 +3470,63 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
     setSearchDestination(destination);
   };
 
-  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => (
-    <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-      <div className="relative overflow-hidden rounded-2xl">
-        <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-        <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
-          <Heart className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="mt-3">
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Star className="w-4 h-4 text-[#00c9a7]" />
-            <span className="font-medium text-[#0F2940]">{property.rating}</span>
-            <span>({property.reviews})</span>
-          </div>
+  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => {
+    const handleFavoriteClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      toggleFavorite(property);
+    };
+
+    return (
+      <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
+        <div className="relative overflow-hidden rounded-2xl">
+          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+          <button 
+            onClick={handleFavoriteClick}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
+          >
+            <Heart 
+              className={`w-5 h-5 transition-all duration-200 ${
+                isFavorite(property.id) 
+                  ? 'fill-red-500 text-red-500 scale-110' 
+                  : 'text-gray-700 hover:text-red-500'
+              }`} 
+            />
+          </button>
         </div>
-        {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-          <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-          <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
+        <div className="mt-3">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+              <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
+              <span className="font-medium text-[#0F2940]">{property.rating}</span>
+              <span>({property.reviews})</span>
+            </div>
+          </div>
+          {showDescription && property.description && (
+            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+            {property.beds && (
+              <div className="flex items-center gap-1">
+                <Bed className="w-4 h-4" />
+                <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            {property.baths && (
+              <div className="flex items-center gap-1">
+                <Bath className="w-4 h-4" />
+                <span>{property.baths} sdb</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
         </div>
-        <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-white min-h-screen">
@@ -2343,15 +3665,13 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
 
 
 // ==================== PAGE POPULAR (VERSION COMPLÈTE AVEC CARTE) ====================
+// Version simplifiée à copier directement dans pages.tsx
 export function PopularPage({ onNavigate }: PageProps) {
-  
   const [selectedFilter, setSelectedFilter] = useState("Tous");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [detailProperty, setDetailProperty] = useState<any>(null);
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutData, setCheckoutData] = useState<any>(null);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -2359,45 +3679,266 @@ export function PopularPage({ onNavigate }: PageProps) {
   const [checkOut, setCheckOut] = useState("17/05/2026");
   const [guests, setGuests] = useState(1);
   const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [animate, setAnimate] = useState(false);
+  
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  // Données complètes pour la page Popular
   const popularPropertiesFull = [
-    { id: 1, title: "Villa luxueuse avec piscine", location: "Fidjrossè, Cotonou, Bénin", price: "125 000 FCFA / nuit", priceNumber: 125000, rating: 4.9, reviews: 128, image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80", beds: 4, baths: 3, description: "Magnifique villa avec piscine privée...", images: ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600&q=80", "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=600&q=80", "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=600&q=80", "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&q=80"], host: "Sophie Martin", hostImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80", hostSince: "3 ans", superhost: true, responseRate: 98, responseTime: "dans l'heure", amenities: ["Piscine privée", "Wifi", "Climatisation", "Cuisine équipée", "Parking gratuit", "Jardin", "Terrasse", "Personnel"], longDescription: "Cette magnifique villa offre un cadre luxueux avec sa piscine privée, son jardin tropical et sa vue imprenable." },
-    { id: 2, title: "Appartement moderne vue mer", location: "Haie Vive, Cotonou, Bénin", price: "85 000 FCFA / nuit", priceNumber: 85000, rating: 4.8, reviews: 94, image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80", beds: 2, baths: 2, description: "Appartement chic avec vue sur l'océan...", images: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80", "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=80", "https://images.unsplash.com/photo-1494526585095-c41746248156?w=600&q=80", "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&q=80"], host: "Jean Dupont", hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80", hostSince: "2 ans", superhost: true, responseRate: 96, responseTime: "dans l'heure", amenities: ["Vue mer", "Terrasse", "Wifi", "Climatisation", "Cuisine", "TV", "Parking"], longDescription: "Appartement entièrement rénové avec vue imprenable sur l'océan." },
-    { id: 3, title: "Studio cosy centre ville", location: "Cocotiers, Cotonou, Bénin", price: "35 000 FCFA / nuit", priceNumber: 35000, rating: 4.7, reviews: 56, image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80", beds: 1, baths: 1, description: "Studio confortable en plein cœur de Cotonou.", images: ["https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&q=80", "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80", "https://images.unsplash.com/photo-1494526585095-c41746248156?w=600&q=80", "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&q=80"], host: "Marie Claire", hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80", hostSince: "1 an", superhost: false, responseRate: 92, responseTime: "quelques heures", amenities: ["Wifi", "Climatisation", "Mini-réfrigérateur", "TV", "Bureau"], longDescription: "Petit studio fonctionnel et bien situé, à proximité des commerces." },
-    { id: 4, title: "Loft design avec rooftop", location: "Ganhi, Cotonou, Bénin", price: "95 000 FCFA / nuit", priceNumber: 95000, rating: 4.9, reviews: 42, image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80", beds: 2, baths: 2, description: "Loft lumineux avec terrasse privée sur le toit." },
-    { id: 5, title: "Maison de ville traditionnelle", location: "Akpakpa, Cotonou, Bénin", price: "55 000 FCFA / nuit", priceNumber: 55000, rating: 4.6, reviews: 67, image: "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80", beds: 3, baths: 2, description: "Maison authentique avec cour intérieure." },
-    { id: 6, title: "Duplex moderne", location: "Patte d'Oie, Cotonou, Bénin", price: "110 000 FCFA / nuit", priceNumber: 110000, rating: 4.8, reviews: 33, image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80", beds: 3, baths: 3, description: "Duplex contemporain avec grande terrasse." },
-    { id: 7, title: "Villa de charme", location: "Fidjrossè, Cotonou, Bénin", price: "135 000 FCFA / nuit", priceNumber: 135000, rating: 4.9, reviews: 78, image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", beds: 4, baths: 3, description: "Villa raffinée avec piscine à débordement." },
-    { id: 8, title: "Studio design", location: "Haie Vive, Cotonou, Bénin", price: "45 000 FCFA / nuit", priceNumber: 45000, rating: 4.7, reviews: 44, image: "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80", beds: 1, baths: 1, description: "Studio moderne, entièrement équipé." },
+    { 
+      id: 1, 
+      title: "Villa luxueuse avec piscine", 
+      location: "Fidjrossè, Cotonou, Bénin", 
+      price: "125 000 FCFA / nuit", 
+      priceNumber: 125000, 
+      rating: 4.9, 
+      reviews: 128, 
+      image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80", 
+      beds: 4, 
+      baths: 3, 
+      description: "Magnifique villa avec piscine privée, jardin tropical et vue imprenable sur l'océan.", 
+      images: [
+        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80",
+        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
+        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
+        "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=1200&q=80"
+      ], 
+      host: "Sophie Martin", 
+      hostImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80", 
+      hostSince: "3 ans", 
+      superhost: true, 
+      responseRate: 98, 
+      responseTime: "dans l'heure", 
+      amenities: ["Piscine privée", "Wifi", "Climatisation", "Cuisine équipée", "Parking gratuit", "Jardin", "Terrasse", "Personnel"], 
+      longDescription: "Cette magnifique villa offre un cadre luxueux avec sa piscine privée, son jardin tropical et sa vue imprenable sur l'océan. Idéale pour des vacances en famille ou entre amis." 
+    },
+    { 
+      id: 2, 
+      title: "Appartement moderne vue mer", 
+      location: "Haie Vive, Cotonou, Bénin", 
+      price: "85 000 FCFA / nuit", 
+      priceNumber: 85000, 
+      rating: 4.8, 
+      reviews: 94, 
+      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80", 
+      beds: 2, 
+      baths: 2, 
+      description: "Appartement chic avec vue sur l'océan, terrasse privée et équipements modernes.", 
+      images: [
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
+        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=80",
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+        "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80"
+      ], 
+      host: "Jean Dupont", 
+      hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80", 
+      hostSince: "2 ans", 
+      superhost: true, 
+      responseRate: 96, 
+      responseTime: "dans l'heure", 
+      amenities: ["Vue mer", "Terrasse", "Wifi", "Climatisation", "Cuisine", "TV", "Parking"], 
+      longDescription: "Appartement entièrement rénové avec vue imprenable sur l'océan. Situé dans le quartier chic de Haie Vive." 
+    },
+    { 
+      id: 3, 
+      title: "Studio cosy centre ville", 
+      location: "Cocotiers, Cotonou, Bénin", 
+      price: "35 000 FCFA / nuit", 
+      priceNumber: 35000, 
+      rating: 4.7, 
+      reviews: 56, 
+      image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80", 
+      beds: 1, 
+      baths: 1, 
+      description: "Studio confortable en plein cœur de Cotonou, idéal pour les voyageurs d'affaires.", 
+      images: [
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+        "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80",
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
+        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80"
+      ], 
+      host: "Marie Claire", 
+      hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80", 
+      hostSince: "1 an", 
+      superhost: false, 
+      responseRate: 92, 
+      responseTime: "quelques heures", 
+      amenities: ["Wifi", "Climatisation", "Mini-réfrigérateur", "TV", "Bureau"], 
+      longDescription: "Petit studio fonctionnel et bien situé, à proximité des commerces et restaurants." 
+    },
+    { 
+      id: 4, 
+      title: "Loft design avec rooftop", 
+      location: "Ganhi, Cotonou, Bénin", 
+      price: "95 000 FCFA / nuit", 
+      priceNumber: 95000, 
+      rating: 4.9, 
+      reviews: 42, 
+      image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80", 
+      beds: 2, 
+      baths: 2, 
+      description: "Loft lumineux avec terrasse privée sur le toit, vue panoramique sur la ville.", 
+      images: [
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
+        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80"
+      ],
+      host: "Thomas Richard",
+      hostImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80",
+      hostSince: "4 ans",
+      superhost: true,
+      responseRate: 99,
+      responseTime: "dans l'heure",
+      amenities: ["Rooftop", "Wifi", "Climatisation", "Cuisine équipée", "TV", "Parking"],
+      longDescription: "Loft moderne avec une terrasse privée sur le toit offrant une vue imprenable sur Cotonou."
+    },
+    { 
+      id: 5, 
+      title: "Maison de ville traditionnelle", 
+      location: "Akpakpa, Cotonou, Bénin", 
+      price: "55 000 FCFA / nuit", 
+      priceNumber: 55000, 
+      rating: 4.6, 
+      reviews: 67, 
+      image: "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80", 
+      beds: 3, 
+      baths: 2, 
+      description: "Maison authentique avec cour intérieure, jardin et architecture traditionnelle.", 
+      images: [
+        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80",
+        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80",
+        "https://images.unsplash.com/photo-1523217582562-09d0def993a6?w=1200&q=80",
+        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80"
+      ],
+      host: "Antoine Koffi",
+      hostImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
+      hostSince: "5 ans",
+      superhost: false,
+      responseRate: 94,
+      responseTime: "quelques heures",
+      amenities: ["Jardin", "Cour intérieure", "Wifi", "Climatisation", "Parking"],
+      longDescription: "Maison traditionnelle rénovée avec charme, offrant une cour intérieure et un jardin paisible."
+    },
+    { 
+      id: 6, 
+      title: "Duplex moderne", 
+      location: "Patte d'Oie, Cotonou, Bénin", 
+      price: "110 000 FCFA / nuit", 
+      priceNumber: 110000, 
+      rating: 4.8, 
+      reviews: 33, 
+      image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80", 
+      beds: 3, 
+      baths: 3, 
+      description: "Duplex contemporain avec grande terrasse, parfait pour les familles.", 
+      images: [
+        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
+        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80"
+      ],
+      host: "Isabelle Diallo",
+      hostImage: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&q=80",
+      hostSince: "3 ans",
+      superhost: true,
+      responseRate: 97,
+      responseTime: "dans l'heure",
+      amenities: ["Terrasse", "Wifi", "Climatisation", "Cuisine", "TV", "Parking"],
+      longDescription: "Duplex spacieux avec une grande terrasse, idéal pour les séjours en famille."
+    },
+    { 
+      id: 7, 
+      title: "Villa de charme", 
+      location: "Fidjrossè, Cotonou, Bénin", 
+      price: "135 000 FCFA / nuit", 
+      priceNumber: 135000, 
+      rating: 4.9, 
+      reviews: 78, 
+      image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", 
+      beds: 4, 
+      baths: 3, 
+      description: "Villa raffinée avec piscine à débordement et jardin paysager.", 
+      images: [
+        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
+        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80",
+        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80"
+      ],
+      host: "Claire Delacroix",
+      hostImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80",
+      hostSince: "6 ans",
+      superhost: true,
+      responseRate: 100,
+      responseTime: "dans l'heure",
+      amenities: ["Piscine à débordement", "Jardin", "Wifi", "Climatisation", "Parking", "Personnel"],
+      longDescription: "Villa de luxe avec piscine à débordement offrant une vue magnifique et un cadre paisible."
+    },
+    { 
+      id: 8, 
+      title: "Studio design", 
+      location: "Haie Vive, Cotonou, Bénin", 
+      price: "45 000 FCFA / nuit", 
+      priceNumber: 45000, 
+      rating: 4.7, 
+      reviews: 44, 
+      image: "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80", 
+      beds: 1, 
+      baths: 1, 
+      description: "Studio moderne, entièrement équipé, décoré avec goût.", 
+      images: [
+        "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80",
+        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
+        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
+        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
+        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80"
+      ],
+      host: "Lucas Bernard",
+      hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80",
+      hostSince: "2 ans",
+      superhost: false,
+      responseRate: 93,
+      responseTime: "quelques heures",
+      amenities: ["Wifi", "Climatisation", "TV", "Mini-bar", "Bureau"],
+      longDescription: "Studio design entièrement équipé, parfait pour les courts séjours à Cotonou."
+    }
   ];
 
   const filterProperties = (properties: any[]) => {
     const filtered = [...properties];
-    if (selectedFilter === "Prix croissant") return filtered.sort((a,b)=>a.priceNumber - b.priceNumber);
-    if (selectedFilter === "Prix décroissant") return filtered.sort((a,b)=>b.priceNumber - a.priceNumber);
-    if (selectedFilter === "Mieux notés") return filtered.sort((a,b)=>b.rating - a.rating);
+    if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => a.priceNumber - b.priceNumber);
+    if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => b.priceNumber - a.priceNumber);
+    if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => b.rating - a.rating);
     return filtered;
   };
 
   const displayedProperties = filterProperties(popularPropertiesFull);
 
   const handleReserve = (property: any) => {
-    const total = property.priceNumber * 2 * 1.1;
-    setCheckoutData({ property, checkIn: "15/05/2026", checkOut: "17/05/2026", guests: 1, totalPrice: total });
+    const nights = 2;
+    const subtotal = property.priceNumber * nights;
+    const cleaningFee = 15000;
+    const serviceFee = 12000;
+    const total = subtotal + cleaningFee + serviceFee;
+    setCheckoutData({ property, checkIn, checkOut, guests, totalPrice: total });
     setShowCheckout(true);
     setDetailProperty(null);
   };
 
   const handleNavigate = (route: Route) => {
-    if (onNavigate) {
-      onNavigate(route);
-    }
+    if (onNavigate) onNavigate(route);
   };
 
   const getMapUrl = () => "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
 
-  // Modal de détail complet (seule cette partie change)
+  // PropertyModal avec toutes les fonctionnalités de l'ancienne version
   const PropertyModal = ({ property, onClose, onReserve }: any) => {
     const images = property.images && Array.isArray(property.images) && property.images.length > 0 
       ? property.images 
@@ -2411,7 +3952,7 @@ export function PopularPage({ onNavigate }: PageProps) {
     const responseTime = property.responseTime || "dans l'heure";
     const longDescription = property.longDescription || property.description;
     const amenities = property.amenities || ["Wifi", "Climatisation", "TV", "Parking", "Eau chaude", "Cuisine"];
-    const testimonials = property.testimonials || [
+    const testimonials = [
       { name: "Marc", date: "mars 2026", text: "Logement magnifique, tout était parfait !", rating: 5 },
       { name: "Sophie", date: "février 2026", text: "Très bon séjour, je recommande vivement.", rating: 4.8 },
       { name: "Jean", date: "janvier 2026", text: "Excellent rapport qualité-prix, à refaire.", rating: 4.9 }
@@ -2425,7 +3966,7 @@ export function PopularPage({ onNavigate }: PageProps) {
     const nonRefundableTotal = total;
     const refundableTotal = total + 35000;
 
-  useEffect(() => {
+    useEffect(() => {
       if (testimonials.length <= 1) return;
       const interval = setInterval(() => {
         setAnimate(true);
@@ -2436,11 +3977,6 @@ export function PopularPage({ onNavigate }: PageProps) {
       }, 5000);
       return () => clearInterval(interval);
     }, [testimonials.length]);
-
-    const extraImages = images.slice(1, 5);
-    while (extraImages.length < 4) {
-      extraImages.push(property.image);
-    }
 
     return (
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
@@ -2453,8 +3989,11 @@ export function PopularPage({ onNavigate }: PageProps) {
               <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
                 <Share2 className="w-5 h-5"/>
               </button>
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-                <Heart className="w-5 h-5"/>
+              <button 
+                onClick={() => toggleFavorite(property)} 
+                className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110"
+              >
+                <Heart className={`w-5 h-5 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : ''}`} />
               </button>
             </div>
           </div>
@@ -2484,7 +4023,7 @@ export function PopularPage({ onNavigate }: PageProps) {
             </div>
 
             <div className="grid lg:grid-cols-3 gap-8">
-              {/* Colonne de gauche - Informations */}
+              {/* Colonne de gauche */}
               <div className="lg:col-span-2 space-y-8">
                 <div className="border-b pb-4">
                   <div className="text-sm text-gray-500">
@@ -2559,7 +4098,7 @@ export function PopularPage({ onNavigate }: PageProps) {
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                       <div className="relative">
                         <img 
-                          src={testimonials[currentTestimonial]?.avatar || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
+                          src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
                           alt={testimonials[currentTestimonial]?.name || "Client"}
                           className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" 
                         />
@@ -2669,8 +4208,21 @@ export function PopularPage({ onNavigate }: PageProps) {
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
         <h2 className="text-xl font-bold mb-4">Confirmer la réservation</h2>
-        <p className="mb-2">Total : {totalPrice.toLocaleString()} FCFA</p>
-        <button onClick={onClose} className="w-full bg-[#00c9a7] py-3 rounded-xl font-bold">Confirmer</button>
+        <p className="mb-2"><strong>{property.title}</strong></p>
+        <p className="mb-2">Arrivée : {checkIn}</p>
+        <p className="mb-2">Départ : {checkOut}</p>
+        <p className="mb-4">Voyageurs : {guests} adulte</p>
+        <p className="text-xl font-bold mb-4">Total : {totalPrice.toLocaleString()} FCFA</p>
+        <button 
+          onClick={() => {
+            onClose();
+            alert("Réservation confirmée !");
+          }} 
+          className="w-full bg-[#00c9a7] py-3 rounded-xl font-bold hover:bg-[#00b892] transition-all"
+        >
+          Confirmer la réservation
+        </button>
+        <button onClick={onClose} className="w-full text-gray-500 mt-2 text-sm">Annuler</button>
       </div>
     </div>
   );
@@ -2706,10 +4258,21 @@ export function PopularPage({ onNavigate }: PageProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {displayedProperties.map(property => (
               <div key={property.id} className="border rounded-2xl p-4 hover:shadow-xl cursor-pointer" onClick={() => setDetailProperty(property)}>
-                <img src={property.image} className="w-full h-48 object-cover rounded-xl" />
+                <div className="relative">
+                  <img src={property.image} className="w-full h-48 object-cover rounded-xl" />
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }}
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-all"
+                  >
+                    <Heart className={`w-5 h-5 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
+                  </button>
+                </div>
                 <h3 className="font-semibold mt-2">{property.title}</h3>
                 <p className="text-sm text-gray-500">{property.location}</p>
-                <div className="flex items-center gap-1 mt-1"><Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating} ({property.reviews})</div>
+                <div className="flex items-center gap-1 mt-1">
+                  <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>
+                  {property.rating} ({property.reviews})
+                </div>
                 <p className="font-bold mt-2">{property.price}</p>
               </div>
             ))}
@@ -2729,14 +4292,46 @@ export function PopularPage({ onNavigate }: PageProps) {
 
 
 // ==================== LISTING PAGE ====================
-export function ListingPage({ onNavigate }: PageProps & { id?: string }) {
+export function ListingPage({ onNavigate, id }: PageProps & { id?: string }) {
+  console.log("=== ListingPage ===");
+  console.log("ID reçu de l'URL:", id);
+  
+  // Utiliser la fonction de recherche
+  const property = findPropertyById(id || '1');
+  
+  console.log("Propriété trouvée?", property ? property.title : "NON");
+  
+  if (!property) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center p-8 max-w-md">
+          <div className="text-6xl mb-4">🏠</div>
+          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Logement non trouvé</h1>
+          <p className="text-gray-500 mb-4">
+            Aucun logement ne correspond à l'ID <strong>{id}</strong>
+          </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Vérifiez que l'URL est correcte ou retournez à l'accueil.
+          </p>
+          <button 
+            onClick={() => onNavigate?.({ name: 'home' })}
+            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Ici, on utilise directement PropertyDetailModal (qui existe déjà dans votre code)
+  // au lieu de ListingDetail pour éviter les problèmes d'import
   return (
-    <div className="bg-white">
-      <ListingDetail
-        onBack={() => onNavigate?.({ name: 'search-logements' })}
-        onOpenBooking={() => onNavigate?.({ name: 'booking', id: '1' })}
-      />
-    </div>
+    <PropertyDetailModal 
+      property={property}
+      onClose={() => onNavigate?.({ name: 'home' })}
+      onReserve={() => onNavigate?.({ name: 'booking', id: property.id.toString() })}
+    />
   );
 }
 
@@ -3335,22 +4930,119 @@ export function MessagesPage() {
 
 // ==================== FAVORITES PAGE ====================
 export function FavoritesPage({ onNavigate }: PageProps) {
+  const { favorites, removeFavorite, isFavorite } = useFavorites();
+  const [selectedFilter, setSelectedFilter] = useState('Tous');
+
+  const getFilteredFavorites = () => {
+    let filtered = [...favorites];
+    switch (selectedFilter) {
+      case 'Prix croissant':
+        return filtered.sort((a, b) => a.price - b.price);
+      case 'Prix décroissant':
+        return filtered.sort((a, b) => b.price - a.price);
+      case 'Mieux notés':
+        return filtered.sort((a, b) => b.rating - a.rating);
+      default:
+        return filtered;
+    }
+  };
+
+  const displayedFavorites = getFilteredFavorites();
+
   return (
     <div className="min-h-screen bg-white py-10">
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Favoris" subtitle="Vos annonces sauvegardées pour planifier votre prochain séjour.">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {popularListings.map((listing) => (
-              <div key={listing.id} className="rounded-3xl overflow-hidden border border-[#e2f5f2] shadow-sm hover:shadow-md transition-shadow cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: listing.id })}>
-                <img src={listing.image} alt={listing.title} className="w-full h-48 object-cover" />
-                <div className="p-4 bg-[#f4fffe]">
-                  <h3 className="font-semibold text-[#0f2940] mb-1">{listing.title}</h3>
-                  <p className="text-sm text-[#6b7280]">{listing.type} · {listing.rating} étoiles</p>
+        {/* En-tête avec retour */}
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => onNavigate?.({ name: 'home' })}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+          </button>
+          <h1 className="text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
+          <span className="text-sm text-gray-500">({favorites.length} logements)</span>
+        </div>
+
+        {/* Filtres */}
+        <div className="mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'].map(filter => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-4 py-2 rounded-full text-sm transition-colors ${
+                  selectedFilter === filter 
+                    ? 'bg-[#00c9a7] text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {displayedFavorites.length === 0 ? (
+          <div className="text-center py-16">
+            <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-[#0F2940] mb-2">Aucun favori</h2>
+            <p className="text-gray-500 mb-6">Les logements que vous ajoutez aux favoris apparaissent ici.</p>
+            <button
+              onClick={() => onNavigate?.({ name: 'home' })}
+              className="px-6 py-3 bg-[#00c9a7] text-white rounded-full font-semibold hover:bg-[#00b892] transition-colors"
+            >
+              Découvrir des logements
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedFavorites.map((property) => (
+              <div 
+                key={property.id} 
+                className="group rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
+                onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
+              >
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={property.image} 
+                    alt={property.title} 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFavorite(property.id);
+                    }}
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-10"
+                  >
+                    <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+                  </button>
+                  <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+                    {property.type}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+                    <div className="flex items-center gap-1 text-sm">
+                      <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
+                      <span className="font-medium">{property.rating}</span>
+                      <span className="text-gray-500">({property.reviews})</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="font-bold text-lg text-[#0F2940]">{property.priceDisplay}</span>
+                    <span className="text-xs text-gray-400">
+                      Ajouté le {new Date(property.addedAt).toLocaleDateString('fr-FR')}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        </PageSection>
+        )}
       </div>
     </div>
   );
@@ -3382,33 +5074,330 @@ export function PublishListingPage() {
 }
 
 // ==================== HELP PAGE ====================
-export function HelpPage() {
+
+
+// ========== COMPOSANT PRINCIPAL HELP PAGE ==========
+export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"voyageur" | "hote_logement" | "hote_experience" | "hote_service" | "administrateur">("voyageur");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState<{ id: string; title: string; category: string; content: string } | null>(null);
+  const [showRolesMenu, setShowRolesMenu] = useState(false);
+
+  const roles = [
+    { id: "voyageur", label: "Voyageur", icon: Users },
+    { id: "hote_logement", label: "Hôte d'un logement", icon: Home },
+    { id: "hote_experience", label: "Hôte d'expérience", icon: Sparkles },
+    { id: "hote_service", label: "Hôte de services", icon: Briefcase },
+    { id: "administrateur", label: "Administrateur de voyages", icon: Globe },
+  ];
+
+  // Rôles visibles et cachés pour le menu sur mobile
+  const visibleRoles = roles.slice(0, 3);
+  const hiddenRoles = roles.slice(3);
+
+  const getRoleContent = () => {
+    if (selectedRole === "voyageur") {
+      return {
+        title: "Aide pour les voyageurs",
+        description: "Trouvez des réponses à vos questions sur les réservations, les annulations, les paiements et plus encore.",
+        articles: [
+          { id: "annuler-reservation", title: "Annuler votre réservation de logement", description: "Vos projets ont changé ? Découvrez comment annuler." },
+          { id: "modes-paiement", title: "Modes de paiement acceptés", description: "Cartes, mobile money, FedaPay : tous les moyens de payer." },
+          { id: "modifier-date", title: "Modifier la date ou l'heure de votre réservation", description: "Reprogrammer un service ou une expérience." },
+          { id: "hote-annule", title: "Si votre hôte annule votre réservation", description: "Que faire et quels remboursements ?" },
+          { id: "quand-payer", title: "Quand vous payerez votre réservation", description: "Délais de paiement selon le type de séjour." },
+          { id: "comment-reserver", title: "Comment réserver un logement ?", description: "Guide pas à pas pour réserver." },
+        ],
+        quickLinks: [
+          { icon: CreditCard, label: "Paiements et remboursements" },
+          { icon: Calendar, label: "Gérer mes réservations" },
+          { icon: MessageCircle, label: "Contacter l'hôte" },
+          { icon: AlertCircle, label: "Signaler un problème" },
+        ]
+      };
+    }
+    return { 
+      title: "Aide pour les hôtes", 
+      description: "Trouvez des réponses à vos questions sur la gestion de vos annonces, les réservations et plus encore.",
+      articles: [
+        { id: "devenir-hote", title: "Devenir hôte sur Bf-Immo", description: "Comment publier votre première annonce." },
+        { id: "gerer-reservations", title: "Gérer vos réservations", description: "Calendrier, messages, paiements." },
+        { id: "tarifs", title: "Fixer vos tarifs", description: "Conseils pour optimiser vos prix." },
+      ],
+      quickLinks: [
+        { icon: Home, label: "Gérer mon annonce" },
+        { icon: Calendar, label: "Mon calendrier" },
+        { icon: MessageCircle, label: "Messages" },
+        { icon: CreditCard, label: "Paiements reçus" },
+      ]
+    };
+  };
+
+  const content = getRoleContent();
+  const suggestions = [
+    "Comment réserver un logement ?",
+    "Annuler une réservation",
+    "Modes de paiement acceptés",
+    "Problème avec mon hôte",
+    "Devenir hôte",
+  ];
+
+  const handleNavigate = (route: any) => {
+    if (onNavigate) onNavigate(route);
+  };
+
   return (
-    <div className="bg-white min-h-screen py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Centre d'aide" subtitle="FAQ, guides et contact support pour les voyageurs et hôtes.">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {[
-              { title: 'Réservations', desc: 'Modifier vos dates, annuler une réservation ou obtenir un remboursement.' },
-              { title: 'Paiements', desc: 'Tout sur Mobile Money, carte bancaire et facturation en FCFA.' },
-              { title: 'Hôtes', desc: 'Gérer une annonce, vérifier un voyageur ou configurer un calendrier.' },
-            ].map((item) => (
-              <div key={item.title} className="rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe]">
-                <h3 className="text-lg font-semibold text-[#0f2940] mb-3">{item.title}</h3>
-                <p className="text-sm text-[#6b7280]">{item.desc}</p>
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => handleNavigate({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowRight className="w-4 h-4 rotate-180" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">Centre d'aide</h1>
+      </div>
+
+      <section className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] py-12 text-white">
+        <div className="max-w-4xl mx-auto px-5 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Bonjour, comment pouvons-nous vous aider ?</h2>
+          <p className="text-white/80 mb-8">Rechercher des guides pratiques et plus</p>
+          <div className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Recherche"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              className="w-full pl-12 pr-4 py-3 rounded-full text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            />
+            {showSuggestions && searchQuery && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+                {suggestions.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())).map((suggestion, idx) => (
+                  <button key={idx} onClick={() => { setSearchQuery(suggestion); setShowSuggestions(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700">
+                    {suggestion}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-          <div className="mt-8 rounded-[2rem] bg-[#f4fffe] border border-[#e2f5f2] p-8">
-            <h3 className="text-xl font-semibold text-[#0f2940] mb-3">Contact support</h3>
-            <p className="text-sm text-[#6b7280] mb-4">Chat WhatsApp disponible 8h-20h GMT+1. Email support@bluefin-immo.com</p>
-            <div className="flex flex-wrap gap-3">
-              <button className="rounded-full bg-[#00c9a7] text-white px-6 py-3">WhatsApp</button>
-              <button className="rounded-full border border-[#e2f5f2] px-6 py-3 text-[#0f2940]">Email</button>
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-5 py-12">
+        {/* Version Desktop - tous les rôles visibles */}
+        <div className="hidden md:flex flex-wrap justify-center gap-4">
+          {roles.map((role) => {
+            const Icon = role.icon;
+            return (
+              <button
+                key={role.id}
+                onClick={() => setSelectedRole(role.id as any)}
+                className={`px-6 py-3 rounded-full flex items-center gap-2 transition-all ${
+                  selectedRole === role.id ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="font-medium">{role.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Version Mobile - scroll horizontal avec menu pour les éléments cachés */}
+        <div className="md:hidden">
+          <div className="flex items-center gap-2">
+            {/* Scroll horizontal pour les premiers rôles */}
+            <div className="flex-1 overflow-x-auto scrollbar-hide flex gap-2 pb-2">
+              {visibleRoles.map((role) => {
+                const Icon = role.icon;
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => setSelectedRole(role.id as any)}
+                    className={`px-4 py-2 rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${
+                      selectedRole === role.id ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="font-medium text-sm">{role.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Menu déroulant pour les rôles restants */}
+            {hiddenRoles.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowRolesMenu(!showRolesMenu)}
+                  className={`px-4 py-2 rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${
+                    hiddenRoles.some(r => r.id === selectedRole) 
+                      ? "bg-[#00c9a7] text-[#0F2940] shadow-md" 
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  <Menu className="w-4 h-4" />
+                  <span className="font-medium text-sm">
+                    {hiddenRoles.some(r => r.id === selectedRole) 
+                      ? hiddenRoles.find(r => r.id === selectedRole)?.label 
+                      : "Plus"}
+                  </span>
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showRolesMenu ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* Dropdown menu */}
+                {showRolesMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowRolesMenu(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+                      {hiddenRoles.map((role) => {
+                        const Icon = role.icon;
+                        return (
+                          <button
+                            key={role.id}
+                            onClick={() => {
+                              setSelectedRole(role.id as any);
+                              setShowRolesMenu(false);
+                            }}
+                            className={`w-full px-4 py-3 flex items-center gap-3 transition-all text-left ${
+                              selectedRole === role.id 
+                                ? "bg-[#00c9a7]/10 text-[#0F2940]" 
+                                : "hover:bg-gray-50 text-gray-700"
+                            }`}
+                          >
+                            <Icon className="w-5 h-5" />
+                            <span className="font-medium text-sm">{role.label}</span>
+                            {selectedRole === role.id && <Check className="w-4 h-4 ml-auto text-[#00c9a7]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Indicateur de scroll pour mobile (optionnel) */}
+        <div className="md:hidden flex justify-center mt-3">
+          <div className="flex gap-1">
+            <div className="w-6 h-1 rounded-full bg-[#00c9a7]/40"></div>
+            <div className="w-3 h-1 rounded-full bg-[#00c9a7]"></div>
+            <div className="w-2 h-1 rounded-full bg-[#00c9a7]/40"></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-5 pb-12">
+        <div className="grid lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <h2 className="text-2xl font-semibold text-[#0F2940] mb-2">{content.title}</h2>
+            <p className="text-gray-600 mb-6">{content.description}</p>
+            <div className="grid md:grid-cols-2 gap-6">
+              {content.articles.map((article, idx) => (
+                <div 
+                  key={idx} 
+                  className="border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer hover:border-[#00c9a7] group" 
+                  onClick={() => setSelectedArticle({ id: article.id, title: article.title, category: selectedRole === "voyageur" ? "Voyageur" : "Hôte", content: "" })}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center group-hover:bg-[#00c9a7]/20 transition">
+                      <FileText className="w-5 h-5 text-[#00c9a7]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-[#0F2940] mb-1 text-lg">{article.title}</h3>
+                      <p className="text-sm text-gray-600">{article.description}</p>
+                      <div className="mt-3 text-[#00c9a7] text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                        Lire l'article <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </PageSection>
-      </div>
+
+          <div className="space-y-6">
+            <div className="bg-gradient-to-br from-[#00c9a7] to-[#00b396] rounded-2xl p-6 text-white text-center">
+              <h3 className="text-xl font-semibold mb-2">Nous sommes là pour vous aider</h3>
+              <p className="text-white/90 text-sm mb-4">Connectez-vous pour obtenir de l'aide pour vos réservations, votre compte et plus encore.</p>
+              <button className="bg-white text-[#00c9a7] px-6 py-2 rounded-full font-medium hover:bg-white/90 transition">
+                Me connecter ou m'inscrire
+              </button>
+            </div>
+            
+            <div className="border border-gray-200 rounded-2xl p-6">
+              <h3 className="font-semibold text-[#0F2940] mb-4">Liens rapides</h3>
+              {content.quickLinks.map((link, idx) => {
+                const Icon = link.icon;
+                return (
+                  <a key={idx} href="#" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
+                    <div className="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center group-hover:bg-[#00c9a7]/20 transition">
+                      <Icon className="w-5 h-5 text-[#00c9a7]" />
+                    </div>
+                    <span className="text-gray-700 group-hover:text-[#0F2940]">{link.label}</span>
+                    <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
+                  </a>
+                );
+              })}
+            </div>
+            
+            <div className="border border-gray-200 rounded-2xl p-6">
+              <h3 className="font-semibold text-[#0F2940] mb-3">Les politiques de la communauté</h3>
+              <p className="text-sm text-gray-600 mb-3">Nos actions pour établir un climat de confiance.</p>
+              <a href="#" className="text-[#00c9a7] text-sm font-medium">En savoir plus</a>
+            </div>
+            
+            <div className="border border-gray-200 rounded-2xl p-6">
+              <h3 className="font-semibold text-[#0F2940] mb-3">Conseils et consignes de sécurité</h3>
+              <p className="text-sm text-gray-600 mb-3">Conseils de sécurité pour les voyageurs.</p>
+              <a href="#" className="text-[#00c9a7] text-sm font-medium">En savoir plus</a>
+            </div>
+
+            <div className="rounded-[2rem] bg-[#f4fffe] border border-[#e2f5f2] p-6">
+              <h3 className="text-xl font-semibold text-[#0F2940] mb-3">Contact support</h3>
+              <p className="text-sm text-[#6b7280] mb-4">Chat WhatsApp disponible 8h-20h GMT+1. Email support@bluefin-immo.com</p>
+              <div className="flex flex-wrap gap-3">
+                <button className="rounded-full bg-[#00c9a7] text-white px-6 py-3 hover:bg-[#00b892] transition">
+                  WhatsApp
+                </button>
+                <button className="rounded-full border border-[#e2f5f2] px-6 py-3 text-[#0f2940] hover:bg-gray-50 transition">
+                  Email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Modal pour l'article "annuler-reservation" avec onglets */}
+      {selectedArticle && selectedArticle.id === "annuler-reservation" && (
+        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+      )}
+      
+      {/* Modal pour les autres articles */}
+      {selectedArticle && selectedArticle.id !== "annuler-reservation" && articlesData[selectedArticle.id] && (
+        <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <div>
+                  <span className="text-sm text-[#00c9a7] font-medium">Guide pratique • {selectedArticle.category}</span>
+                  <h2 className="text-2xl font-semibold text-[#0F2940]">{selectedArticle.title}</h2>
+                </div>
+                <button onClick={() => setSelectedArticle(null)} className="p-2 rounded-full hover:bg-gray-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6" dangerouslySetInnerHTML={{ __html: articlesData[selectedArticle.id as keyof typeof articlesData]?.content || "" }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3780,14 +5769,41 @@ export function BecomeHost({ onNavigate }: PageProps) {
   const [showDashboard, setShowDashboard] = useState(false);
 
   const handleStart = () => setShowGoogleLogin(true);
-  const handleGoogleSuccess = (data: any) => { setUserData(data); setShowGoogleLogin(false); setShowRegistration(true); };
-  const handleRegistrationComplete = () => { setShowRegistration(false); setShowCommitment(true); };
-  const handleCommitmentAccept = () => { setShowCommitment(false); setShowEasySteps(true); };
-  const handleEasyStepsContinue = () => { setShowEasySteps(false); setShowPropertyForm(true); };
+  
+  const handleGoogleSuccess = (data: any) => { 
+    setUserData(data); 
+    setShowGoogleLogin(false); 
+    setShowRegistration(true); 
+  };
+  
+  const handleRegistrationComplete = () => { 
+    setShowRegistration(false); 
+    setShowCommitment(true); 
+  };
+  
+  const handleCommitmentAccept = () => { 
+    setShowCommitment(false); 
+    setShowEasySteps(true); 
+  };
+  
+  const handleEasyStepsContinue = () => { 
+    setShowEasySteps(false); 
+    setShowPropertyForm(true); 
+  };
+  
   const handleEasyStepsQuit = () => onNavigate?.({ name: 'home' });
-  const handleSaveAndQuit = () => { setShowPropertyForm(false); setShowDashboard(true); };
-  const handleGoToDashboard = () => { setShowPropertyForm(false); setShowDashboard(true); };
+  
+  const handleSaveAndQuit = () => { 
+    setShowPropertyForm(false); 
+    setShowDashboard(true); 
+  };
+  
+  const handleGoToDashboard = () => { 
+    setShowPropertyForm(false); 
+    setShowDashboard(true); 
+  };
 
+  // États des modaux
   if (showGoogleLogin) return <GoogleLoginModal onSuccess={handleGoogleSuccess} onClose={() => onNavigate?.({ name: 'home' })} />;
   if (showRegistration) return <RegistrationForm userData={userData} onComplete={handleRegistrationComplete} onBack={() => { setShowRegistration(false); setShowGoogleLogin(true); }} />;
   if (showCommitment) return <CommunityCommitment onAccept={handleCommitmentAccept} onBack={() => { setShowCommitment(false); setShowRegistration(true); }} />;
@@ -3816,7 +5832,9 @@ export function BecomeHost({ onNavigate }: PageProps) {
               const Icon = benefit.icon;
               return (
                 <div key={index} className="rounded-3xl border border-gray-100 p-6 shadow-sm hover:shadow-lg transition-shadow">
-                  <div className="w-14 h-14 rounded-3xl bg-[#00c9a7]/10 text-[#00c9a7] flex items-center justify-center mb-4"><Icon className="w-7 h-7" /></div>
+                  <div className="w-14 h-14 rounded-3xl bg-[#00c9a7]/10 text-[#00c9a7] flex items-center justify-center mb-4">
+                    <Icon className="w-7 h-7" />
+                  </div>
                   <h3 className="text-lg text-[#0F2940] mb-2">{benefit.title}</h3>
                   <p className="text-gray-600 text-sm">{benefit.description}</p>
                 </div>
@@ -3830,13 +5848,14 @@ export function BecomeHost({ onNavigate }: PageProps) {
             <h2 className="text-3xl font-semibold mt-4">Rejoignez la communauté</h2>
           </div>
           <p className="text-sm text-white/80 leading-relaxed mb-8">Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs locaux et internationaux.</p>
-          <button onClick={handleStart} className="w-full rounded-2xl bg-[#00c9a7] py-4 text-[#0F2940] font-semibold hover:bg-[#00e0b0] transition-colors">Accéder à mon espace hôte</button>
+          <button onClick={handleStart} className="w-full rounded-2xl bg-[#00c9a7] py-4 text-[#0F2940] font-semibold hover:bg-[#00e0b0] transition-colors">
+            Accéder à mon espace hôte
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
@@ -4821,13 +6840,12 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
   );
 }
 // ==================== CITY PAGE ====================
-export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
-  // Récupérez city depuis les props au lieu de useParams
-  // Ou utilisez une prop directe
+export function CityPage({ onNavigate, city }: { onNavigate?: (route: Route) => void; city?: string }) {
   const [selectedFilter, setSelectedFilter] = useState("Tous");
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
-  // Définissez cityCategories à l'intérieur ou importez-la
+  const { isFavorite, toggleFavorite } = useFavorites();
+
   const cityCategories: Record<string, { title: string; properties: any[] }> = {
     portonovo: { title: 'Porto-Novo', properties: portonovoProperties },
     abomeycalavi: { title: 'Abomey-Calavi', properties: abomeycalaviProperties },
@@ -4841,12 +6859,8 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
     grandpopo: { title: 'Grand-Popo', properties: grandpopoProperties },
   };
 
-  // Récupérez cityKey depuis les props au lieu de useParams
-  // Pour l'exemple, utilisons une prop city
-  // Mais selon votre route, vous devriez avoir city dans les props
-  
-  // Version temporaire - À adapter selon comment vous passez la ville
-  const category = cityCategories["portonovo"]; // Remplacez par la bonne logique
+  const categoryKey = city || 'portonovo';
+  const category = cityCategories[categoryKey];
 
   const filtersList = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'];
 
@@ -4873,36 +6887,63 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
     }
   };
 
-  // Définissez PropertyCard à l'intérieur
-  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => (
-    <div className="group cursor-pointer" onClick={() => handleNavigate({ name: 'listing', id: property.id.toString() })}>
-      <div className="relative overflow-hidden rounded-2xl">
-        <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-        <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
-          <Heart className="w-5 h-5" />
-        </button>
-      </div>
-      <div className="mt-3">
-        <div className="flex justify-between items-start gap-4">
-          <div>
-            <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Star className="w-4 h-4 text-[#00c9a7]" />
-            <span className="font-medium text-[#0F2940]">{property.rating}</span>
-            <span>({property.reviews})</span>
-          </div>
+  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => {
+    const handleFavoriteClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      toggleFavorite(property);
+    };
+
+    return (
+      <div className="group cursor-pointer" onClick={() => handleNavigate({ name: 'listing', id: property.id.toString() })}>
+        <div className="relative overflow-hidden rounded-2xl">
+          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+          <button 
+            onClick={handleFavoriteClick}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
+          >
+            <Heart 
+              className={`w-5 h-5 transition-all duration-200 ${
+                isFavorite(property.id) 
+                  ? 'fill-red-500 text-red-500 scale-110' 
+                  : 'text-gray-700 hover:text-red-500'
+              }`} 
+            />
+          </button>
         </div>
-        {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-          <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-          <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
+        <div className="mt-3">
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+              <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
+              <span className="font-medium text-[#0F2940]">{property.rating}</span>
+              <span>({property.reviews})</span>
+            </div>
+          </div>
+          {showDescription && property.description && (
+            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+            {property.beds && (
+              <div className="flex items-center gap-1">
+                <Bed className="w-4 h-4" />
+                <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+              </div>
+            )}
+            {property.baths && (
+              <div className="flex items-center gap-1">
+                <Bath className="w-4 h-4" />
+                <span>{property.baths} sdb</span>
+              </div>
+            )}
+          </div>
+          <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay || `${property.price.toLocaleString()} FCFA`}</p>
         </div>
-        <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay || `${property.price.toLocaleString()} FCFA`}</p>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (!category) {
     return (
@@ -4922,8 +6963,7 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
   }
 
   return (
-    <div className="bg-white min-h-screen">
-      {/* En-tête */}
+    <div className="bg-white min-h-screen pb-16">
       <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 pt-8 pb-12">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           <button
@@ -4940,7 +6980,6 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
         </div>
       </div>
 
-      {/* Filtres */}
       <div className="border-b border-gray-200 sticky top-0 bg-white z-30">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center gap-4">
@@ -4968,7 +7007,6 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
         </div>
       </div>
 
-      {/* Grille des logements */}
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredProperties.map(property => (
@@ -4979,3 +7017,7 @@ export function CityPage({ onNavigate }: { onNavigate?: (route: Route) => void }
     </div>
   );
 }
+
+
+
+

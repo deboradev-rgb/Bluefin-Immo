@@ -1,4 +1,3 @@
-// routes.ts
 import { SearchPage, ExperiencePage, ServicesPage } from "./pages";
 
 export type Page =
@@ -12,7 +11,7 @@ export type Page =
   | 'confirmation'
   | 'profile'
   | 'account'
-  |'become-host'
+  | 'become-host'
   | 'account-reservations'
   | 'host-dashboard'
   | 'host-annonces'
@@ -53,9 +52,7 @@ export function parseRoute(path: string): Route {
   if (segments[0] === 'devenir-hote') return { name: 'become-host' };
   if (segments[0] === 'auth') return { name: 'auth' };
   if (segments[0] === 'connexion') return { name: 'auth' };
-  
-
-
+  if (segments[0] === 'login') return { name: 'auth' };
   
   if (segments[0] === 's') {
     return { name: segments[1] === 'hotels' ? 'search-hotels' : 'search-logements' };
@@ -105,7 +102,6 @@ export function routeToPath(route: Route): string {
       return '/experience';
     case 'become-host':
       return '/devenir-hote';
- 
     case 'auth':
       return '/auth';
     case 'services':
@@ -153,7 +149,7 @@ export function routeToPath(route: Route): string {
   }
 }
 
-export function tabFromPage(page: Page) {
+export function tabFromPage(page: Page): 'explore' | 'favorites' | 'trips' | 'messages' | 'profile' {
   if (page === 'favorites') return 'favorites';
   if (page === 'messages') return 'messages';
   if (page === 'account' || page === 'account-reservations') return 'trips';
@@ -161,8 +157,10 @@ export function tabFromPage(page: Page) {
   return 'explore';
 }
 
-export function routeFromTab(tab: 'explore' | 'favorites' | 'trips' | 'messages' | 'profile'): Route {
+export function routeFromTab(tab: 'explore' | 'favorites' | 'trips' | 'messages' | 'profile' | 'auth'): Route {
   switch (tab) {
+    case 'explore':
+      return { name: 'home' }; 
     case 'favorites':
       return { name: 'favorites' };
     case 'trips':
@@ -171,6 +169,8 @@ export function routeFromTab(tab: 'explore' | 'favorites' | 'trips' | 'messages'
       return { name: 'messages' };
     case 'profile':
       return { name: 'profile' };
+    case 'auth':
+      return { name: 'auth' };
     default:
       return { name: 'home' };
   }
