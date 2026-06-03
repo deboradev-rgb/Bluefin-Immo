@@ -18,7 +18,7 @@ export function FooterPage({ onNavigate }: PageProps) {
     {
       title: "Légal",
       links: [
-        { label: "Confidentialité", action: () => onNavigate?.({ name: 'terms', type: 'privacy' }) },
+        { label: "Politique de confidentialité", action: () => onNavigate?.({ name: 'terms', type: 'privacy' }) },
         { label: "Conditions générales", action: () => onNavigate?.({ name: 'terms', type: 'cgu' }) },
         { label: "Mentions légales", action: () => onNavigate?.({ name: 'terms' }) }
       ]

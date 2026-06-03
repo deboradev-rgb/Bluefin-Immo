@@ -2,8 +2,8 @@ import { Search, MapPin, Calendar, Users, ChevronLeft, ChevronRight, X } from 'l
 import { useState, useEffect, useRef } from 'react';
 
 interface HeroProps {
-  onSearch?: () => void;
-  onNavigate?: (path: string, params?: URLSearchParams) => void;
+  onSearch?: (query?: string) => void;
+  onNavigate?: (path?: string, params?: URLSearchParams) => void;
 }
 
 // Liste des destinations
@@ -174,7 +174,7 @@ export function Hero({ onSearch, onNavigate }: HeroProps) {
     
     setActiveTab(null);
     setShowMobileSearch(false);
-    onSearch?.();
+    onSearch?.(destination || undefined);
   };
 
   return (

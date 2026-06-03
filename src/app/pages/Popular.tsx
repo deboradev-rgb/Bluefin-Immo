@@ -289,7 +289,7 @@ const CheckoutModal = ({ property, checkIn, checkOut, guests, totalPrice, onClos
           </div>
           <div className="lg:w-2/5 bg-gray-50 p-6 space-y-4">
             <div className="flex gap-4">
-              <img src={property.image} alt={property.title} className="w-20 h-20 rounded-lg object-cover" />
+              <img src={property.images?.[0] || property.image || '/placeholder.jpg'} alt={property.title} className="w-20 h-20 rounded-lg object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
               <div>
                 <h3 className="font-semibold">{property.title}</h3>
                 <div className="flex items-center gap-1 text-sm"><Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating} ({property.reviews} commentaires)</div>
@@ -401,7 +401,11 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Popul
               </div>
 
               <div className="flex gap-5 items-start">
-                <img src={property.hostImage} className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg animate-pulse" />
+                <img
+                  src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(property.host || 'Hôte')}&bold=true&size=128`}
+                  alt={property.host || 'Hôte'}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg animate-pulse"
+                />
                 <div>
                   <div className="font-semibold text-xl text-[#0F2940]">Hôte : {property.host}</div>
                   <div className="flex items-center gap-1 text-[#00c9a7]"><Award className="w-4 h-4"/>Superhôte · {property.hostSince}</div>
@@ -603,7 +607,7 @@ export default function Popular({ onNavigate }: PopularPageProps) {
                 onClick={()=>setDetailProperty(property)}
               >
                 <div className="relative overflow-hidden rounded-xl">
-                  <img src={property.image} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <img src={property.images?.[0] || property.image || '/placeholder.jpg'} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
                   <div className="absolute top-3 right-3 bg-[#00c9a7] text-[#0F2940] text-xs font-bold px-2 py-1 rounded-full">Coup de cœur</div>
                 </div>
                 <div className="mt-3">

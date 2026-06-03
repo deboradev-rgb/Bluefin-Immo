@@ -315,7 +315,12 @@ export default function Search() {
   const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => (
     <div className="group cursor-pointer" onClick={() => navigate(`/annonce/${property.id}`)}>
       <div className="relative overflow-hidden rounded-2xl">
-        <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+        <img
+          src={property.images?.[0] || property.image || '/placeholder.jpg'}
+          alt={property.title}
+          className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+        />
         <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors">
           <Heart className="w-5 h-5" />
         </button>

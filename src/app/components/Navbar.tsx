@@ -34,14 +34,14 @@ export function Navbar({ onGoHome, onNavigate, currentPage }: NavbarProps) {
   // Dans ton Navbar.tsx, modifie navItems :
 
 const navItems = [
-  { name: 'Logement', icon: Home, route: { name: 'search-logements' } as Route },  // Redirige vers SearchPage
+  { name: 'Logement', icon: Home, route: { name: 'home' } as Route },  // Redirige vers SearchPage
   { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route },     // Redirige vers ExperiencePage
   { name: 'Service', icon: Server, route: { name: 'services' } as Route } ,
     // Redirige vers BecomeHostPage
 ];
 
 const isActive = (itemName: string) => {
-  if (itemName === 'Logement' && currentPage === 'search-logements') return true;
+  if (itemName === 'Logement' && currentPage === 'home') return true;
   if (itemName === 'Expérience' && currentPage === 'experience') return true;
   if (itemName === 'Service' && currentPage === 'services') return true;
 

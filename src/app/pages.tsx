@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef  } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation  } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../contexts/AuthContext';
 import { BookingWidget } from './components/BookingWidget';
 import { CategoryStrip } from './components/CategoryStrip';
 import { DestinationCard } from './components/DestinationCard';
@@ -9,25 +11,56 @@ import { Hero } from './components/Hero';
 import { ListingCard } from './components/ListingCard';
 import { ListingDetail } from './components/ListingDetail';
 import { useFavorites } from './hooks/useFavorites';
-import { PropertyCard } from './components/PropertyCard';
+
+import { Layout } from './components/Layout';
+
+import api  from '../services/api';
+// import { PropertyDetailModal } from './components/PropertyDetailModal';
+
+// import { PropertyCard } from '../components/PropertyCard';
+import bookingService, { type BookingData } from '../services/booking.service';
+import propertyService from '../services/property.service';
+import authService from '../services/auth.service';
+import adminService from '../services/admin.service';
+import { PageSection } from './components/PageSection';
+import hostService from '../services/host.service';
+import { toast } from 'react-hot-toast';
+import { getImageUrl } from './utils/imageHelper';
+import type { Route } from './router';
+import messageService, { Conversation, Message } from '../services/message.service';
+
 import { 
-  Zap, CheckCircle, Headphones, Home, Heart, MessageCircle, Calendar, 
-  ShieldCheck, Rocket, BookOpen, Info, Bookmark, Star, CreditCard, Check, 
-  XCircle, BarChart3, CalendarDays, Building2, Sparkles, Search as SearchIcon, HelpCircle  ,
-  UserPlus,
-  DollarSign,
-  FileText,
-  Mail,
-  Settings, 
-  Bell,Search ,Monitor,Tablet, Menu,
-  AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield ,
-  Clock,
+  Zap, Headphones, Home, Heart, Calendar, 
+  ShieldCheck, Rocket, BookOpen, Info, Bookmark, Star, CreditCard, Check, BarChart3, CalendarDays, Building2, Sparkles, Search as SearchIcon, HelpCircle  ,
+  UserPlus,CheckCircle, XCircle, Clock,Flag ,
+  DollarSign,ArrowUp ,Activity ,Wallet ,Ban ,
+  FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
+  Mail,Reply,
+  Settings,  Calendar as CalendarIcon, 
+  Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
+  AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
   X as CloseIcon, ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
   MapPin, Bath, Bed, Filter, ChevronDown, Share2, Award, Crown, Key, Smartphone, Phone, Camera, Image
 } from 'lucide-react';
-import type { Route } from './router';
 
-
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart as RePieChart,
+  Pie,ComposedChart,PieChart ,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from 'recharts';
+import CheckoutModal from './components/CheckoutModal';
 
 
 
@@ -52,8 +85,8 @@ type HotelProperty = {
   title: string;
   location: string;
   price: number;
-  priceDisplay: string;
-  priceNumber: number;
+    priceDisplay?: string;
+    priceNumber?: number;
   rating: number;
   reviews: number;
   image: string;
@@ -63,16 +96,30 @@ type HotelProperty = {
   type?: string;
   category?: string;
   city?: string;
+  district?: string;
   // Ajoutez les propriétés optionnelles manquantes
   images?: string[];
   host?: string;
-  hostImage?: string;
+  hostImage?: string | null;
   hostSince?: string;
   superhost?: boolean;
   responseRate?: number;
   responseTime?: string;
   longDescription?: string;
   amenities?: string[];
+  hostId?: string | number | null;
+  checkInTime?: string;
+  checkOutTime?: string;
+  selfCheckIn?: boolean;
+  walkScore?: string;
+  property_type?: string;
+  bluefin_certified?: boolean;
+  has_generator?: boolean;
+  has_wifi?: boolean;
+  has_air_conditioning?: boolean;
+  has_water_tank?: boolean;
+  cancellation_policy?: string;
+  instant_booking?: boolean;
   testimonials?: Array<{
     name: string;
     date: string;
@@ -149,22 +196,8 @@ const blogArticles = [
   { title: 'Route des Pêches : que faire ?', excerpt: 'Plages, villages de pêcheurs et expériences locales le long du littoral béninois.' },
 ];
 
-function PageSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="w-full px-4 sm:px-6 lg:px-8 py-10 lg:py-14">
-      <div className="max-w-[1440px] mx-auto">
-        <div className="mb-8 text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-[#00c9a7] mb-2">Bluefin-Immo</p>
-          <h2 className="text-2xl lg:text-4xl font-bold text-[#0f2940]">{title}</h2>
-          {subtitle && <p className="text-sm lg:text-base text-[#6b7280] mt-3 max-w-2xl mx-auto">{subtitle}</p>}
-        </div>
-        {children}
-      </div>
-    </section>
-  );
-}
 
-// ==================== DONNÉES ====================
+
 const formatPrice = (price: number) => `${price.toLocaleString()} FCFA / nuit`;
 
 // Version SIMPLE des propriétés populaires (utilisée par HomePage et SearchPage)
@@ -244,14 +277,13 @@ const hotelsData: HotelProperty[] = [
   // Ajoutez les autres hôtels avec leurs images...
 ];
 
-
-
 const hotelsProperties: HotelProperty[] = [
   {
     id: 4,
     title: "Hôtel Golden Tulip",
     location: "Cotonou",
-    price: "150 000 FCFA / nuit",
+      price: 150000,
+      priceDisplay: "150 000 FCFA / nuit",
     priceNumber: 150000,
     rating: 4.9,
     reviews: 342,
@@ -282,7 +314,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 5,
     title: "Novotel Cotonou",
     location: "Cotonou",
-    price: "120 000 FCFA / nuit",
+      price: 120000,
+      priceDisplay: "120 000 FCFA / nuit",
     priceNumber: 120000,
     rating: 4.8,
     reviews: 267,
@@ -312,7 +345,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 6,
     title: "Azalaï Hôtel",
     location: "Cotonou",
-    price: "95 000 FCFA / nuit",
+      price: 95000,
+      priceDisplay: "95 000 FCFA / nuit",
     priceNumber: 95000,
     rating: 4.7,
     reviews: 189,
@@ -342,7 +376,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 7,
     title: "Radisson Blu Cotonou",
     location: "Cotonou",
-    price: "140 000 FCFA / nuit",
+      price: 140000,
+      priceDisplay: "140 000 FCFA / nuit",
     priceNumber: 140000,
     rating: 4.8,
     reviews: 211,
@@ -372,7 +407,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 8,
     title: "Royal Orchid Hotel",
     location: "Cotonou",
-    price: "110 000 FCFA / nuit",
+      price: 110000,
+      priceDisplay: "110 000 FCFA / nuit",
     priceNumber: 110000,
     rating: 4.7,
     reviews: 162,
@@ -402,7 +438,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 9,
     title: "Sunset Beach Resort",
     location: "Cotonou",
-    price: "135 000 FCFA / nuit",
+      price: 135000,
+      priceDisplay: "135 000 FCFA / nuit",
     priceNumber: 135000,
     rating: 4.9,
     reviews: 278,
@@ -432,7 +469,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 10,
     title: "Palace Hotel Cotonou",
     location: "Cotonou",
-    price: "165 000 FCFA / nuit",
+      price: 165000,
+      priceDisplay: "165 000 FCFA / nuit",
     priceNumber: 165000,
     rating: 4.9,
     reviews: 310,
@@ -462,7 +500,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 11,
     title: "Lagoon View Suites",
     location: "Cotonou",
-    price: "130 000 FCFA / nuit",
+      price: 130000,
+      priceDisplay: "130 000 FCFA / nuit",
     priceNumber: 130000,
     rating: 4.6,
     reviews: 146,
@@ -492,7 +531,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 12,
     title: "Cotonou Urban Inn",
     location: "Cotonou",
-    price: "90 000 FCFA / nuit",
+      price: 90000,
+      priceDisplay: "90 000 FCFA / nuit",
     priceNumber: 90000,
     rating: 4.5,
     reviews: 103,
@@ -522,7 +562,8 @@ const hotelsProperties: HotelProperty[] = [
     id: 13,
     title: "Riviera Boutique Hotel",
     location: "Cotonou",
-    price: "100 000 FCFA / nuit",
+      price: 100000,
+      priceDisplay: "100 000 FCFA / nuit",
     priceNumber: 100000,
     rating: 4.7,
     reviews: 128,
@@ -550,38 +591,6 @@ const hotelsProperties: HotelProperty[] = [
   }
 ];
 
-
-
-
-// const PropertyCard = ({ property, showDescription = false, onNavigate }: any) => (
-//   <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-//     <div className="relative overflow-hidden rounded-2xl">
-//       <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-//       <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10">
-//         <Heart className="w-5 h-5" />
-//       </button>
-//     </div>
-//     <div className="mt-3">
-//       <div className="flex justify-between items-start gap-4">
-//         <div>
-//           <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-//           <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-//         </div>
-//         <div className="flex items-center gap-1 text-sm text-gray-500">
-//           <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-//           <span className="font-medium text-[#0F2940]">{property.rating}</span>
-//           <span>({property.reviews})</span>
-//         </div>
-//       </div>
-//       {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-//       <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-//         <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-//         <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
-//       </div>
-//       <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
-//     </div>
-//   </div>
-// );
 
 const portonovoProperties = [
   { id: 7, title: 'Maison traditionnelle', location: 'Porto-Novo', price: 45000, priceDisplay: formatPrice(45000), rating: 4.6, reviews: 45, image: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80', beds: 3, baths: 2, type: 'Maison', category: 'portonovo', city: 'Porto-Novo', description: 'Authentique maison traditionnelle.' },
@@ -2041,7 +2050,6 @@ const allExperiences = [
 ];
 
 
-
 // ==================== SERVICES PAGE ====================
 const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () => void }) => {
   const [currentImage, setCurrentImage] = useState(0);
@@ -2217,184 +2225,7 @@ const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () =>
 
 
 
-// const benefits = [
-//   { title: "Publier facilement", description: "Ajoutez votre logement en quelques minutes et atteignez des voyageurs du monde entier.", icon: Home },
-//   { title: "Gérer vos revenus", description: "Suivez vos réservations, vos gains et vos performances en temps réel.", icon: Sparkles },
-//   { title: "Séjour sécurisé", description: "Bénéficiez d'un système de réservation sécurisé et d'un support fiable.", icon: ShieldCheck },
-// ];
 
-// ========== COMPOSANT DE CONNEXION GOOGLE ==========
-// const GoogleLoginModal = ({ onSuccess, onClose }: { onSuccess: (userData: any) => void; onClose: () => void }) => {
-//   const [email, setEmail] = useState("");
-//   const [password, setPassword] = useState("");
-//   const [isSignUp, setIsSignUp] = useState(false);
-
-//   const handleGoogleLogin = () => {
-//     onSuccess({
-//       email: "deboralokossou.dev@gmail.com",
-//       firstName: "Débora",
-//       lastName: "LOKOSSOU",
-//       googleId: "123456789"
-//     });
-//   };
-
-//   return (
-//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-//       <div className="bg-white rounded-2xl max-w-md w-full p-6">
-//         <div className="flex justify-between items-center mb-6">
-//           <h2 className="text-2xl font-semibold text-[#0F2940]">{isSignUp ? "Créer un compte" : "Se connecter"}</h2>
-//           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-//         </div>
-        
-//         <button onClick={handleGoogleLogin} className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-full py-3 px-4 hover:bg-gray-50 transition-colors mb-4">
-//           <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-//           <span className="font-medium">Continuer avec Google</span>
-//         </button>
-        
-//         <div className="relative my-4">
-//           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-//           <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">ou</span></div>
-//         </div>
-        
-//         <input type="email" placeholder="Adresse e-mail" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
-//         <input type="password" placeholder="Mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
-        
-//         <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">{isSignUp ? "S'inscrire" : "Se connecter"}</button>
-        
-//         <p className="text-center text-sm text-gray-500 mt-4">
-//           {isSignUp ? "Déjà un compte ?" : "Pas encore de compte ?"}
-//           <button onClick={() => setIsSignUp(!isSignUp)} className="ml-1 text-[#00c9a7] font-medium">{isSignUp ? "Se connecter" : "S'inscrire"}</button>
-//         </p>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ========== FORMULAIRE D'INSCRIPTION ==========
-// const RegistrationForm = ({ userData, onComplete, onBack }: { userData: any; onComplete: (data: any) => void; onBack: () => void }) => {
-//   const [formData, setFormData] = useState({
-//     firstName: userData?.firstName || "",
-//     lastName: userData?.lastName || "",
-//     birthDate: "",
-//     email: userData?.email || "",
-//     receivePromotions: false
-//   });
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (!formData.firstName || !formData.lastName || !formData.birthDate || !formData.email) {
-//       alert("Veuillez remplir tous les champs obligatoires");
-//       return;
-//     }
-//     onComplete(formData);
-//   };
-
-//   return (
-//     <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto p-4">
-//       <div className="min-h-screen flex items-center justify-center">
-//         <div className="bg-white rounded-3xl max-w-2xl w-full p-8">
-//           <div className="flex justify-between items-center mb-6">
-//             <h2 className="text-2xl font-semibold text-[#0F2940]">Maintenant, créons votre compte</h2>
-//             <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-//           </div>
-//           <p className="text-gray-600 mb-6">Ces informations sont obligatoires pour effectuer une réservation ou accueillir des voyageurs.</p>
-          
-//           <form onSubmit={handleSubmit}>
-//             <div className="mb-6">
-//               <label className="block text-sm font-medium text-gray-700 mb-2">Nom officiel</label>
-//               <div className="grid grid-cols-2 gap-4">
-//                 <div><input type="text" placeholder="Prénom" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
-//                 <div><input type="text" placeholder="Nom" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required /></div>
-//               </div>
-//               <p className="text-xs text-gray-500 mt-2">Veillez à ce que le nom corresponde à celui qui figure sur votre pièce d'identité.</p>
-//             </div>
-            
-//             <div className="mb-6">
-//               <label className="block text-sm font-medium text-gray-700 mb-2">Date de naissance</label>
-//               <input type="date" value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
-//             </div>
-            
-//             <div className="mb-6">
-//               <label className="block text-sm font-medium text-gray-700 mb-2">Adresse e-mail</label>
-//               <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" required />
-//               <p className="text-xs text-gray-500 mt-2">Nous vous enverrons vos confirmations de voyage et vos reçus par e-mail.</p>
-//             </div>
-            
-//             {userData?.googleId && <p className="text-sm text-gray-500 mb-4">Toutes les informations préremplies proviennent de Google.</p>}
-            
-//             <div className="mb-6">
-//               <label className="flex items-center gap-2 cursor-pointer">
-//                 <input type="checkbox" checked={formData.receivePromotions} onChange={(e) => setFormData({...formData, receivePromotions: e.target.checked})} className="w-4 h-4 rounded border-gray-300 focus:ring-[#00c9a7]" />
-//                 <span className="text-sm text-gray-600">Je ne souhaite pas recevoir de promotions Airbnb.</span>
-//               </label>
-//             </div>
-            
-//             <div className="bg-gray-50 rounded-xl p-4 mb-6">
-//               <p className="text-xs text-gray-500">En sélectionnant Accepter et continuer, j'accepte les Conditions de service, les Conditions de service relatives aux paiements et la Politique de non-discrimination et je reconnais avoir pris connaissance de la Politique de confidentialité.</p>
-//             </div>
-            
-//             <button type="submit" className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter et continuer</button>
-//           </form>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ========== ENGAGEMENT COMMUNAUTAIRE ==========
-// const CommunityCommitment = ({ onAccept, onBack }: { onAccept: () => void; onBack: () => void }) => {
-//   return (
-//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-//       <div className="bg-white rounded-3xl max-w-lg w-full p-8">
-//         <div className="flex justify-between items-center mb-6">
-//           <h2 className="text-2xl font-semibold text-[#0F2940]">Tout le monde a sa place ici</h2>
-//           <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-//         </div>
-//         <p className="text-gray-700 mb-4">Lorsque vous rejoignez Airbnb, nous vous demandons d'accepter notre engagement de la communauté :</p>
-//         <div className="bg-[#f4fffe] rounded-xl p-6 mb-6">
-//           <p className="text-[#0F2940] italic">"Je m'engage à traiter avec respect et sans préjugés chacun des membres de la communauté, quels que soient sa couleur de peau, sa religion, sa nationalité, son origine, son handicap, son sexe, son identité de genre, son orientation sexuelle ou son âge."</p>
-//         </div>
-//         <button onClick={onAccept} className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Accepter</button>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ========== ÉTAPES FACILES ==========
-// const EasySteps = ({ onContinue, onQuit }: { onContinue: () => void; onQuit: () => void }) => {
-//   return (
-//     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-//       <div className="bg-white rounded-3xl max-w-md w-full p-8">
-//         <div className="flex justify-between items-center mb-6">
-//           <h2 className="text-2xl font-semibold text-[#0F2940]">Commencer sur Airbnb, c'est facile</h2>
-//           <button onClick={onQuit} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-//         </div>
-        
-//         <div className="space-y-6">
-//           <div className="flex gap-4">
-//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">1</div>
-//             <div><h3 className="font-semibold text-[#0F2940]">Parlez-nous de votre logement</h3><p className="text-sm text-gray-600">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p></div>
-//           </div>
-//           <div className="flex gap-4">
-//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">2</div>
-//             <div><h3 className="font-semibold text-[#0F2940]">Faites en sorte de vous démarquer</h3><p className="text-sm text-gray-600">Ajoutez au moins 5 photos, un titre et une description. Nous allons vous aider.</p></div>
-//           </div>
-//           <div className="flex gap-4">
-//             <div className="w-10 h-10 bg-[#00c9a7]/20 rounded-full flex items-center justify-center text-[#00c9a7] font-bold text-xl">3</div>
-//             <div><h3 className="font-semibold text-[#0F2940]">Terminez et publiez</h3><p className="text-sm text-gray-600">Choisissez un prix de départ, vérifiez quelques détails, puis publiez votre annonce.</p></div>
-//           </div>
-//         </div>
-        
-//         <div className="flex gap-3 mt-8">
-//           <button onClick={onQuit} className="flex-1 border border-gray-300 py-3 rounded-full text-[#0F2940] hover:bg-gray-50 transition-colors">Quitter</button>
-//           <button onClick={onContinue} className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Commencer</button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ========== MODAL DE RECHERCHE DE LOCALISATION ==========
 const LocationSearchModal = ({ onClose, onCoHostAvailable }: { onClose: () => void; onCoHostAvailable: (available: boolean) => void }) => {
   const [location, setLocation] = useState("");
   const [searching, setSearching] = useState(false);
@@ -2440,164 +2271,7 @@ const LocationSearchModal = ({ onClose, onCoHostAvailable }: { onClose: () => vo
   );
 };
 
-// ========== FORMULAIRE PRINCIPAL DE LOGEMENT ==========
-// const PropertyForm = ({ onSaveAndQuit, userData, onGoToDashboard }: { onSaveAndQuit: () => void; userData: any; onGoToDashboard: () => void }) => {
-//   const [step, setStep] = useState(1);
-//   const [showHelpModal, setShowHelpModal] = useState(false);
-//   const [coHostAvailable, setCoHostAvailable] = useState<boolean | null>(null);
-//   const [formData, setFormData] = useState({
-//     propertyType: "", guests: 1, bedrooms: 1, beds: 1, bathrooms: 1, address: "", city: "", photos: [] as string[], title: "", description: "", price: 50
-//   });
-//   const [showLocationModal, setShowLocationModal] = useState(false);
-//   const totalSteps = 3;
 
-//   const handleNext = () => { if (step < totalSteps) setStep(step + 1); };
-//   const handlePrev = () => { if (step > 1) setStep(step - 1); };
-//   const handleCheckCoHost = () => setShowLocationModal(true);
-//   const handleSaveAndQuit = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onSaveAndQuit(); };
-//   const handleGoToDashboard = () => { localStorage.setItem("hostPropertyData", JSON.stringify(formData)); onGoToDashboard(); };
-
-//   if (showLocationModal) return <LocationSearchModal onClose={() => setShowLocationModal(false)} onCoHostAvailable={setCoHostAvailable} />;
-
-//   return (
-//     <div className="min-h-screen bg-white">
-//       <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-4 flex justify-between items-center z-20">
-//         <button onClick={() => setShowHelpModal(true)} className="flex items-center gap-2 text-[#00c9a7]"><HelpCircle className="w-5 h-5" />Questions</button>
-//         <div className="flex items-center gap-2"><div className="text-sm text-gray-500">Étape {step}/{totalSteps}</div><button onClick={handleSaveAndQuit} className="text-sm text-gray-500 hover:text-gray-700">Enregistrer et quitter</button></div>
-//       </div>
-
-//       <div className="max-w-6xl mx-auto p-8">
-//         {step === 1 && (
-//           <div className="grid lg:grid-cols-2 gap-8 items-start">
-//             <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3f5c] rounded-3xl p-8 text-white">
-//               <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&q=80" alt="Immeuble" className="w-full h-64 object-cover rounded-2xl mb-6" />
-//               <h3 className="text-2xl font-bold mb-2">Parlez-nous de votre logement</h3>
-//               <p className="text-white/80">Donnez-nous quelques informations de base, par exemple indiquez-nous où il se trouve et combien de voyageurs il peut accueillir.</p>
-//             </div>
-//             <div className="space-y-6">
-//               <div><label className="block text-sm font-medium mb-2">Type de logement</label><select value={formData.propertyType} onChange={(e) => setFormData({...formData, propertyType: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl"><option value="">Sélectionnez</option><option>Appartement</option><option>Maison</option><option>Villa</option><option>Studio</option><option>Chambre privée</option></select></div>
-//               <div><label className="block text-sm font-medium mb-2">Nombre de voyageurs</label><input type="number" value={formData.guests} onChange={(e) => setFormData({...formData, guests: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
-//               <div className="grid grid-cols-3 gap-4"><div><label>Chambres</label><input type="number" value={formData.bedrooms} onChange={(e) => setFormData({...formData, bedrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Lits</label><input type="number" value={formData.beds} onChange={(e) => setFormData({...formData, beds: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div><div><label>Salles de bain</label><input type="number" value={formData.bathrooms} onChange={(e) => setFormData({...formData, bathrooms: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" step="0.5" min="0.5" /></div></div>
-//               <div><label className="block text-sm font-medium mb-2">Adresse</label><input type="text" placeholder="Rue, numéro" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-//               <div><label className="block text-sm font-medium mb-2">Ville</label><input type="text" placeholder="Cotonou, Porto-Novo, etc." value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-//             </div>
-//           </div>
-//         )}
-
-//         {step === 2 && (
-//           <div className="max-w-3xl mx-auto space-y-6">
-//             <div><label className="block text-sm font-medium mb-2">Photos (au moins 5)</label><div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center"><Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" /><p className="text-sm text-gray-500">Cliquez ou glissez pour ajouter des photos</p><p className="text-xs text-gray-400 mt-1">Ajoutez au moins 5 photos pour vous démarquer</p></div></div>
-//             <div><label className="block text-sm font-medium mb-2">Titre de l'annonce</label><input type="text" placeholder="Un titre accrocheur" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-//             <div><label className="block text-sm font-medium mb-2">Description</label><textarea rows={5} placeholder="Décrivez votre logement, ses atouts, le quartier..." value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" /></div>
-//           </div>
-//         )}
-
-//         {step === 3 && (
-//           <div className="max-w-3xl mx-auto space-y-6">
-//             <div><label className="block text-sm font-medium mb-2">Prix par nuit (FCFA)</label><input type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: parseInt(e.target.value)})} className="w-full px-4 py-3 border border-gray-200 rounded-xl" min="1" /></div>
-//             <div className="bg-gray-50 rounded-xl p-4"><h3 className="font-semibold mb-2">Récapitulatif</h3><div className="space-y-2 text-sm"><p><span className="text-gray-500">Type :</span> {formData.propertyType || "Non renseigné"}</p><p><span className="text-gray-500">Voyageurs :</span> {formData.guests}</p><p><span className="text-gray-500">Chambres/Lits/SDB :</span> {formData.bedrooms}/{formData.beds}/{formData.bathrooms}</p><p><span className="text-gray-500">Adresse :</span> {formData.address}, {formData.city}</p><p><span className="text-gray-500">Prix :</span> {formData.price} FCFA / nuit</p></div></div>
-//             <button className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-full font-semibold hover:bg-[#00b892] transition-colors">Publier l'annonce</button>
-//           </div>
-//         )}
-
-//         <div className="flex justify-between mt-8 pt-4 border-t">
-//           <button onClick={handlePrev} disabled={step === 1} className={`px-6 py-2 rounded-full ${step === 1 ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border border-gray-300 hover:bg-gray-50"}`}><ChevronLeft className="w-5 h-5 inline" /> Retour</button>
-//           <button onClick={handleNext} disabled={step === totalSteps} className={`px-6 py-2 rounded-full ${step === totalSteps ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#00c9a7] text-[#0F2940] font-semibold"}`}>Suivant <ChevronRight className="w-5 h-5 inline" /></button>
-//         </div>
-//       </div>
-
-//       {showHelpModal && (
-//         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-//           <div className="bg-white rounded-3xl max-w-md w-full p-6">
-//             <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold text-[#0F2940]">Des questions ?</h2><button onClick={() => setShowHelpModal(false)} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button></div>
-//             <button onClick={handleCheckCoHost} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border mb-3"><div className="flex items-center gap-3"><MessageCircle className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Discutez avec un Superhôte</h3><p className="text-xs text-gray-500">Recevez des réponses à vos questions rapidement.</p></div></div></button>
-//             <button onClick={handleGoToDashboard} className="w-full text-left p-4 rounded-xl hover:bg-gray-50 transition-colors border"><div className="flex items-center gap-3"><UserPlus className="w-5 h-5 text-[#00c9a7]" /><div><h3 className="font-semibold text-[#0F2940]">Faites appel à un co-hôte local</h3><p className="text-xs text-gray-500">Gérez votre logement avec un co-hôte professionnel.</p></div></div></button>
-//           </div>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// ========== DASHBOARD HÔTE ==========
-// const HostDashboard = ({ onLogout, userData }: { onLogout: () => void; userData: any }) => {
-//   const [activeTab, setActiveTab] = useState<"today" | "calendar" | "listings" | "messages">("today");
-
-//   return (
-//     <div className="min-h-screen bg-gray-50">
-//       <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-//         <div className="max-w-7xl mx-auto px-5 py-4 flex justify-between items-center">
-//           <div className="flex items-center gap-4">
-//             <button onClick={onLogout} className="text-gray-500 hover:text-gray-700"><ArrowLeft className="w-5 h-5" /></button>
-//             <h1 className="text-xl font-semibold text-[#0F2940]">Espace hôte</h1>
-//           </div>
-//           <div className="flex items-center gap-3">
-//             <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100 text-sm hover:bg-gray-200">
-//               <User className="w-4 h-4" /> {userData?.firstName || "Hôte"}
-//             </button>
-//           </div>
-//         </div>
-//         <div className="max-w-7xl mx-auto px-5 pb-2 flex gap-1 overflow-x-auto">
-//           <button onClick={() => setActiveTab("today")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "today" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Aujourd'hui</button>
-//           <button onClick={() => setActiveTab("calendar")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "calendar" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Calendrier</button>
-//           <button onClick={() => setActiveTab("listings")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "listings" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Annonces</button>
-//           <button onClick={() => setActiveTab("messages")} className={`px-5 py-2 rounded-full text-sm font-medium ${activeTab === "messages" ? "bg-[#00c9a7] text-[#0F2940]" : "hover:bg-gray-100"}`}>Messages</button>
-//         </div>
-//       </div>
-
-//       <div className="max-w-7xl mx-auto p-5">
-//         {activeTab === "today" && (
-//           <div className="grid lg:grid-cols-3 gap-6">
-//             <div className="lg:col-span-2 space-y-6">
-//               <div className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] rounded-2xl p-6 text-white">
-//                 <h2 className="text-2xl font-bold mb-2">Bienvenue, {userData?.firstName || "Hôte"} !</h2>
-//                 <p className="text-white/80">Votre espace de gestion vous permet de suivre vos réservations, gérer vos annonces et communiquer avec vos voyageurs.</p>
-//               </div>
-//               <div className="bg-white rounded-2xl p-6 shadow-sm">
-//                 <h3 className="font-semibold text-[#0F2940] mb-4">Résumé de votre activité</h3>
-//                 <div className="grid grid-cols-3 gap-4 text-center">
-//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Annonces</p></div>
-//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Réservations</p></div>
-//                   <div className="p-4 bg-gray-50 rounded-xl"><p className="text-2xl font-bold text-[#00c9a7]">0</p><p className="text-sm text-gray-500">Messages</p></div>
-//                 </div>
-//               </div>
-//             </div>
-//             <div className="bg-white rounded-2xl p-6 shadow-sm">
-//               <h3 className="font-semibold text-[#0F2940] mb-3">Conseils pour bien démarrer</h3>
-//               <ul className="space-y-3 text-sm text-gray-600"><li>✓ Complétez votre profil</li><li>✓ Ajoutez des photos de qualité</li><li>✓ Définissez un prix compétitif</li><li>✓ Répondez rapidement aux messages</li></ul>
-//             </div>
-//           </div>
-//         )}
-
-//         {activeTab === "calendar" && (
-//           <div className="bg-white rounded-2xl p-6 shadow-sm">
-//             <h2 className="text-xl font-semibold text-[#0F2940] mb-4">Calendrier des disponibilités</h2>
-//             <div className="grid grid-cols-7 gap-2">
-//               {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(day => <div key={day} className="text-center font-medium py-2">{day}</div>)}
-//               {Array.from({ length: 35 }).map((_, i) => (<div key={i} className="text-center p-3 border rounded-xl hover:bg-gray-50 cursor-pointer"><span className="text-sm">{i + 1}</span></div>))}
-//             </div>
-//           </div>
-//         )}
-
-//         {activeTab === "listings" && (
-//           <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
-//             <p className="text-gray-500 mb-4">Vous n'avez pas encore d'annonce</p>
-//             <button className="bg-[#00c9a7] text-[#0F2940] px-6 py-2 rounded-full font-semibold">Créer ma première annonce</button>
-//           </div>
-//         )}
-
-//         {activeTab === "messages" && (
-//           <div className="bg-white rounded-2xl p-6 shadow-sm text-center py-12">
-//             <p className="text-gray-500">Aucun message pour le moment</p>
-//           </div>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
-
-// Types pour l'utilisateur
 export type UserRole = "traveler" | "host" | "visitor";
 export type UserData = {
   id: string;
@@ -2612,130 +2286,93 @@ export type UserData = {
   isHost?: boolean;
 };
 
-const getMapUrl = (query: string) =>
-  `https://maps.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
-
-// ==================== MODAL CHECKOUT ====================
-const CheckoutModal = ({ property, checkIn, checkOut, guests, totalPrice, onClose }: any) => {
-  const [paymentMethod, setPaymentMethod] = useState<"mtn" | "orange" | "card">("mtn");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert(`Paiement de ${totalPrice.toLocaleString()} FCFA via ${
-      paymentMethod === 'mtn' ? 'MTN Mobile Money' : paymentMethod === 'orange' ? 'Orange Money' : 'Carte bancaire'
-    } accepté. Merci pour votre réservation !`);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Confirmer et payer</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="flex flex-col lg:flex-row h-full overflow-y-auto">
-          <div className="lg:w-3/5 p-6 space-y-6 border-r">
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Choisissez quand vous souhaitez payer</h3>
-              <div className="space-y-2">
-                <div className="border rounded-lg p-3 border-[#00c9a7] bg-[#00c9a7]/5">
-                  <div className="flex justify-between"><span className="font-medium">Payez {totalPrice.toLocaleString()} FCFA maintenant</span><span>✓</span></div>
-                  <div className="text-xs text-gray-500">Paiement immédiat, non remboursable</div>
-                </div>
-                <div className="border rounded-lg p-3 border-gray-200 opacity-50">
-                  <div className="flex justify-between"><span>Payer en 3 fois avec Klarna</span><span>Indisponible</span></div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Ajoutez un mode de paiement</h3>
-              <div className="flex gap-3 flex-wrap mb-4">
-                <button onClick={() => setPaymentMethod("mtn")} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${paymentMethod === "mtn" ? "border-[#00c9a7] bg-[#00c9a7]/5" : "border-gray-300"}`}>
-                  <Smartphone className="w-4 h-4"/> MTN Mobile Money
-                </button>
-                <button onClick={() => setPaymentMethod("orange")} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${paymentMethod === "orange" ? "border-[#00c9a7] bg-[#00c9a7]/5" : "border-gray-300"}`}>
-                  <Smartphone className="w-4 h-4"/> Orange Money
-                </button>
-                <button onClick={() => setPaymentMethod("card")} className={`flex items-center gap-2 px-4 py-2 rounded-full border ${paymentMethod === "card" ? "border-[#00c9a7] bg-[#00c9a7]/5" : "border-gray-300"}`}>
-                  <CreditCard className="w-4 h-4"/> Carte bancaire
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-3">
-                {(paymentMethod === "mtn" || paymentMethod === "orange") && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Numéro de téléphone</label>
-                    <div className="flex items-center border rounded-lg p-2">
-                      <Phone className="w-5 h-5 text-gray-400 mr-2" />
-                      <input type="tel" placeholder="XX XX XX XX" className="flex-1 outline-none" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} required />
-                    </div>
-                  </div>
-                )}
-                {paymentMethod === "card" && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Numéro de carte</label>
-                      <input type="text" placeholder="1234 5678 9012 3456" className="w-full border rounded-lg p-2" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div><label>Date d'expiration</label><input type="text" placeholder="MM/AA" className="w-full border rounded-lg p-2" value={expiry} onChange={(e) => setExpiry(e.target.value)} required /></div>
-                      <div><label>CVV</label><input type="text" placeholder="123" className="w-full border rounded-lg p-2" value={cvv} onChange={(e) => setCvv(e.target.value)} required /></div>
-                    </div>
-                  </>
-                )}
-                <button type="submit" className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-lg font-semibold mt-4 hover:bg-[#00b892] transition-colors">Confirmer et payer</button>
-              </form>
-              <p className="text-xs text-gray-500 text-center mt-3">Vos informations sont sécurisées.</p>
-            </div>
-          </div>
-          <div className="lg:w-2/5 bg-gray-50 p-6 space-y-4">
-            <div className="flex gap-4">
-              <img src={property.image} alt={property.title} className="w-20 h-20 rounded-lg object-cover" />
-              <div>
-                <h3 className="font-semibold">{property.title}</h3>
-                <div className="flex items-center gap-1 text-sm"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span>{property.rating}</span><span className="text-gray-500">({property.reviews})</span></div>
-                <div className="text-xs text-green-600 font-semibold mt-1">Coup de cœur voyageurs</div>
-              </div>
-            </div>
-            <div className="border-t pt-3">
-              <div className="flex justify-between text-sm"><span>Dates</span><span className="font-medium">{checkIn} – {checkOut}</span></div>
-              <div className="flex justify-between text-sm mt-2"><span>Voyageurs</span><span className="font-medium">{guests} adulte{guests > 1 ? 's' : ''}</span></div>
-              <button className="text-[#00c9a7] text-sm mt-2 underline">Modifier</button>
-            </div>
-            <div className="border-t pt-3">
-              <h4 className="font-semibold mb-2">Détail du prix</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span>{property.priceNumber.toLocaleString()} FCFA x 2 nuits</span><span>{(property.priceNumber * 2).toLocaleString()} FCFA</span></div>
-                <div className="flex justify-between"><span>Taxes</span><span>{(property.priceNumber * 2 * 0.1).toLocaleString()} FCFA</span></div>
-                <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><span>{totalPrice.toLocaleString()} FCFA</span></div>
-              </div>
-            </div>
-            <div className="bg-[#0F2940]/10 rounded-lg p-3 text-sm text-[#0F2940]">
-              <p className="font-semibold">Perle rare !</p>
-              <p>Les réservations pour ce logement sont fréquentes.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+// ==================== MODAL DE DÉTAIL ====================
+type PropertyDetailModalBookingParams = {
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  nights: number;
 };
 
-// ==================== MODAL DE DÉTAIL ====================
-const PropertyDetailModal = ({ property, onClose, onReserve }: { property: HotelProperty; onClose: () => void; onReserve: () => void }) => {
+const PropertyDetailModal = ({ property, onClose, onReserve, onChat }: { property: HotelProperty; onClose: () => void; onReserve: (bookingParams: PropertyDetailModalBookingParams) => void; onChat?: (hostId: any) => void }) => {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [checkIn, setCheckIn] = useState("15/05/2026");
-  const [checkOut, setCheckOut] = useState("17/05/2026");
+  const [showReserveOptions, setShowReserveOptions] = useState(false);
+  const [checkIn, setCheckIn] = useState(() => {
+    const today = new Date();
+    return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+  });
+  const [checkOut, setCheckOut] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`;
+  });
   const [guests, setGuests] = useState(1);
   const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedCheckInDate, setSelectedCheckInDate] = useState<Date | null>(null);
+  const [selectedCheckOutDate, setSelectedCheckOutDate] = useState<Date | null>(null);
+  const [calendarStart, setCalendarStart] = useState(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
+
+  const formatDisplayDate = (date: Date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+  const formatIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+  const handleDateSelect = (date: Date) => {
+    if (!selectedCheckInDate || (selectedCheckInDate && selectedCheckOutDate)) {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setSelectedCheckInDate(date);
+      setSelectedCheckOutDate(nextDay);
+      setCheckIn(formatDisplayDate(date));
+      setCheckOut(formatDisplayDate(nextDay));
+      return;
+    }
+
+    if (selectedCheckInDate && date <= selectedCheckInDate) {
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      setSelectedCheckInDate(date);
+      setSelectedCheckOutDate(nextDay);
+      setCheckIn(formatDisplayDate(date));
+      setCheckOut(formatDisplayDate(nextDay));
+      return;
+    }
+
+    setSelectedCheckOutDate(date);
+    setCheckOut(formatDisplayDate(date));
+  };
+
+  const calendarDays = Array.from({ length: 35 }, (_, index) => {
+    const date = new Date(calendarStart);
+    date.setDate(calendarStart.getDate() + index);
+    return date;
+  });
+
+  const isSelectedDay = (date: Date) => {
+    if (!selectedCheckInDate) return false;
+    if (selectedCheckInDate && !selectedCheckOutDate) {
+      return date.getTime() === selectedCheckInDate.getTime();
+    }
+    return (
+      date.getTime() === selectedCheckInDate.getTime() ||
+      date.getTime() === selectedCheckOutDate?.getTime() ||
+      (selectedCheckOutDate && date > selectedCheckInDate && date < selectedCheckOutDate)
+    );
+  };
+
+  const effectiveCheckInDate = selectedCheckInDate || new Date();
+  const effectiveCheckOutDate = selectedCheckOutDate || (() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow;
+  })();
+  const nights = Math.max(1, Math.ceil((effectiveCheckOutDate.getTime() - effectiveCheckInDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   // Générer des images variées pour une propriété si elle n'en a pas
   const getPropertyImages = (property: HotelProperty): string[] => {
@@ -2766,10 +2403,13 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
   const images = getPropertyImages(property);
   const nightlyPrice = property.priceNumber || property.price || 0;
   
-  const host = property.host || "Hôte vérifié";
-  const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
+  const host = typeof property.host === 'string'
+    ? property.host
+    : property.host?.full_name || property.host?.name || `${property.host?.first_name || ''} ${property.host?.last_name || ''}`.trim() || 'Hôte vérifié';
+  const hostAvatarUrl = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
   const hostSince = property.hostSince || "1 an";
   const superhost = property.superhost ?? true;
+  const hostId = property.hostId ?? property.id;
   const responseRate = property.responseRate || 95;
   const responseTime = property.responseTime || "dans l'heure";
   const longDescription = property.longDescription || property.description;
@@ -2780,7 +2420,6 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
-  const nights = 2;
   const subtotal = nightlyPrice * nights;
   const cleaningFee = 15000;
   const serviceFee = 12000;
@@ -2871,7 +2510,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               {/* Informations hôte */}
               <div className="flex gap-5 items-start">
                 <img 
-                  src={hostImage} 
+                  src={hostAvatarUrl}
                   alt={host} 
                   className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" 
                 />
@@ -2951,7 +2590,7 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
               {/* Calendrier */}
               <div className="border rounded-xl p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location?.split(',')[0] || property.location}</h3>
+                  <h3 className="font-semibold text-lg text-[#0F2940]">{nights} nuit{nights > 1 ? 's' : ''} à {property.location?.split(',')[0] || property.location}</h3>
                   <button onClick={() => setShowCalendar(!showCalendar)} className="text-[#00c9a7] text-sm underline">
                     Sélectionner
                   </button>
@@ -2959,8 +2598,23 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                 {showCalendar && (
                   <div className="mt-4 border rounded-lg p-4">
                     <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                      {["L","M","M","J","V","S","D"].map(d => <div key={d} className="font-medium text-gray-500">{d}</div>)}
-                      {Array.from({length: 35}).map((_, i) => <button key={i} className="aspect-square rounded-full hover:bg-[#00c9a7]/20">{i+1}</button>)}
+                      {["L","M","M","J","V","S","D"].map(d => (
+                        <div key={d} className="font-medium text-gray-500">{d}</div>
+                      ))}
+                      {calendarDays.map((date, i) => {
+                        const selected = isSelectedDay(date);
+                        const disabled = date < new Date(new Date().setHours(0, 0, 0, 0));
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => !disabled && handleDateSelect(date)}
+                            className={`aspect-square rounded-full transition-all ${selected ? 'bg-[#00c9a7] text-white' : 'hover:bg-[#00c9a7]/20'} ${disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
+                            disabled={disabled}
+                          >
+                            {date.getDate()}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -3015,11 +2669,24 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
                   </div>
                 </div>
                 <button 
-                  onClick={onReserve} 
+                  onClick={() => onReserve({
+                    checkIn: formatIsoDate(effectiveCheckInDate),
+                    checkOut: formatIsoDate(effectiveCheckOutDate),
+                    guests,
+                    nights,
+                  })}
                   className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-bold text-lg hover:bg-[#00b892] transition-all hover:scale-105 transform shadow-md"
                 >
                   Réserver
                 </button>
+                {onChat && hostId && (
+                  <button
+                    onClick={() => onChat(hostId)}
+                    className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#0d6ad0] transition-all shadow-md"
+                  >
+                    Discuter avec l'hôte
+                  </button>
+                )}
                 <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
               </div>
             </div>
@@ -3029,151 +2696,384 @@ const PropertyDetailModal = ({ property, onClose, onReserve }: { property: Hotel
     </div>
   );
 };
-// const PropertyCard = ({ property, showDescription = false, onNavigate }: any) => (
-//   <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-//     <div className="relative overflow-hidden rounded-2xl">
-//       <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-//       <button className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10">
-//         <Heart className="w-5 h-5" />
-//       </button>
-//     </div>
-//     <div className="mt-3">
-//       <div className="flex justify-between items-start gap-4">
-//         <div>
-//           <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-//           <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-//         </div>
-//         <div className="flex items-center gap-1 text-sm text-gray-500">
-//           <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-//           <span className="font-medium text-[#0F2940]">{property.rating}</span>
-//           <span>({property.reviews})</span>
-//         </div>
-//       </div>
-//       {showDescription && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>}
-//       <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-//         <div className="flex items-center gap-1"><Bed className="w-4 h-4" /><span>{property.beds} lits</span></div>
-//         <div className="flex items-center gap-1"><Bath className="w-4 h-4" /><span>{property.baths} sdb</span></div>
-//       </div>
-//       <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
-//     </div>
-//   </div>
-// );
 
 const filters = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés', 'Nouveautés'];
 
-// ==================== HOME PAGE ====================
-export function HomePage({ onNavigate }: PageProps) {
+// pages/HomePage.tsx
+
+const filtersList = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'];
+
+// Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
+// Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
+const mapProperty = (p: any) => {
+ 
+console.log('Données brutes de la propriété:', p);
+console.log('Clés disponibles:', Object.keys(p));
+console.log('photos:', p.photos);
+console.log('cover_photo:', p.cover_photo);
+console.log('photo_urls:', p.photo_urls);
+console.log('photo_url:', p.photo_url);
+console.log('image:', p.image);
+console.log('image_url:', p.image_url);
+console.log('images:', p.images);
+console.log('gallery:', p.gallery);
+  const isAdminProperty = Boolean(
+    p.added_by_admin || p.is_admin || p.source === 'admin' || p.created_by === 'admin' || p.user?.user_type === 'admin' || p.host?.user_type === 'admin'
+  );
+  // Utiliser le prix fourni par l'API si disponible (admin ou non)
+  const rawPrice = p.price_per_night ?? p.price ?? 0;
+  const priceValue = Number(rawPrice) || 0;
+  
+  // ✅ FONCTION POUR RÉCUPÉRER LA PREMIÈRE PHOTO
+  const getFirstImage = () => {
+    const normalizeCandidate = (cand: any): string => {
+      if (!cand) return '';
+      // If it's an object with known keys, extract the string
+      if (typeof cand === 'object') {
+        const s = cand.full_url || cand.photo_url || cand.url || cand.path || cand.file?.url || cand.file?.path || cand.photo_path;
+        if (s) return getImageUrl(s);
+        return '';
+      }
+      if (typeof cand === 'string') return getImageUrl(cand);
+      return '';
+    };
+
+    // Try cover_photo
+    const coverCand = p?.cover_photo;
+    const cover = normalizeCandidate(coverCand);
+    if (cover) return cover;
+
+    // Try singular fields
+    const singulars = [p?.photo_url, p?.image_url, p?.image, p?.cover_photo?.photo_url, p?.cover_photo?.url];
+    for (const s of singulars) {
+      const n = normalizeCandidate(s);
+      if (n) return n;
+    }
+
+    // Try photos array
+    if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
+      const first = p.photos[0];
+      const n = normalizeCandidate(first);
+      if (n) return n;
+    }
+
+    // Try photo_urls array
+    if (p.photo_urls && Array.isArray(p.photo_urls) && p.photo_urls.length > 0) {
+      const n = normalizeCandidate(p.photo_urls[0]);
+      if (n) return n;
+    }
+
+    // Other common arrays
+    const arrays = ['images', 'media', 'gallery'];
+    for (const key of arrays) {
+      const arr = p[key];
+      if (arr && Array.isArray(arr) && arr.length > 0) {
+        const n = normalizeCandidate(arr[0]);
+        if (n) return n;
+      }
+    }
+
+    // Generic search (shallow)
+    for (const k of Object.keys(p || {})) {
+      const val = p[k];
+      const n = normalizeCandidate(val);
+      if (n) return n;
+      if (Array.isArray(val) && val.length > 0) {
+        const n2 = normalizeCandidate(val[0]);
+        if (n2) return n2;
+      }
+    }
+
+    console.warn('Aucune image trouvée pour:', p?.id, p?.title);
+    return '/placeholder.jpg';
+  };
+  // ✅ FONCTION POUR RÉCUPÉRER JUSQU'À 3 IMAGES
+  const getAllImages = () => {
+    const images: string[] = [];
+    const pushUnique = (u: string) => { if (u && !images.includes(u) && images.length < 3) images.push(u); };
+
+    // cover
+    pushUnique(getFirstImage());
+
+    // photos[]
+    if (p.photos && Array.isArray(p.photos)) {
+      for (const photo of p.photos) {
+        if (images.length >= 3) break;
+        const n = (typeof photo === 'string') ? getImageUrl(photo) : (photo && (photo.full_url || photo.photo_url || photo.url || photo.path || photo.file?.url) ? getImageUrl(photo.full_url || photo.photo_url || photo.url || photo.path || photo.file?.url) : '');
+        pushUnique(n);
+      }
+    }
+
+    // photo_urls
+    if (p.photo_urls && Array.isArray(p.photo_urls)) {
+      for (const url of p.photo_urls) {
+        if (images.length >= 3) break;
+        pushUnique(getImageUrl(url));
+      }
+    }
+
+    // images/media/gallery
+    const tryArrays = ['images','media','gallery','gallery_photos'];
+    for (const key of tryArrays) {
+      const arr = p[key];
+      if (!arr || !Array.isArray(arr)) continue;
+      for (const it of arr) {
+        if (images.length >= 3) break;
+        const n = (typeof it === 'string') ? getImageUrl(it) : (it && (it.full_url || it.photo_url || it.url || it.path || it.file?.url) ? getImageUrl(it.full_url || it.photo_url || it.url || it.path || it.file?.url) : '');
+        pushUnique(n);
+      }
+      if (images.length >= 3) break;
+    }
+
+    if (images.length === 0) images.push('/placeholder.jpg');
+    return images;
+  };
+  
+  return {
+    id: p.id,
+    title: p.title,
+    location: `${p.district || ''}, ${p.city || ''}`.replace(/^,\s/, ''),
+    price: priceValue,
+    priceNumber: priceValue,
+    priceDisplay: priceValue ? `${priceValue.toLocaleString()} FCFA` : '0 FCFA',
+    rating: isAdminProperty ? (p.average_rating || 0) : 0,
+    reviews: isAdminProperty ? (p.reviews_count || 0) : 0,
+    images: getAllImages(),  // ← Toutes les photos (max 3)
+    image: (getAllImages()[0]) || getFirstImage(),  // ← Première photo
+    beds: isAdminProperty ? (p.beds || 0) : 0,
+    baths: isAdminProperty ? (p.bathrooms || 0) : 0,
+    description: isAdminProperty ? p.description : '',
+    type: p.property_type,
+    city: p.city,
+    district: p.district,
+    isAdminProperty,
+  };
+};
+
+// Composant PropertyCard interne (identique à l'original mais utilisant les données mappées)
+const PropertyCard = ({ property, showDescription = false, onNavigate, isFavorite, toggleFavorite }: any) => {
+  const favHook = useFavorites();
+  const isFavFn = isFavorite || favHook.isFavorite;
+  const toggleFavFn = toggleFavorite || favHook.toggleFavorite;
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavFn(property);
+  };
+
+  return (
+    <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
+      <div className="relative overflow-hidden rounded-2xl">
+        <img
+          src={property.images?.[0] || property.image || '/placeholder.jpg'}
+          alt={property.title}
+          className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+        />
+        <button
+          onClick={handleFavoriteClick}
+          className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
+        >
+          <Heart
+            className={`w-5 h-5 transition-all duration-200 ${
+              isFavFn(property.id)
+                ? 'fill-red-500 text-red-500 scale-110'
+                : 'text-gray-700 hover:text-red-500'
+            }`}
+          />
+        </button>
+      </div>
+      <div className="mt-3">
+        <div className="flex justify-between items-start gap-4">
+          <div>
+            <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+            <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+          </div>
+          <div className="flex items-center gap-1 text-sm text-gray-500">
+            <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
+            <span className="font-medium text-[#0F2940]">{property.rating}</span>
+            <span>({property.reviews})</span>
+          </div>
+        </div>
+        {showDescription && property.description && (
+          <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
+        )}
+        <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
+          {property.beds > 0 && (
+            <div className="flex items-center gap-1">
+              <Bed className="w-4 h-4" />
+              <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+            </div>
+          )}
+          {property.baths > 0 && (
+            <div className="flex items-center gap-1">
+              <Bath className="w-4 h-4" />
+              <span>{property.baths} sdb</span>
+            </div>
+          )}
+        </div>
+        <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
+      </div>
+    </div>
+  );
+};
+
+
+
+
+export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchDestination, setSearchDestination] = useState('');
-  const [destination, setDestination] = useState('');
-
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
+  const { data: popularData, isLoading: popularLoading } = useQuery({
+    queryKey: ['popular-properties'],
+    queryFn: () => propertyService.getAll({ sort_by: 'popular', per_page: 20 }),
+  });
 
+  // Requête pour les hôtels
+  const { data: hotelsData, isLoading: hotelsLoading } = useQuery({
+    queryKey: ['hotels'],
+    queryFn: () => propertyService.getAll({ property_type: 'hotel', per_page: 20 }),
+  });
+
+  // Requêtes pour chaque ville
+  const cities = [
+    { key: 'portonovo', title: 'Porto-Novo', filter: { city: 'Porto-Novo' } },
+    { key: 'abomeycalavi', title: 'Abomey-Calavi', filter: { city: 'Abomey-Calavi' } },
+    { key: 'akpakpa', title: 'Akpakpa', filter: { district: 'Akpakpa' } },
+    { key: 'menontin', title: 'Menontin', filter: { district: 'Menontin' } },
+    { key: 'fidjrosse', title: 'Fidjrossè', filter: { district: 'Fidjrossè' } },
+    { key: 'abomey', title: 'Abomey', filter: { city: 'Abomey' } },
+    { key: 'parakou', title: 'Parakou', filter: { city: 'Parakou' } },
+    { key: 'dassa', title: 'Dassa-Zoumè', filter: { city: 'Dassa-Zoumè' } },
+    { key: 'ouidah', title: 'Ouidah', filter: { city: 'Ouidah' } },
+    { key: 'grandpopo', title: 'Grand-Popo', filter: { city: 'Grand-Popo' } },
+  ];
+
+  const cityQueries = cities.map(city => ({
+    ...city,
+    query: useQuery({
+      queryKey: ['properties', city.key],
+      queryFn: () => propertyService.getAll({ ...city.filter, per_page: 8 }),
+    }),
+  }));
+
+  // Fonctions de filtrage local (destination, prix, note)
   const filterByDestination = (properties: any[]) => {
     if (!searchDestination) return properties;
     const lowerDest = searchDestination.toLowerCase();
     return properties.filter(
-      (prop) =>
-        prop.location.toLowerCase().includes(lowerDest) ||
-        prop.city.toLowerCase().includes(lowerDest)
+      prop => prop.location.toLowerCase().includes(lowerDest) || prop.city.toLowerCase().includes(lowerDest)
     );
   };
 
   const applyFilters = (properties: any[]) => {
-    let filtered = filterByDestination(properties);
+    let filtered = filterByDestination([...properties]);
     switch (selectedFilter) {
       case 'Prix croissant':
-        return [...filtered].sort((a, b) => a.price - b.price);
+        return filtered.sort((a, b) => a.price - b.price);
       case 'Prix décroissant':
-        return [...filtered].sort((a, b) => b.price - a.price);
+        return filtered.sort((a, b) => b.price - a.price);
       case 'Mieux notés':
-        return [...filtered].sort((a, b) => b.rating - a.rating);
+        return filtered.sort((a, b) => b.rating - a.rating);
       default:
         return filtered;
     }
   };
 
-  const popularFiltered = applyFilters(popularProperties);
-  const hotelsFiltered = applyFilters(hotelsProperties);
-  const cityCategories = [
-    { title: 'Porto-Novo', key: 'portonovo', properties: applyFilters(portonovoProperties) },
-    { title: 'Abomey-Calavi', key: 'abomeycalavi', properties: applyFilters(abomeycalaviProperties) },
-    { title: 'Akpakpa', key: 'akpakpa', properties: applyFilters(akpakpaProperties) },
-    { title: 'Menontin', key: 'menontin', properties: applyFilters(menontinProperties) },
-    { title: 'Fidjrossè', key: 'fidjrosse', properties: applyFilters(fidjrosseProperties) },
-    { title: 'Abomey', key: 'abomey', properties: applyFilters(abomeyProperties) },
-    { title: 'Parakou', key: 'parakou', properties: applyFilters(parakouProperties) },
-    { title: 'Dassa-Zoumè', key: 'dassa', properties: applyFilters(dassaProperties) },
-    { title: 'Ouidah', key: 'ouidah', properties: applyFilters(ouidahProperties) },
-    { title: 'Grand-Popo', key: 'grandpopo', properties: applyFilters(grandpopoProperties) },
-  ].filter((cat) => cat.properties.length > 0);
+  // Données brutes depuis l'API
+  const rawPopular = popularData?.data?.data || [];
+  const rawHotels = hotelsData?.data?.data || [];
 
-  // COMPOSANT PROPERTY CARD AVEC CŒUR FONCTIONNEL
-  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => {
-    const handleFavoriteClick = (e: React.MouseEvent) => {
-      e.stopPropagation(); // Empêche la navigation vers la page détail
-      console.log('🔥 Clic sur le cœur pour:', property.title, 'ID:', property.id);
-      toggleFavorite(property);
-    };
+  const popularProperties = rawPopular.map(mapProperty);
+  const hotelsProperties = rawHotels.map(mapProperty);
 
-    return (
-      <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-        <div className="relative overflow-hidden rounded-2xl">
-          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-          <button 
-            onClick={handleFavoriteClick}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
-          >
-            <Heart 
-              className={`w-5 h-5 transition-all duration-200 ${
-                isFavorite(property.id) 
-                  ? 'fill-red-500 text-red-500 scale-110' 
-                  : 'text-gray-700 hover:text-red-500'
-              }`} 
-            />
-          </button>
-        </div>
-        <div className="mt-3">
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
-              <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-            </div>
-            <div className="flex items-center gap-1 text-sm text-gray-500">
-              <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-              <span className="font-medium text-[#0F2940]">{property.rating}</span>
-              <span>({property.reviews})</span>
-            </div>
-          </div>
-          {showDescription && property.description && (
-            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-            {property.beds && (
-              <div className="flex items-center gap-1">
-                <Bed className="w-4 h-4" />
-                <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
-              </div>
-            )}
-            {property.baths && (
-              <div className="flex items-center gap-1">
-                <Bath className="w-4 h-4" />
-                <span>{property.baths} sdb</span>
-              </div>
-            )}
-          </div>
-          <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
-        </div>
-      </div>
-    );
-  };
+  // Enrichir les propriétés listées en récupérant les détails pour celles sans image
+  const [enrichedPopular, setEnrichedPopular] = useState<any[]>(popularProperties);
+  const [enrichedHotels, setEnrichedHotels] = useState<any[]>(hotelsProperties);
+
+  useEffect(() => {
+    setEnrichedPopular(popularProperties);
+    const missingIds = popularProperties.filter(p => {
+      const img = p.images?.[0] || p.image || '';
+      return !img || img.includes('placeholder');
+    }).map(p => p.id);
+
+    if (missingIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(missingIds.map((id) => propertyService.getById(id).catch(() => null)));
+        const mapped = results.map(r => {
+          if (!r) return null;
+          const raw = (r as any).data || r;
+          return raw ? mapProperty(raw) : null;
+        });
+        if (cancelled) return;
+        setEnrichedPopular(prev => prev.map(p => {
+          const idx = missingIds.indexOf(p.id);
+          if (idx === -1) return p;
+          const m = mapped[idx];
+          return m ? { ...p, images: m.images, image: m.image } : p;
+        }));
+      } catch (e) {
+        console.warn('Enrich popular images failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [popularData]);
+
+  useEffect(() => {
+    setEnrichedHotels(hotelsProperties);
+    const missingIds = hotelsProperties.filter(p => {
+      const img = p.images?.[0] || p.image || '';
+      return !img || img.includes('placeholder');
+    }).map(p => p.id);
+    if (missingIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(missingIds.map((id) => propertyService.getById(id).catch(() => null)));
+        const mapped = results.map(r => {
+          if (!r) return null;
+          const raw = (r as any).data || r;
+          return raw ? mapProperty(raw) : null;
+        });
+        if (cancelled) return;
+        setEnrichedHotels(prev => prev.map(p => {
+          const idx = missingIds.indexOf(p.id);
+          if (idx === -1) return p;
+          const m = mapped[idx];
+          return m ? { ...p, images: m.images, image: m.image } : p;
+        }));
+      } catch (e) {
+        console.warn('Enrich hotels images failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [hotelsData]);
+
+  const cityCategories = cityQueries
+    .map(city => ({
+      title: city.title,
+      key: city.key,
+      properties: (city.query.data?.data?.data || []).map(mapProperty).filter((p: any) => p.isAdminProperty),
+    }))
+    .filter(cat => cat.properties.length > 0);
+
+  const popularFiltered = applyFilters(enrichedPopular);
+  const hotelsFiltered = applyFilters(enrichedHotels);
+
+  if (popularLoading || hotelsLoading) {
+    return <div className="flex justify-center items-center h-64">Chargement...</div>;
+  }
 
   return (
     <div className="bg-white">
       {/* COMPTEUR DE FAVORIS TEMPORAIRE POUR TEST */}
-      
+      {/* Compteur de favoris */}
 
       <Hero 
         onSearch={(query) => onNavigate?.({ name: 'search-logements' })} 
@@ -3181,8 +3081,10 @@ export function HomePage({ onNavigate }: PageProps) {
       />
 
       {/* Section Filtres */}
+      {/* Barre de filtres */}
       <div className="border-b border-gray-200 sticky top-0 bg-white z-30 w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+        
           <div className="max-w-[1440px] mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 overflow-x-auto pb-2">
@@ -3194,9 +3096,9 @@ export function HomePage({ onNavigate }: PageProps) {
                   </button>
                   {showFilterDropdown && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)}></div>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
                       <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-2">
-                        {filters.map((filter) => (
+                        {filtersList.map(filter => (
                           <button
                             key={filter}
                             onClick={() => {
@@ -3212,7 +3114,7 @@ export function HomePage({ onNavigate }: PageProps) {
                     </>
                   )}
                 </div>
-                <div className="text-sm text-gray-600">{allProperties.length} logements disponibles</div>
+                <div className="text-sm text-gray-600">{popularProperties.length} logements disponibles</div>
               </div>
             </div>
           </div>
@@ -3221,25 +3123,38 @@ export function HomePage({ onNavigate }: PageProps) {
 
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-[1440px] mx-auto">
-          {popularFiltered.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <button onClick={() => onNavigate?.({ name: 'popular' })} className="flex items-center gap-2 text-2xl font-semibold text-[#0F2940] hover:text-[#00c9a7] transition-colors group">
-                    Logements populaires · Bénin
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                  <p className="text-gray-600 mt-1">Les plus réservés par nos voyageurs</p>
-                </div>
-              </div>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {popularFiltered.slice(0, 8).map((property) => (
-                  <PropertyCard key={property.id} property={property} showDescription={true} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Logements populaires */}
+       
 
+{popularFiltered.length > 0 && (
+  <div className="mb-12">
+    <div className="flex items-center justify-between mb-6">
+      <div>
+        <button 
+          onClick={() => onNavigate?.({ name: 'popular' })} 
+          className="flex items-center gap-2 text-2xl font-semibold text-[#0F2940] hover:text-[#00c9a7] transition-colors group"
+        >
+          Logements populaires · Bénin
+          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+        </button>
+        <p className="text-gray-600 mt-1">Les plus réservés par nos voyageurs</p>
+      </div>
+    </div>
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {popularFiltered.slice(0, 8).map(property => (
+        <PropertyCard
+          key={property.id}
+          property={property}
+          showDescription
+          onNavigate={onNavigate}
+          isFavorite={isFavorite}
+          toggleFavorite={toggleFavorite}
+        />
+      ))}
+    </div>
+  </div>
+)}
+          {/* Hôtels */}
           {hotelsFiltered.length > 0 && (
             <div className="mb-12">
               <div className="flex items-center justify-between mb-6">
@@ -3252,14 +3167,22 @@ export function HomePage({ onNavigate }: PageProps) {
                 </div>
               </div>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {hotelsFiltered.slice(0, 8).map((property) => (
-                  <PropertyCard key={property.id} property={property} showDescription={true} />
+                {hotelsFiltered.slice(0, 8).map(property => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    showDescription
+                    onNavigate={onNavigate}
+                    isFavorite={isFavorite}
+                    toggleFavorite={toggleFavorite}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {cityCategories.map((category) => (
+          {/* Catégories par ville */}
+          {cityCategories.map(category => (
             <div key={category.key} className="mb-12">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -3271,8 +3194,14 @@ export function HomePage({ onNavigate }: PageProps) {
                 </div>
               </div>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {category.properties.slice(0, 4).map((property) => (
-                  <PropertyCard key={property.id} property={property} />
+                  {category.properties.slice(0, 4).map((property: any) => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    onNavigate={onNavigate}
+                    isFavorite={isFavorite}
+                    toggleFavorite={toggleFavorite}
+                  />
                 ))}
               </div>
             </div>
@@ -3282,264 +3211,338 @@ export function HomePage({ onNavigate }: PageProps) {
     </div>
   );
 }
-
 // ==================== SEARCH PAGE ====================
 interface SearchPageProps extends PageProps {
   mode: 'logements' | 'hotels';
 }
 
-export function SearchPage({ mode, onNavigate }: SearchPageProps) {
-  const [destination, setDestination] = useState('');
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guestCounts, setGuestCounts] = useState({ adults: 1, children: 0, babies: 0, pets: 0 });
-  const [activeTab, setActiveTab] = useState<'destination' | 'dates' | 'guests' | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+// pages/BookingPage.tsx
+
+
+// pages/BookingPage.tsx
+
+
+interface BookingPageProps {
+    onNavigate?: (route: Route) => void;
+    id?: string;
+    search?: string; // ✅ Ajout de la prop search
+}
+
+export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
+    const params = useParams<{ id: string }>();
+    const propertyId = id || params.id;
+    const location = useLocation();
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'bank_transfer'>('mobile_money');
+    const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
+
+    // ✅ Lire les paramètres depuis la prop search ou depuis l'URL
+    const queryString = search || location.search;
+    const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+    
+    const checkIn = searchParams.get('check_in') || '';
+    const checkOut = searchParams.get('check_out') || '';
+    const guestsParam = searchParams.get('guests');
+    const guests = guestsParam ? parseInt(guestsParam) : 1;
+    const nightsParam = searchParams.get('nights');
+    const nights = nightsParam ? parseInt(nightsParam) : 0;
+
+    console.log('🔍 BookingPage - search prop:', search);
+    console.log('🔍 BookingPage - location.search:', location.search);
+    console.log('🔍 BookingPage - queryString utilisé:', queryString);
+    console.log('📅 BookingPage - Dates extraites:', { checkIn, checkOut, guests, nights });
+
+    const { data: propertyData, isLoading } = useQuery({
+        queryKey: ['property', propertyId],
+        queryFn: () => propertyService.getById(parseInt(propertyId || '0')),
+        enabled: !!propertyId,
+    });
+
+    const property = propertyData?.data || propertyData;
+    const pricePerNight = property?.price_per_night || 0;
+    
+    const subtotal = pricePerNight * nights;
+    const serviceFee = subtotal * 0.15;
+    const total = subtotal + serviceFee;
+
+    // ✅ Rediriger si les dates sont manquantes
+    if (!isLoading && (!checkIn || !checkOut)) {
+        return (
+            <div className="min-h-screen flex flex-col justify-center items-center bg-[#f4fffe] p-4">
+                <div className="bg-white rounded-2xl p-8 text-center max-w-md">
+                    <div className="text-6xl mb-4">📅</div>
+                    <h2 className="text-xl font-bold mb-2">Dates non sélectionnées</h2>
+                    <p className="text-gray-600 mb-6">
+                        Veuillez d'abord sélectionner vos dates d'arrivée et de départ.
+                    </p>
+                    <button
+                        onClick={() => onNavigate?.({ name: 'listing', id: propertyId })}
+                        className="bg-[#00c9a7] text-white px-6 py-2 rounded-full"
+                    >
+                        Retour à l'annonce
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    const handleConfirmBooking = async () => {
+        if (!user) {
+            onNavigate?.({ name: 'auth' });
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+
+        const bookingData: BookingData = {
+            property_id: parseInt(propertyId || '0'),
+            check_in: checkIn,
+            check_out: checkOut,
+            guests_count: guests,
+            payment_method: paymentMethod,
+            mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+            mobile_money_number: paymentMethod === 'mobile_money' ? user?.phone : undefined,
+            guest_details: {
+                full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim(),
+                email: user?.email || '',
+                phone: user?.phone || '',
+            },
+        };
+
+        console.log('📤 Envoi à l\'API:', bookingData);
+
+        try {
+            const response = await bookingService.create(bookingData);
+            const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id;
+            if (bookingId) {
+                onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+            } else {
+                setError("Erreur: Impossible de récupérer l'ID de la réservation");
+            }
+        } catch (err: any) {
+            console.error('❌ Erreur:', err);
+            
+            if (err.response?.data?.errors) {
+                const errors = err.response.data.errors;
+                const errorMessages = Object.values(errors).flat();
+                setError(errorMessages.join(', '));
+            } else if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError('Une erreur est survenue. Veuillez réessayer.');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
+            </div>
+        );
+    }
+
+    if (!property) {
+        return (
+            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
+                <p className="text-red-500">Propriété introuvable</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-[#f4fffe] min-h-screen py-12">
+            <div className="max-w-[900px] mx-auto px-4">
+                <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
+                    <div className="bg-[#0f2940] text-white px-6 py-8">
+                        <h1 className="text-3xl font-bold">Réserver votre séjour</h1>
+                        <p className="mt-2 text-white/80">Confirmez vos dates et procédez au paiement</p>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* Résumé */}
+                        <div className="bg-[#f4fffe] rounded-2xl p-6">
+                            <h2 className="font-semibold mb-4">Résumé de la réservation</h2>
+                            <div className="space-y-3">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Propriété</span>
+                                    <span className="font-medium">{property.title}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Dates</span>
+                                    <span className="font-medium">
+                                        {checkIn ? new Date(checkIn).toLocaleDateString('fr-FR') : '--'} → {checkOut ? new Date(checkOut).toLocaleDateString('fr-FR') : '--'}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Voyageurs</span>
+                                    <span className="font-medium">{guests} personne(s)</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Nuits</span>
+                                    <span className="font-medium">{nights} nuit(s)</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Prix par nuit</span>
+                                    <span>{pricePerNight.toLocaleString()} FCFA</span>
+                                </div>
+                                <div className="border-t pt-3 mt-3">
+                                    <div className="flex justify-between font-bold">
+                                        <span>Total</span>
+                                        <span className="text-[#00c9a7] text-xl">{total.toLocaleString()} FCFA</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Paiement */}
+                        <div className="border rounded-2xl p-6">
+                            <h2 className="font-semibold mb-4">Moyen de paiement</h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                {['MTN', 'Moov', 'Orange'].map(provider => (
+                                    <button
+                                        key={provider}
+                                        onClick={() => {
+                                            setPaymentMethod('mobile_money');
+                                            setMobileProvider(provider as 'MTN' | 'Moov' | 'Orange');
+                                        }}
+                                        className={`p-3 rounded-xl border text-center transition ${
+                                            paymentMethod === 'mobile_money' && mobileProvider === provider
+                                                ? 'border-[#00c9a7] bg-[#f4fffe] text-[#00c9a7]'
+                                                : 'border-gray-200 hover:border-[#00c9a7]'
+                                        }`}
+                                    >
+                                        {provider} Money
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-4">
+                                Vous recevrez une demande de paiement sur votre numéro {user?.phone}
+                            </p>
+                        </div>
+
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                                <p className="text-red-600 text-sm">{error}</p>
+                            </div>
+                        )}
+
+                        <button
+                            onClick={handleConfirmBooking}
+                            disabled={loading || !checkIn || !checkOut}
+                            className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-semibold hover:bg-[#00b396] transition disabled:opacity-50"
+                        >
+                            {loading ? 'Traitement en cours...' : 'Confirmer la réservation'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function SearchPage({ mode, onNavigate }: { mode: 'logements' | 'hotels'; onNavigate?: (route: Route) => void }) {
+  const [searchParams] = useSearchParams();
+  const destination = searchParams.get('destination') || '';
+  const checkIn = searchParams.get('check_in') || '';
+  const checkOut = searchParams.get('check_out') || '';
+  const guests = searchParams.get('guests') || '1';
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [searchDestination, setSearchDestination] = useState('');
+  const [searchDestination, setSearchDestination] = useState(destination);
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  // Utiliser la recherche avancée avec les filtres de l'URL
+  const { data, isLoading } = useQuery({
+    queryKey: ['search', destination, checkIn, checkOut, guests, mode],
+    queryFn: () => propertyService.advancedSearch({
+      destination: destination || undefined,
+      check_in: checkIn || undefined,
+      check_out: checkOut || undefined,
+      guests: parseInt(guests) || 1,
+      property_type: mode === 'hotels' ? 'hotel' : undefined,
+      per_page: 50,
+    }),
+  });
 
-  const guestLabel = () => {
-    const totalGuests = guestCounts.adults + guestCounts.children;
-    const parts = [] as string[];
-    if (totalGuests > 0) parts.push(`${totalGuests} voyageur${totalGuests > 1 ? 's' : ''}`);
-    if (guestCounts.babies > 0) parts.push(`${guestCounts.babies} bébé${guestCounts.babies > 1 ? 's' : ''}`);
-    if (guestCounts.pets > 0) parts.push(`${guestCounts.pets} animal${guestCounts.pets > 1 ? 's' : ''}`);
-    return parts.length > 0 ? parts.join(' · ') : 'Ajouter des voyageurs';
-  };
+  const allProperties = (data?.data?.data || []).map(mapProperty);
 
-  const dateLabel = () => {
-    if (checkIn && checkOut) {
-      return `${new Date(checkIn).toLocaleDateString('fr-BJ', { day: 'numeric', month: 'short' })} - ${new Date(checkOut).toLocaleDateString('fr-BJ', { day: 'numeric', month: 'short' })}`;
-    }
-    return "Ajouter des dates";
-  };
-
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const days = [] as { date: Date; isCurrentMonth: boolean }[];
-    const firstDayOfWeek = firstDay.getDay();
-    const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
-    
-    for (let i = startOffset; i > 0; i--) {
-      const prevDate = new Date(year, month, -i + 1);
-      days.push({ date: prevDate, isCurrentMonth: false });
-    }
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push({ date: new Date(year, month, i), isCurrentMonth: true });
-    }
-    return days;
-  };
-
-  const weekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-
-  const isDateSelected = (date: Date) => {
-    if (!checkIn && !checkOut) return false;
-    const dateStr = date.toDateString();
-    if (checkIn && dateStr === new Date(checkIn).toDateString()) return true;
-    if (checkOut && dateStr === new Date(checkOut).toDateString()) return true;
-    return false;
-  };
-
-  const isInRange = (date: Date) => {
-    if (!checkIn || !checkOut) return false;
-    const dateTime = date.getTime();
-    const checkInTime = new Date(checkIn).getTime();
-    const checkOutTime = new Date(checkOut).getTime();
-    return dateTime > checkInTime && dateTime < checkOutTime;
-  };
-
-  const handleDateSelect = (date: Date) => {
-    if (!checkIn || (checkIn && checkOut)) {
-      setCheckIn(date.toISOString().split('T')[0]);
-      setCheckOut('');
-    } else if (checkIn && !checkOut) {
-      if (date < new Date(checkIn)) {
-        setCheckOut(checkIn);
-        setCheckIn(date.toISOString().split('T')[0]);
-      } else {
-        setCheckOut(date.toISOString().split('T')[0]);
-      }
-    }
-  };
-
-  const changeMonth = (delta: number) => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1));
-  };
-
-  const days = getDaysInMonth(currentMonth);
-
-  const destinationsList = [
-    'Cotonou', 'Porto-Novo', 'Abomey-Calavi', 'Parakou', 'Abomey', 'Ouidah', 'Grand-Popo', 'Dassa-Zoumè',
-    'Natitingou', 'Lokossa', 'Bohicon', 'Kandi', 'Fidjrossè', 'Akpakpa', 'Menontin'
-  ];
-
+  // Filtrage local (destination et tri)
   const filterByDestination = (properties: any[]) => {
     if (!searchDestination) return properties;
-    const lowerDest = searchDestination.toLowerCase();
-    return properties.filter((prop) =>
-      prop.location.toLowerCase().includes(lowerDest) || prop.city.toLowerCase().includes(lowerDest)
-    );
+    const lower = searchDestination.toLowerCase();
+    return properties.filter(p => p.location.toLowerCase().includes(lower) || p.city.toLowerCase().includes(lower));
   };
 
   const applyFilters = (properties: any[]) => {
-    const filtered = filterByDestination(properties).slice();
+    let filtered = filterByDestination([...properties]);
     switch (selectedFilter) {
-      case 'Prix croissant':
-        return filtered.sort((a, b) => a.price - b.price);
-      case 'Prix décroissant':
-        return filtered.sort((a, b) => b.price - a.price);
-      case 'Mieux notés':
-        return filtered.sort((a, b) => b.rating - a.rating);
-      default:
-        return filtered;
+      case 'Prix croissant': return filtered.sort((a,b) => a.price - b.price);
+      case 'Prix décroissant': return filtered.sort((a,b) => b.price - a.price);
+      case 'Mieux notés': return filtered.sort((a,b) => b.rating - a.rating);
+      default: return filtered;
     }
   };
 
-  const popularFiltered = applyFilters(popularProperties);
-  const hotelsFiltered = applyFilters(hotelsProperties);
-  const cityCategories = [
-    { title: 'Porto-Novo', key: 'portonovo', properties: applyFilters(portonovoProperties) },
-    { title: 'Abomey-Calavi', key: 'abomeycalavi', properties: applyFilters(abomeycalaviProperties) },
-    { title: 'Akpakpa', key: 'akpakpa', properties: applyFilters(akpakpaProperties) },
-    { title: 'Menontin', key: 'menontin', properties: applyFilters(menontinProperties) },
-    { title: 'Fidjrossè', key: 'fidjrosse', properties: applyFilters(fidjrosseProperties) },
-    { title: 'Abomey', key: 'abomey', properties: applyFilters(abomeyProperties) },
-    { title: 'Parakou', key: 'parakou', properties: applyFilters(parakouProperties) },
-    { title: 'Dassa-Zoumè', key: 'dassa', properties: applyFilters(dassaProperties) },
-    { title: 'Ouidah', key: 'ouidah', properties: applyFilters(ouidahProperties) },
-    { title: 'Grand-Popo', key: 'grandpopo', properties: applyFilters(grandpopoProperties) },
-  ].filter((cat) => cat.properties.length > 0);
+  const displayedProperties = applyFilters(allProperties);
 
   const performSearch = () => {
-    setSearchDestination(destination);
+    // Mettre à jour l'URL avec la nouvelle destination (optionnel)
+    if (searchDestination !== destination) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('destination', searchDestination);
+      window.history.pushState({}, '', `${window.location.pathname}?${newParams.toString()}`);
+      window.location.reload(); // ou utiliser navigate avec react-router-dom
+    }
   };
 
-  const PropertyCard = ({ property, showDescription = false }: { property: any; showDescription?: boolean }) => {
-    const handleFavoriteClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      toggleFavorite(property);
-    };
-
-    return (
-      <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-        <div className="relative overflow-hidden rounded-2xl">
-          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
-          <button 
-            onClick={handleFavoriteClick}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
-          >
-            <Heart 
-              className={`w-5 h-5 transition-all duration-200 ${
-                isFavorite(property.id) 
-                  ? 'fill-red-500 text-red-500 scale-110' 
-                  : 'text-gray-700 hover:text-red-500'
-              }`} 
-            />
-          </button>
-        </div>
-        <div className="mt-3">
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
-              <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-            </div>
-            <div className="flex items-center gap-1 text-sm text-gray-500">
-              <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-              <span className="font-medium text-[#0F2940]">{property.rating}</span>
-              <span>({property.reviews})</span>
-            </div>
-          </div>
-          {showDescription && property.description && (
-            <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-            {property.beds && (
-              <div className="flex items-center gap-1">
-                <Bed className="w-4 h-4" />
-                <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
-              </div>
-            )}
-            {property.baths && (
-              <div className="flex items-center gap-1">
-                <Bath className="w-4 h-4" />
-                <span>{property.baths} sdb</span>
-              </div>
-            )}
-          </div>
-          <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
-        </div>
-      </div>
-    );
-  };
+  if (isLoading) return <div className="min-h-screen flex justify-center items-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" /></div>;
 
   return (
     <div className="bg-white min-h-screen">
-      {/* Barre de recherche simplifiée pour la page search */}
+      {/* Barre de recherche */}
       <div className="bg-gradient-to-r from-[#00c9a7] to-[#0f2940] py-4">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-lg p-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs font-semibold text-[#00c9a7]">DESTINATION</label>
-                <input
-                  type="text"
-                  placeholder="Où allez-vous ?"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  className="w-full mt-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                />
+                <input type="text" placeholder="Où allez-vous ?" value={searchDestination} onChange={(e) => setSearchDestination(e.target.value)} className="w-full mt-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-[#00c9a7]">ARRIVÉE</label>
-                <input
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  className="w-full mt-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                />
+                <input type="date" value={checkIn} onChange={(e) => {}} className="w-full mt-1 p-2 border rounded" disabled />
               </div>
               <div>
                 <label className="text-xs font-semibold text-[#00c9a7]">DÉPART</label>
-                <input
-                  type="date"
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  className="w-full mt-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                />
+                <input type="date" value={checkOut} onChange={(e) => {}} className="w-full mt-1 p-2 border rounded" disabled />
               </div>
               <div className="flex items-end">
-                <button
-                  onClick={performSearch}
-                  className="w-full bg-[#00c9a7] text-white py-2 rounded-lg font-semibold hover:bg-[#00b396] transition-colors"
-                >
-                  Rechercher
-                </button>
+                <button onClick={performSearch} className="w-full bg-[#00c9a7] text-white py-2 rounded-lg font-semibold hover:bg-[#00b396] transition-colors">Rechercher</button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Filtres */}
       <div className="border-b border-gray-200 sticky top-0 bg-white z-30">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative">
               <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-[#0f2940] hover:border-[#00c9a7] transition-colors">
-                <Filter className="w-4 h-4" />
-                <span>Filtres</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
+                <Filter className="w-4 h-4" /><span>Filtres</span><ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
               </button>
               {showFilterDropdown && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
                   <div className="absolute top-full left-0 mt-2 z-50 w-56 rounded-2xl border border-gray-200 bg-white shadow-xl">
-                    {filters.map((filter) => (
+                    {filtersList.map(filter => (
                       <button key={filter} onClick={() => { setSelectedFilter(filter); setShowFilterDropdown(false); }} className={`w-full px-4 py-3 text-left text-sm transition-colors ${selectedFilter === filter ? 'text-[#00c9a7] font-semibold' : 'text-[#0f2940] hover:bg-gray-50'}`}>
                         {filter}
                       </button>
@@ -3548,7 +3551,7 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
                 </>
               )}
             </div>
-            <div className="text-sm text-gray-600">{allProperties.length} logements disponibles</div>
+            <div className="text-sm text-gray-600">{displayedProperties.length} logements disponibles</div>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm">
             <MapPin className="w-4 h-4 text-[#00c9a7]" />
@@ -3557,57 +3560,16 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
         </div>
       </div>
 
+      {/* Résultats */}
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {popularFiltered.length > 0 && (
-          <div className="mb-12">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-              <div>
-                <button onClick={() => onNavigate?.({ name: mode === 'hotels' ? 'search-hotels' : 'search-logements' })} className="flex items-center gap-2 text-2xl font-semibold text-[#0f2940] hover:text-[#00c9a7] transition-colors">
-                  Logements populaires · Bénin
-                  <ArrowRight className="w-6 h-6" />
-                </button>
-                <p className="text-sm text-gray-500 mt-1">Les plus réservés par nos voyageurs.</p>
-              </div>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {popularFiltered.slice(0, 8).map((property) => <PropertyCard key={property.id} property={property} showDescription />)}
-            </div>
-          </div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {displayedProperties.map(property => (
+            <PropertyCard key={property.id} property={property} showDescription onNavigate={onNavigate} isFavorite={isFavorite} toggleFavorite={toggleFavorite} />
+          ))}
+        </div>
+        {displayedProperties.length === 0 && (
+          <div className="text-center py-12"><p className="text-gray-500">Aucun logement trouvé pour ces critères.</p></div>
         )}
-
-        {mode === 'hotels' && hotelsFiltered.length > 0 && (
-          <div className="mb-12">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-              <div>
-                <button onClick={() => onNavigate?.({ name: 'search-hotels' })} className="flex items-center gap-2 text-2xl font-semibold text-[#0f2940] hover:text-[#00c9a7] transition-colors">
-                  De superbes hôtels pour votre prochain voyage
-                  <ArrowRight className="w-6 h-6" />
-                </button>
-                <p className="text-sm text-gray-500 mt-1">Hôtels de qualité supérieure.</p>
-              </div>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {hotelsFiltered.slice(0, 8).map((property) => <PropertyCard key={property.id} property={property} showDescription />)}
-            </div>
-          </div>
-        )}
-
-        {cityCategories.map((category) => (
-          <div key={category.key} className="mb-12">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-              <div>
-                <button onClick={() => onNavigate?.({ name: 'search-logements' })} className="flex items-center gap-2 text-2xl font-semibold text-[#0f2940] hover:text-[#00c9a7] transition-colors">
-                  Logements {category.title}
-                  <ArrowRight className="w-6 h-6" />
-                </button>
-                <p className="text-sm text-gray-500 mt-1">Découvrez les meilleurs logements à {category.title}.</p>
-              </div>
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {category.properties.slice(0, 4).map((property) => <PropertyCard key={property.id} property={property} />)}
-            </div>
-          </div>
-        ))}
       </main>
     </div>
   );
@@ -3615,570 +3577,68 @@ export function SearchPage({ mode, onNavigate }: SearchPageProps) {
 
 
 // ==================== PAGE POPULAR (VERSION COMPLÈTE AVEC CARTE) ====================
-// Version simplifiée à copier directement dans pages.tsx
-export function PopularPage({ onNavigate }: PageProps) {
-  const [selectedFilter, setSelectedFilter] = useState("Tous");
+
+// ==================== PAGE POPULAR (VERSION COMPLÈTE AVEC CARTE) ====================
+
+export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+  const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-  const [detailProperty, setDetailProperty] = useState<any>(null);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<any>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [showAllAmenities, setShowAllAmenities] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [checkIn, setCheckIn] = useState("15/05/2026");
-  const [checkOut, setCheckOut] = useState("17/05/2026");
-  const [guests, setGuests] = useState(1);
-  const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [animate, setAnimate] = useState(false);
-  
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const { isFavorite, toggleFavorite } = useFavorites();
 
-  const popularPropertiesFull = [
-    { 
-      id: 1, 
-      title: "Villa luxueuse avec piscine", 
-      location: "Fidjrossè, Cotonou, Bénin", 
-      price: "125 000 FCFA / nuit", 
-      priceNumber: 125000, 
-      rating: 4.9, 
-      reviews: 128, 
-      image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80", 
-      beds: 4, 
-      baths: 3, 
-      description: "Magnifique villa avec piscine privée, jardin tropical et vue imprenable sur l'océan.", 
-      images: [
-        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80",
-        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
-        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
-        "https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=1200&q=80"
-      ], 
-      host: "Sophie Martin", 
-      hostImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80", 
-      hostSince: "3 ans", 
-      superhost: true, 
-      responseRate: 98, 
-      responseTime: "dans l'heure", 
-      amenities: ["Piscine privée", "Wifi", "Climatisation", "Cuisine équipée", "Parking gratuit", "Jardin", "Terrasse", "Personnel"], 
-      longDescription: "Cette magnifique villa offre un cadre luxueux avec sa piscine privée, son jardin tropical et sa vue imprenable sur l'océan. Idéale pour des vacances en famille ou entre amis." 
-    },
-    { 
-      id: 2, 
-      title: "Appartement moderne vue mer", 
-      location: "Haie Vive, Cotonou, Bénin", 
-      price: "85 000 FCFA / nuit", 
-      priceNumber: 85000, 
-      rating: 4.8, 
-      reviews: 94, 
-      image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80", 
-      beds: 2, 
-      baths: 2, 
-      description: "Appartement chic avec vue sur l'océan, terrasse privée et équipements modernes.", 
-      images: [
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
-        "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200&q=80",
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1200&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-        "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&q=80"
-      ], 
-      host: "Jean Dupont", 
-      hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80", 
-      hostSince: "2 ans", 
-      superhost: true, 
-      responseRate: 96, 
-      responseTime: "dans l'heure", 
-      amenities: ["Vue mer", "Terrasse", "Wifi", "Climatisation", "Cuisine", "TV", "Parking"], 
-      longDescription: "Appartement entièrement rénové avec vue imprenable sur l'océan. Situé dans le quartier chic de Haie Vive." 
-    },
-    { 
-      id: 3, 
-      title: "Studio cosy centre ville", 
-      location: "Cocotiers, Cotonou, Bénin", 
-      price: "35 000 FCFA / nuit", 
-      priceNumber: 35000, 
-      rating: 4.7, 
-      reviews: 56, 
-      image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80", 
-      beds: 1, 
-      baths: 1, 
-      description: "Studio confortable en plein cœur de Cotonou, idéal pour les voyageurs d'affaires.", 
-      images: [
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-        "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80",
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
-        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80"
-      ], 
-      host: "Marie Claire", 
-      hostImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&q=80", 
-      hostSince: "1 an", 
-      superhost: false, 
-      responseRate: 92, 
-      responseTime: "quelques heures", 
-      amenities: ["Wifi", "Climatisation", "Mini-réfrigérateur", "TV", "Bureau"], 
-      longDescription: "Petit studio fonctionnel et bien situé, à proximité des commerces et restaurants." 
-    },
-    { 
-      id: 4, 
-      title: "Loft design avec rooftop", 
-      location: "Ganhi, Cotonou, Bénin", 
-      price: "95 000 FCFA / nuit", 
-      priceNumber: 95000, 
-      rating: 4.9, 
-      reviews: 42, 
-      image: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80", 
-      beds: 2, 
-      baths: 2, 
-      description: "Loft lumineux avec terrasse privée sur le toit, vue panoramique sur la ville.", 
-      images: [
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
-        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80"
-      ],
-      host: "Thomas Richard",
-      hostImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80",
-      hostSince: "4 ans",
-      superhost: true,
-      responseRate: 99,
-      responseTime: "dans l'heure",
-      amenities: ["Rooftop", "Wifi", "Climatisation", "Cuisine équipée", "TV", "Parking"],
-      longDescription: "Loft moderne avec une terrasse privée sur le toit offrant une vue imprenable sur Cotonou."
-    },
-    { 
-      id: 5, 
-      title: "Maison de ville traditionnelle", 
-      location: "Akpakpa, Cotonou, Bénin", 
-      price: "55 000 FCFA / nuit", 
-      priceNumber: 55000, 
-      rating: 4.6, 
-      reviews: 67, 
-      image: "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80", 
-      beds: 3, 
-      baths: 2, 
-      description: "Maison authentique avec cour intérieure, jardin et architecture traditionnelle.", 
-      images: [
-        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80",
-        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80",
-        "https://images.unsplash.com/photo-1523217582562-09d0def993a6?w=1200&q=80",
-        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80"
-      ],
-      host: "Antoine Koffi",
-      hostImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&q=80",
-      hostSince: "5 ans",
-      superhost: false,
-      responseRate: 94,
-      responseTime: "quelques heures",
-      amenities: ["Jardin", "Cour intérieure", "Wifi", "Climatisation", "Parking"],
-      longDescription: "Maison traditionnelle rénovée avec charme, offrant une cour intérieure et un jardin paisible."
-    },
-    { 
-      id: 6, 
-      title: "Duplex moderne", 
-      location: "Patte d'Oie, Cotonou, Bénin", 
-      price: "110 000 FCFA / nuit", 
-      priceNumber: 110000, 
-      rating: 4.8, 
-      reviews: 33, 
-      image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80", 
-      beds: 3, 
-      baths: 3, 
-      description: "Duplex contemporain avec grande terrasse, parfait pour les familles.", 
-      images: [
-        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
-        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80"
-      ],
-      host: "Isabelle Diallo",
-      hostImage: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=100&q=80",
-      hostSince: "3 ans",
-      superhost: true,
-      responseRate: 97,
-      responseTime: "dans l'heure",
-      amenities: ["Terrasse", "Wifi", "Climatisation", "Cuisine", "TV", "Parking"],
-      longDescription: "Duplex spacieux avec une grande terrasse, idéal pour les séjours en famille."
-    },
-    { 
-      id: 7, 
-      title: "Villa de charme", 
-      location: "Fidjrossè, Cotonou, Bénin", 
-      price: "135 000 FCFA / nuit", 
-      priceNumber: 135000, 
-      rating: 4.9, 
-      reviews: 78, 
-      image: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80", 
-      beds: 4, 
-      baths: 3, 
-      description: "Villa raffinée avec piscine à débordement et jardin paysager.", 
-      images: [
-        "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=1200&q=80",
-        "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200&q=80",
-        "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80"
-      ],
-      host: "Claire Delacroix",
-      hostImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80",
-      hostSince: "6 ans",
-      superhost: true,
-      responseRate: 100,
-      responseTime: "dans l'heure",
-      amenities: ["Piscine à débordement", "Jardin", "Wifi", "Climatisation", "Parking", "Personnel"],
-      longDescription: "Villa de luxe avec piscine à débordement offrant une vue magnifique et un cadre paisible."
-    },
-    { 
-      id: 8, 
-      title: "Studio design", 
-      location: "Haie Vive, Cotonou, Bénin", 
-      price: "45 000 FCFA / nuit", 
-      priceNumber: 45000, 
-      rating: 4.7, 
-      reviews: 44, 
-      image: "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80", 
-      beds: 1, 
-      baths: 1, 
-      description: "Studio moderne, entièrement équipé, décoré avec goût.", 
-      images: [
-        "https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=1200&q=80",
-        "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80",
-        "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1200&q=80",
-        "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&q=80",
-        "https://images.unsplash.com/photo-1494526585095-c41746248156?w=1200&q=80"
-      ],
-      host: "Lucas Bernard",
-      hostImage: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&q=80",
-      hostSince: "2 ans",
-      superhost: false,
-      responseRate: 93,
-      responseTime: "quelques heures",
-      amenities: ["Wifi", "Climatisation", "TV", "Mini-bar", "Bureau"],
-      longDescription: "Studio design entièrement équipé, parfait pour les courts séjours à Cotonou."
-    }
-  ];
+  const { data, isLoading } = useQuery({
+    queryKey: ['popular-properties-full'],
+    queryFn: () => propertyService.getAll({ sort_by: 'popular', per_page: 50 }),
+  });
 
-  const filterProperties = (properties: any[]) => {
-    const filtered = [...properties];
-    if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => a.priceNumber - b.priceNumber);
-    if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => b.priceNumber - a.priceNumber);
-    if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => b.rating - a.rating);
+  const rawProperties = data?.data?.data || [];
+  const properties = rawProperties.map(mapProperty);
+
+  const filterProperties = (props: any[]) => {
+    const filtered = [...props];
+    if (selectedFilter === 'Prix croissant') return filtered.sort((a,b) => (a.priceNumber || a.price) - (b.priceNumber || b.price));
+    if (selectedFilter === 'Prix décroissant') return filtered.sort((a,b) => (b.priceNumber || b.price) - (a.priceNumber || a.price));
+    if (selectedFilter === 'Mieux notés') return filtered.sort((a,b) => (b.rating || 0) - (a.rating || 0));
     return filtered;
   };
 
-  const displayedProperties = filterProperties(popularPropertiesFull);
+  const displayedProperties = filterProperties(properties);
 
-  const handleReserve = (property: any) => {
-    const nights = 2;
-    const subtotal = property.priceNumber * nights;
-    const cleaningFee = 15000;
-    const serviceFee = 12000;
-    const total = subtotal + cleaningFee + serviceFee;
-    setCheckoutData({ property, checkIn, checkOut, guests, totalPrice: total });
-    setShowCheckout(true);
-    setDetailProperty(null);
-  };
-
-  const handleNavigate = (route: Route) => {
-    if (onNavigate) onNavigate(route);
-  };
-
-  const getMapUrl = () => "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
-
-  // PropertyModal avec toutes les fonctionnalités de l'ancienne version
- const PropertyModal = ({ property, onClose, onReserve }: any) => {
-    // États locaux au modal
-    const [showAllAmenities, setShowAllAmenities] = useState(false);
-    const [showCalendar, setShowCalendar] = useState(false);
-    const [currentTestimonial, setCurrentTestimonial] = useState(0);
-    const [animate, setAnimate] = useState(false);
-    const [checkIn, setCheckIn] = useState("15/05/2026");
-    const [checkOut, setCheckOut] = useState("17/05/2026");
-    const [guests, setGuests] = useState(1);
-    const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
-    
-    const host = property.host || "Hôte vérifié";
-    const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
-    const hostSince = property.hostSince || "1 an";
-    const superhost = property.superhost ?? true;
-    const responseRate = property.responseRate || 95;
-    const responseTime = property.responseTime || "dans l'heure";
-    const longDescription = property.longDescription || property.description;
-    const amenities = property.amenities || ["Wifi", "Climatisation", "TV", "Parking", "Eau chaude", "Cuisine"];
-    const testimonials = [
-      { name: "Marc", date: "mars 2026", text: "Logement magnifique, tout était parfait !", rating: 5 },
-      { name: "Sophie", date: "février 2026", text: "Très bon séjour, je recommande vivement.", rating: 4.8 },
-      { name: "Jean", date: "janvier 2026", text: "Excellent rapport qualité-prix, à refaire.", rating: 4.9 }
-    ];
-
-    const nights = 2;
-    const subtotal = property.priceNumber * nights;
-    const cleaningFee = 15000;
-    const serviceFee = 12000;
-    const total = subtotal + cleaningFee + serviceFee;
-    const nonRefundableTotal = total;
-    const refundableTotal = total + 35000;
-
-    useEffect(() => {
-      if (testimonials.length <= 1) return;
-      const interval = setInterval(() => {
-        setAnimate(true);
-        setTimeout(() => {
-          setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-          setAnimate(false);
-        }, 300);
-      }, 5000);
-      return () => clearInterval(interval);
-    }, [testimonials.length]);
-
+  if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-        <div className="min-h-screen">
-          <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex justify-between items-center">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-              <ArrowLeft className="w-5 h-5"/>
-            </button>
-            <div className="flex gap-2">
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-                <Share2 className="w-5 h-5"/>
-              </button>
-              <button 
-                onClick={() => toggleFavorite(property)} 
-                className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110"
-              >
-                <Heart className={`w-5 h-5 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : ''}`} />
-              </button>
-            </div>
-          </div>
-          
-          <div className="max-w-6xl mx-auto px-4 py-6">
-            {/* Galerie d'images supprimée */}
-
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Colonne de gauche */}
-              <div className="lg:col-span-2 space-y-8">
-                <div className="border-b pb-4">
-                  <div className="text-sm text-gray-500">
-                    Logement entier · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
-                  </div>
-                  <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Star className="w-5 h-5 fill-current text-[#00c9a7]" />
-                    <span className="font-medium">{property.rating}</span>
-                    <span className="text-gray-500">· {property.reviews} commentaires</span>
-                    <span className="text-gray-500">·</span>
-                    <span className="text-[#00c9a7] font-medium">Superhôte</span>
-                  </div>
-                </div>
-
-                <div className="bg-[#00c9a7]/10 rounded-xl p-5 flex gap-4 items-center">
-                  <Crown className="w-10 h-10 text-[#00c9a7]" />
-                  <div>
-                    <div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div>
-                    <div className="text-gray-600">Un des logements préférés des voyageurs au Bénin</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-5 items-start">
-                  <img 
-                    src={hostImage} 
-                    alt={host} 
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" 
-                  />
-                  <div>
-                    <div className="font-semibold text-xl text-[#0F2940]">Hôte : {host}</div>
-                    {superhost && (
-                      <div className="flex items-center gap-1 text-[#00c9a7]">
-                        <Award className="w-4 h-4"/>Superhôte · {hostSince}
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-600">
-                      Taux de réponse {responseRate}% · Répond {responseTime}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-gray-700 leading-relaxed">{property.description}</p>
-                  {longDescription && longDescription !== property.description && (
-                    <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-xl text-[#0F2940]">Équipements</h3>
-                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
-                      Voir tout
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a: string, i: number) => (
-                      <div key={i} className="flex items-center gap-3 text-gray-700">
-                        <Check className="w-5 h-5 text-[#00c9a7]"/>{a}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-2xl p-6">
-                  <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-[#00c9a7]" />
-                    Ce que nos clients disent
-                  </h3>
-                  <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                    <div className="flex flex-col md:flex-row gap-6 items-start">
-                      <div className="relative">
-                        <img 
-                          src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
-                          alt={testimonials[currentTestimonial]?.name || "Client"}
-                          className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" 
-                        />
-                        <div className="absolute -bottom-2 -right-2 bg-[#00c9a7] rounded-full p-1">
-                          <Star className="w-4 h-4 fill-white text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                          <span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span>
-                          <span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span>
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />
-                          ))}
-                          <span className="text-sm text-gray-500 ml-2">{testimonials[currentTestimonial]?.rating || 5}</span>
-                        </div>
-                        <p className="text-gray-700 mt-3 leading-relaxed">"{testimonials[currentTestimonial]?.text || "Excellent séjour !"}"</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border rounded-xl p-5">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location.split(',')[0]}</h3>
-                    <button onClick={() => setShowCalendar(!showCalendar)} className="text-[#00c9a7] text-sm underline">
-                      Sélectionner
-                    </button>
-                  </div>
-                  {showCalendar && (
-                    <div className="mt-4 border rounded-lg p-4">
-                      <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                        {["L","M","M","J","V","S","D"].map(d => <div key={d} className="font-medium text-gray-500">{d}</div>)}
-                        {Array.from({length: 35}).map((_, i) => <button key={i} className="aspect-square rounded-full hover:bg-[#00c9a7]/20">{i+1}</button>)}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-sm text-gray-500 mt-3">
-                    <Calendar className="inline w-4 h-4 mr-1"/>{checkIn} — {checkOut}
-                  </div>
-                </div>
-              </div>
-
-              {/* Colonne de droite - Réservation */}
-              <div className="lg:col-span-1">
-                <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-3xl font-bold text-[#0F2940]">{property.priceNumber.toLocaleString()} FCFA</span>
-                      <span className="text-gray-500"> / nuit</span>
-                    </div>
-                    <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full">
-                      <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating}
-                    </div>
-                  </div>
-                  <div className="border rounded-xl my-5 overflow-hidden">
-                    <div className="flex">
-                      <div className="flex-1 p-3 border-r">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
-                        <div className="font-medium">{checkIn}</div>
-                      </div>
-                      <div className="flex-1 p-3">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
-                        <div className="font-medium">{checkOut}</div>
-                      </div>
-                    </div>
-                    <div className="p-3 border-t">
-                      <div className="text-xs font-bold text-gray-500 uppercase">Voyageurs</div>
-                      <div className="font-medium">{guests} adulte</div>
-                    </div>
-                  </div>
-                  <div className="space-y-3 mb-5">
-                    <div className={`border rounded-xl p-3 cursor-pointer transition-all ${selectedPriceOption === "non-remboursable" ? "border-[#00c9a7] bg-[#00c9a7]/5 shadow-md" : ""}`} onClick={() => setSelectedPriceOption("non-remboursable")}>
-                      <div className="flex justify-between font-medium">
-                        <span>Non remboursable</span>
-                        <span>{nonRefundableTotal.toLocaleString()} FCFA</span>
-                      </div>
-                      <div className="text-xs text-gray-500">Paiement immédiat</div>
-                    </div>
-                    <div className="border rounded-xl p-3 cursor-not-allowed opacity-50">
-                      <div className="flex justify-between">
-                        <span>Remboursable</span>
-                        <span>{refundableTotal.toLocaleString()} FCFA</span>
-                      </div>
-                      <div className="text-xs text-gray-500">Annulation gratuite avant le 10 mai</div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => onReserve(property)} 
-                    className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-bold text-lg hover:bg-[#00b892] transition-all hover:scale-105 transform shadow-md"
-                  >
-                    Réserver
-                  </button>
-                  <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
       </div>
     );
-  };
-  const CheckoutModalComponent = ({ property, totalPrice, onClose }: any) => (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h2 className="text-xl font-bold mb-4">Confirmer la réservation</h2>
-        <p className="mb-2"><strong>{property.title}</strong></p>
-        <p className="mb-2">Arrivée : {checkIn}</p>
-        <p className="mb-2">Départ : {checkOut}</p>
-        <p className="mb-4">Voyageurs : {guests} adulte</p>
-        <p className="text-xl font-bold mb-4">Total : {totalPrice.toLocaleString()} FCFA</p>
-        <button 
-          onClick={() => {
-            onClose();
-            alert("Réservation confirmée !");
-          }} 
-          className="w-full bg-[#00c9a7] py-3 rounded-xl font-bold hover:bg-[#00b892] transition-all"
-        >
-          Confirmer la réservation
-        </button>
-        <button onClick={onClose} className="w-full text-gray-500 mt-2 text-sm">Annuler</button>
-      </div>
-    </div>
-  );
+  }
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Header avec retour */}
       <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => handleNavigate({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-semibold text-[#0F2940]">Logements populaires · Bénin</h1>
+        <span className="text-sm text-gray-500 ml-auto">{displayedProperties.length} logements</span>
       </div>
 
+      {/* Barre de filtres */}
       <div className="sticky top-[73px] bg-white border-b px-4 py-2 z-10">
         <div className="relative inline-block">
           <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300">
-            <Filter className="w-4 h-4 text-[#00c9a7]"/><span>Trier : {selectedFilter}</span><ChevronDown className="w-4 h-4"/>
+            <Filter className="w-4 h-4 text-[#00c9a7]"/>
+            <span>Trier : {selectedFilter}</span>
+            <ChevronDown className="w-4 h-4"/>
           </button>
           {showFilterDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-xl border w-40 z-20">
+            <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-xl border w-44 z-20">
               {["Tous", "Prix croissant", "Prix décroissant", "Mieux notés"].map(f => (
-                <div key={f} className="p-2 hover:bg-[#00c9a7]/10 cursor-pointer" onClick={() => { setSelectedFilter(f); setShowFilterDropdown(false); }}>
+                <div 
+                  key={f} 
+                  className={`p-3 hover:bg-[#00c9a7]/10 cursor-pointer transition-colors ${selectedFilter === f ? 'text-[#00c9a7] font-medium' : ''}`} 
+                  onClick={() => { setSelectedFilter(f); setShowFilterDropdown(false); }}
+                >
                   {f}
                 </div>
               ))}
@@ -4187,55 +3647,148 @@ export function PopularPage({ onNavigate }: PageProps) {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)]">
-        <div className="lg:w-1/2 overflow-y-auto p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      {/* Grille des logements */}
+      <div className="p-4">
+        {displayedProperties.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Aucun logement trouvé.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {displayedProperties.map(property => (
-              <div key={property.id} className="border rounded-2xl p-4 hover:shadow-xl cursor-pointer" onClick={() => setDetailProperty(property)}>
+              <div 
+                key={property.id} 
+                className="group cursor-pointer border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white"
+                onClick={() => setSelectedProperty(property)}
+              >
                 <div className="relative">
-                  <img src={property.image} className="w-full h-48 object-cover rounded-xl" />
+                  <img
+                    src={property.images?.[0] || property.image || '/placeholder.jpg'}
+                    alt={property.title}
+                    className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+                  />
                   <button 
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }}
-                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-all"
+                    onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }} 
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-all z-10"
                   >
-                    <Heart className={`w-5 h-5 ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
+                    <Heart className={`w-5 h-5 transition-all ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
                   </button>
+                  {property.rating >= 4.8 && (
+                    <div className="absolute bottom-3 left-3 bg-[#00c9a7] text-white text-xs px-2 py-1 rounded-full">
+                      Coup de cœur
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-semibold mt-2">{property.title}</h3>
-                <p className="text-sm text-gray-500">{property.location}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>
-                  {property.rating} ({property.reviews})
+                <div className="p-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+                    <div className="flex items-center gap-1 text-sm">
+                      <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
+                      <span className="font-medium">{property.rating}</span>
+                      <span className="text-gray-500">({property.reviews})</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+                  <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                    {property.beds > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Bed className="w-4 h-4" />
+                        <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                    {property.baths > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Bath className="w-4 h-4" />
+                        <span>{property.baths} sdb</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="font-bold mt-2 text-[#0F2940]">{property.priceDisplay}</p>
                 </div>
-                <p className="font-bold mt-2">{property.price}</p>
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="lg:w-1/2 h-96 lg:h-auto bg-gray-100 relative">
-          <iframe title="Carte" src={getMapUrl()} width="100%" height="100%" style={{ border: 0 }} allowFullScreen loading="lazy" className="w-full h-full" />
-        </div>
+        )}
       </div>
 
-      {detailProperty && <PropertyModal property={detailProperty} onClose={() => setDetailProperty(null)} onReserve={() => handleReserve(detailProperty)} />}
-      {showCheckout && checkoutData && <CheckoutModalComponent {...checkoutData} onClose={() => setShowCheckout(false)} />}
+      {/* Modal de détail */}
+      {selectedProperty && (
+        <PropertyDetailModal
+          property={selectedProperty}
+          onClose={() => setSelectedProperty(null)}
+          onReserve={({ checkIn, checkOut, guests, nights }) => 
+            onNavigate?.({ 
+              name: 'booking', 
+              id: selectedProperty.id.toString(), 
+              search: `?check_in=${encodeURIComponent(checkIn)}&check_out=${encodeURIComponent(checkOut)}&guests=${guests}&nights=${nights}` 
+            })
+          }
+          onChat={(hostId) => onNavigate?.({ name: 'messages', id: 'inquiry', search: `?property=${selectedProperty.id}` })}
+        />
+      )}
     </div>
   );
 }
 
-
 // ==================== LISTING PAGE ====================
-export function ListingPage({ onNavigate, id }: PageProps & { id?: string }) {
-  console.log("=== ListingPage ===");
-  console.log("ID reçu de l'URL:", id);
-  
-  // Utiliser la fonction de recherche
-  const property = findPropertyById(id || '1');
-  
-  console.log("Propriété trouvée?", property ? property.title : "NON");
-  
-  if (!property) {
+interface ListingPageProps {
+  onNavigate?: (route: any) => void;
+  id?: string;
+}
+
+export function ListingPage({ onNavigate, id }: ListingPageProps) {
+  const [selectedCheckIn, setSelectedCheckIn] = useState<string>('');
+  const [selectedCheckOut, setSelectedCheckOut] = useState<string>('');
+  const [selectedGuests, setSelectedGuests] = useState<number>(1);
+  const [selectedNights, setSelectedNights] = useState<number>(0);
+
+  console.log("=== ListingPage (option 2) ===");
+  console.log("ID reçu:", id);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['property', id],
+    queryFn: async () => {
+      const response = await propertyService.getById(parseInt(id || '0'));
+      return response.data;
+    },
+    enabled: !!id,
+  });
+
+  if (!id) {
+    return <div className="p-8 text-center">ID manquant</div>;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    console.error(error);
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center p-8 max-w-md">
+          <div className="text-6xl mb-4">🏠</div>
+          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Erreur de chargement</h1>
+          <p className="text-gray-500 mb-4">Impossible de récupérer les annonces.</p>
+          <button 
+            onClick={() => onNavigate({ name: 'home' })} 
+            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const rawProperty = data?.data || data;
+
+  if (!rawProperty) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center p-8 max-w-md">
@@ -4248,7 +3801,7 @@ export function ListingPage({ onNavigate, id }: PageProps & { id?: string }) {
             Vérifiez que l'URL est correcte ou retournez à l'accueil.
           </p>
           <button 
-            onClick={() => onNavigate?.({ name: 'home' })}
+            onClick={() => onNavigate({ name: 'home' })} 
             className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
           >
             Retour à l'accueil
@@ -4257,66 +3810,606 @@ export function ListingPage({ onNavigate, id }: PageProps & { id?: string }) {
       </div>
     );
   }
-  
-  // Ici, on utilise directement PropertyDetailModal (qui existe déjà dans votre code)
-  // au lieu de ListingDetail pour éviter les problèmes d'import
+
+  // ✅ Fonction de réservation
+  const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
+    console.log('🔍 Réservation déclenchée avec:', dates);
+    
+    setSelectedCheckIn(dates.checkIn);
+    setSelectedCheckOut(dates.checkOut);
+    setSelectedGuests(dates.guests);
+    setSelectedNights(dates.nights);
+    
+    const searchParams = new URLSearchParams({
+        check_in: dates.checkIn,
+        check_out: dates.checkOut,
+        guests: dates.guests.toString(),
+        nights: dates.nights.toString()
+    });
+    
+    const url = `/booking/${rawProperty.id}?${searchParams.toString()}`;
+    console.log('🔍 Navigation vers:', url);
+    
+    if (onNavigate) {
+        onNavigate({ 
+            name: 'booking', 
+            id: rawProperty.id.toString(),
+            search: searchParams.toString()
+        });
+    } else {
+        window.location.href = url;
+    }
+  };
+
+  // ✅ Transformation des données - CORRECTION POUR L'HÔTE
+  const property = {
+    id: rawProperty.id,
+    title: rawProperty.title,
+    location: `${rawProperty.district}, ${rawProperty.city}`,
+    price: rawProperty.price_per_night,
+    priceNumber: parseFloat(rawProperty.price_per_night),
+    priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
+    rating: parseFloat(rawProperty.average_rating) || 0,
+    reviews: rawProperty.reviews_count || 0,
+    image: (() => {
+      const first = rawProperty.photos?.[0] || null;
+      const url = first?.photo_url || first?.url || first?.path || first?.file?.url || rawProperty.image || null;
+      if (!url) return '/placeholder.jpg';
+      return url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
+    })(),
+    images: (rawProperty.photos && Array.isArray(rawProperty.photos) ? rawProperty.photos.map((p: any) => {
+      const url = p?.photo_url || p?.url || p?.path || p?.file?.url || p;
+      if (!url) return null;
+      return (typeof url === 'string' && url.startsWith('http')) ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
+    }).filter(Boolean) : (rawProperty.images || [])),
+    beds: rawProperty.beds || 0,
+    baths: rawProperty.bathrooms || 0,
+    description: rawProperty.description,
+    longDescription: rawProperty.description,
+    amenities: [
+      rawProperty.has_wifi && 'Wi-Fi',
+      rawProperty.has_air_conditioning && 'Climatisation',
+      rawProperty.has_parking && 'Parking gratuit',
+      rawProperty.has_pool && 'Piscine',
+      rawProperty.has_kitchen && 'Cuisine équipée',
+      rawProperty.has_tv && 'Télévision',
+      rawProperty.has_breakfast && 'Petit-déjeuner',
+      rawProperty.has_generator && 'Générateur',
+      rawProperty.has_water_tank && 'Réservoir d\'eau',
+      rawProperty.has_gym && 'Salle de sport',
+      rawProperty.has_spa && 'Spa',
+      rawProperty.has_elevator && 'Ascenseur',
+      rawProperty.has_laundry && 'Lave-linge',
+      rawProperty.has_cctv && 'Caméras de surveillance',
+      rawProperty.has_electric_fence && 'Clôture électrique',
+      rawProperty.allows_pets && 'Animaux acceptés',
+      rawProperty.allows_children && 'Enfants acceptés',
+      rawProperty.airport_shuttle && 'Navette aéroport',
+      rawProperty.housekeeping && 'Ménage inclus',
+      rawProperty.room_service && 'Service en chambre',
+      rawProperty.wheelchair_accessible && 'Accessible fauteuil roulant',
+    ].filter(Boolean),
+    // ✅ Priorité à rawProperty.user puis fallback sur le vrai nom de l'hôte
+    host: (() => {
+      const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
+      const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
+      return rawProperty.user?.full_name
+        || userName
+        || rawProperty.host?.full_name
+        || hostName
+        || rawProperty.published_by?.full_name
+        || rawProperty.host_name
+        || 'Hôte vérifié';
+    })(),
+    hostImage: (() => {
+      const hostName = (() => {
+        const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
+        const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
+        return rawProperty.user?.full_name
+          || userName
+          || rawProperty.host?.full_name
+          || hostName
+          || rawProperty.published_by?.full_name
+          || rawProperty.host_name
+          || 'Hôte vérifié';
+      })();
+      return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
+    })(),
+    hostSince: (rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at)
+      ? new Date(rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at).getFullYear().toString()
+      : '2024',
+    hostId: rawProperty.user?.id || rawProperty.host?.id || rawProperty.published_by?.id || rawProperty.host_id || null,
+    superhost: rawProperty.superhost || false,
+    responseRate: 100,
+    responseTime: 'quelques heures',
+    property_type: rawProperty.property_type,
+    bluefin_certified: rawProperty.bluefin_certified || false,
+    has_generator: rawProperty.has_generator || false,
+    has_wifi: rawProperty.has_wifi || false,
+    has_air_conditioning: rawProperty.has_air_conditioning || false,
+    has_water_tank: rawProperty.has_water_tank || false,
+    cancellation_policy: rawProperty.cancellation_policy || 'moderate',
+    instant_booking: rawProperty.instant_booking || false,
+    check_in_time: '15:00',
+    check_out_time: '11:00',
+    max_guests: rawProperty.max_guests || 1,
+    bedrooms: rawProperty.bedrooms || 0,
+    min_stay: rawProperty.min_stay || 1,
+    status: rawProperty.status,
+    status_label: rawProperty.status_label,
+    status_color: rawProperty.status_color,
+    rejection_reason: rawProperty.rejection_reason,
+  };
+
+  // ✅ Log pour vérifier l'hôte
+  console.log('🔍 Property data:', {
+    id: property.id,
+    title: property.title,
+    host: property.host,
+    hostId: property.hostId,
+    rawUser: rawProperty.user,
+    rawHost: rawProperty.host,
+  });
+
   return (
-    <PropertyDetailModal 
+    <PropertyDetailModal
       property={property}
-      onClose={() => onNavigate?.({ name: 'home' })}
-      onReserve={() => onNavigate?.({ name: 'booking', id: property.id.toString() })}
+      onClose={() => onNavigate({ name: 'home' })}
+      onReserve={handleReserve}
+      onChat={() => onNavigate({ name: 'messages', id: 'inquiry', search: `?property=${property.id}` })}
     />
   );
 }
 
-// ==================== BOOKING PAGE ====================
-export function BookingPage({ onNavigate }: PageProps & { id?: string }) {
+// ==================== ALL PROPERTIES PAGE ====================
+
+export function AllPropertiesPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+  const [selectedFilter, setSelectedFilter] = useState('Tous');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [searchDestination, setSearchDestination] = useState('');
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+  // Récupération de TOUS les logements depuis l'API
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['all-properties', searchDestination],
+    queryFn: () => propertyService.getAll({ 
+      per_page: 100,
+      search: searchDestination || undefined,
+    }),
+  });
+
+  const rawProperties = data?.data?.data || [];
+  
+  // Fonction pour récupérer la première photo
+  // Dans AllPropertiesPage, remplacez la fonction getFirstPropertyImage :
+// Fonction pour récupérer la première photo d'une propriété (photo de couverture)
+const getFirstPropertyImage = (property: any): string => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  
+  const normalizeUrl = (url: string): string => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/')) return `${API_URL}${url}`;
+    return `${API_URL}/${url}`;
+  };
+  
+  // 1. Vérifier les photos (relation)
+  if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
+    const firstPhoto = property.photos[0];
+    // Vérifier photo_url (c'est le champ utilisé par votre API)
+    if (firstPhoto.photo_url) {
+      return normalizeUrl(firstPhoto.photo_url);
+    }
+    if (firstPhoto.url) {
+      return normalizeUrl(firstPhoto.url);
+    }
+    if (firstPhoto.path) {
+      return normalizeUrl(firstPhoto.path);
+    }
+  }
+  
+  // 2. Vérifier cover_photo (si existant)
+  if (property.cover_photo) {
+    if (typeof property.cover_photo === 'string') {
+      return normalizeUrl(property.cover_photo);
+    }
+    const url = property.cover_photo.photo_url || property.cover_photo.url || property.cover_photo.path;
+    if (url) return normalizeUrl(url);
+  }
+  
+  // 3. Fallback
+  return '/placeholder.jpg';
+};
+  // Transformation des données
+ // Dans AllPropertiesPage, remplacez la transformation des données :
+const getAllPropertyImages = (property: any): string[] => {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const images: string[] = [];
+  const normalizeUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/')) return `${API_URL}${url}`;
+    return `${API_URL}/${url}`;
+  };
+
+  if (property.cover_photo) {
+    const cover = typeof property.cover_photo === 'string' ? property.cover_photo : (property.cover_photo.photo_url || property.cover_photo.url || property.cover_photo.path);
+    const n = normalizeUrl(cover);
+    if (n) images.push(n);
+  }
+
+  if (property.photos && Array.isArray(property.photos)) {
+    for (const p of property.photos) {
+      if (images.length >= 3) break;
+      let url = '' as string;
+      if (typeof p === 'string') url = p;
+      else if (p && typeof p === 'object') url = p.photo_url || p.url || p.path || '';
+      const n = normalizeUrl(url);
+      if (n && !images.includes(n)) images.push(n);
+    }
+  }
+
+  if (images.length < 3 && property.photo_urls && Array.isArray(property.photo_urls)) {
+    for (const u of property.photo_urls) {
+      if (images.length >= 3) break;
+      const n = normalizeUrl(u);
+      if (n && !images.includes(n)) images.push(n);
+    }
+  }
+
+  // Champs alternatifs
+  if (images.length < 3 && property.images && Array.isArray(property.images)) {
+    for (const u of property.images) {
+      if (images.length >= 3) break;
+      const n = normalizeUrl(u);
+      if (n && !images.includes(n)) images.push(n);
+    }
+  }
+
+  if (images.length < 3 && property.media && Array.isArray(property.media)) {
+    for (const m of property.media) {
+      if (images.length >= 3) break;
+      const url = typeof m === 'string' ? m : (m.url || m.path || m.photo_url || m.file?.url || '');
+      const n = normalizeUrl(url);
+      if (n && !images.includes(n)) images.push(n);
+    }
+  }
+
+  if (images.length < 3 && property.gallery && Array.isArray(property.gallery)) {
+    for (const u of property.gallery) {
+      if (images.length >= 3) break;
+      const n = normalizeUrl(u);
+      if (n && !images.includes(n)) images.push(n);
+    }
+  }
+
+  // Recherche générique d'URL dans l'objet
+  const findAnyUrl = (obj: any, depth = 0): string | null => {
+    if (!obj || depth > 3) return null;
+    if (typeof obj === 'string') {
+      if (obj.startsWith('http') || obj.startsWith('/')) return obj;
+      return null;
+    }
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        const r = findAnyUrl(item, depth + 1);
+        if (r) return r;
+      }
+      return null;
+    }
+    if (typeof obj === 'object') {
+      for (const k of Object.keys(obj)) {
+        const r = findAnyUrl(obj[k], depth + 1);
+        if (r) return r;
+      }
+    }
+    return null;
+  };
+
+  if (images.length === 0) {
+    const any = findAnyUrl(property);
+    if (any) images.push(normalizeUrl(any));
+  }
+
+  if (images.length === 0) images.push(getFirstPropertyImage(property));
+  return images;
+};
+
+const allProperties = rawProperties.map((property: any) => {
+  const allImages = getAllPropertyImages(property);
+  const firstImage = allImages[0] || getFirstPropertyImage(property);
+  const rawPrice = property.price_per_night ?? property.price ?? 0;
+  const priceNumber = Number(rawPrice) || 0;
+
+  return {
+    id: property.id,
+    title: property.title,
+    location: `${property.district || ''}, ${property.city || ''}`.replace(/^,\s/, ''),
+    price: priceNumber,
+    priceNumber: priceNumber,
+    priceDisplay: priceNumber ? `${priceNumber.toLocaleString()} FCFA` : '0 FCFA',
+    rating: parseFloat(property.average_rating) || 0,
+    reviews: property.reviews_count || 0,
+    images: allImages,
+    image: firstImage,  // ← Première photo
+    beds: property.beds || 0,
+    baths: property.bathrooms || 0,
+    description: property.description,
+    type: property.property_type,
+    city: property.city,
+    district: property.district,
+  };
+});
+  // Enrichir les propriétés affichées en récupérant les détails pour celles sans image
+  const [enrichedProperties, setEnrichedProperties] = useState<any[]>([]);
+
+  useEffect(() => {
+    setEnrichedProperties(allProperties);
+    const missingIds = allProperties
+      .filter(p => {
+        const img = p.images?.[0] || p.image || '';
+        return !img || img.includes('placeholder');
+      })
+      .map(p => p.id);
+
+    if (missingIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(missingIds.map((id) => propertyService.getById(id).catch(() => null)));
+        const mapped = results.map(r => {
+          if (!r) return null;
+          const raw = (r as any).data || r;
+          return raw ? mapProperty(raw) : null;
+        });
+        if (cancelled) return;
+        setEnrichedProperties(prev => prev.map(p => {
+          const idx = missingIds.indexOf(p.id);
+          if (idx === -1) return p;
+          const m = mapped[idx];
+          return m ? { ...p, images: m.images, image: m.image } : p;
+        }));
+      } catch (e) {
+        console.warn('Enrich all-properties images failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [data]);
+  // Filtrage local
+  const filterProperties = (props: any[]) => {
+    let filtered = [...props];
+    
+    if (searchDestination) {
+      const lowerDest = searchDestination.toLowerCase();
+      filtered = filtered.filter(
+        prop => prop.location.toLowerCase().includes(lowerDest) || 
+                prop.city?.toLowerCase().includes(lowerDest) ||
+                prop.district?.toLowerCase().includes(lowerDest)
+      );
+    }
+    
+    switch (selectedFilter) {
+      case 'Prix croissant':
+        return filtered.sort((a, b) => (a.priceNumber || a.price) - (b.priceNumber || b.price));
+      case 'Prix décroissant':
+        return filtered.sort((a, b) => (b.priceNumber || b.price) - (a.priceNumber || a.price));
+      case 'Mieux notés':
+        return filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      default:
+        return filtered;
+    }
+  };
+
+  const displayedProperties = filterProperties(enrichedProperties.length ? enrichedProperties : allProperties);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
+  // ✅ DÉFINITION DE mapUrl (CORRECTION)
+  const mapUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center items-center bg-white p-4">
+        <div className="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
+        <p className="text-gray-600 mb-6">Impossible de récupérer les logements.</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-6 py-2 bg-[#00c9a7] text-white rounded-full"
+        >
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-[#f4fffe] min-h-screen py-12">
-      <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-3xl shadow-[0_20px_80px_rgba(15,41,64,0.08)] overflow-hidden">
-          <div className="bg-[#0f2940] text-white px-6 py-6 sm:px-8">
-            <div className="text-xs uppercase tracking-[0.35em] text-[#00c9a7]/90">Tunnel de réservation</div>
-            <h1 className="text-3xl lg:text-4xl font-bold mt-3">Réserver votre séjour</h1>
-            <p className="mt-2 text-sm text-white/80">Confirmez vos dates, voyageurs et payez en toute sécurité.</p>
+    <div className="min-h-screen bg-white">
+      {/* Header avec retour */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-4 z-20">
+        <button 
+          onClick={() => onNavigate?.({ name: 'home' })} 
+          className="p-1.5 sm:p-2 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#0F2940]" />
+        </button>
+        <h1 className="text-base sm:text-xl font-semibold text-[#0F2940]">Tous les logements · Bénin</h1>
+        <span className="text-xs sm:text-sm text-gray-500 ml-auto">{displayedProperties.length} logements</span>
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0f2940]/5 px-3 sm:px-4 py-3 sm:py-4 border-b">
+        <form onSubmit={handleSearch} className="max-w-md mx-auto">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par ville ou quartier..."
+              value={searchDestination}
+              onChange={(e) => setSearchDestination(e.target.value)}
+              className="w-full pl-9 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 text-sm sm:text-base rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent shadow-sm bg-white"
+            />
           </div>
-          <div className="p-6 sm:p-8 space-y-8">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe]">
-                <div className="text-sm text-[#6b7280] mb-3">Résumé du séjour</div>
-                <div className="space-y-3 text-sm text-[#0f2940]">
-                  <div className="flex justify-between"><span>Destination</span><span>Haie Vive, Cotonou</span></div>
-                  <div className="flex justify-between"><span>Dates</span><span>6 mai - 9 mai</span></div>
-                  <div className="flex justify-between"><span>Voyageurs</span><span>2 adultes</span></div>
-                  <div className="flex justify-between"><span>Type</span><span>Appartement entier</span></div>
+        </form>
+      </div>
+
+      {/* Barre de filtres */}
+      <div className="sticky top-[57px] sm:top-[73px] bg-white border-b border-gray-200 px-3 sm:px-4 py-2 sm:py-3 z-10">
+        <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+          <div className="relative">
+            <button 
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)} 
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors bg-white text-sm sm:text-base"
+            >
+              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00c9a7]"/>
+              <span className="text-xs sm:text-sm">Trier : {selectedFilter}</span>
+              <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`}/>
+            </button>
+            {showFilterDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
+                <div className="absolute top-full left-0 mt-2 bg-white shadow-lg rounded-xl border border-gray-200 w-40 sm:w-48 z-50 py-2">
+                  {["Tous", "Prix croissant", "Prix décroissant", "Mieux notés"].map(f => (
+                    <div 
+                      key={f} 
+                      className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm cursor-pointer hover:bg-gray-50 transition-colors ${selectedFilter === f ? 'text-[#00c9a7] font-medium bg-[#00c9a7]/5' : 'text-gray-700'}`} 
+                      onClick={() => { setSelectedFilter(f); setShowFilterDropdown(false); }}
+                    >
+                      {f}
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="rounded-3xl border border-[#e2f5f2] p-6 bg-white">
-                <BookingWidget price={45000} priceEur={69} />
-              </div>
-            </div>
-            <div className="text-sm text-[#6b7280] leading-relaxed">
-              <p className="font-semibold text-[#0f2940] mb-3">Modes de paiement disponibles</p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl bg-[#f4fffe] px-4 py-3 text-center">MTN MoMo</div>
-                <div className="rounded-2xl bg-[#f4fffe] px-4 py-3 text-center">Moov Money</div>
-                <div className="rounded-2xl bg-[#f4fffe] px-4 py-3 text-center">Orange Money</div>
-                <div className="rounded-2xl bg-[#f4fffe] px-4 py-3 text-center">Carte</div>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <button
-                onClick={() => onNavigate?.({ name: 'confirmation', id: '1' })}
-                className="w-full sm:w-auto bg-[#00c9a7] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#00b396] transition-colors"
+              </>
+            )}
+          </div>
+          
+          {searchDestination && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-[10px] sm:text-xs text-gray-500 bg-gray-100 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full">
+                🔍 {searchDestination.length > 15 ? searchDestination.slice(0, 15) + '...' : searchDestination}
+              </span>
+              <button 
+                onClick={() => setSearchDestination('')}
+                className="text-[10px] sm:text-xs text-[#00c9a7] hover:underline"
               >
-                Valider la réservation
+                Effacer
               </button>
-              <button
-                onClick={() => onNavigate?.({ name: 'listing', id: '1' })}
-                className="w-full sm:w-auto border border-[#e2f5f2] text-[#0f2940] px-6 py-3 rounded-full hover:bg-[#f4fffe] transition-colors"
-              >
-                Retour à l'annonce
-              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Layout principal */}
+      <div className="flex flex-col lg:flex-row">
+        {/* Colonne gauche - Grille 2 colonnes responsive */}
+        <div className="lg:w-1/2 p-2 sm:p-3 md:p-4 bg-white" style={{ maxHeight: 'calc(100vh - 115px)', overflowY: 'auto' }}>
+          {displayedProperties.length === 0 ? (
+            <div className="text-center py-8 sm:py-16">
+              <div className="text-4xl sm:text-6xl mb-3 sm:mb-4">🏠</div>
+              <h2 className="text-base sm:text-xl font-semibold text-[#0F2940] mb-2">Aucun logement trouvé</h2>
+              <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">
+                {searchDestination 
+                  ? `Aucun résultat pour "${searchDestination}"`
+                  : "Aucun logement n'est disponible pour le moment."}
+              </p>
+              {searchDestination && (
+                <button 
+                  onClick={() => setSearchDestination('')}
+                  className="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-[#00c9a7] text-white rounded-full font-medium"
+                >
+                  Voir tous les logements
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+              {displayedProperties.map((property) => (
+                <div 
+                  key={property.id} 
+                  className="group cursor-pointer border border-gray-200 rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white"
+                  onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
+                >
+                  <div className="relative overflow-hidden aspect-[4/3]">
+                    <img
+                      src={property.images?.[0] || property.image || '/placeholder.jpg'}
+                      alt={property.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+                    />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }} 
+                      className="absolute top-1.5 sm:top-3 right-1.5 sm:right-3 p-1 sm:p-1.5 rounded-full bg-white/80 hover:bg-white transition-all z-10 backdrop-blur-sm shadow-md"
+                    >
+                      <Heart className={`w-3 h-3 sm:w-4 sm:h-4 transition-all duration-200 ${isFavorite(property.id) ? 'fill-red-500 text-red-500 scale-110' : 'text-gray-700 hover:text-red-500'}`} />
+                    </button>
+                    {property.rating >= 4.8 && (
+                      <div className="absolute bottom-1.5 sm:bottom-3 left-1.5 sm:left-3 bg-[#00c9a7] text-white text-[8px] sm:text-xs px-1 sm:px-2 py-0.5 rounded-full shadow-md">
+                        ⭐ Coup de cœur
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="p-1.5 sm:p-2 md:p-3">
+                    <div className="flex justify-between items-start gap-1 sm:gap-2">
+                      <h3 className="font-semibold text-[#0F2940] line-clamp-1 text-[10px] sm:text-xs md:text-sm">{property.title}</h3>
+                      <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                        <Star className="w-2 h-2 sm:w-3 sm:h-3 fill-[#00c9a7] text-[#00c9a7]" />
+                        <span className="font-medium text-[9px] sm:text-xs">{property.rating}</span>
+                        <span className="text-gray-400 text-[8px] sm:text-xs">({property.reviews})</span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 flex items-center gap-0.5 sm:gap-1 truncate">
+                      <MapPin className="w-2 h-2 sm:w-3 sm:h-3" />
+                      {property.location.length > 25 ? property.location.slice(0, 25) + '...' : property.location}
+                    </p>
+                    <div className="flex items-center gap-1 sm:gap-2 mt-1 sm:mt-2 text-[8px] sm:text-xs text-gray-500">
+                      {property.beds > 0 && (
+                        <div className="flex items-center gap-0.5 sm:gap-1">
+                          <Bed className="w-2 h-2 sm:w-3 sm:h-3" />
+                          <span>{property.beds}</span>
+                        </div>
+                      )}
+                      {property.baths > 0 && (
+                        <div className="flex items-center gap-0.5 sm:gap-1">
+                          <Bath className="w-2 h-2 sm:w-3 sm:h-3" />
+                          <span>{property.baths}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-1 sm:mt-2 pt-0.5 sm:pt-1 border-t border-gray-100">
+                      <p className="font-bold text-[#0F2940] text-[9px] sm:text-xs md:text-sm">{property.priceDisplay}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Colonne droite - Carte */}
+        <div className="lg:w-1/2 h-64 sm:h-80 lg:h-auto bg-gray-100 relative border-t lg:border-t-0 lg:border-l border-gray-200">
+          <div className="lg:sticky lg:top-[115px] h-full">
+            <iframe 
+              title="Carte des logements au Bénin" 
+              src={mapUrl} 
+              width="100%" 
+              height="100%" 
+              style={{ border: 0, minHeight: '250px' }} 
+              allowFullScreen 
+              loading="lazy" 
+              className="w-full h-full"
+            />
+            <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 bg-white/90 backdrop-blur rounded-lg px-2 sm:px-3 py-1 text-[10px] sm:text-xs shadow-md">
+              📍 {displayedProperties.length} logements
             </div>
           </div>
         </div>
@@ -4324,6 +4417,7 @@ export function BookingPage({ onNavigate }: PageProps & { id?: string }) {
     </div>
   );
 }
+// ==================== BOOKING PAGE ====================
 
 // ==================== CONFIRMATION PAGE ====================
 export function ConfirmationPage({ onNavigate }: PageProps & { id?: string }) {
@@ -4359,78 +4453,138 @@ export function ConfirmationPage({ onNavigate }: PageProps & { id?: string }) {
 
 // ==================== PROFILE PAGE ====================
 
+interface ProfilePageProps {
+  onNavigate?: (route: Route) => void;
+  id?: string;
+}
 
-export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
-  const [user, setUser] = useState<UserData | null>(null);
+export function ProfilePage({ onNavigate }: ProfilePageProps) {
+  const { user, isAuthenticated, loading: authLoading, logout, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedUser, setEditedUser] = useState<Partial<UserData>>({});
+  const [editedUser, setEditedUser] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    bio: '',
+  });
 
+  const queryClient = useQueryClient();
+
+  // ✅ CORRECTION: Désactiver la requête si pas authentifié ou si on a déjà l'utilisateur
+  const { data, isLoading: profileLoading, error } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: () => authService.getProfile(),
+    enabled: isAuthenticated && !user, // ✅ Ne charger que si pas déjà d'utilisateur
+    retry: false,
+  });
+
+  // ✅ Mettre à jour editedUser quand les données du profil changent
   useEffect(() => {
-    // Récupérer l'utilisateur connecté
-    const storedUser = localStorage.getItem("bluefin_user");
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-      setEditedUser(userData);
-    } else {
-      // Rediriger vers la page de connexion si non connecté
+    const profileData = data?.user || user;
+    if (profileData) {
+      setEditedUser({
+        first_name: profileData.first_name || '',
+        last_name: profileData.last_name || '',
+        email: profileData.email || '',
+        phone: profileData.phone || '',
+        bio: profileData.bio || '',
+      });
+    }
+  }, [data, user]);
+
+  // Mutation pour mettre à jour le profil
+  const updateMutation = useMutation({
+    mutationFn: (userData: any) => authService.updateProfile(userData),
+    onSuccess: (response) => {
+      updateUser(response.user);
+      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      console.error('Erreur mise à jour profil:', error);
+    },
+  });
+
+  // Mutation pour se déconnecter
+  const logoutMutation = useMutation({
+    mutationFn: () => authService.logout(user?.user_type || 'voyageur'),
+    onSuccess: () => {
+      logout();
+      onNavigate?.({ name: 'home' });
+    },
+    onError: (error) => {
+      console.error('Erreur déconnexion:', error);
+      // Force la déconnexion même en cas d'erreur
+      logout();
+      onNavigate?.({ name: 'home' });
+    },
+  });
+
+  // ✅ CORRECTION: Attendre que l'authentification soit chargée avant de rediriger
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
       onNavigate?.({ name: 'auth' });
     }
-  }, []);
+  }, [authLoading, isAuthenticated, onNavigate]);
 
-  const handleSave = () => {
-    if (user) {
-      const updatedUser = { ...user, ...editedUser };
-      setUser(updatedUser);
-      localStorage.setItem("bluefin_user", JSON.stringify(updatedUser));
-      
-      // Mettre à jour dans la liste des utilisateurs
-      const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
-      const index = users.findIndex((u: UserData) => u.id === user.id);
-      if (index !== -1) {
-        users[index] = updatedUser;
-        localStorage.setItem("bluefin_users", JSON.stringify(users));
-      }
-      
-      setIsEditing(false);
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("bluefin_user");
-    onNavigate?.({ name: 'home' });
-  };
-
-  const handleBecomeHost = () => {
-    onNavigate?.({ name: 'become-host' });
-  };
-
-  if (!user) {
+  // ✅ CORRECTION: Afficher un loader pendant le chargement de l'authentification
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#00c9a7] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Chargement...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  // ✅ Vérifier l'authentification après le chargement
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // ✅ Afficher un loader pendant le chargement du profil (optionnel)
+  if (profileLoading && !user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  if (error && !user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-red-500 text-center">
+          <p>Erreur de chargement du profil</p>
+          <button 
+            onClick={() => onNavigate?.({ name: 'home' })}
+            className="mt-4 text-[#00c9a7] underline"
+          >
+            Retour à l'accueil
+          </button>
         </div>
       </div>
     );
   }
 
-  // Récupérer le rôle en français
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case "traveler": return "Voyageur";
-      case "host": return "Hôte";
-      default: return "Visiteur";
-    }
+  // Utiliser d'abord les données de l'API, sinon l'utilisateur du contexte
+  const profile = data?.user || user;
+  if (!profile) return null;
+
+  const fullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+  const userType = profile.user_type === 'hote' ? 'Hôte' : 'Voyageur';
+  const userIcon = profile.user_type === 'hote' ? <Home className="w-5 h-5" /> : <Compass className="w-5 h-5" />;
+
+  const handleSave = () => {
+    updateMutation.mutate(editedUser);
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "traveler": return <Compass className="w-5 h-5" />;
-      case "host": return <Home className="w-5 h-5" />;
-      default: return <Briefcase className="w-5 h-5" />;
-    }
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
+
+  const handleBecomeHost = () => {
+    onNavigate?.({ name: 'become-host' });
   };
 
   return (
@@ -4451,17 +4605,20 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
             {/* En-tête avec avatar */}
             <div className="flex items-center gap-4 mb-6">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                {profile.first_name?.charAt(0) || profile.email?.charAt(0) || 'U'}
+                {profile.last_name?.charAt(0)}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-[#0f2940]">{user.firstName} {user.lastName}</h1>
+                  <h1 className="text-2xl font-bold text-[#0f2940]">{fullName || 'Utilisateur'}</h1>
                   <span className="px-3 py-1 bg-[#f4fffe] text-[#00c9a7] rounded-full text-xs font-medium flex items-center gap-1">
-                    {getRoleIcon(user.role)}
-                    {getRoleLabel(user.role)}
+                    {userIcon}
+                    {userType}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 mt-1">Membre depuis {new Date(user.createdAt).toLocaleDateString('fr-FR')}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Membre depuis {profile.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR') : 'récemment'}
+                </p>
               </div>
               <button
                 onClick={() => setIsEditing(!isEditing)}
@@ -4479,8 +4636,8 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
                     <input
                       type="text"
-                      value={editedUser.firstName || ""}
-                      onChange={(e) => setEditedUser({ ...editedUser, firstName: e.target.value })}
+                      value={editedUser.first_name}
+                      onChange={(e) => setEditedUser({ ...editedUser, first_name: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
                     />
                   </div>
@@ -4488,8 +4645,8 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
                     <input
                       type="text"
-                      value={editedUser.lastName || ""}
-                      onChange={(e) => setEditedUser({ ...editedUser, lastName: e.target.value })}
+                      value={editedUser.last_name}
+                      onChange={(e) => setEditedUser({ ...editedUser, last_name: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
                     />
                   </div>
@@ -4498,7 +4655,7 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
-                    value={editedUser.email || ""}
+                    value={editedUser.email}
                     onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
                   />
@@ -4507,17 +4664,28 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                   <input
                     type="tel"
-                    value={editedUser.phone || ""}
+                    value={editedUser.phone}
                     onChange={(e) => setEditedUser({ ...editedUser, phone: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                  <textarea
+                    rows={3}
+                    value={editedUser.bio}
+                    onChange={(e) => setEditedUser({ ...editedUser, bio: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Parlez un peu de vous..."
                   />
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={handleSave}
-                    className="flex-1 bg-[#00c9a7] text-white py-2 rounded-xl font-semibold hover:bg-[#00b892] transition-colors"
+                    disabled={updateMutation.isPending}
+                    className="flex-1 bg-[#00c9a7] text-white py-2 rounded-xl font-semibold hover:bg-[#00b892] transition-colors disabled:opacity-50"
                   >
-                    Enregistrer
+                    {updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
@@ -4535,33 +4703,45 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
                       <Mail className="w-4 h-4" />
                       <span className="text-xs uppercase tracking-wider">Email</span>
                     </div>
-                    <p className="text-sm text-[#0f2940]">{user.email}</p>
+                    <p className="text-sm text-[#0f2940]">{profile.email}</p>
                   </div>
                   <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
                     <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
                       <Phone className="w-4 h-4" />
                       <span className="text-xs uppercase tracking-wider">Téléphone</span>
                     </div>
-                    <p className="text-sm text-[#0f2940]">{user.phone || "Non renseigné"}</p>
+                    <p className="text-sm text-[#0f2940]">{profile.phone || "Non renseigné"}</p>
                   </div>
                 </div>
+                {profile.bio && (
+                  <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
+                    <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
+                      <User className="w-4 h-4" />
+                      <span className="text-xs uppercase tracking-wider">Bio</span>
+                    </div>
+                    <p className="text-sm text-[#0f2940]">{profile.bio}</p>
+                  </div>
+                )}
                 <div className="rounded-2xl bg-[#f4fffe] p-4 border border-[#e2f5f2]">
                   <div className="flex items-center gap-2 text-[#00c9a7] mb-2">
                     <Calendar className="w-4 h-4" />
                     <span className="text-xs uppercase tracking-wider">Membre depuis</span>
                   </div>
-                  <p className="text-sm text-[#0f2940]">{new Date(user.createdAt).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  <p className="text-sm text-[#0f2940]">
+                    {profile.created_at ? new Date(profile.created_at).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Nouveau membre'}
+                  </p>
                 </div>
-                {/* Badges et statistiques */}
+                {/* Badges */}
                 <div className="flex flex-wrap gap-2 mt-4">
-                  <span className="px-3 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-current" />
-                    Nouveau membre
-                  </span>
-                  <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs flex items-center gap-1">
+                  <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3" />
                     Compte vérifié
                   </span>
+                  {profile.verification_status === 'verified' && (
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
+                      Identité vérifiée
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -4591,8 +4771,19 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
               Favoris
             </button>
 
+            {/* Bouton Accéder au dashboard hôte - visible seulement si l'utilisateur est hôte */}
+            {profile.user_type === 'hote' && (
+              <button
+                onClick={() => onNavigate?.({ name: 'host-dashboard' })}
+                className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white px-6 py-4 rounded-2xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Home className="w-5 h-5" />
+                Accéder au dashboard hôte
+              </button>
+            )}
+
             {/* Bouton Devenir hôte - visible seulement si l'utilisateur n'est pas déjà hôte */}
-            {user.role !== "host" && user.isHost !== true && (
+            {profile.user_type !== 'hote' && (
               <button
                 onClick={handleBecomeHost}
                 className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white px-6 py-4 rounded-2xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
@@ -4605,10 +4796,11 @@ export function ProfilePage({ onNavigate }: PageProps & { id?: string }) {
             {/* Bouton Déconnexion */}
             <button
               onClick={handleLogout}
-              className="w-full border border-red-200 text-red-600 px-6 py-4 rounded-2xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 mt-4"
+              disabled={logoutMutation.isPending}
+              className="w-full border border-red-200 text-red-600 px-6 py-4 rounded-2xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
             >
               <LogOut className="w-5 h-5" />
-              Se déconnecter
+              {logoutMutation.isPending ? 'Déconnexion...' : 'Se déconnecter'}
             </button>
           </div>
         </div>
@@ -4661,149 +4853,932 @@ export function AccountPage({ onNavigate }: PageProps) {
 }
 
 // ==================== ACCOUNT RESERVATIONS PAGE ====================
+
+interface PageProps {
+    onNavigate?: (route: { name: string; id?: string }) => void;
+}
+
 export function AccountReservationsPage({ onNavigate }: PageProps) {
-  return (
-    <div className="bg-white min-h-screen py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Mes réservations" subtitle="Suivez vos voyages passés et futurs.">
-          <div className="space-y-4">
-            {popularListings.map((listing) => (
-              <div key={listing.id} className="rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe]">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold text-[#0f2940]">{listing.title}</h3>
-                    <p className="text-sm text-[#6b7280]">6 mai - 9 mai · {listing.type}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => onNavigate?.({ name: 'listing', id: listing.id })}
-                      className="text-[#0f2940] border border-[#e2f5f2] rounded-full px-5 py-3 hover:bg-white transition-colors"
-                    >
-                      Voir l'annonce
-                    </button>
-                    <span className="text-sm text-[#00c9a7]">Confirmée</span>
-                  </div>
+    const { data, isLoading, error, refetch } = useQuery({
+        queryKey: ['account-reservations'],
+        queryFn: () => bookingService.getMyBookings(),
+    });
+
+    // Rafraîchir toutes les 30 secondes pour voir les changements de statut
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            refetch();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [refetch]);
+
+    if (isLoading) {
+        return (
+            <div className="bg-white min-h-screen py-10">
+                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center py-20">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+                        <p className="mt-4 text-gray-500">Chargement de vos réservations...</p>
+                    </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </PageSection>
-      </div>
-    </div>
-  );
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-white min-h-screen py-10">
+                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+                        <div className="text-4xl mb-4">❌</div>
+                        <h3 className="text-lg font-semibold text-red-700 mb-2">Erreur de chargement</h3>
+                        <p className="text-red-600">Impossible de charger vos réservations.</p>
+                        <button
+                            onClick={() => refetch()}
+                            className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                        >
+                            Réessayer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ✅ Utiliser la structure correcte des données
+    const bookings = data?.data?.data || [];
+    const stats = data?.stats || {};
+
+    // ✅ Fonctions pour le statut
+    const getStatusLabel = (status: string) => {
+        const statusMap: Record<string, string> = {
+            'pending': 'En attente',
+            'confirmed': 'Confirmée',
+            'cancelled': 'Annulée',
+            'completed': 'Terminée',
+        };
+        return statusMap[status] || status;
+    };
+
+    const getStatusColor = (status: string) => {
+        const colorMap: Record<string, string> = {
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'confirmed': 'bg-green-100 text-green-800',
+            'cancelled': 'bg-red-100 text-red-800',
+            'completed': 'bg-blue-100 text-blue-800',
+        };
+        return colorMap[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    const getStatusIcon = (status: string) => {
+        switch (status) {
+            case 'confirmed':
+                return <CheckCircle className="w-5 h-5 text-green-600" />;
+            case 'pending':
+                return <Clock className="w-5 h-5 text-yellow-600" />;
+            case 'cancelled':
+                return <XCircle className="w-5 h-5 text-red-600" />;
+            case 'completed':
+                return <Star className="w-5 h-5 text-blue-600" />;
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="bg-white min-h-screen py-10">
+            <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                <PageSection title="Mes réservations" subtitle="Suivez vos voyages passés et futurs.">
+                    
+                    {/* En-tête avec bouton rafraîchir */}
+                    <div className="flex justify-end mb-4">
+                        <button
+                            onClick={() => refetch()}
+                            className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#00c9a7] transition"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Rafraîchir
+                        </button>
+                    </div>
+
+                    {/* Statistiques */}
+                    {(stats.total > 0) && (
+                        <div className="grid gap-3 sm:grid-cols-4 mb-6">
+                            <div className="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]">
+                                <div className="text-xl font-bold text-[#0f2940]">{stats.total || 0}</div>
+                                <div className="text-xs text-gray-500">Total</div>
+                            </div>
+                            <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
+                                <div className="text-xl font-bold text-green-600">{stats.confirmed || 0}</div>
+                                <div className="text-xs text-green-600">Confirmées</div>
+                            </div>
+                            <div className="bg-yellow-50 rounded-xl p-3 text-center border border-yellow-200">
+                                <div className="text-xl font-bold text-yellow-600">{stats.pending || 0}</div>
+                                <div className="text-xs text-yellow-600">En attente</div>
+                            </div>
+                            <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
+                                <div className="text-xl font-bold text-blue-600">{stats.completed || 0}</div>
+                                <div className="text-xs text-blue-600">Terminées</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {bookings.length === 0 ? (
+                        <div className="rounded-3xl border border-[#e2f5f2] p-12 bg-[#f4fffe] text-center">
+                            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-[#0f2940] mb-2">
+                                Aucune réservation
+                            </h3>
+                            <p className="text-gray-500 mb-6">
+                                Vous n'avez pas encore effectué de réservation.
+                            </p>
+                            <button
+                                onClick={() => onNavigate?.({ name: 'home' })}
+                                className="bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
+                            >
+                                Découvrir des logements
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {bookings.map((booking: any) => (
+                                <div key={booking.id} className="rounded-3xl border border-[#e2f5f2] overflow-hidden bg-[#f4fffe] hover:shadow-lg transition">
+                                    {/* En-tête avec statut */}
+                                    <div className={`p-4 border-b ${booking.status === 'confirmed' ? 'bg-green-50' : booking.status === 'pending' ? 'bg-yellow-50' : 'bg-gray-50'}`}>
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                            <div className="flex items-center gap-2">
+                                                {getStatusIcon(booking.status)}
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                                                    {getStatusLabel(booking.status)}
+                                                </span>
+                                                <span className="text-xs text-gray-500 font-mono">
+                                                    Réf: {booking.reference}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs text-gray-400">
+                                                Réservé le {booking.created_at}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Contenu principal */}
+                                    <div className="p-4">
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            {/* Image */}
+                                            {booking.property?.photo ? (
+                                                <img 
+                                                    src={booking.property.photo} 
+                                                    alt={booking.property.title}
+                                                    className="w-full sm:w-28 h-28 rounded-xl object-cover"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="w-full sm:w-28 h-28 rounded-xl bg-gray-200 flex items-center justify-center">
+                                                    <Home className="w-8 h-8 text-gray-400" />
+                                                </div>
+                                            )}
+                                            
+                                            <div className="flex-1">
+                                                <h3 className="text-xl font-semibold text-[#0f2940]">
+                                                    {booking.property?.title || 'Propriété'}
+                                                </h3>
+                                                <p className="text-sm text-gray-500 mt-1">
+                                                    {booking.property?.district}, {booking.property?.city}
+                                                </p>
+                                                
+                                                <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <Calendar className="w-4 h-4" />
+                                                        <span>{booking.dates?.check_in} → {booking.dates?.check_out}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <Users className="w-4 h-4" />
+                                                        <span>{booking.guests_count} voyageur(s)</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                        <CreditCard className="w-4 h-4" />
+                                                        <span className="font-medium text-[#00c9a7]">
+                                                            {booking.price_details?.total} FCFA
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Hôte */}
+                                        <div className="mt-4 pt-3 border-t flex flex-wrap justify-between items-center gap-3">
+                                            <div className="flex items-center gap-2">
+                                                {booking.host?.photo ? (
+                                                    <img 
+                                                        src={booking.host.photo} 
+                                                        alt={booking.host.name}
+                                                        className="w-6 h-6 rounded-full"
+                                                    />
+                                                ) : (
+                                                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                                                        <span className="text-xs">👤</span>
+                                                    </div>
+                                                )}
+                                                <span className="text-sm text-gray-600">
+                                                    Hôte: {booking.host?.name || 'Non renseigné'}
+                                                </span>
+                                            </div>
+                                            
+                                            <button
+                                                onClick={() => onNavigate?.({ name: 'messages', id: booking.id.toString() })}
+                                                className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1"
+                                            >
+                                                <MessageCircle className="w-4 h-4" />
+                                                Contacter l'hôte
+                                            </button>
+                                        </div>
+
+                                        {/* Actions selon le statut */}
+                                        <div className="mt-4 flex flex-wrap gap-3">
+                                            <button
+                                                onClick={() => onNavigate?.({ name: 'listing', id: booking.property?.id?.toString() })}
+                                                className="flex-1 border border-[#00c9a7] text-[#00c9a7] py-2 rounded-xl text-sm hover:bg-[#00c9a7] hover:text-white transition"
+                                            >
+                                                Voir l'annonce
+                                            </button>
+                                            
+                                            {booking.status === 'confirmed' && (
+                                                                                <button
+    onClick={() => onNavigate?.({ name: 'messages', id: booking.id.toString() })}
+    className="flex-1 bg-[#00c9a7] text-white py-2 rounded-xl text-sm hover:bg-[#00b396] transition"
+>
+    Contacter l'hôte
+</button>
+                                            )}
+                                            
+                                            {booking.status === 'pending' && (
+                                                <div className="flex-1 text-center text-sm text-gray-500 py-2 bg-gray-100 rounded-xl">
+                                                    En attente de confirmation par l'hôte
+                                                </div>
+                                            )}
+                                            
+                                            {booking.status === 'completed' && !booking.has_review && (
+                                                <button
+                                                    onClick={() => onNavigate?.({ name: 'reviews', id: booking.property?.id?.toString() })}
+                                                    className="flex-1 bg-yellow-500 text-white py-2 rounded-xl text-sm hover:bg-yellow-600 transition"
+                                                >
+                                                    Laisser un avis
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </PageSection>
+            </div>
+        </div>
+    );
 }
 
 // ==================== HOST DASHBOARD PAGE ====================
-export function HostDashboardPage({ onNavigate }: PageProps) {
+
+interface Route {
+  name: string;
+  id?: string;
+}
+
+interface HostDashboardPageProps {
+  onNavigate?: (route: Route) => void;
+}
+
+export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['host-dashboard'],
+    queryFn: () => hostService.getDashboard(),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center">
+        <div className="text-red-500 text-center">
+          <p className="text-lg font-semibold">Erreur de chargement</p>
+          <p className="text-sm mt-2">Impossible de charger votre tableau de bord</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 bg-[#00c9a7] text-white px-4 py-2 rounded-full"
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = data?.data?.stats || {};
+  const today = data?.data?.today || { checkins: [], checkouts: [] };
+  const upcoming = data?.data?.upcoming_bookings || [];
+
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Tableau de bord hôte" subtitle="Gérez vos annonces, revenus et réservations depuis un seul endroit.">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6">
+        
+        {/* En-tête avec le bouton Nouvelle annonce */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-[#0f2940]">Tableau de bord hôte</h1>
+            <p className="text-gray-500 mt-1">Gérez vos annonces, revenus et réservations</p>
+          </div>
+          
+          {/* ✅ BOUTON NOUVELLE ANNONCE */}
+          <button
+            onClick={() => onNavigate?.({ name: 'publish' })}
+            className="group bg-[#00c9a7] hover:bg-[#00b396] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+            Nouvelle annonce
+          </button>
+        </div>
+
+        {/* Cartes statistiques */}
+        <div className="grid gap-6 lg:grid-cols-4 mb-8">
+          {/* Carte revenus */}
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
               <div className="text-sm text-[#6b7280]">Revenus du mois</div>
-              <div className="text-3xl font-bold text-[#0f2940] mt-3">1 250 000 XOF</div>
+              <DollarSign className="w-5 h-5 text-[#00c9a7]" />
             </div>
-            <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6">
-              <div className="text-sm text-[#6b7280]">Arrivées prévues</div>
-              <div className="text-3xl font-bold text-[#0f2940] mt-3">8</div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">
+              {stats.revenue?.monthly ? `${stats.revenue.monthly.toLocaleString()} FCFA` : '0 FCFA'}
             </div>
-            <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6">
-              <div className="text-sm text-[#6b7280]">Messages non lus</div>
-              <div className="text-3xl font-bold text-[#0f2940] mt-3">3</div>
+            {stats.revenue?.growth && (
+              <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
+                <TrendingUp className="w-3 h-3" />
+                <span>+{stats.revenue.growth}% vs mois dernier</span>
+              </div>
+            )}
+          </div>
+
+          {/* Carte propriétés */}
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Propriétés</div>
+              <Home className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">
+              {stats.properties_count || 0}
+            </div>
+            <div className="text-xs text-gray-500 mt-2">
+              {stats.active_properties || 0} actives
             </div>
           </div>
-          <div className="mt-8 grid gap-4 lg:grid-cols-3">
+
+          {/* Carte arrivées */}
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Arrivées aujourd'hui</div>
+              <Users className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{today.checkins?.length || 0}</div>
+            {today.checkins?.length > 0 && (
+              <div className="text-xs text-gray-500 mt-2">
+                {today.checkins.map((c: any) => c.guest_name).join(', ')}
+              </div>
+            )}
+          </div>
+
+          {/* Carte messages */}
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Messages non lus</div>
+              <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{stats.unread_messages || 0}</div>
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-messages' })}
+              className="text-xs text-[#00c9a7] mt-2 hover:underline"
+            >
+              Voir les messages
+            </button>
+          </div>
+        </div>
+
+        {/* Réservations à venir et activités récentes */}
+        <div className="grid gap-6 lg:grid-cols-2 mb-8">
+          {/* Réservations à venir */}
+          <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-lg">🗓️ Réservations à venir</h3>
+              <button 
+                onClick={() => onNavigate?.({ name: 'host-reservations' })}
+                className="text-xs text-[#00c9a7] hover:underline"
+              >
+                Voir tout
+              </button>
+            </div>
+            {upcoming.length === 0 ? (
+              <div className="text-center py-8">
+                <CalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">Aucune réservation future</p>
+                <p className="text-sm text-gray-400 mt-1">Les réservations apparaîtront ici</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {upcoming.map((booking: any) => (
+                  <div 
+                    key={booking.id} 
+                    className="flex justify-between items-center border-b border-[#e2f5f2] pb-3 hover:bg-[#f4fffe] p-2 rounded-lg transition cursor-pointer"
+                    onClick={() => onNavigate?.({ name: 'host-reservation-detail', id: booking.id.toString() })}
+                  >
+                    <div>
+                      <p className="font-medium text-[#0f2940]">{booking.property?.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Clock className="w-3 h-3 text-gray-400" />
+                        <p className="text-xs text-gray-500">
+                          {booking.check_in} → {booking.check_out}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-[#00c9a7]">{booking.total?.toLocaleString()} FCFA</p>
+                      <p className="text-xs text-gray-500 mt-1">{booking.guest_name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Arrivées et départs */}
+          <div className="space-y-6">
+            {/* Arrivées aujourd'hui */}
+            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <h3 className="font-semibold text-lg">📥 Arrivées aujourd'hui</h3>
+              </div>
+              {today.checkins?.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Aucune arrivée prévue</p>
+              ) : (
+                <ul className="space-y-2">
+                  {today.checkins.map((c: any) => (
+                    <li key={c.id} className="flex justify-between items-center border-b pb-2">
+                      <div>
+                        <span className="font-medium">{c.guest_name}</span>
+                        <p className="text-xs text-gray-500">{c.property}</p>
+                      </div>
+                      <button 
+                        onClick={() => onNavigate?.({ name: 'host-reservation-detail', id: c.id.toString() })}
+                        className="text-xs bg-[#00c9a7]/10 text-[#00c9a7] px-3 py-1 rounded-full"
+                      >
+                        Voir
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Départs aujourd'hui */}
+            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
+              <h3 className="font-semibold text-lg mb-4">📤 Départs aujourd'hui</h3>
+              {today.checkouts?.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">Aucun départ prévu</p>
+              ) : (
+                <ul className="space-y-2">
+                  {today.checkouts.map((c: any) => (
+                    <li key={c.id} className="flex justify-between items-center border-b pb-2">
+                      <div>
+                        <span className="font-medium">{c.guest_name}</span>
+                        <p className="text-xs text-gray-500">{c.property}</p>
+                      </div>
+                      <span className="text-xs text-gray-400">Check-out</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Section étoiles - Évaluations */}
+        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+              <h3 className="font-semibold text-lg">Évaluations récentes</h3>
+            </div>
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-reviews' })}
+              className="text-xs text-[#00c9a7] hover:underline"
+            >
+              Voir toutes
+            </button>
+          </div>
+          
+          {stats.reviews_count === 0 ? (
+            <div className="text-center py-8">
+              <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">Aucune évaluation pour le moment</p>
+              <p className="text-sm text-gray-400 mt-1">Les évaluations apparaîtront après les séjours</p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-[#0f2940]">{stats.average_rating || 0}</div>
+                <div className="flex items-center gap-1 mt-1">
+                  {[1,2,3,4,5].map(star => (
+                    <Star key={star} className={`w-4 h-4 ${star <= (stats.average_rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">({stats.reviews_count} avis)</p>
+              </div>
+              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-yellow-400 rounded-full"
+                  style={{ width: `${((stats.average_rating || 0) / 5) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Liens rapides */}
+        <div>
+          <h3 className="font-semibold text-lg mb-4">Accès rapides</h3>
+          <div className="grid gap-4 lg:grid-cols-3">
             <button
               onClick={() => onNavigate?.({ name: 'host-annonces' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-shadow"
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
             >
               <div className="flex items-center gap-3 mb-3">
-                <Home className="w-5 h-5 text-[#00c9a7]" />
+                <Home className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Mes annonces</h3>
               </div>
               <p className="text-sm text-[#6b7280]">Gérez les offres publiées et leurs performances.</p>
             </button>
             <button
               onClick={() => onNavigate?.({ name: 'host-calendrier' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-shadow"
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
             >
               <div className="flex items-center gap-3 mb-3">
-                <CalendarDays className="w-5 h-5 text-[#00c9a7]" />
+                <CalendarDays className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Calendrier</h3>
               </div>
               <p className="text-sm text-[#6b7280]">Bloquez des dates et gérez les disponibilités.</p>
             </button>
             <button
               onClick={() => onNavigate?.({ name: 'host-reservations' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-shadow"
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
             >
               <div className="flex items-center gap-3 mb-3">
-                <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                <MessageCircle className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Réservations</h3>
               </div>
               <p className="text-sm text-[#6b7280]">Consultez les demandes et les séjours en cours.</p>
             </button>
           </div>
-        </PageSection>
+        </div>
       </div>
     </div>
   );
 }
 
 // ==================== HOST LISTINGS PAGE ====================
-export function HostListingsPage({ onNavigate }: PageProps) {
+
+export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['host-properties'],
+    queryFn: () => hostService.getProperties(),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => propertyService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['host-properties'] });
+    },
+  });
+
+  // État pour la modale de confirmation
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [submittedPropertyId, setSubmittedPropertyId] = useState<number | null>(null);
+
+  // Fonction à appeler après une soumission réussie
+  const handleSubmissionSuccess = (propertyId: number) => {
+    setSubmittedPropertyId(propertyId);
+    setShowConfirmationModal(true);
+  };
+
+  // Fonction pour continuer après la modale
+  const handleContinue = () => {
+    setShowConfirmationModal(false);
+    // Optionnel : rediriger vers une autre page
+    // onNavigate?.({ name: 'host-confirmation' });
+  };
+
+  if (isLoading) return <div className="text-center py-10">Chargement...</div>;
+  if (error) return <div className="text-center py-10 text-red-500">Erreur de chargement</div>;
+
+  const properties = data?.data?.data || [];
+  const handleSubmit = async (formData: any) => {
+    setIsSubmitting(true);
+    try {
+      const response = await propertyService.create(formData);
+      
+      // ✅ Appelez la fonction pour afficher la modale
+      // Option 1: Naviguer vers HostListingsPage avec un paramètre
+      onNavigate?.({ 
+        name: 'host-annonces', 
+        showConfirmation: true,  // Ajoutez un paramètre
+        propertyId: response.data.id 
+      });
+      
+      // Option 2: Stocker dans localStorage
+      localStorage.setItem('showConfirmation', 'true');
+      localStorage.setItem('submittedPropertyId', response.data.id);
+      onNavigate?.({ name: 'host-annonces' });
+      
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="bg-white min-h-screen py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Mes annonces hôte" subtitle="Gestion de vos annonces publiées et de leur visibilité.">
-          <div className="space-y-4">
-            {popularListings.map((listing) => (
-              <div key={listing.id} className="rounded-3xl border border-[#e2f5f2] p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-[#0f2940]">{listing.title}</h3>
-                  <p className="text-sm text-[#6b7280]">Statut : Publiée · {listing.rating} étoiles</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
+    <>
+      <div className="bg-white min-h-screen py-10">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <PageSection title="Mes annonces hôte" subtitle="Gestion de vos annonces publiées et de leur visibilité.">
+            <div className="space-y-4">
+              {properties.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">Vous n'avez pas encore d'annonce.</p>
                   <button
-                    onClick={() => onNavigate?.({ name: 'listing', id: listing.id })}
-                    className="border border-[#e2f5f2] rounded-full px-5 py-3 text-sm hover:bg-[#f4fffe] transition-colors"
+                    onClick={() => {
+                      onNavigate?.({ name: 'publish' });
+                    }}
+                    className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full"
                   >
-                    Voir
+                    Créer ma première annonce
                   </button>
-                  <button className="bg-[#00c9a7] text-white rounded-full px-5 py-3 text-sm hover:bg-[#00b396] transition-colors">Statistiques</button>
                 </div>
-              </div>
-            ))}
-          </div>
-        </PageSection>
+              ) : (
+                properties.map((property: any) => (
+                  <div key={property.id} className="rounded-3xl border border-[#e2f5f2] p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold text-[#0f2940]">{property.title}</h3>
+                      <p className="text-sm text-[#6b7280]">
+                        Statut : {property.status_label} · {property.stats?.bookings_count || 0} réservations
+                      </p>
+                      <div className="flex gap-4 mt-2 text-sm">
+                        <span>👁️ {property.stats?.views_this_month || 0} vues ce mois</span>
+                        <span>⭐ {property.average_rating || 0} étoiles</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
+                        className="border border-[#e2f5f2] rounded-full px-5 py-3 text-sm hover:bg-[#f4fffe] transition-colors"
+                      >
+                        Voir
+                      </button>
+                      <button
+                        onClick={() => onNavigate?.({ name: 'host-calendrier', id: property.id.toString() })}
+                        className="border border-[#00c9a7] text-[#00c9a7] rounded-full px-5 py-3 text-sm hover:bg-[#00c9a7]/10 transition-colors"
+                      >
+                        Calendrier
+                      </button>
+                      <button
+                        onClick={() => deleteMutation.mutate(property.id)}
+                        className="border border-red-200 text-red-500 rounded-full px-5 py-3 text-sm hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 inline mr-1" /> Supprimer
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </PageSection>
+        </div>
       </div>
-    </div>
+
+      {/* MODALE DE CONFIRMATION */}
+      {showConfirmationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
+            {/* Bouton fermeture */}
+            <button
+              onClick={() => setShowConfirmationModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* En-tête avec icône de succès */}
+            <div className="p-6 text-center">
+              <div className="w-20 h-20 rounded-full bg-[rgba(0,201,167,0.09)] border-2 border-[rgba(0,201,167,0.22)] flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-10 h-10 text-[#00C9A7]" strokeWidth={2.5} />
+              </div>
+              
+              <h2 className="font-serif text-3xl text-[#0F2940] mb-2">
+                Votre bien est<br />entre de <span className="text-[#00C9A7] italic">bonnes mains.</span>
+              </h2>
+              <p className="text-gray-500 text-sm mt-3">
+                Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
+              </p>
+            </div>
+
+            {/* Délai */}
+            <div className="flex items-center justify-center gap-2 bg-[rgba(0,201,167,0.09)] border border-[rgba(0,201,167,0.22)] rounded-full py-2 px-5 mx-6 mb-5">
+              <Clock className="w-4 h-4 text-[#00C9A7]" />
+              <span className="text-sm font-medium text-[#0F2940]">Notre équipe vous contacte sous 24h</span>
+            </div>
+
+            {/* Étapes suivantes */}
+            <div className="bg-white border border-gray-100 rounded-xl p-5 mx-6 mb-5 shadow-sm">
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-[#00C9A7] mb-4">Ce qui se passe maintenant</h3>
+              <div className="space-y-4">
+                {[
+                  { num: 1, title: "Étude de votre dossier", desc: "Notre équipe examine votre bien et vérifie qu'il correspond à nos critères de qualité." },
+                  { num: 2, title: "Prise de contact", desc: "Un membre de l'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails." },
+                  { num: 3, title: "Mise en ligne de votre annonce", desc: "Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs." },
+                  { num: 4, title: "Vos premières réservations arrivent", desc: "Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus." }
+                ].map((step, idx) => (
+                  <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                    <div className="w-7 h-7 rounded-full bg-[#0F2940] text-white text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">
+                      {step.num}
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-[#0F2940] text-sm">{step.title}</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 pt-0 space-y-3">
+              <button
+                onClick={handleContinue}
+                className="w-full bg-[#0F2940] text-white py-3.5 rounded-xl font-medium hover:bg-[#1a3a5c] transition-all duration-300 flex items-center justify-center gap-2 group"
+              >
+                OK, j'ai compris
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+              </button>
+              
+              <a
+                href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20bien"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full bg-[#25D366] text-white py-3.5 rounded-xl font-medium hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Nous contacter sur WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
 // ==================== HOST CALENDAR PAGE ====================
-export function HostCalendarPage({ onNavigate }: PageProps) {
+
+export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Route) => void; id?: string }) {
+  const propertyId = id ? parseInt(id) : null;
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['host-calendar', propertyId, year, month],
+    queryFn: () => hostService.getCalendar(propertyId!, year, month),
+    enabled: !!propertyId,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ start, end, status, price }: any) =>
+      hostService.updateAvailability(propertyId!, start, end, status, price),
+    onSuccess: () => {
+      // ✅ Forcer un rafraîchissement immédiat
+      refetch();
+    },
+    // ✅ Ajouter une gestion d'erreur
+    onError: (error: any) => {
+      console.error('❌ Erreur mise à jour:', error);
+      alert('Erreur lors de la mise à jour des disponibilités');
+    },
+  });
+
+  if (!propertyId) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10 text-center">
+        <p className="text-gray-500">Sélectionnez d'abord une propriété.</p>
+        <button onClick={() => onNavigate?.({ name: 'host-annonces' })} className="mt-4 bg-[#00c9a7] px-4 py-2 rounded-full">
+          Voir mes annonces
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading) return <div className="text-center py-10">Chargement du calendrier...</div>;
+
+  // ✅ Extraction correcte du calendrier
+  const calendar = data?.data?.calendar || [];
+  const propertyTitle = data?.data?.property_title || data?.data?.property?.title || 'Propriété';
+
+  const handleBlockDates = async (start: string, end: string) => {
+    try {
+      await updateMutation.mutateAsync({ 
+        start, 
+        end, 
+        status: 'blocked', 
+        price: null 
+      });
+    } catch (error) {
+      console.error('Erreur lors du blocage:', error);
+    }
+  };
+
+  const handleMakeAvailable = async (start: string, end: string) => {
+    try {
+      await updateMutation.mutateAsync({ 
+        start, 
+        end, 
+        status: 'available', 
+        price: null 
+      });
+    } catch (error) {
+      console.error('Erreur lors du déblocage:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Calendrier hôte" subtitle="Organisez votre disponibilité et bloquez des dates importantes.">
-          <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8">
-            <p className="text-sm text-[#6b7280] mb-4">Vue mensuelle avec blocs de disponibilités et tarifs spéciaux.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-3xl bg-[#f4fffe] p-6">
-                <h3 className="font-semibold text-[#0f2940] mb-3">Disponibilités</h3>
-                <ul className="space-y-2 text-sm text-[#6b7280]">
-                  <li>✅ 6 mai - 9 mai : disponible</li>
-                  <li>🔴 15 mai : bloqué pour entretien</li>
-                  <li>⭐ 20 mai - 22 mai : taux weekend</li>
-                </ul>
-              </div>
-              <div className="rounded-3xl bg-[#f4fffe] p-6">
-                <h3 className="font-semibold text-[#0f2940] mb-3">Tarifs</h3>
-                <p className="text-sm text-[#6b7280]">Personnalisez vos prix selon la saison et les événements locaux.</p>
-              </div>
+        <PageSection title={`Calendrier - ${propertyTitle}`} subtitle="Gérez vos disponibilités et tarifs spéciaux.">
+          <div className="bg-white rounded-2xl border p-6">
+            <div className="flex justify-between items-center mb-6">
+              <button onClick={() => setCurrentDate(new Date(year, month - 2, 1))} className="p-2 rounded-full hover:bg-gray-100">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-xl font-semibold">{currentDate.toLocaleString('fr', { month: 'long', year: 'numeric' })}</h2>
+              <button onClick={() => setCurrentDate(new Date(year, month, 1))} className="p-2 rounded-full hover:bg-gray-100">
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
+
+            <div className="grid grid-cols-7 gap-2 text-center font-semibold text-gray-500 mb-2">
+              {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d}>{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-2">
+              {calendar.map((day: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`p-3 border rounded-xl text-center cursor-pointer transition ${
+                    day.status === 'booked' ? 'bg-red-100 text-red-700' :
+                    day.status === 'blocked' ? 'bg-orange-100 text-orange-700' :
+                    day.is_available ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-100'
+                  }`}
+                  onClick={() => {
+                    if (day.status === 'available') {
+                      handleBlockDates(day.date, day.date);
+                    } else if (day.status === 'blocked') {
+                      handleMakeAvailable(day.date, day.date);
+                    }
+                  }}
+                >
+                  <div className="text-sm font-medium">{day.day}</div>
+                  {day.special_price && <div className="text-xs text-green-600">{day.special_price.toLocaleString()} FCFA</div>}
+                  {day.status === 'booked' && <div className="text-xs">📅 Réservé</div>}
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex gap-4 text-sm">
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border"></div> Disponible (cliquer pour bloquer)</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100"></div> Bloqué (cliquer pour débloquer)</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100"></div> Réservé (non modifiable)</div>
+            </div>
+            
+            {/* ✅ Indicateur de chargement pour la mutation */}
+            {updateMutation.isPending && (
+              <div className="mt-4 text-center text-sm text-gray-500">
+                Mise à jour en cours...
+              </div>
+            )}
           </div>
         </PageSection>
       </div>
@@ -4812,49 +5787,1061 @@ export function HostCalendarPage({ onNavigate }: PageProps) {
 }
 
 // ==================== HOST RESERVATIONS PAGE ====================
-export function HostReservationsPage({ onNavigate }: PageProps) {
-  return (
-    <div className="bg-white min-h-screen py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Réservations hôte" subtitle="Suivez les demandes et les séjours en cours.">
-          <div className="space-y-4">
-            {popularListings.map((listing) => (
-              <div key={listing.id} className="rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe]">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <h3 className="text-xl font-semibold text-[#0f2940]">{listing.title}</h3>
-                    <p className="text-sm text-[#6b7280]">Demande de réservation reçue · 4 voyageurs · 3 nuits</p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button className="rounded-full border border-[#e2f5f2] px-5 py-3 text-sm hover:bg-white transition-colors">Accepter</button>
-                    <button className="rounded-full border border-[#e2f5f2] px-5 py-3 text-sm hover:bg-white transition-colors">Refuser</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </PageSection>
-      </div>
-    </div>
-  );
+
+
+interface Route {
+    name: string;
+    id?: string;
 }
 
+interface HostReservationsPageProps {
+    onNavigate?: (route: Route) => void;
+}
+
+export function HostReservationsPage({ onNavigate }: HostReservationsPageProps) {
+    const queryClient = useQueryClient();
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['host-reservations'],
+        queryFn: () => hostService.getHostBookings(),
+    });
+
+    const confirmMutation = useMutation({
+        mutationFn: (id: number) => hostService.confirmBooking(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['host-reservations'] });
+        },
+        onError: (error: any) => {
+            console.error('Erreur lors de la confirmation:', error);
+            alert('Erreur lors de la confirmation de la réservation');
+        },
+    });
+
+    const declineMutation = useMutation({
+        mutationFn: (id: number) => hostService.declineBooking(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['host-reservations'] });
+        },
+        onError: (error: any) => {
+            console.error('Erreur lors du refus:', error);
+            alert('Erreur lors du refus de la réservation');
+        },
+    });
+
+    // ✅ Récupérer les données avec la structure correcte
+    const bookings = data?.data?.data || data?.data || [];
+
+    // ✅ Fonction pour formater les montants
+    const formatAmount = (amount: any): string => {
+        if (!amount && amount !== 0) return '0 FCFA';
+        if (typeof amount === 'string') {
+            // Supprimer les espaces et convertir en nombre
+            const cleanAmount = amount.replace(/\s/g, '');
+            const num = parseFloat(cleanAmount);
+            if (isNaN(num)) return '0 FCFA';
+            return `${num.toLocaleString()} FCFA`;
+        }
+        const num = typeof amount === 'number' ? amount : parseFloat(amount);
+        if (isNaN(num)) return '0 FCFA';
+        return `${num.toLocaleString()} FCFA`;
+    };
+
+    // ✅ Fonction pour obtenir le statut en français
+    const getStatusLabel = (status: string): string => {
+        const statusMap: Record<string, string> = {
+            'pending': 'En attente',
+            'confirmed': 'Confirmée',
+            'cancelled': 'Annulée',
+            'completed': 'Terminée',
+        };
+        return statusMap[status] || status;
+    };
+
+    // ✅ Fonction pour obtenir la couleur du statut
+    const getStatusColor = (status: string): string => {
+        const colorMap: Record<string, string> = {
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'confirmed': 'bg-green-100 text-green-800',
+            'cancelled': 'bg-red-100 text-red-800',
+            'completed': 'bg-blue-100 text-blue-800',
+        };
+        return colorMap[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    if (isLoading) {
+        return (
+            <div className="bg-white min-h-screen py-10">
+                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center py-20">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+                        <p className="mt-4 text-gray-500">Chargement des réservations...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="bg-white min-h-screen py-10">
+                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+                        <div className="text-4xl mb-4">❌</div>
+                        <h3 className="text-lg font-semibold text-red-700 mb-2">Erreur de chargement</h3>
+                        <p className="text-red-600">Impossible de charger les réservations. Veuillez réessayer.</p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                        >
+                            Réessayer
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white min-h-screen py-10">
+            <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+                <PageSection title="Réservations hôte" subtitle="Suivez les demandes et les séjours en cours.">
+                    {bookings.length === 0 ? (
+                        <div className="bg-[#f4fffe] rounded-3xl border border-[#e2f5f2] p-12 text-center">
+                            <div className="text-6xl mb-4">📅</div>
+                            <h3 className="text-xl font-semibold text-[#0f2940] mb-2">
+                                Aucune réservation
+                            </h3>
+                            <p className="text-gray-500">
+                                Vous n'avez pas encore reçu de réservation.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {bookings.map((booking: any) => (
+                                <div 
+                                    key={booking.id} 
+                                    className="rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe] hover:shadow-lg transition-shadow"
+                                >
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                        {/* Informations réservation */}
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                <span className="text-xs font-mono bg-gray-200 px-2 py-1 rounded">
+                                                    #{booking.reference || booking.id}
+                                                </span>
+                                                <span className={`text-xs px-2 py-1 rounded-full font-medium ${getStatusColor(booking.status)}`}>
+                                                    {getStatusLabel(booking.status)}
+                                                </span>
+                                                {booking.payment_status && (
+                                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                                        booking.payment_status === 'paid' 
+                                                            ? 'bg-green-100 text-green-800' 
+                                                            : 'bg-yellow-100 text-yellow-800'
+                                                    }`}>
+                                                        {booking.payment_status === 'paid' ? 'Payé' : 'En attente de paiement'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            <h3 className="text-xl font-semibold text-[#0f2940]">
+                                                {booking.property?.title || 'Propriété'}
+                                            </h3>
+                                            
+                                            <p className="text-sm text-[#6b7280] mt-1">
+                                                {booking.property?.district}, {booking.property?.city}
+                                            </p>
+                                            
+                                            {/* ✅ Utilisation des nouvelles structures guest et dates */}
+                                            <div className="mt-3 space-y-2">
+                                                <div className="flex items-center gap-2">
+                                                    {booking.guest?.photo && (
+                                                        <img 
+                                                            src={booking.guest.photo} 
+                                                            alt={booking.guest.name}
+                                                            className="w-6 h-6 rounded-full"
+                                                        />
+                                                    )}
+                                                    <p className="text-sm">
+                                                        <span className="text-gray-500">👤 Voyageur:</span>{' '}
+                                                        <span className="font-medium">{booking.guest?.name || 'Non renseigné'}</span>
+                                                    </p>
+                                                </div>
+                                                
+                                                {booking.guest?.phone && (
+                                                    <p className="text-sm">
+                                                        <span className="text-gray-500">📞 Téléphone:</span>{' '}
+                                                        <span className="font-medium">{booking.guest.phone}</span>
+                                                    </p>
+                                                )}
+                                                
+                                                <p className="text-sm">
+                                                    <span className="text-gray-500">👥 Nombre de voyageurs:</span>{' '}
+                                                    <span className="font-medium">{booking.guests_count || 1}</span>
+                                                </p>
+                                                
+                                                <p className="text-sm">
+                                                    <span className="text-gray-500">🌙 Nuits:</span>{' '}
+                                                    <span className="font-medium">{booking.dates?.nights || 0}</span>
+                                                </p>
+                                                
+                                                <p className="text-sm">
+                                                    <span className="text-gray-500">📅 Dates:</span>{' '}
+                                                    <span className="font-medium">
+                                                        {booking.dates?.check_in || '--'} → {booking.dates?.check_out || '--'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Montant et actions */}
+                                        <div className="text-left lg:text-right">
+                                            <div className="mb-3">
+                                                <div className="text-sm text-gray-500">Sous-total</div>
+                                                <div className="font-medium">{formatAmount(booking.amount?.subtotal)}</div>
+                                                <div className="text-sm text-gray-500 mt-1">Frais de service</div>
+                                                <div className="font-medium">{formatAmount(booking.amount?.service_fee)}</div>
+                                                {booking.amount?.cleaning_fee && parseFloat(booking.amount.cleaning_fee.replace(/\s/g, '')) > 0 && (
+                                                    <>
+                                                        <div className="text-sm text-gray-500 mt-1">Frais de ménage</div>
+                                                        <div className="font-medium">{formatAmount(booking.amount?.cleaning_fee)}</div>
+                                                    </>
+                                                )}
+                                                <div className="border-t border-gray-200 mt-2 pt-2">
+                                                    <div className="text-lg font-bold text-[#00c9a7]">
+                                                        {formatAmount(booking.amount?.total)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex flex-wrap gap-3 mt-4 justify-end">
+                                                {booking.status === 'pending' ? (
+                                                    <>
+                                                        <button
+                                                            onClick={() => confirmMutation.mutate(booking.id)}
+                                                            disabled={confirmMutation.isPending}
+                                                            className="rounded-full bg-green-500 text-white px-5 py-2 text-sm hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                        >
+                                                            {confirmMutation.isPending && confirmMutation.variables === booking.id ? (
+                                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                            ) : (
+                                                                <CheckCircle className="w-4 h-4" />
+                                                            )}
+                                                            Accepter
+                                                        </button>
+                                                        <button
+                                                            onClick={() => declineMutation.mutate(booking.id)}
+                                                            disabled={declineMutation.isPending}
+                                                            className="rounded-full border border-red-300 text-red-600 px-5 py-2 text-sm hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                                        >
+                                                            {declineMutation.isPending && declineMutation.variables === booking.id ? (
+                                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                                            ) : (
+                                                                <XCircle className="w-4 h-4" />
+                                                            )}
+                                                            Refuser
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className={`px-4 py-2 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
+                                                        {getStatusLabel(booking.status)}
+                                                    </span>
+                                                )}
+
+                                      <button
+                                          onClick={() => onNavigate?.({ name: 'host-messages', id: booking.id.toString() })}
+                                          className="border border-[#00c9a7] text-[#00c9a7] rounded-full px-5 py-2 text-sm hover:bg-[#00c9a7] hover:text-white transition-colors flex items-center gap-1"
+                                      >
+                                          <MessageCircle className="w-4 h-4" />
+                                          Message
+                                      </button>
+                                                                                  </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </PageSection>
+            </div>
+        </div>
+    );
+}
+
+// ====================Host MESSAGES PAGE ====================
+
+interface Route {
+    name: string;
+    id?: string;
+}
+
+interface HostMessagesPageProps {
+    onNavigate?: (route: Route) => void;
+    id?: string; // bookingId
+}
+
+export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
+    const { user } = useAuth();
+    const [selectedBookingId, setSelectedBookingId] = useState<string | null>(id || null);
+    const [messageInput, setMessageInput] = useState('');
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const queryClient = useQueryClient();
+
+    // Récupérer les conversations
+    const { data: conversationsData, isLoading: convLoading } = useQuery({
+        queryKey: ['host-messages-conversations'],
+        queryFn: () => hostService.getHostConversations(),
+    });
+
+    // Récupérer les messages d'une conversation
+    const { data: messagesData, refetch: refetchMessages } = useQuery({
+        queryKey: ['host-messages', selectedBookingId],
+        queryFn: () => hostService.getHostMessages(selectedBookingId!),
+        enabled: !!selectedBookingId,
+    });
+
+    // Mutation pour envoyer un message
+    const sendMutation = useMutation({
+        mutationFn: (message: string) => hostService.sendHostMessage(selectedBookingId!, { message }),
+        onSuccess: () => {
+            setMessageInput('');
+            refetchMessages();
+            queryClient.invalidateQueries({ queryKey: ['host-messages-conversations'] });
+        },
+    });
+
+    // Auto-scroll
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messagesData]);
+
+    const conversations = conversationsData?.data || [];
+    const messages = messagesData?.data?.messages || [];
+    const currentBooking = messagesData?.data?.booking;
+
+    const handleSendMessage = () => {
+        if (!messageInput.trim() || !selectedBookingId) return;
+        sendMutation.mutate(messageInput);
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
+    if (convLoading) {
+        return (
+            <div className="bg-white min-h-screen py-10">
+                <div className="max-w-[1200px] mx-auto px-4">
+                    <div className="text-center py-20">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white min-h-screen py-10">
+            <div className="max-w-[1200px] mx-auto px-4">
+                <PageSection title="Messagerie hôte" subtitle="Gérez vos conversations avec les voyageurs">
+                    <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl border border-[#e2f5f2] overflow-hidden min-h-[600px]">
+                        
+                        {/* Liste des conversations */}
+                        <div className="lg:w-1/3 border-r bg-[#f4fffe]">
+                            <div className="p-4 border-b font-semibold bg-white">
+                                Conversations ({conversations.length})
+                            </div>
+                            <div className="divide-y max-h-[500px] overflow-y-auto">
+                                {conversations.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400">
+                                        <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                        <p>Aucune conversation</p>
+                                    </div>
+                                ) : (
+                                    conversations.map((conv: any) => (
+                                        <button
+                                            key={conv.booking.id}
+                                            onClick={() => setSelectedBookingId(conv.booking.id.toString())}
+                                            className={`w-full text-left p-4 hover:bg-white transition ${
+                                                selectedBookingId === conv.booking.id.toString() ? 'bg-white shadow-sm' : ''
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <p className="font-medium text-[#0f2940]">
+                                                        {conv.booking.guest?.name || 'Voyageur'}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        {conv.booking.property?.title}
+                                                    </p>
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        {conv.booking.dates?.check_in} → {conv.booking.dates?.check_out}
+                                                    </p>
+                                                </div>
+                                                {conv.unread_count > 0 && (
+                                                    <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
+                                                        {conv.unread_count}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {conv.last_message && (
+                                                <p className="text-xs text-gray-400 mt-2 truncate">
+                                                    {conv.last_message.preview || conv.last_message.message}
+                                                </p>
+                                            )}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Zone de chat */}
+                        <div className="lg:w-2/3 flex flex-col h-[600px]">
+                            {selectedBookingId && currentBooking ? (
+                                <>
+                                    {/* En-tête */}
+                                    <div className="p-4 border-b bg-white">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="font-semibold text-[#0f2940]">
+                                                    {currentBooking.guest?.name || 'Voyageur'}
+                                                </p>
+                                                <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Phone className="w-3 h-3" />
+                                                        {currentBooking.guest?.phone || 'Non renseigné'}
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Mail className="w-3 h-3" />
+                                                        {currentBooking.guest?.email || 'Non renseigné'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right text-xs text-gray-500">
+                                                <p className="flex items-center gap-1">
+                                                    <Home className="w-3 h-3" />
+                                                    {currentBooking.property?.title}
+                                                </p>
+                                                <p className="flex items-center gap-1 mt-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {currentBooking.dates?.check_in} → {currentBooking.dates?.check_out}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Messages */}
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f4fffe]">
+                                        {messages.length === 0 ? (
+                                            <div className="text-center py-20 text-gray-400">
+                                                <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                                <p>Aucun message</p>
+                                                <p className="text-sm">Soyez le premier à envoyer un message</p>
+                                            </div>
+                                        ) : (
+                                            messages.map((msg: any) => (
+                                                <div key={msg.id} className={`flex ${msg.is_from_me ? 'justify-end' : 'justify-start'}`}>
+                                                    <div className={`max-w-[70%] rounded-2xl p-3 ${
+                                                        msg.is_from_me 
+                                                            ? 'bg-[#00c9a7] text-white' 
+                                                            : 'bg-white text-gray-800 shadow-sm border border-[#e2f5f2]'
+                                                    }`}>
+                                                        <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                                                        <p className={`text-xs mt-1 ${msg.is_from_me ? 'text-white/70' : 'text-gray-400'}`}>
+                                                            {msg.created_at}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                        <div ref={messagesEndRef} />
+                                    </div>
+
+                                    {/* Input */}
+                                    <div className="p-4 border-t bg-white">
+                                        <div className="flex gap-2">
+                                            <textarea
+                                                value={messageInput}
+                                                onChange={(e) => setMessageInput(e.target.value)}
+                                                onKeyPress={handleKeyPress}
+                                                placeholder="Écrivez votre message..."
+                                                rows={1}
+                                                className="flex-1 border rounded-2xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
+                                                style={{ minHeight: '44px', maxHeight: '120px' }}
+                                            />
+                                            <button
+                                                onClick={handleSendMessage}
+                                                disabled={!messageInput.trim() || sendMutation.isPending}
+                                                className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b396] transition"
+                                            >
+                                                <Send className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        {sendMutation.isPending && (
+                                            <p className="text-xs text-gray-400 mt-2 text-center">Envoi en cours...</p>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[#f4fffe]">
+                                    <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+                                    <p className="text-lg font-medium">Sélectionnez une conversation</p>
+                                    <p className="text-sm">Pour commencer à discuter avec un voyageur</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </PageSection>
+            </div>
+        </div>
+    );
+}
+
+// ==================== Host Favorites PAGE ====================
+
+
+interface Route {
+    name: string;
+    id?: string;
+}
+
+interface HostFavoritesPageProps {
+    onNavigate?: (route: Route) => void;
+}
+
+export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
+    const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
+
+    // Récupérer les favoris groupés par propriété
+    const { data: groupedData, isLoading: groupedLoading } = useQuery({
+        queryKey: ['host-favorites-grouped'],
+        queryFn: () => hostService.getHostFavoritesGroupedByProperty(),
+    });
+
+    // Récupérer les statistiques
+    const { data: statsData } = useQuery({
+        queryKey: ['host-favorites-stats'],
+        queryFn: () => hostService.getHostFavoritesStatistics(),
+    });
+
+    const properties = groupedData?.data || [];
+    const stats = statsData?.data || {};
+
+    // ✅ Fonction pour obtenir l'URL de l'image correctement
+    const getImageUrl = (property: any) => {
+        // Essayer différents formats possibles
+        if (property.cover_photo) {
+            return property.cover_photo;
+        }
+        if (property.cover_photo_url) {
+            return property.cover_photo_url;
+        }
+        if (property.photo) {
+            return property.photo;
+        }
+        if (property.photo_url) {
+            return property.photo_url;
+        }
+        if (property.coverPhoto?.photo_url) {
+            return property.coverPhoto.photo_url;
+        }
+        if (property.photos && property.photos.length > 0) {
+            const firstPhoto = property.photos[0];
+            return firstPhoto.photo_url || firstPhoto.url || firstPhoto.path;
+        }
+        return null;
+    };
+
+    const handleExport = async () => {
+        try {
+            const blob = await hostService.exportHostFavorites();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `favoris_hote_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Erreur lors de l\'export:', error);
+        }
+    };
+
+    if (groupedLoading) {
+        return (
+            <div className="min-h-screen bg-[#f4fffe] py-10">
+                <div className="max-w-[1200px] mx-auto px-4">
+                    <div className="text-center py-20">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[#f4fffe] py-10">
+            <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+                {/* En-tête */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <div>
+                        <h1 className="text-3xl font-bold text-[#0f2940]">Favoris reçus</h1>
+                        <p className="text-gray-500 mt-1">
+                            Voyageurs qui ont aimé vos propriétés
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleExport}
+                        className="bg-[#00c9a7] text-white px-4 py-2 rounded-full flex items-center gap-2 hover:bg-[#00b396] transition"
+                    >
+                        <Download className="w-4 h-4" />
+                        Exporter
+                    </button>
+                </div>
+
+                {/* Statistiques */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                        <div className="flex items-center justify-between">
+                            <Heart className="w-5 h-5 text-[#00c9a7]" />
+                            <span className="text-2xl font-bold text-[#0f2940]">{stats.total_favorites || 0}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">Total favoris</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                        <div className="flex items-center justify-between">
+                            <Users className="w-5 h-5 text-[#00c9a7]" />
+                            <span className="text-2xl font-bold text-[#0f2940]">{stats.unique_travelers || 0}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">Voyageurs uniques</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                        <div className="flex items-center justify-between">
+                            <Home className="w-5 h-5 text-[#00c9a7]" />
+                            <span className="text-2xl font-bold text-[#0f2940]">{stats.total_properties_with_favorites || 0}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">Propriétés avec favoris</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                        <div className="flex items-center justify-between">
+                            <TrendingUp className="w-5 h-5 text-[#00c9a7]" />
+                            <span className="text-2xl font-bold text-[#0f2940]">{stats.favorites_last_30_days || 0}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">Derniers 30 jours</p>
+                    </div>
+                </div>
+
+                {/* Graphique tendance hebdomadaire */}
+                {stats.weekly_trend && stats.weekly_trend.length > 0 && (
+                    <div className="bg-white rounded-2xl p-6 border border-[#e2f5f2] mb-8">
+                        <h3 className="font-semibold mb-4 flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-[#00c9a7]" />
+                            Tendance des favoris (7 derniers jours)
+                        </h3>
+                        <div className="flex items-end justify-between gap-2 h-32">
+                            {stats.weekly_trend.map((day: any, index: number) => (
+                                <div key={index} className="flex-1 flex flex-col items-center">
+                                    <div 
+                                        className="w-full bg-[#00c9a7]/20 rounded-t-lg transition-all hover:bg-[#00c9a7]/40"
+                                        style={{ height: `${(day.count / Math.max(...stats.weekly_trend.map((d: any) => d.count), 1)) * 100}%`, minHeight: '4px' }}
+                                    >
+                                        <div className="text-center text-xs font-medium text-[#00c9a7] -mt-5">
+                                            {day.count > 0 && day.count}
+                                        </div>
+                                    </div>
+                                    <span className="text-xs text-gray-500 mt-2">{day.day}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Liste des propriétés avec favoris */}
+                <div className="space-y-6">
+                    {properties.length === 0 ? (
+                        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+                            <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold text-[#0f2940] mb-2">
+                                Aucun favori pour le moment
+                            </h3>
+                            <p className="text-gray-500">
+                                Les voyageurs n'ont pas encore ajouté vos propriétés en favoris.
+                            </p>
+                        </div>
+                    ) : (
+                        properties.map((property: any) => {
+                            const imageUrl = getImageUrl(property);
+                            const isExpanded = selectedPropertyId === property.id;
+                            
+                            return (
+                                <div key={property.id} className="bg-white rounded-2xl border border-[#e2f5f2] overflow-hidden">
+                                    {/* En-tête propriété */}
+                                    <div 
+                                        className="p-4 bg-[#f4fffe] border-b border-[#e2f5f2] cursor-pointer hover:bg-[#e8f5f2] transition"
+                                        onClick={() => setSelectedPropertyId(isExpanded ? null : property.id)}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            {/* Image de la propriété - ✅ CORRIGÉE */}
+                                            {imageUrl ? (
+                                                <img 
+                                                    src={imageUrl} 
+                                                    alt={property.title}
+                                                    className="w-16 h-16 rounded-lg object-cover"
+                                                    onError={(e) => {
+                                                        // Si l'image ne charge pas, afficher le fallback
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                                    }}
+                                                />
+                                            ) : null}
+                                            <div className={`w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center ${imageUrl ? 'hidden' : ''}`}>
+                                                <Home className="w-8 h-8 text-gray-400" />
+                                            </div>
+                                            
+                                            <div className="flex-1">
+                                                <h3 className="font-semibold text-[#0f2940]">{property.title}</h3>
+                                                <p className="text-sm text-gray-500">
+                                                    {property.district}, {property.city}
+                                                </p>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Heart className="w-4 h-4 text-[#00c9a7]" />
+                                                    <span className="text-sm font-medium text-[#00c9a7]">
+                                                        {property.favorites_count} favoris
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-gray-400">
+                                                {isExpanded ? '▲' : '▼'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Liste des voyageurs qui ont favorisé */}
+                                    {isExpanded && property.favorites && (
+                                        <div className="divide-y divide-[#e2f5f2]">
+                                            {property.favorites.map((favorite: any) => (
+                                                <div key={favorite.id} className="p-4 hover:bg-[#f4fffe] transition">
+                                                    <div className="flex items-start gap-4">
+                                                        {/* Avatar du voyageur */}
+                                                        {favorite.user_photo ? (
+                                                            <img 
+                                                                src={favorite.user_photo} 
+                                                                alt={favorite.user_name}
+                                                                className="w-10 h-10 rounded-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                                                <User className="w-5 h-5 text-gray-400" />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                                <h4 className="font-medium text-[#0f2940]">
+                                                                    {favorite.user_name || 'Voyageur'}
+                                                                </h4>
+                                                                <span className="text-xs text-gray-400">
+                                                                    Ajouté le {favorite.created_at}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-500 mt-1">
+                                                                📞 {favorite.user_phone || 'Téléphone non renseigné'}
+                                                            </p>
+                                                            {favorite.notes && (
+                                                                <p className="text-sm text-gray-600 mt-2 italic bg-gray-50 p-2 rounded-lg">
+                                                                    "📝 {favorite.notes}"
+                                                                </p>
+                                                            )}
+                                                            <div className="flex gap-2 mt-3">
+                                                                <button
+                                                                    onClick={() => onNavigate?.({ name: 'profile', id: favorite.user_id?.toString() })}
+                                                                    className="text-xs border border-[#00c9a7] text-[#00c9a7] px-3 py-1 rounded-full hover:bg-[#00c9a7] hover:text-white transition"
+                                                                >
+                                                                    Voir profil
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => onNavigate?.({ name: 'host-messages', id: favorite.user_id?.toString() })}
+                                                                    className="text-xs border border-gray-300 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-100 transition flex items-center gap-1"
+                                                                >
+                                                                    <MessageCircle className="w-3 h-3" />
+                                                                    Envoyer message
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
 // ==================== MESSAGES PAGE ====================
-export function MessagesPage() {
+
+interface MessagesPageProps {
+  onNavigate?: (route: any) => void;
+  id?: string;
+}
+
+export function MessagesPage({ onNavigate, id }: MessagesPageProps) {
+  const { user } = useAuth();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const inquiryPropertyId = searchParams.get('property');
+  const inquiryCheckIn = searchParams.get('check_in');
+  const inquiryCheckOut = searchParams.get('check_out');
+  const inquiryGuests = searchParams.get('guests');
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [hasSentInquiry, setHasSentInquiry] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  const inquiryMutation = useMutation({
+    mutationFn: (data: {
+      property_id: number;
+      message: string;
+      check_in?: string;
+      check_out?: string;
+      guests?: number;
+    }) => messageService.sendInquiry(data),
+    onSuccess: () => {
+      setHasSentInquiry(true);
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+    onError: (err: any) => {
+      console.error('Erreur lors de l\'envoi du message initial :', err);
+    },
+  });
+
+  // Récupérer les conversations
+  const { data: conversationsData, isLoading: convLoading } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => messageService.getConversations(),
+  });
+
+  const conversations = conversationsData?.data || [];
+
+  useEffect(() => {
+    if (!selectedConversation && id && conversations.length > 0) {
+      const matched = conversations.find(conv => conv.booking.id.toString() === id);
+      if (matched) {
+        setSelectedConversation(matched);
+      }
+    }
+    if (id === 'inquiry' && inquiryPropertyId && hasSentInquiry && conversations.length > 0 && !selectedConversation) {
+      const matched = conversations.find(conv => conv.booking.property?.id.toString() === inquiryPropertyId);
+      if (matched) {
+        setSelectedConversation(matched);
+      }
+    }
+  }, [id, conversations, selectedConversation]);
+
+  useEffect(() => {
+    if (id === 'inquiry' && inquiryPropertyId && !hasSentInquiry && !inquiryMutation.isLoading) {
+      inquiryMutation.mutate({
+        property_id: parseInt(inquiryPropertyId, 10),
+        message: "Bonjour, je suis intéressé par votre logement et j'aimerais en savoir plus.",
+        check_in: inquiryCheckIn || undefined,
+        check_out: inquiryCheckOut || undefined,
+        guests: inquiryGuests ? parseInt(inquiryGuests, 10) : undefined,
+      });
+    }
+  }, [id, inquiryPropertyId, inquiryCheckIn, inquiryCheckOut, inquiryGuests, hasSentInquiry, inquiryMutation]);
+
+  // Récupérer les messages de la conversation sélectionnée
+  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
+    queryKey: ['messages', selectedConversation?.booking?.id],
+    queryFn: () => messageService.getMessages(selectedConversation!.booking.id),
+    enabled: !!selectedConversation,
+  });
+
+  // Auto-scroll en bas des messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messagesData]);
+
+  // Mutation pour envoyer un message
+  const sendMutation = useMutation({
+    mutationFn: (text: string) => 
+      messageService.sendMessage(selectedConversation!.booking.id, { message: text }),
+    onSuccess: () => {
+      setMessageInput('');
+      refetchMessages();
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedConversation) return;
+    sendMutation.mutate(messageInput);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  if (convLoading) {
+    return (
+      <div className="bg-[#f4fffe] min-h-screen py-10">
+        <div className="text-center py-10">Chargement des conversations...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#f4fffe] min-h-screen py-10">
-      <div className="max-w-[1000px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
         <PageSection title="Messagerie" subtitle="Conversations entre voyageurs et hôtes.">
-          <div className="space-y-4">
-            {['Marie', 'Jean', 'Hotel Azalaï', 'Samira'].map((name) => (
-              <div key={name} className="rounded-3xl bg-white border border-[#e2f5f2] p-6 flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-base font-semibold text-[#0f2940]">{name}</div>
-                  <div className="text-sm text-[#6b7280]">Bonjour, je souhaite réserver du 10 au 12 mai...</div>
-                </div>
-                <div className="text-sm text-[#00c9a7]">1 non lu</div>
+          <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl shadow-md overflow-hidden">
+            {/* Liste des conversations */}
+            <div className="lg:w-1/3 border-r">
+              <div className="p-4 border-b font-semibold bg-white">
+                Conversations ({conversations.length})
               </div>
-            ))}
+              <div className="divide-y max-h-[600px] overflow-y-auto">
+                {conversations.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400">
+                    <MessageCircle className="w-12 h-12 mx-auto mb-2" />
+                    <p>Aucune conversation</p>
+                  </div>
+                ) : (
+                  conversations.map((conv: Conversation) => (
+                    <button
+                      key={conv.booking.id}
+                      onClick={() => setSelectedConversation(conv)}
+                      className={`w-full text-left p-4 hover:bg-gray-50 transition ${
+                        selectedConversation?.booking.id === conv.booking.id ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {conv.booking.host?.name || 'Hôte'}
+                          </p>
+                          <p className="text-sm text-gray-500">{conv.booking.property?.title}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {conv.booking.dates.check_in} → {conv.booking.dates.check_out}
+                          </p>
+                        </div>
+                        {conv.unread_count > 0 && (
+                          <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
+                            {conv.unread_count}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2 truncate">
+                        {conv.last_message?.message || 'Aucun message'}
+                      </p>
+                      {conv.last_message && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {conv.last_message.sent_at}
+                        </p>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Zone de chat */}
+            <div className="lg:w-2/3 flex flex-col h-[600px]">
+              {selectedConversation ? (
+                <>
+                  {/* En-tête du chat */}
+                  <div className="p-4 border-b bg-white sticky top-0 z-10">
+                    <p className="font-semibold text-gray-900">
+                      {selectedConversation.booking.host?.name || 'Hôte'}
+                    </p>
+                    <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                      <span>Réservation #{selectedConversation.booking.reference}</span>
+                      <span>
+                        {selectedConversation.booking.dates.check_in} → {selectedConversation.booking.dates.check_out}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Propriété: {selectedConversation.booking.property?.title}
+                    </p>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+                    {messagesLoading ? (
+                      <div className="text-center py-10">Chargement des messages...</div>
+                    ) : (
+                      <>
+                        {(messagesData?.data?.messages || []).map((msg: Message) => {
+                          const isFromMe = msg.sender_id === user?.id;
+                          return (
+                            <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[70%] rounded-2xl p-3 ${
+                                isFromMe 
+                                  ? 'bg-[#00c9a7] text-white' 
+                                  : 'bg-white text-gray-800 shadow-sm'
+                              }`}>
+                                <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                                <p className={`text-xs mt-1 ${
+                                  isFromMe ? 'text-white/70' : 'text-gray-400'
+                                }`}>
+                                  {new Date(msg.created_at).toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
+                  </div>
+
+                  {/* Input de message */}
+                  <div className="p-4 border-t bg-white">
+                    <div className="flex gap-2">
+                      <textarea
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Écrivez votre message..."
+                        rows={1}
+                        className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
+                        style={{ minHeight: '44px', maxHeight: '120px' }}
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!messageInput.trim() || sendMutation.isPending}
+                        className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </div>
+                    {sendMutation.isPending && (
+                      <p className="text-xs text-gray-400 mt-2 text-center">Envoi en cours...</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                  <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Sélectionnez une conversation</p>
+                  <p className="text-sm">Pour commencer à discuter avec un hôte</p>
+                </div>
+              )}
+            </div>
           </div>
         </PageSection>
       </div>
@@ -4871,11 +6858,11 @@ export function FavoritesPage({ onNavigate }: PageProps) {
     let filtered = [...favorites];
     switch (selectedFilter) {
       case 'Prix croissant':
-        return filtered.sort((a, b) => a.price - b.price);
+          return filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
       case 'Prix décroissant':
-        return filtered.sort((a, b) => b.price - a.price);
+          return filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
       case 'Mieux notés':
-        return filtered.sort((a, b) => b.rating - a.rating);
+          return filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
       default:
         return filtered;
     }
@@ -4938,10 +6925,11 @@ export function FavoritesPage({ onNavigate }: PageProps) {
                 onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
               >
                 <div className="relative h-48 overflow-hidden">
-                  <img 
-                    src={property.image} 
-                    alt={property.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                  <img
+                    src={property.images?.[0] || property.image || '/placeholder.jpg'}
+                    alt={property.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
                   />
                   <button
                     onClick={(e) => {
@@ -4983,26 +6971,453 @@ export function FavoritesPage({ onNavigate }: PageProps) {
 }
 
 // ==================== PUBLISH LISTING PAGE ====================
-export function PublishListingPage() {
+export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+  const initialForm = {
+  title: '',
+  description: '',
+  property_type: 'appartement', // ← Changé de 'Appartement entier' à 'appartement'
+  city: '',
+  district: '',
+  address: '',
+  bedrooms: '1',
+  beds: '1',
+  bathrooms: '1',
+  max_guests: '1',
+  price_per_night: '0',
+  cleaning_fee: '0',
+  min_stay: '1',
+  has_wifi: true,
+  has_air_conditioning: false,
+  has_generator: false,
+  has_water_tank: false,
+  has_parking: false,
+  has_kitchen: false,
+  has_tv: false,
+};
+
+  const [formData, setFormData] = useState(initialForm);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handleInputChange = (key: keyof typeof initialForm, value: string | boolean) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    setPhotos((prev) => [...prev, ...Array.from(files)]);
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+
+    try {
+      if (photos.length < 3) {
+        throw new Error('Veuillez sélectionner au moins 3 photos pour l\'annonce.');
+      }
+
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        property_type: formData.property_type,
+        city: formData.city,
+        district: formData.district,
+        address: formData.address,
+        bedrooms: parseInt(formData.bedrooms, 10),
+        beds: parseInt(formData.beds, 10),
+        bathrooms: parseInt(formData.bathrooms, 10),
+        max_guests: parseInt(formData.max_guests, 10),
+        price_per_night: parseFloat(formData.price_per_night),
+        cleaning_fee: parseFloat(formData.cleaning_fee),
+        min_stay: parseInt(formData.min_stay, 10),
+      };
+
+      console.log('📤 1/4 - Création de la propriété...', payload);
+      
+      const propertyResponse = await hostService.createProperty(payload);
+      
+      console.log('📥 1/4 - Réponse création propriété:', propertyResponse);
+      
+      // Nettoyer la réponse si elle contient un commentaire PHP
+      let cleanResponse = propertyResponse;
+      if (typeof cleanResponse === 'string') {
+        const jsonStartIndex = cleanResponse.indexOf('{');
+        if (jsonStartIndex !== -1) {
+          const jsonString = cleanResponse.substring(jsonStartIndex);
+          try {
+            cleanResponse = JSON.parse(jsonString);
+          } catch (e) {
+            console.error('❌ Impossible de parser le JSON:', e);
+          }
+        }
+      }
+      
+      // Extraire l'ID
+      let propertyId = cleanResponse?.data?.id || cleanResponse?.id || null;
+      
+      console.log('🔑 1/4 - ID récupéré:', propertyId);
+      
+      if (!propertyId) {
+        console.error('❌ Structure de réponse inconnue:', cleanResponse);
+        throw new Error('Impossible de récupérer l\'ID de la propriété. Contactez le support.');
+      }
+      
+      // Ajouter les photos
+      console.log('📤 2/4 - Ajout des photos...', { propertyId, photoCount: photos.length });
+      await hostService.addPhotos(propertyId, photos);
+      console.log('✅ 2/4 - Photos ajoutées avec succès');
+      
+      // Mettre à jour les équipements
+      console.log('📤 3/4 - Mise à jour des équipements...');
+      const amenities = {
+        has_wifi: formData.has_wifi,
+        has_air_conditioning: formData.has_air_conditioning,
+        has_generator: formData.has_generator,
+        has_water_tank: formData.has_water_tank,
+        has_parking: formData.has_parking,
+        has_kitchen: formData.has_kitchen,
+        has_tv: formData.has_tv,
+      };
+      await hostService.updateAmenities(propertyId, amenities);
+      console.log('✅ 3/4 - Équipements mis à jour');
+      
+      // Soumettre pour validation
+      console.log('📤 4/4 - Soumission pour validation...');
+      await hostService.submitForReview(propertyId);
+      console.log('✅ 4/4 - Annonce soumise avec succès');
+      
+      toast.success('Votre annonce a bien été soumise. Elle sera examinée par notre équipe.');
+      setFormData(initialForm);
+      setPhotos([]);
+      setShowSuccessModal(true);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur détaillée:', error);
+      
+      let errorMessage = 'Erreur lors de la soumission';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Votre session a expiré. Veuillez vous reconnecter.';
+        setTimeout(() => onNavigate?.({ name: 'auth' }), 2000);
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Vous n\'avez pas les droits pour créer une annonce. Vérifiez votre statut de compte.';
+      } else if (error.response?.status === 422) {
+        const errors = error.response?.data?.errors;
+        if (errors) {
+          errorMessage = Object.values(errors).flat().join(', ');
+        } else {
+          errorMessage = error.response?.data?.message || 'Données invalides';
+        }
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Erreur serveur. Veuillez réessayer dans quelques minutes.';
+      } else {
+        errorMessage = error?.response?.data?.message || error?.message || 'Erreur lors de la soumission';
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    onNavigate?.({ name: 'hote-annonces' });
+  };
+
   return (
     <div className="bg-[#f4fffe] min-h-screen py-10">
       <div className="max-w-[950px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Publier une annonce" subtitle="Wizard de création d'annonce pour hôtes et propriétaires.">
-          <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8 space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {['Type', 'Localisation', 'Photos', 'Équipements', 'Tarifs', 'Disponibilités', 'Règlement', 'Publication'].map((step) => (
-                <div key={step} className="rounded-3xl bg-[#f4fffe] p-5 border border-[#e2f5f2]">
-                  <div className="text-sm text-[#6b7280]">Étape</div>
-                  <div className="font-semibold text-[#0f2940] mt-2">{step}</div>
+        <PageSection title="Publier une annonce" subtitle="Remplissez les détails de votre logement puis soumettez-le à l’administration pour publication.">
+          <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8 space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* ... Le reste du formulaire ... */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Titre</label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Maison contemporaine à Cotonou"
+                    required
+                  />
                 </div>
-              ))}
-            </div>
-            <div className="text-sm text-[#6b7280] leading-relaxed">
-              Commencez par décrire votre logement, chargez des photos mobiles-friendly, ajoutez vos équipements et tarifs en FCFA, puis publiez rapidement sur Bluefin-Immo.
-            </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Type de propriété</label>
+                 
+<select
+  value={formData.property_type}
+  onChange={(e) => handleInputChange('property_type', e.target.value)}
+  className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+>
+  <option value="appartement">Appartement</option>
+  <option value="chambre_habitant">Chambre chez l'habitant</option>
+  <option value="villa">Villa</option>
+  <option value="hotel">Hôtel</option>
+  <option value="motel">Motel</option>
+  <option value="auberge">Auberge</option>
+  <option value="maison_hotes">Maison d'hôtes</option>
+  <option value="ecolodge">Ecolodge</option>
+  <option value="residence_hoteliere">Résidence hôtelière</option>
+  <option value="immeuble_entier">Immeuble entier</option>
+</select>
+                </div>
+                <div className="space-y-3 lg:col-span-2">
+                  <label className="text-sm font-medium text-[#0F2940]">Description</label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    className="w-full min-h-[160px] rounded-[1.75rem] border border-[#e2f5f2] px-4 py-4 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Décrivez votre logement, l'ambiance, les équipements et les points forts."
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Ville</label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => handleInputChange('city', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Cotonou"
+                    required
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Quartier</label>
+                  <input
+                    type="text"
+                    value={formData.district}
+                    onChange={(e) => handleInputChange('district', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Haie Vive"
+                    required
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Adresse</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    placeholder="Rue des Filaos, Cotonou"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-4">
+                {[
+                  { label: 'Chambres', key: 'bedrooms' },
+                  { label: 'Lits', key: 'beds' },
+                  { label: 'Salles de bain', key: 'bathrooms' },
+                  { label: 'Capacité', key: 'max_guests' },
+                ].map((field) => (
+                  <div key={field.key} className="space-y-3">
+                    <label className="text-sm font-medium text-[#0F2940]">{field.label}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={(formData as any)[field.key]}
+                      onChange={(e) => handleInputChange(field.key as any, e.target.value)}
+                      className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                      required
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Prix par nuit (FCFA)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.price_per_night}
+                    onChange={(e) => handleInputChange('price_per_night', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    required
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Frais de ménage (FCFA)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.cleaning_fee}
+                    onChange={(e) => handleInputChange('cleaning_fee', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                  />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-[#0F2940]">Séjour minimum (nuits)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={formData.min_stay}
+                    onChange={(e) => handleInputChange('min_stay', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    { label: 'Wi-Fi', key: 'has_wifi' },
+                    { label: 'Climatisation', key: 'has_air_conditioning' },
+                    { label: 'Générateur', key: 'has_generator' },
+                    { label: 'Réservoir d\'eau', key: 'has_water_tank' },
+                    { label: 'Parking', key: 'has_parking' },
+                    { label: 'Cuisine', key: 'has_kitchen' },
+                    { label: 'Télévision', key: 'has_tv' },
+                  ].map((item) => (
+                    <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={(formData as any)[item.key]}
+                        onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                        className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                      />
+                      <span className="text-sm text-[#0F2940]">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-[#0F2940]">Photos du logement</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoChange}
+                  className="mt-2 block w-full text-sm text-[#0F2940] file:mr-4 file:rounded-full file:border-0 file:bg-[#00c9a7] file:px-4 file:py-2 file:text-white"
+                />
+                {photos.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="rounded-3xl bg-[#effdfa] px-4 py-2 text-sm text-[#0f2940]">
+                        {photo.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {photos.length < 3 && (
+                  <p className="text-sm text-red-600 mt-2">Veuillez sélectionner au moins 3 photos (actuellement {photos.length}).</p>
+                )}
+              </div>
+
+              <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
+                <p className="font-semibold text-[#0F2940] mb-2">Attention</p>
+                <p>Après soumission, une équipe admin examinera votre annonce. Si tout est conforme, elle sera publiée sur la page d'accueil.</p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="submit"
+                  disabled={submitting || photos.length < 3}
+                  className="inline-flex items-center justify-center rounded-full bg-[#00c9a7] px-6 py-3 text-white font-semibold hover:bg-[#00b892] transition disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? 'Envoi en cours...' : 'Soumettre l\'annonce'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.({ name: 'home' })}
+                  className="inline-flex items-center justify-center rounded-full border border-[#e2f5f2] px-6 py-3 text-[#0F2940] hover:bg-[#f4fffe] transition"
+                >
+                  Retour à l'accueil
+                </button>
+              </div>
+            </form>
           </div>
         </PageSection>
       </div>
+
+      {/* ✅ MODAL DE SUCCÈS - VERSION COMPACTE MAIS AVEC TOUT LE CONTENU INITIAL */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2]">
+            <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
+              <button
+                onClick={handleSuccessClose}
+                className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition"
+                aria-label="Fermer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]">
+                <CheckCircle className="w-7 h-7 text-[#00C9A7]" />
+              </div>
+
+              <h2 className="text-lg font-semibold text-[#0F2940]">
+                Votre bien est entre de bonnes mains.
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">
+                Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
+              </p>
+            </div>
+
+            <div className="px-5 pb-5">
+              <div className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2 text-xs font-medium text-[#0F2940] sm:flex-row sm:justify-center">
+                <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
+                <span>Notre équipe vous contacte sous 24h</span>
+              </div>
+
+              <div className="rounded-xl border border-[#e8f6f2] bg-white p-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00C9A7] mb-2">Ce qui se passe maintenant</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {[
+                    { num: 1, title: 'Étude de votre dossier', desc: 'Notre équipe examine votre bien et vérifie qu\'il correspond à nos critères de qualité.' },
+                    { num: 2, title: 'Prise de contact', desc: 'Un membre de l\'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails.' },
+                    { num: 3, title: 'Mise en ligne de votre annonce', desc: 'Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs.' },
+                    { num: 4, title: 'Vos premières réservations arrivent', desc: 'Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus.' },
+                  ].map((step) => (
+                    <div key={step.num} className="flex gap-2 rounded-xl border border-[#eef6f1] bg-[#f9fffb] p-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F2940] text-[10px] font-semibold text-white">
+                        {step.num}
+                      </div>
+                      <div className="text-left">
+                        <p className="font-semibold text-[#0F2940] text-[11px]">{step.title}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5 leading-4">{step.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <a
+                  href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20annonce"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-3 py-2 text-white font-semibold text-sm shadow-sm hover:bg-[#1fbf55] transition"
+                >
+                  <MessageCircle className="w-4 h-4 mr-1.5" />
+                  WhatsApp
+                </a>
+                <button
+                  onClick={handleSuccessClose}
+                  className="inline-flex items-center justify-center rounded-full border border-[#00c9a7] px-3 py-2 text-[#0F2940] font-semibold text-sm hover:bg-[#f4fffe] transition"
+                >
+                  Voir mes annonces
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5337,150 +7752,138 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
 }
 
 // ========== PAGE ABOUT ==========
+
+
+
+
+interface PageProps {
+  onNavigate?: (page: { name: string }) => void;
+}
+
 export function AboutPage({ onNavigate }: PageProps) {
-  const values = [
-    { icon: Shield, title: "Confiance et sécurité", description: "Nous vérifions chaque annonce et protégeons vos transactions." },
-    { icon: Globe, title: "Communauté locale", description: "Nous mettons en relation voyageurs et hôtes africains." },
-    { icon: Sparkles, title: "Innovation", description: "Des outils modernes pour une expérience unique." },
-    { icon: Heart, title: "Hospitalité", description: "Le sens de l'accueil africain au cœur de notre plateforme." }
-  ];
-
-  const team = [
-    { name: "Jean K. ADJOVI", role: "CEO & Fondateur", image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&q=80" },
-    { name: "Aïssatou DIALLO", role: "Directrice Produit", image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80" },
-    { name: "Marc ZINSOU", role: "CTO", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80" },
-    { name: "Fatou CISSE", role: "Responsable Support", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80" }
-  ];
-
-  const stats = [
-    { value: "500+", label: "Logements actifs" },
-    { value: "10k+", label: "Voyageurs satisfaits" },
-    { value: "50+", label: "Villes couvertes" },
-    { value: "98%", label: "Taux de satisfaction" }
-  ];
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Retour
-        </button>
-        <h1 className="text-2xl text-[#0F2940]">À propos de Blufin-Immo</h1>
-      </div>
-
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-[#0F2940] to-[#1a3f5c] py-16 text-white">
-        <div className="max-w-4xl mx-auto px-5 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Votre partenaire de confiance</h2>
-          <p className="text-xl text-white/80">La première plateforme de location de logements courte durée en Afrique de l'Ouest</p>
+    <Layout onNavigate={onNavigate} currentPage="about">
+      <div className="max-w-[720px] mx-auto px-5 py-8 md:px-6 md:py-10 lg:py-12">
+        {/* HERO */}
+        <div className="bg-[#0F2940] rounded-2xl p-8 md:p-12 text-center mb-6 relative overflow-hidden">
+          <span className="inline-block text-[11px] font-semibold tracking-[0.16em] uppercase text-[#00C9A7] mb-5 animate-pulse">
+            À propos de Bluefin Immo
+          </span>
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight mb-4">
+            Confort, praticité<br />et <em className="text-[#00C9A7] not-italic">sérénité</em> —<br />à chaque séjour.
+          </h1>
+          <p className="text-base text-white/50 max-w-md mx-auto">
+            Des logements meublés modernes, soigneusement sélectionnés, pour que vous vous sentiez chez vous dès le premier instant.
+          </p>
         </div>
-      </section>
 
-      {/* Statistiques */}
-      <section className="py-12 border-b">
-        <div className="max-w-7xl mx-auto px-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {stats.map((stat, idx) => (
-              <div key={idx} className="text-center">
-                <p className="text-3xl font-bold text-[#00c9a7]">{stat.value}</p>
-                <p className="text-gray-600 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
+        {/* ACCROCHE */}
+        <div className="py-6 mb-2">
+          <p className="font-serif text-xl md:text-2xl lg:text-[26px] text-[#1a2733] leading-tight">
+            Notre mission : rendre la location immobilière <em className="text-[#00C9A7] not-italic">simple, agréable et sans compromis.</em>
+          </p>
         </div>
-      </section>
 
-      {/* Notre mission */}
-      <section className="py-12">
-        <div className="max-w-7xl mx-auto px-5">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <p className="text-[#00c9a7] font-semibold mb-2">Notre mission</p>
-              <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Révolutionner l'hébergement en Afrique</h2>
-              <p className="text-gray-600 leading-relaxed mb-4">
-                Blufin-Immo est né d'une conviction : l'Afrique a besoin d'une plateforme de confiance 
-                pour faciliter la location de logements entre particuliers. Nous connectons voyageurs 
-                et hôtes locaux pour offrir des expériences authentiques et sécurisées.
-              </p>
-              <p className="text-gray-600 leading-relaxed">
-                Depuis notre lancement, nous avons accompagné des milliers de voyageurs dans leur découverte 
-                de l'Afrique de l'Ouest, tout en permettant aux hôtes de générer des revenus complémentaires.
-              </p>
-            </div>
-            <div className="rounded-2xl overflow-hidden shadow-xl">
-              <img 
-                src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80" 
-                alt="Mission" 
-                className="w-full h-96 object-cover"
-              />
-            </div>
-          </div>
+        {/* CORPS */}
+        <div className="mb-6 space-y-3">
+          <p className="text-[#5a6a78] leading-relaxed">
+            Chez Bluefin Immo, nous mettons à votre disposition des appartements meublés modernes, entièrement équipés et pensés dans les moindres détails pour vous offrir un cadre de vie chaleureux, fonctionnel et agréable.
+          </p>
+          <p className="text-[#5a6a78] leading-relaxed">
+            Nous accordons une attention particulière à la qualité de chaque bien, à la fluidité de votre expérience locative et à la réactivité de notre équipe — pour que vous puissiez vous concentrer sur l'essentiel : profiter pleinement de votre séjour.
+          </p>
         </div>
-      </section>
 
-      {/* Nos valeurs */}
-      <section className="bg-gray-50 py-12">
-        <div className="max-w-7xl mx-auto px-5">
-          <div className="text-center mb-10">
-            <p className="text-[#00c9a7] font-semibold mb-2">Nos valeurs</p>
-            <h2 className="text-3xl font-bold text-[#0F2940]">Ce qui nous guide au quotidien</h2>
+        {/* PROFILS */}
+        <div className="flex flex-wrap gap-2 my-5">
+          {[
+            { icon: "M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2", label: "Déplacement professionnel", rect: true },
+            { icon: "M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5", label: "Étudiant" },
+            { icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", label: "Expatrié" },
+            { icon: "M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5zM9 21V12h6v9", label: "Logement prêt à vivre" }
+          ].map((item, idx) => (
+            <span key={idx} className="inline-flex items-center gap-2 bg-[rgba(0,201,167,0.09)] border border-[rgba(0,201,167,0.22)] rounded-full py-2 px-4 text-sm font-medium text-[#1a2733] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#00C9A7] hover:shadow-[0_4px_12px_rgba(0,201,167,0.15)]">
+              <svg className="w-3.5 h-3.5 text-[#00C9A7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {item.rect ? <><rect x="2" y="7" width="20" height="14" rx="2"/><path d={item.icon}/></> : <path d={item.icon}/>}
+              </svg>
+              {item.label}
+            </span>
+          ))}
+        </div>
+
+        {/* ENGAGEMENTS */}
+        <div>
+          <div className="text-[11px] font-semibold tracking-[0.13em] uppercase text-[#00C9A7] mb-4">
+            Nos engagements
           </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {values.map((value, idx) => {
-              const Icon = value.icon;
-              return (
-                <div key={idx} className="bg-white rounded-xl p-6 text-center shadow-sm hover:shadow-md transition">
-                  <div className="w-16 h-16 mx-auto bg-[#00c9a7]/10 rounded-full flex items-center justify-center mb-4">
-                    <Icon className="w-8 h-8 text-[#00c9a7]" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-[#0F2940] mb-2">{value.title}</h3>
-                  <p className="text-gray-600 text-sm">{value.description}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              { icon: "M20 9V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2v-2M9 12h12M15 8l4 4-4 4", title: "Logements confortables et prêts à vivre", desc: "Entièrement meublés et équipés, pour une installation immédiate et sans effort." },
+              { icon: "M12 8a6 6 0 100 12 6 6 0 000-12zM8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32", title: "Une sélection de qualité", desc: "Chaque bien est choisi avec soin pour son confort, son emplacement et son standing." },
+              { icon: "M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z", title: "Un accompagnement réactif", desc: "Une équipe disponible et à l'écoute, à chaque étape de votre séjour." },
+              { icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", title: "Transparence et confiance", desc: "Des conditions claires, des prix affichés, une relation de confiance durable." }
+            ].map((item, idx) => (
+              <div key={idx} className="bg-white border border-[#eef0f3] rounded-2xl p-5 shadow-[0_2px_16px_rgba(15,41,64,0.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-[rgba(0,201,167,0.22)] hover:shadow-[0_12px_24px_rgba(0,201,167,0.12)]">
+                <div className="w-10 h-10 bg-[rgba(0,201,167,0.09)] rounded-lg flex items-center justify-center mb-3">
+                  <svg className="w-5 h-5 text-[#00C9A7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d={item.icon} />
+                  </svg>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Équipe */}
-      <section className="py-12">
-        <div className="max-w-7xl mx-auto px-5">
-          <div className="text-center mb-10">
-            <p className="text-[#00c9a7] font-semibold mb-2">Notre équipe</p>
-            <h2 className="text-3xl font-bold text-[#0F2940]">Des passionnés à votre service</h2>
-          </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {team.map((member, idx) => (
-              <div key={idx} className="text-center">
-                <img 
-                  src={member.image} 
-                  alt={member.name} 
-                  className="w-32 h-32 rounded-full mx-auto object-cover mb-4 border-4 border-[#00c9a7]"
-                />
-                <h3 className="font-semibold text-[#0F2940]">{member.name}</h3>
-                <p className="text-gray-500 text-sm">{member.role}</p>
+                <h3 className="text-sm font-semibold text-[#1a2733] mb-1.5">{item.title}</h3>
+                <p className="text-xs text-[#5a6a78] leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* CTA */}
-      <section className="bg-[#0F2940] py-12">
-        <div className="max-w-4xl mx-auto px-5 text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Prêt à rejoindre l'aventure ?</h2>
-          <p className="text-white/80 mb-6">Devenez hôte ou trouvez votre prochain logement sur Blufin-Immo</p>
-          <div className="flex gap-4 justify-center">
-            <button onClick={() => onNavigate?.({ name: 'become-host' })} className="bg-[#00c9a7] text-[#0F2940] px-6 py-3 rounded-full font-semibold hover:bg-[#00b892] transition">
-              Devenir hôte
+        {/* STATS */}
+        <div className="bg-[#0F2940] rounded-2xl grid grid-cols-1 md:grid-cols-3 text-center p-6 md:p-8 mb-6 shadow-[0_8px_40px_rgba(15,41,64,0.12)]">
+          <div className="px-4 py-3 md:border-r border-white/10">
+            <div className="font-serif text-3xl text-[#00C9A7]">100%</div>
+            <div className="text-xs text-white/40 mt-1.5">Des biens visités et sélectionnés par notre équipe</div>
+          </div>
+          <div className="px-4 py-3 md:border-r border-white/10">
+            <div className="font-serif text-3xl text-[#00C9A7]">&lt; 30 min</div>
+            <div className="text-xs text-white/40 mt-1.5">De réponse de notre équipe, toujours</div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="font-serif text-3xl text-[#00C9A7]">0€</div>
+            <div className="text-xs text-white/40 mt-1.5">De frais cachés sur vos réservations</div>
+          </div>
+        </div>
+
+        {/* SIGNATURE */}
+        <div className="bg-[rgba(0,201,167,0.09)] border-l-[3px] border-[#00C9A7] rounded-r-2xl p-5 md:p-6 mb-6 transition-all duration-300 hover:translate-x-1">
+          <p className="font-serif text-lg md:text-xl text-[#1a2733] leading-relaxed">
+            <strong className="font-sans font-semibold text-[#0F2940]">Bluefin Immo</strong>, votre partenaire de confiance pour la location de biens meublés — parce qu'un beau séjour commence par un beau logement.
+          </p>
+        </div>
+
+        {/* CTA */}
+        <div className="bg-[#0F2940] rounded-2xl p-8 md:p-10 text-center shadow-[0_8px_40px_rgba(15,41,64,0.12)] transition-all duration-300 hover:-translate-y-1">
+          <h2 className="font-serif text-2xl md:text-3xl text-white leading-tight mb-2">
+            Votre logement idéal<br /><em className="text-[#00C9A7] not-italic">vous attend.</em>
+          </h2>
+          <p className="text-sm text-white/40 mb-6 max-w-sm mx-auto">
+            Parcourez notre sélection ou rejoignez nos hôtes partenaires — des solutions flexibles pour chaque projet.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button 
+              onClick={() => onNavigate?.({ name: 'listings' })}
+              className="bg-[#00C9A7] text-[#0F2940] border-none rounded-lg px-7 py-3.5 font-sans text-sm font-semibold cursor-pointer transition-all duration-300 hover:opacity-90 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(0,201,167,0.3)]"
+            >
+              Voir les logements →
             </button>
-            <button onClick={() => onNavigate?.({ name: 'popular' })} className="border border-white px-6 py-3 rounded-full font-semibold hover:bg-white/10 transition">
-              Voir les logements
+            <button 
+              onClick={() => onNavigate?.({ name: 'become-host' })}
+              className="bg-transparent text-white/60 border border-white/20 rounded-lg px-7 py-3.5 font-sans text-sm cursor-pointer transition-all duration-300 hover:text-white hover:border-white/40 hover:-translate-y-0.5"
+            >
+              Devenir hôte ↗
             </button>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </Layout>
   );
 }
 
@@ -5624,103 +8027,60 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
 }
 
 // ========== PAGE COMPANY INFO ==========
+
+
+interface PageProps {
+  onNavigate?: (page: { name: string }) => void;
+}
+
 export function CompanyInfoPage({ onNavigate }: PageProps) {
-  const infoItems = [
-    { label: "Nom légal", value: "Blufin-Immo SARL" },
-    { label: "Forme juridique", value: "Société à Responsabilité Limitée" },
-    { label: "Capital social", value: "10 000 000 FCFA" },
-    { label: "RCCM", value: "RB/COT/2024/B/00123" },
-    { label: "IFU", value: "1234567890123" },
-    { label: "Siège social", value: "Cotonou, Bénin, 01 BP 1234" }
-  ];
-
-  const contacts = [
-    { icon: Phone, label: "Téléphone", value: "+229 01 23 45 67", desc: "Lun-Ven, 8h-18h" },
-    { icon: Mail, label: "Email", value: "contact@blufin-immo.com", desc: "Réponse sous 24h" },
-    { icon: MapPin, label: "Adresse", value: "Haie Vive, Cotonou, Bénin", desc: "En face de la mairie" }
-  ];
-
-  const missions = [
-    "Faciliter la location de logements courte durée en Afrique de l'Ouest",
-    "Sécuriser les transactions entre hôtes et voyageurs",
-    "Promouvoir le tourisme local et l'hospitalité africaine",
-    "Créer des opportunités économiques pour les propriétaires"
+  const sections = [
+    { title: "1. Acceptation des conditions", content: "En accédant et en utilisant le service de Bluefin Immo, vous acceptez d'être lié par ces conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre service." },
+    { title: "2. Description du service", content: "Bluefin Immo met en relation voyageurs et propriétaires pour la location de biens meublés au Bénin, et propose également des expériences et services pour un séjour clé en main." },
+    { title: "3. Accès au service", content: "La plateforme est accessible à deux types d'utilisateurs : Propriétaires : créez un compte et soumettez vos annonces. Chaque annonce est examinée par notre équipe et publiée après validation. Visiteurs : créez un compte pour parcourir les logements, expériences et services disponibles, effectuer une réservation et procéder au paiement en ligne." },
+    { title: "4. Paiement et remboursement", content: "Les tarifs des logements, expériences et services sont fixés par les propriétaires et affichés sur la plateforme. Les paiements sont traités via des prestataires de paiement sécurisés tiers. Une fois le paiement confirmé, un email de confirmation vous est automatiquement envoyé. Toute demande de remboursement est traitée au cas par cas, dans le respect de notre politique de remboursement." },
+    { title: "5. Politique d'annulation", content: "Toute annulation doit être effectuée directement depuis votre compte sur la plateforme. Les conditions de remboursement applicables sont les suivantes :\n\n• Remboursement intégral : annulation effectuée dans les 24 heures suivant la réservation.\n• Remboursement partiel : annulation effectuée 7 jours avant la date de check-in — 50 % des nuits remboursées. Les frais de service ne sont pas remboursés.\n• Aucun remboursement : toute annulation effectuée moins de 7 jours avant la date de check-in, sans exception.\n\nBluefin Immo se réserve le droit de modifier cette politique à tout moment. Les conditions en vigueur au moment de la réservation s'appliquent." },
+    { title: "6. Limitation de responsabilité", content: "Bluefin Immo agit exclusivement en tant que plateforme de mise en relation entre propriétaires et visiteurs. Notre responsabilité se limite à la fourniture de cet espace d'intermédiation et ne saurait être engagée dans les situations suivantes :\n\n• Qualité des biens et services : chaque propriétaire est seul responsable de la conformité de son bien, service ou expérience avec les informations publiées sur la plateforme.\n• Propreté et état du logement : il incombe au propriétaire de garantir un logement propre, entretenu et strictement conforme aux standards annoncés.\n• Qualité des expériences et services : les prestataires sont tenus de délivrer des prestations conformes à leur description.\n• Litiges entre parties : tout litige survenant entre un visiteur et un propriétaire relève de leur responsabilité respective.\n• Plafond de responsabilité : dans les cas où la responsabilité de Bluefin Immo serait engagée, celle-ci sera limitée au montant des frais de service perçus.\n• Cas de force majeure : Bluefin Immo ne peut être tenu responsable de tout manquement résultant d'événements imprévisibles.\n\nRéclamations et délais : Tout visiteur souhaitant signaler un problème dispose d'un délai de 48 heures après le check-in pour soumettre une réclamation." },
+    { title: "7. Propriété intellectuelle", content: "L'ensemble des contenus présents sur la plateforme Bluefin Immo — notamment le nom, le logo, les textes, les visuels et l'architecture du site — sont la propriété exclusive de Bluefin Immo et sont protégés par les lois applicables en matière de propriété intellectuelle." },
+    { title: "8. Protection des données personnelles", content: "Bluefin Immo collecte et traite les données personnelles de ses utilisateurs dans le cadre strict de la fourniture de ses services. Ces données sont utilisées pour la gestion des comptes, le traitement des réservations et l'amélioration de la plateforme." },
+    { title: "9. Modifications du service", content: "Bluefin Immo se réserve le droit de modifier, suspendre ou interrompre tout ou partie du service à tout moment, avec ou sans préavis." },
+    { title: "10. Droit applicable", content: "Ces conditions d'utilisation sont régies par les lois du Bénin. Tout litige découlant de ces conditions sera soumis à la juridiction exclusive des tribunaux compétents du Bénin." }
   ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Retour
-        </button>
-        <h1 className="text-2xl text-[#0F2940]">Informations sur l'entreprise</h1>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-5 py-8">
-        {/* Logo et introduction */}
-        <div className="text-center mb-10">
-          <div className="w-24 h-24 bg-[#00c9a7] rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl font-bold text-white">B</span>
-          </div>
-          <h2 className="text-3xl font-bold text-[#0F2940] mb-2">Blufin-Immo</h2>
-          <p className="text-gray-500">La référence de la location courte durée en Afrique de l'Ouest</p>
+    <Layout onNavigate={onNavigate} currentPage="cgu">
+      <div className="max-w-4xl mx-auto px-5 py-8 md:px-6 md:py-10">
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4 -mt-8 -mx-5 md:-mx-6 mb-8">
+          <h1 className="text-2xl text-[#0F2940]">Conditions Générales d'Utilisation</h1>
+          <p className="text-sm text-gray-500 mt-1">Dernière mise à jour : mai 2025</p>
         </div>
 
-        {/* Cartes info */}
-        <div className="grid md:grid-cols-2 gap-6 mb-10">
-          {infoItems.map((item, idx) => (
-            <div key={idx} className="bg-gray-50 rounded-xl p-4">
-              <p className="text-sm text-gray-500 mb-1">{item.label}</p>
-              <p className="font-semibold text-[#0F2940]">{item.value}</p>
+        <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
+          <p className="text-gray-700">
+            Chez Bluefin Immo, nous accordons une importance capitale à votre confiance. 
+            Cette page détaille nos engagements et vos droits concernant l'utilisation de notre plateforme.
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          {sections.map((section, idx) => (
+            <div key={idx} className="border-b border-gray-200 pb-6">
+              <h2 className="text-xl font-semibold text-[#0F2940] mb-3">{section.title}</h2>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-line">{section.content}</p>
             </div>
           ))}
         </div>
 
-        {/* Contacts */}
-        <div className="mb-10">
-          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Nous contacter</h3>
-          <div className="grid md:grid-cols-3 gap-4">
-            {contacts.map((contact, idx) => {
-              const Icon = contact.icon;
-              return (
-                <div key={idx} className="border border-gray-200 rounded-xl p-4 text-center">
-                  <Icon className="w-8 h-8 text-[#00c9a7] mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">{contact.label}</p>
-                  <p className="font-semibold text-[#0F2940]">{contact.value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{contact.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Notre mission */}
-        <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
-          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Notre mission</h3>
-          <ul className="space-y-3">
-            {missions.map((mission, idx) => (
-              <li key={idx} className="flex items-start gap-3">
-                <CheckCircle className="w-5 h-5 text-[#00c9a7] mt-0.5" />
-                <span className="text-gray-700">{mission}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Certifications */}
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Certifications et agréments</h3>
-          <div className="flex flex-wrap gap-4">
-            {["Agrément tourisme", "Certification PCI DSS", "Membre ANTT", "Label Confiance Bénin"].map((cert, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2">
-                <Award className="w-4 h-4 text-[#00c9a7]" />
-                <span className="text-sm text-gray-700">{cert}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-8 bg-gray-50 rounded-xl p-6">
+          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
+          <p className="text-gray-600 text-sm">
+            Pour toute question relative à nos conditions générales, vous pouvez nous contacter à :<br />
+            📧 legal@bluefin-immo.com<br />
+            📞 +229 01 23 45 67
+          </p>
         </div>
       </div>
-    </div>
+    </Layout>
   );
 }
 
@@ -5749,102 +8109,40 @@ export function BlogPage({ onNavigate }: PageProps) {
   );
 }
 
-// ========== PAGE TERMS (CONFIDENTIALITÉ & CGU) ==========
-export function TermsPage({ onNavigate, type }: PageProps & { type?: "privacy" | "cgu" }) {
-  const isPrivacy = type === "privacy";
+// ========== PAGE TERMS (POLITIQUE & CONFIDENTIALITÉ) ==========
+interface TermsPage {
+  onNavigate?: (page: { name: string }) => void;
+}
 
-  const privacyContent = {
-    title: "Politique de confidentialité",
-    lastUpdated: "1er janvier 2026",
-    sections: [
-      {
-        title: "1. Collecte des informations",
-        content: "Nous collectons les informations que vous nous fournissez directement, notamment votre nom, adresse email, numéro de téléphone, et informations de paiement. Nous collectons également les informations relatives à vos réservations et à votre utilisation de la plateforme."
-      },
-      {
-        title: "2. Utilisation des informations",
-        content: "Vos informations sont utilisées pour : traiter vos réservations, vous contacter concernant vos voyages, améliorer nos services, personnaliser votre expérience, et assurer la sécurité de la plateforme."
-      },
-      {
-        title: "3. Protection des données",
-        content: "Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles pour protéger vos données contre tout accès non autorisé, perte ou destruction. Vos informations de paiement sont cryptées et traitées par des prestataires certifiés PCI DSS."
-      },
-      {
-        title: "4. Partage des informations",
-        content: "Nous partageons vos informations uniquement dans les cas suivants : avec les hôtes ou voyageurs pour faciliter les réservations, avec nos prestataires de services (paiement, support), ou lorsque la loi nous y oblige."
-      },
-      {
-        title: "5. Vos droits",
-        content: "Conformément à la réglementation, vous disposez d'un droit d'accès, de rectification, d'effacement et de portabilité de vos données. Vous pouvez exercer ces droits en nous contactant à dpo@blufin-immo.com."
-      },
-      {
-        title: "6. Cookies",
-        content: "Nous utilisons des cookies pour améliorer votre expérience de navigation, mémoriser vos préférences et analyser le trafic sur notre site. Vous pouvez gérer vos préférences de cookies dans les paramètres de votre navigateur."
-      }
-    ]
-  };
-
-  const cguContent = {
-    title: "Conditions Générales d'Utilisation",
-    lastUpdated: "1er janvier 2026",
-    sections: [
-      {
-        title: "1. Acceptation des conditions",
-        content: "En utilisant Blufin-Immo, vous acceptez pleinement et sans réserve les présentes conditions générales. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre plateforme."
-      },
-      {
-        title: "2. Rôle de Blufin-Immo",
-        content: "Blufin-Immo est une plateforme de mise en relation entre hôtes et voyageurs. Nous ne sommes pas propriétaires des logements et n'organisons pas les séjours. Notre rôle se limite à faciliter les réservations et à sécuriser les paiements."
-      },
-      {
-        title: "3. Réservations et paiements",
-        content: "Toute réservation effectuée sur la plateforme est engageante. Le paiement est collecté par nos soins et reversé à l'hôte après le début du séjour, conformément à nos conditions de paiement."
-      },
-      {
-        title: "4. Annulations et remboursements",
-        content: "Les conditions d'annulation sont définies par chaque hôte dans son annonce. En cas d'annulation par l'hôte, vous serez remboursé intégralement. En cas d'annulation par le voyageur, le remboursement dépend de la politique choisie par l'hôte."
-      },
-      {
-        title: "5. Obligations des hôtes",
-        content: "Les hôtes s'engagent à fournir un logement conforme à la description, propre et sécurisé. Ils doivent respecter la législation locale et déclarer leurs revenus locatifs conformément à la réglementation en vigueur."
-      },
-      {
-        title: "6. Obligations des voyageurs",
-        content: "Les voyageurs s'engagent à respecter les lieux, les règles de la maison, et à ne pas causer de nuisances. Tout dommage causé au logement devra être signalé et pourra donner lieu à une demande de dédommagement."
-      },
-      {
-        title: "7. Responsabilité",
-        content: "Blufin-Immo ne peut être tenu responsable des dommages indirects, pertes de données ou pertes d'exploitation. Notre responsabilité est limitée au montant payé pour la réservation concernée."
-      },
-      {
-        title: "8. Litiges",
-        content: "En cas de litige, nous mettons à disposition une médiation gratuite. Si aucun accord n'est trouvé, le litige sera soumis aux tribunaux de Cotonou, Bénin, conformément à la loi béninoise."
-      }
-    ]
-  };
-
-  const content = isPrivacy ? privacyContent : cguContent;
+export function TermsPage({ onNavigate }: PageProps) {
+  const sections = [
+    { title: "1. Introduction", content: "Bluefin Immo s'engage à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations personnelles lorsque vous utilisez notre service de guide digital de Cotonou." },
+    { title: "2. Informations que nous collectons", content: "Nous collectons les informations suivantes lorsque vous utilisez notre service : informations d'identification (nom, prénom, adresse e-mail), informations de paiement (montant des transactions, méthodes de paiement traitées par nos prestataires de paiement sécurisés), informations de préférence (langue préférée pour le guide), et données techniques (adresse IP, type de navigateur, pages visitées pour améliorer notre service)." },
+    { title: "3. Utilisation des informations", content: "Nous utilisons vos informations pour : fournir et améliorer notre service de mise en relation, traiter vos paiements, vous envoyer vos identifiants d'accès, personnaliser votre expérience selon votre langue préférée, et communiquer avec vous concernant votre compte ou nos services." },
+    { title: "4. Partage des informations", content: "Nous ne vendons, n'échangeons ni ne louons vos informations personnelles à des tiers. Nous pouvons partager vos informations uniquement avec nos prestataires de services de confiance (processeurs de paiement, services d'email) qui nous aident à exploiter notre service, sous réserve qu'ils acceptent de garder ces informations confidentielles." },
+    { title: "5. Sécurité des données", content: "Nous mettons en œuvre des mesures de sécurité appropriées pour protéger vos informations personnelles contre l'accès non autorisé, la modification, la divulgation ou la destruction. Vos mots de passe sont cryptés et stockés de manière sécurisée." },
+    { title: "6. Vos droits", content: "Vous avez le droit d'accéder, de modifier ou de supprimer vos informations personnelles à tout moment. Vous pouvez également vous opposer au traitement de vos données ou demander la portabilité de vos données. Pour exercer ces droits, contactez-nous via les informations de contact fournies." },
+    { title: "7. Conservation des données", content: "Nous conservons vos informations personnelles aussi longtemps que nécessaire pour fournir nos services et respecter nos obligations légales. Si vous supprimez votre compte, nous supprimerons vos données personnelles dans un délai raisonnable, sauf si la loi nous oblige à les conserver." },
+    { title: "8. Modifications de cette politique", content: "Nous pouvons mettre à jour cette politique de confidentialité de temps à autre. Nous vous informerons de tout changement en publiant la nouvelle politique sur cette page et en mettant à jour la date de « dernière mise à jour »." }
+  ];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Retour
-        </button>
-        <h1 className="text-2xl text-[#0F2940]">{content.title}</h1>
-        <p className="text-sm text-gray-500 mt-1">Dernière mise à jour : {content.lastUpdated}</p>
-      </div>
+    <Layout onNavigate={onNavigate} currentPage="privacy">
+      <div className="max-w-4xl mx-auto px-5 py-8 md:px-6 md:py-10">
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4 -mt-8 -mx-5 md:-mx-6 mb-8">
+          <h1 className="text-2xl text-[#0F2940]">Politique de confidentialité</h1>
+          <p className="text-sm text-gray-500 mt-1">Dernière mise à jour : 1er janvier 2026</p>
+        </div>
 
-      <div className="max-w-4xl mx-auto px-5 py-8">
         <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
           <p className="text-gray-700">
-            Chez Blufin-Immo, nous accordons une importance capitale à votre confiance. 
-            Cette page détaille nos engagements et vos droits concernant {isPrivacy ? "vos données personnelles" : "l'utilisation de notre plateforme"}.
+            Chez Bluefin Immo, nous accordons une importance capitale à votre confiance. 
+            Cette page détaille nos engagements et vos droits concernant vos données personnelles.
           </p>
         </div>
 
         <div className="space-y-8">
-          {content.sections.map((section, idx) => (
+          {sections.map((section, idx) => (
             <div key={idx} className="border-b border-gray-200 pb-6">
               <h2 className="text-xl font-semibold text-[#0F2940] mb-3">{section.title}</h2>
               <p className="text-gray-600 leading-relaxed">{section.content}</p>
@@ -5855,9 +8153,98 @@ export function TermsPage({ onNavigate, type }: PageProps & { type?: "privacy" |
         <div className="mt-8 bg-gray-50 rounded-xl p-6">
           <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
           <p className="text-gray-600 text-sm">
-            Pour toute question relative à {isPrivacy ? "la confidentialité" : "nos conditions générales"}, 
-            vous pouvez nous contacter à :<br />
-            📧 legal@blufin-immo.com<br />
+            Pour toute question relative à la confidentialité, vous pouvez nous contacter à :<br />
+            📧 dpo@bluefin-immo.com<br />
+            📞 +229 01 23 45 67
+          </p>
+        </div>
+      </div>
+    </Layout>
+  );
+}
+
+// ========== PAGE Cgu (CONDITIONS & CGU) ==========
+
+export function CguPage({ onNavigate }: PageProps) {
+  const cguContent = {
+    title: "Conditions Générales d'Utilisation",
+    lastUpdated: "mai 2025",
+    sections: [
+      {
+        title: "1. Acceptation des conditions",
+        content: "En accédant et en utilisant le service de Bluefin Immo, vous acceptez d'être lié par ces conditions d'utilisation. Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre service."
+      },
+      {
+        title: "2. Description du service",
+        content: "Bluefin Immo met en relation voyageurs et propriétaires pour la location de biens meublés au Bénin, et propose également des expériences et services pour un séjour clé en main."
+      },
+      {
+        title: "3. Accès au service",
+        content: "La plateforme est accessible à deux types d'utilisateurs : Propriétaires : créez un compte et soumettez vos annonces. Chaque annonce est examinée par notre équipe et publiée après validation. Visiteurs : créez un compte pour parcourir les logements, expériences et services disponibles, effectuer une réservation et procéder au paiement en ligne."
+      },
+      {
+        title: "4. Paiement et remboursement",
+        content: "Les tarifs des logements, expériences et services sont fixés par les propriétaires et affichés sur la plateforme. Les paiements sont traités via des prestataires de paiement sécurisés tiers. Une fois le paiement confirmé, un email de confirmation vous est automatiquement envoyé. Toute demande de remboursement est traitée au cas par cas, dans le respect de notre politique de remboursement."
+      },
+      {
+        title: "5. Politique d'annulation",
+        content: "Toute annulation doit être effectuée directement depuis votre compte sur la plateforme. Les conditions de remboursement applicables sont les suivantes :\n\n• Remboursement intégral : annulation effectuée dans les 24 heures suivant la réservation.\n• Remboursement partiel : annulation effectuée 7 jours avant la date de check-in — 50 % des nuits remboursées. Les frais de service ne sont pas remboursés.\n• Aucun remboursement : toute annulation effectuée moins de 7 jours avant la date de check-in, sans exception.\n\nBluefin Immo se réserve le droit de modifier cette politique à tout moment. Les conditions en vigueur au moment de la réservation s'appliquent."
+      },
+      {
+        title: "6. Limitation de responsabilité",
+        content: "Bluefin Immo agit exclusivement en tant que plateforme de mise en relation entre propriétaires et visiteurs. Notre responsabilité se limite à la fourniture de cet espace d'intermédiation et ne saurait être engagée dans les situations suivantes :\n\n• Qualité des biens et services : chaque propriétaire est seul responsable de la conformité de son bien, service ou expérience avec les informations publiées sur la plateforme. La validation d'une annonce par Bluefin Immo constitue une vérification formelle et ne saurait être interprétée comme une garantie de qualité. En cas de manquement avéré, l'annonce concernée sera automatiquement supprimée et le propriétaire pourra être définitivement banni.\n• Propreté et état du logement : il incombe au propriétaire de garantir un logement propre, entretenu et strictement conforme aux standards annoncés.\n• Qualité des expériences et services : les prestataires sont tenus de délivrer des prestations conformes à leur description.\n• Litiges entre parties : tout litige survenant entre un visiteur et un propriétaire relève de leur responsabilité respective.\n• Plafond de responsabilité : dans les cas où la responsabilité de Bluefin Immo serait engagée, celle-ci sera limitée au montant des frais de service perçus lors de la transaction concernée.\n• Cas de force majeure : Bluefin Immo ne peut être tenu responsable de tout manquement résultant d'événements imprévisibles.\n\nRéclamations et délais : Tout visiteur souhaitant signaler un problème dispose d'un délai de 48 heures après le check-in pour soumettre une réclamation. Passé ce délai, aucune réclamation ne pourra être prise en compte."
+      },
+      {
+        title: "7. Propriété intellectuelle",
+        content: "L'ensemble des contenus présents sur la plateforme Bluefin Immo — notamment le nom, le logo, les textes, les visuels et l'architecture du site — sont la propriété exclusive de Bluefin Immo et sont protégés par les lois applicables en matière de propriété intellectuelle. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite. Les contenus publiés par les propriétaires, tels que les photos et descriptions d'annonces, restent leur propriété, mais ceux-ci accordent à Bluefin Immo une licence d'utilisation aux fins de diffusion sur la plateforme."
+      },
+      {
+        title: "8. Protection des données personnelles",
+        content: "Bluefin Immo collecte et traite les données personnelles de ses utilisateurs dans le cadre strict de la fourniture de ses services. Ces données sont utilisées pour la gestion des comptes, le traitement des réservations et l'amélioration de la plateforme. Elles ne sont ni vendues ni transmises à des tiers sans votre consentement, sauf obligation légale. Conformément à la législation en vigueur, vous disposez d'un droit d'accès, de rectification et de suppression de vos données en contactant notre équipe via la plateforme."
+      },
+      {
+        title: "9. Modifications du service",
+        content: "Bluefin Immo se réserve le droit de modifier, suspendre ou interrompre tout ou partie du service à tout moment, avec ou sans préavis. Nous ne saurions être tenus responsables envers vous ou tout tiers de toute modification, suspension ou interruption du service."
+      },
+      {
+        title: "10. Droit applicable",
+        content: "Ces conditions d'utilisation sont régies par les lois du Bénin. Tout litige découlant de ces conditions sera soumis à la juridiction exclusive des tribunaux compétents du Bénin."
+      }
+    ]
+  };
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Retour
+        </button>
+        <h1 className="text-2xl text-[#0F2940]">{cguContent.title}</h1>
+        <p className="text-sm text-gray-500 mt-1">Dernière mise à jour : {cguContent.lastUpdated}</p>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-5 py-8">
+        <div className="bg-[#f4fffe] rounded-2xl p-6 mb-8">
+          <p className="text-gray-700">
+            Chez Bluefin Immo, nous accordons une importance capitale à votre confiance. 
+            Cette page détaille nos engagements et vos droits concernant l'utilisation de notre plateforme.
+          </p>
+        </div>
+
+        <div className="space-y-8">
+          {cguContent.sections.map((section, idx) => (
+            <div key={idx} className="border-b border-gray-200 pb-6">
+              <h2 className="text-xl font-semibold text-[#0F2940] mb-3">{section.title}</h2>
+              <p className="text-gray-600 leading-relaxed whitespace-pre-line">{section.content}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 bg-gray-50 rounded-xl p-6">
+          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
+          <p className="text-gray-600 text-sm">
+            Pour toute question relative à nos conditions générales, vous pouvez nous contacter à :<br />
+            📧 legal@bluefin-immo.com<br />
             📞 +229 01 23 45 67
           </p>
         </div>
@@ -6153,57 +8540,37 @@ export function ServicesPage({ onNavigate }: PageProps) {
 
 // ========== PAGE PRINCIPALE BECOME HOST ==========
 export function BecomeHost({ onNavigate }: PageProps) {
-  const [showGoogleLogin, setShowGoogleLogin] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
-  const [showRegistration, setShowRegistration] = useState(false);
+  const [showAuthPage, setShowAuthPage] = useState(false);
   const [showCommitment, setShowCommitment] = useState(false);
-  const [showEasySteps, setShowEasySteps] = useState(false);
-  const [showPropertyForm, setShowPropertyForm] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
+  const [userData, setUserData] = useState<any>(null);
 
-  const handleStart = () => setShowGoogleLogin(true);
-  
-  const handleGoogleSuccess = (data: any) => { 
-    setUserData(data); 
-    setShowGoogleLogin(false); 
-    setShowRegistration(true); 
+  const handleStart = () => {
+    setShowAuthPage(true);
   };
   
-  const handleRegistrationComplete = () => { 
-    setShowRegistration(false); 
-    setShowCommitment(true); 
+  const handleAuthSuccess = (user: any) => {
+    setUserData(user);
+    setShowAuthPage(false);
+    setShowCommitment(true);
   };
   
-  const handleCommitmentAccept = () => { 
-    setShowCommitment(false); 
-    setShowEasySteps(true); 
-  };
-  
-  const handleEasyStepsContinue = () => { 
-    setShowEasySteps(false); 
-    setShowPropertyForm(true); 
-  };
-  
-  const handleEasyStepsQuit = () => onNavigate?.({ name: 'home' });
-  
-  const handleSaveAndQuit = () => { 
-    setShowPropertyForm(false); 
-    setShowDashboard(true); 
-  };
-  
-  const handleGoToDashboard = () => { 
-    setShowPropertyForm(false); 
-    setShowDashboard(true); 
+  const handleCommitmentAccept = () => {
+    setShowCommitment(false);
+    // Redirect to host dashboard after accepting commitment
+    onNavigate?.({ name: 'host-dashboard' });
   };
 
-  // États des modaux
-  if (showGoogleLogin) return <GoogleLoginModal onSuccess={handleGoogleSuccess} onClose={() => onNavigate?.({ name: 'home' })} />;
-  if (showRegistration) return <RegistrationForm userData={userData} onComplete={handleRegistrationComplete} onBack={() => { setShowRegistration(false); setShowGoogleLogin(true); }} />;
-  if (showCommitment) return <CommunityCommitment onAccept={handleCommitmentAccept} onBack={() => { setShowCommitment(false); setShowRegistration(true); }} />;
-  if (showEasySteps) return <EasySteps onContinue={handleEasyStepsContinue} onQuit={handleEasyStepsQuit} />;
-  if (showPropertyForm) return <PropertyForm onSaveAndQuit={handleSaveAndQuit} userData={userData} onGoToDashboard={handleGoToDashboard} />;
-  if (showDashboard) return <HostDashboard onLogout={() => setShowDashboard(false)} userData={userData} />;
+  // If authentication page is shown
+  if (showAuthPage) {
+    return <AuthPage onNavigate={onNavigate} onAuthSuccess={handleAuthSuccess} hideBackButton={false} />;
+  }
 
+  // If community commitment is shown
+  if (showCommitment) {
+    return <CommunityCommitment onAccept={handleCommitmentAccept} onBack={() => { setShowCommitment(false); setShowAuthPage(true); }} />;
+  }
+
+  // Main become host page
   return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
@@ -6249,41 +8616,37 @@ export function BecomeHost({ onNavigate }: PageProps) {
     </div>
   );
 }
-// ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
+
+
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
 
-export function AuthPage({ onNavigate }: PageProps) {
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
+  const { login, register, loginWithOTP, verifyOTP } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>("traveler");
+  const [selectedRole, setSelectedRole] = useState<'traveler' | 'host' | 'visitor'>('traveler');
   const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    confirmPassword: "",
-    firstName: "",
-    lastName: "",
-    phone: "",
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    property_address: '',
+    property_type: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
-  // Vérifier si l'utilisateur est déjà connecté
-  useEffect(() => {
-    const storedUser = localStorage.getItem("bluefin_user");
-    if (storedUser && mode === "login") {
-      onNavigate?.({ name: 'profile' });
-    }
-  }, [mode, onNavigate]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
-    }
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const validateLogin = () => {
@@ -6301,27 +8664,19 @@ export function AuthPage({ onNavigate }: PageProps) {
     if (!formData.email) newErrors.email = "L'email est requis";
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
     if (!formData.password) newErrors.password = "Le mot de passe est requis";
-    else if (formData.password.length < 6) newErrors.password = "Le mot de passe doit contenir au moins 6 caractères";
+    else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
-    return newErrors;
-  };
-
-  const validateForgot = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.email) newErrors.email = "L'email est requis";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
     return newErrors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    setSuccessMessage("");
-    
+    setSuccessMessage('');
     let validationErrors = {};
-    if (mode === "login") validationErrors = validateLogin();
-    else if (mode === "signup") validationErrors = validateSignup();
-    else validationErrors = validateForgot();
+    if (mode === 'login') validationErrors = validateLogin();
+    else if (mode === 'signup') validationErrors = validateSignup();
+    else validationErrors = {};
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -6329,409 +8684,344 @@ export function AuthPage({ onNavigate }: PageProps) {
     }
 
     setLoading(true);
-    
-    setTimeout(() => {
-      setLoading(false);
-      
-      if (mode === "signup") {
-        const newUser: UserData = {
-          id: Date.now().toString(),
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+    try {
+      if (mode === 'signup') {
+        const payload: any = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
           email: formData.email,
-          role: selectedRole,
           phone: formData.phone,
-          languages: ["Français"],
-          createdAt: new Date().toISOString(),
-          isHost: selectedRole === "host",
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          user_type: selectedRole === 'host' ? 'hote' : 'voyageur',
         };
-        
-        const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
-        const existingUser = users.find((u: UserData) => u.email === formData.email);
-        
-        if (existingUser) {
-          setErrors({ email: "Cet email est déjà utilisé" });
-          return;
+        if (selectedRole === 'host') {
+          payload.property_address = formData.property_address;
+          payload.property_type = formData.property_type;
         }
-        
-        users.push(newUser);
-        localStorage.setItem("bluefin_users", JSON.stringify(users));
-        localStorage.setItem("bluefin_user", JSON.stringify(newUser));
-        
-        setSuccessMessage("Inscription réussie ! Redirection vers votre profil...");
+        const response = await register(payload);
+        setSuccessMessage('Inscription réussie ! Redirection...');
+        // Après inscription, rediriger selon le rôle
+        const userType = response?.user?.user_type;
         setTimeout(() => {
-          onNavigate?.({ name: 'profile' });
+          if (onAuthSuccess && userType === 'hote') {
+            onAuthSuccess(response?.user);
+          } else if (userType === 'hote') {
+            onNavigate?.({ name: 'host-dashboard' });
+          } else {
+            onNavigate?.({ name: 'profile' });
+          }
         }, 1500);
-      } 
-      else if (mode === "login") {
-        const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
-        const user = users.find((u: UserData) => u.email === formData.email);
-        
-        if (!user) {
-          setErrors({ email: "Aucun compte trouvé avec cet email" });
-          return;
-        }
-        
-        localStorage.setItem("bluefin_user", JSON.stringify(user));
-        setSuccessMessage("Connexion réussie ! Redirection...");
+      } else if (mode === 'login') {
+        const response = await login(formData.email, formData.password);
+        const userType = response?.user?.user_type;
+        setSuccessMessage('Connexion réussie !');
         setTimeout(() => {
-          onNavigate?.({ name: 'profile' });
+          if (onAuthSuccess) {
+            onAuthSuccess(response?.user);
+          } else if (userType === 'hote') {
+            onNavigate?.({ name: 'host-dashboard' });
+          } else {
+            onNavigate?.({ name: 'profile' });
+          }
         }, 1500);
-      } 
-      else if (mode === "forgot") {
-        setSuccessMessage("Un lien de réinitialisation a été envoyé à votre adresse email.");
-        setTimeout(() => {
-          setMode("login");
-          setSuccessMessage("");
-        }, 2000);
+      } else if (mode === 'forgot') {
+        await loginWithOTP(formData.phone || formData.email);
+        setOtpSent(true);
+        setSuccessMessage('Code OTP envoyé par SMS/WhatsApp');
       }
-    }, 1000);
+    } catch (err: any) {
+      setErrors({ general: err.response?.data?.message || 'Erreur, veuillez réessayer' });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGoogleLogin = () => {
+  const handleVerifyOTP = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const googleUser: UserData = {
-        id: "google_" + Date.now(),
-        firstName: "Utilisateur",
-        lastName: "Google",
-        email: `google_${Date.now()}@gmail.com`,
-        role: selectedRole,
-        createdAt: new Date().toISOString(),
-        isHost: false,
-      };
-      
-      localStorage.setItem("bluefin_user", JSON.stringify(googleUser));
-      
-      const users = JSON.parse(localStorage.getItem("bluefin_users") || "[]");
-      if (!users.find((u: UserData) => u.email === googleUser.email)) {
-        users.push(googleUser);
-        localStorage.setItem("bluefin_users", JSON.stringify(users));
-      }
-      
-      setSuccessMessage("Connexion avec Google réussie !");
+    try {
+      const response = await verifyOTP(formData.phone || formData.email, otpCode);
+      const userType = response?.user?.user_type;
+      setSuccessMessage('Authentification réussie');
       setTimeout(() => {
-        onNavigate?.({ name: 'profile' });
+        if (userType === 'hote') {
+          onNavigate?.({ name: 'host-dashboard' });
+        } else {
+          onNavigate?.({ name: 'profile' });
+        }
       }, 1500);
-    }, 1000);
+    } catch (err: any) {
+      setErrors({ otp: err.response?.data?.message || 'Code invalide' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const roles = [
-    { id: "traveler" as const, name: "Voyageur", icon: Compass, description: "Je cherche à réserver des logements" },
-    { id: "host" as const, name: "Hôte", icon: Home, description: "Je souhaite louer mon logement" },
-    { id: "visitor" as const, name: "Visiteur", icon: Briefcase, description: "Je découvre la plateforme" },
+    { id: 'traveler' as const, name: 'Voyageur', icon: Compass },
+    { id: 'host' as const, name: 'Hôte', icon: Home },
+    { id: 'visitor' as const, name: 'Visiteur', icon: Briefcase },
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
-      <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition-all">
-          <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
-        </button>
-        <h1 className="text-xl font-semibold text-[#0F2940]">
-          {mode === "login" && "Connexion"}
-          {mode === "signup" && "Créer un compte"}
-          {mode === "forgot" && "Mot de passe oublié"}
-        </h1>
-      </div>
+      {!hideBackButton && (
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center gap-4 z-20">
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition-all">
+            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+          </button>
+          <h1 className="text-xl font-semibold text-[#0F2940]">
+            {mode === 'login' && 'Connexion'}
+            {mode === 'signup' && 'Créer un compte'}
+            {mode === 'forgot' && 'Mot de passe oublié'}
+          </h1>
+        </div>
+      )}
 
       <div className="flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div className="p-6 sm:p-8">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl font-bold text-white">B</span>
-                </div>
-                <h2 className="text-2xl font-bold text-[#0F2940]">
-                  {mode === "login" && "Bienvenue !"}
-                  {mode === "signup" && "Rejoignez Bluefin-Immo"}
-                  {mode === "forgot" && "Besoin d'aide ?"}
-                </h2>
-                <p className="text-gray-500 text-sm mt-2">
-                  {mode === "login" && "Connectez-vous pour continuer"}
-                  {mode === "signup" && "Créez votre compte en quelques secondes"}
-                  {mode === "forgot" && "Entrez votre email pour réinitialiser votre mot de passe"}
-                </p>
-              </div>
-
-              {successMessage && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <p className="text-sm text-green-700">{successMessage}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {mode === "signup" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {roles.map((role) => {
-                        const Icon = role.icon;
-                        return (
-                          <button
-                            key={role.id}
-                            type="button"
-                            onClick={() => setSelectedRole(role.id)}
-                            className={`p-3 rounded-xl border-2 text-center transition-all ${
-                              selectedRole === role.id
-                                ? "border-[#00c9a7] bg-[#00c9a7]/10"
-                                : "border-gray-200 hover:border-gray-300"
-                            }`}
-                          >
-                            <Icon className={`w-6 h-6 mx-auto mb-1 ${selectedRole === role.id ? "text-[#00c9a7]" : "text-gray-400"}`} />
-                            <p className={`text-xs font-medium ${selectedRole === role.id ? "text-[#0F2940]" : "text-gray-500"}`}>
-                              {role.name}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {mode === "signup" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          name="firstName"
-                          value={formData.firstName}
-                          onChange={handleChange}
-                          placeholder="Prénom"
-                          className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.firstName ? 'border-red-500' : 'border-gray-200'}`}
-                        />
-                      </div>
-                      {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          name="lastName"
-                          value={formData.lastName}
-                          onChange={handleChange}
-                          placeholder="Nom"
-                          className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.lastName ? 'border-red-500' : 'border-gray-200'}`}
-                        />
-                      </div>
-                      {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
-                    </div>
-                  </div>
-                )}
-
-                {(mode === "login" || mode === "signup" || mode === "forgot") && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse email</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="vous@exemple.com"
-                        className={`w-full pl-9 pr-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
-                      />
-                    </div>
-                    {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-                  </div>
-                )}
-
-                {mode === "signup" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        placeholder="+229 XX XX XX XX"
-                        className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {mode !== "forgot" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type={showPassword ? "text" : "password"}
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        placeholder="••••••••"
-                        className={`w-full pl-9 pr-10 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.password ? 'border-red-500' : 'border-gray-200'}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
-                  </div>
-                )}
-
-                {mode === "signup" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer le mot de passe</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type={showConfirmPassword ? "text" : "password"}
-                        name="confirmPassword"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        placeholder="••••••••"
-                        className={`w-full pl-9 pr-10 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-all text-sm ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
-                  </div>
-                )}
-
-                {mode === "login" && (
-                  <div className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode("forgot");
-                        setErrors({});
-                        setSuccessMessage("");
-                      }}
-                      className="text-sm text-[#00c9a7] hover:underline"
-                    >
-                      Mot de passe oublié ?
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Chargement...</span>
-                    </div>
-                  ) : (
-                    <>
-                      {mode === "login" && "Se connecter"}
-                      {mode === "signup" && "Créer mon compte"}
-                      {mode === "forgot" && "Envoyer le lien"}
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {(mode === "login" || mode === "signup") && (
-                <>
-                  <div className="flex items-center gap-4 my-5">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400">ou</span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-
-                  <button
-                    onClick={handleGoogleLogin}
-                    disabled={loading}
-                    className="w-full flex items-center justify-center gap-2 border border-gray-300 rounded-xl py-2.5 hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    <span className="text-gray-700 font-medium">
-                      {mode === "login" ? "Continuer avec Google" : "S'inscrire avec Google"}
-                    </span>
+              {mode === 'forgot' && otpSent ? (
+                <div>
+                  <h2 className="text-xl font-semibold text-center mb-4">Vérification OTP</h2>
+                  <input
+                    type="text"
+                    placeholder="Code à 6 chiffres"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    className="w-full border rounded-xl p-3 mb-4"
+                  />
+                  {errors.otp && <p className="text-red-500 text-sm mb-2">{errors.otp}</p>}
+                  <button onClick={handleVerifyOTP} disabled={loading} className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-semibold">
+                    Vérifier
                   </button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl font-bold text-white">B</span>
+                    </div>
+                    <h2 className="text-2xl font-bold text-[#0F2940]">
+                      {mode === 'login' && 'Bienvenue !'}
+                      {mode === 'signup' && 'Rejoignez Bluefin-Immo'}
+                      {mode === 'forgot' && 'Besoin d\'aide ?'}
+                    </h2>
+                  </div>
+
+                  {successMessage && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                      <Check className="w-5 h-5 text-green-500" />
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  )}
+                  {errors.general && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl text-sm">{errors.general}</div>}
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {roles.map(role => {
+                            const Icon = role.icon;
+                            return (
+                              <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => setSelectedRole(role.id)}
+                                className={`p-3 rounded-xl border-2 text-center transition-all ${selectedRole === role.id ? 'border-[#00c9a7] bg-[#00c9a7]/10' : 'border-gray-200'}`}
+                              >
+                                <Icon className={`w-6 h-6 mx-auto mb-1 ${selectedRole === role.id ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                                <p className={`text-xs font-medium ${selectedRole === role.id ? 'text-[#0F2940]' : 'text-gray-500'}`}>{role.name}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {mode === 'signup' && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              name="firstName"
+                              value={formData.firstName}
+                              onChange={handleChange}
+                              className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.firstName ? 'border-red-500' : 'border-gray-200'}`}
+                            />
+                          </div>
+                          {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              name="lastName"
+                              value={formData.lastName}
+                              onChange={handleChange}
+                              className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.lastName ? 'border-red-500' : 'border-gray-200'}`}
+                            />
+                          </div>
+                          {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <div className="relative">
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                          />
+                        </div>
+                        {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                      </div>
+                    )}
+
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {mode === 'signup' && selectedRole === 'host' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Adresse de la propriété</label>
+                          <input
+                            type="text"
+                            name="property_address"
+                            value={formData.property_address}
+                            onChange={handleChange}
+                            placeholder="Rue, quartier, ville"
+                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété</label>
+                          <select
+                            name="property_type"
+                            value={formData.property_type}
+                            onChange={handleChange}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                          >
+                            <option value="">Sélectionnez</option>
+                            <option value="appartement">Appartement</option>
+                            <option value="maison">Maison</option>
+                            <option value="villa">Villa</option>
+                            <option value="chambre">Chambre privée</option>
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {mode !== 'forgot' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            className={`w-full pl-9 pr-10 py-2 border rounded-xl ${errors.password ? 'border-red-500' : 'border-gray-200'}`}
+                          />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
+                      </div>
+                    )}
+
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer mot de passe</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            name="confirmPassword"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            className={`w-full pl-9 pr-10 py-2 border rounded-xl ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'}`}
+                          />
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
+                      </div>
+                    )}
+
+                    {mode === 'login' && (
+                      <div className="text-right">
+                        <button type="button" onClick={() => setMode('forgot')} className="text-sm text-[#00c9a7] hover:underline">
+                          Mot de passe oublié ?
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold disabled:opacity-50"
+                    >
+                      {loading
+                        ? 'Chargement...'
+                        : mode === 'login'
+                        ? 'Se connecter'
+                        : mode === 'signup'
+                        ? 'Créer mon compte'
+                        : 'Envoyer le code'}
+                    </button>
+                  </form>
+
+                  <div className="text-center mt-5">
+                    {mode === 'login' && (
+                      <p className="text-xs text-gray-500">
+                        Pas encore de compte ? <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium">S'inscrire</button>
+                      </p>
+                    )}
+                    {mode === 'signup' && (
+                      <p className="text-xs text-gray-500">
+                        Déjà un compte ? <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium">Se connecter</button>
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
-
-              <div className="text-center mt-5">
-                {mode === "login" && (
-                  <p className="text-xs text-gray-500">
-                    Pas encore de compte ?{" "}
-                    <button
-                      onClick={() => {
-                        setMode("signup");
-                        setErrors({});
-                        setSuccessMessage("");
-                      }}
-                      className="text-[#00c9a7] font-medium hover:underline"
-                    >
-                      S'inscrire
-                    </button>
-                  </p>
-                )}
-                {mode === "signup" && (
-                  <p className="text-xs text-gray-500">
-                    Déjà un compte ?{" "}
-                    <button
-                      onClick={() => {
-                        setMode("login");
-                        setErrors({});
-                        setSuccessMessage("");
-                      }}
-                      className="text-[#00c9a7] font-medium hover:underline"
-                    >
-                      Se connecter
-                    </button>
-                  </p>
-                )}
-                {mode === "forgot" && (
-                  <p className="text-xs text-gray-500">
-                    <button
-                      onClick={() => {
-                        setMode("login");
-                        setErrors({});
-                        setSuccessMessage("");
-                      }}
-                      className="text-[#00c9a7] font-medium hover:underline"
-                    >
-                      Retour à la connexion
-                    </button>
-                  </p>
-                )}
-              </div>
             </div>
           </div>
-
-          <p className="text-center text-[10px] text-gray-400 mt-6">
-            En continuant, vous acceptez nos Conditions générales et notre Politique de confidentialité
-          </p>
         </div>
       </div>
     </div>
   );
 }
-
 // ==================== HOTELS PAGE ====================
 
 interface HotelsPageProps {
@@ -6751,7 +9041,8 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       id: 4, 
       title: "Hôtel Golden Tulip", 
       location: "Cotonou, Bénin", 
-      price: "150 000 FCFA / nuit", 
+        price: 150000,
+        priceDisplay: "150 000 FCFA / nuit",
       priceNumber: 150000, 
       rating: 4.9, 
       reviews: 342, 
@@ -6778,7 +9069,8 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       id: 5, 
       title: "Novotel Cotonou", 
       location: "Cotonou, Bénin", 
-      price: "120 000 FCFA / nuit", 
+        price: 120000,
+        priceDisplay: "120 000 FCFA / nuit",
       priceNumber: 120000, 
       rating: 4.8, 
       reviews: 267, 
@@ -6805,7 +9097,8 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       id: 6, 
       title: "Azalaï Hôtel", 
       location: "Cotonou, Bénin", 
-      price: "95 000 FCFA / nuit", 
+        price: 95000,
+        priceDisplay: "95 000 FCFA / nuit",
       priceNumber: 95000, 
       rating: 4.7, 
       reviews: 189, 
@@ -6832,16 +9125,16 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
 
   const filterProperties = (properties: HotelProperty[]) => {
     const filtered = [...properties];
-    if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => a.priceNumber - b.priceNumber);
-    if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => b.priceNumber - a.priceNumber);
-    if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => b.rating - a.rating);
+      if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => (a.priceNumber || a.price || 0) - (b.priceNumber || b.price || 0));
+      if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => (b.priceNumber || b.price || 0) - (a.priceNumber || a.price || 0));
+      if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => (b.rating || 0) - (a.rating || 0));
     return filtered;
   };
 
   const displayedProperties = filterProperties(hotelsData);
 
   const handleReserve = (property: HotelProperty) => {
-    const total = property.priceNumber * 2 * 1.1;
+      const total = (property.priceNumber || property.price || 0) * 2 * 1.1;
     setCheckoutData({ property, checkIn: "15/05/2026", checkOut: "17/05/2026", guests: 1, totalPrice: total });
     setShowCheckout(true);
     setDetailProperty(null);
@@ -6855,294 +9148,285 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
 
   const getMapUrl = () => "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
 
-  // Modal de détail complet
-  const PropertyDetailModal = ({ property, onClose, onReserve }: { property: HotelProperty; onClose: () => void; onReserve: () => void }) => {
-    const [showAllAmenities, setShowAllAmenities] = useState(false);
-    const [showCalendar, setShowCalendar] = useState(false);
-    const [checkIn, setCheckIn] = useState("15/05/2026");
-    const [checkOut, setCheckOut] = useState("17/05/2026");
-    const [guests, setGuests] = useState(1);
-    const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
-    const [currentTestimonial, setCurrentTestimonial] = useState(0);
-    const [animate, setAnimate] = useState(false);
-    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  // // Modal de détail complet
+  // const PropertyDetailModal = ({ property, onClose, onReserve }: { property: HotelProperty; onClose: () => void; onReserve: () => void }) => {
+  //   const [showAllAmenities, setShowAllAmenities] = useState(false);
+  //   const [showCalendar, setShowCalendar] = useState(false);
+  //   const [checkIn, setCheckIn] = useState("15/05/2026");
+  //   const [checkOut, setCheckOut] = useState("17/05/2026");
+  //   const [guests, setGuests] = useState(1);
+  //   const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
+  //   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  //   const [animate, setAnimate] = useState(false);
+  //   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-    const images = property.images && Array.isArray(property.images) && property.images.length > 0 
-      ? property.images 
-      : [property.image, property.image, property.image, property.image];
+  //   const images = property.images && Array.isArray(property.images) && property.images.length > 0 
+  //     ? property.images 
+  //     : [property.image, property.image, property.image, property.image];
       
-    const host = property.host || "Hôte vérifié";
-    const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
-    const hostSince = property.hostSince || "1 an";
-    const superhost = property.superhost ?? true;
-    const responseRate = property.responseRate || 95;
-    const responseTime = property.responseTime || "dans l'heure";
-    const longDescription = property.longDescription || property.description;
-    const amenities = property.amenities || ["Wifi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
-    const testimonials = property.testimonials || [
-      { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
-      { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
-      { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
-    ];
+  //   const host = property.host || "Hôte vérifié";
+  //   const hostImage = property.hostImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&q=80";
+  //   const hostSince = property.hostSince || "1 an";
+  //   const superhost = property.superhost ?? true;
+  //   const responseRate = property.responseRate || 95;
+  //   const responseTime = property.responseTime || "dans l'heure";
+  //   const longDescription = property.longDescription || property.description;
+  //   const amenities = property.amenities || ["Wifi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
+  //   const testimonials = property.testimonials || [
+  //     { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
+  //     { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
+  //     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
+  //   ];
 
-    const nights = 2;
-    const subtotal = property.priceNumber * nights;
-    const cleaningFee = 15000;
-    const serviceFee = 12000;
-    const total = subtotal + cleaningFee + serviceFee;
-    const nonRefundableTotal = total;
-    const refundableTotal = total + 35000;
+  //   const nights = 2;
+  //   const subtotal = (property.priceNumber || property.price || 0) * nights;
+  //   const cleaningFee = 15000;
+  //   const serviceFee = 12000;
+  //   const total = subtotal + cleaningFee + serviceFee;
+  //   const nonRefundableTotal = total;
+  //   const refundableTotal = total + 35000;
 
-    useEffect(() => {
-      if (testimonials.length <= 1) return;
-      const interval = setInterval(() => {
-        setAnimate(true);
-        setTimeout(() => {
-          setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-          setAnimate(false);
-        }, 300);
-      }, 5000);
-      return () => clearInterval(interval);
-    }, [testimonials.length]);
+  //   useEffect(() => {
+  //     if (testimonials.length <= 1) return;
+  //     const interval = setInterval(() => {
+  //       setAnimate(true);
+  //       setTimeout(() => {
+  //         setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+  //         setAnimate(false);
+  //       }, 300);
+  //     }, 5000);
+  //     return () => clearInterval(interval);
+  //   }, [testimonials.length]);
 
-    const extraImages = images.slice(1, 5);
-    while (extraImages.length < 4) {
-      extraImages.push(property.image);
-    }
+  //   const extraImages = images.slice(1, 5);
+  //   while (extraImages.length < 4) {
+  //     extraImages.push(property.image);
+  //   }
 
-    return (
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-        <div className="min-h-screen">
-          <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex justify-between items-center">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-              <ArrowLeft className="w-5 h-5"/>
-            </button>
-            <div className="flex gap-2">
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-                <Share2 className="w-5 h-5"/>
-              </button>
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-                <Heart className="w-5 h-5"/>
-              </button>
-            </div>
-          </div>
+  //   return (
+  //     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+  //       <div className="min-h-screen">
+  //         <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex justify-between items-center">
+  //           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
+  //             <ArrowLeft className="w-5 h-5"/>
+  //           </button>
+  //           <div className="flex gap-2">
+  //             <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
+  //               <Share2 className="w-5 h-5"/>
+  //             </button>
+  //             <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
+  //               <Heart className="w-5 h-5"/>
+  //             </button>
+  //           </div>
+  //         </div>
           
-          <div className="max-w-6xl mx-auto px-4 py-6">
-            {/* Galerie d'images principale */}
-            <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
-              <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
-                <img 
-                  src={images[0]} 
-                  alt={property.title} 
-                  className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" 
-                />
-              </div>
-              {images.slice(1, 5).map((img, i) => (
-                <div key={i} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(i + 1)}>
-                  <img 
-                    src={img} 
-                    alt={`${property.title} - ${i + 2}`} 
-                    className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" 
-                  />
-                </div>
-              ))}
-              <button className="absolute bottom-4 right-4 bg-white rounded-lg px-4 py-2 text-sm font-medium shadow-md hover:shadow-lg transition-all hover:bg-gray-100">
-                Afficher toutes les photos
-              </button>
-            </div>
+  //         <div className="max-w-6xl mx-auto px-4 py-6">
+  //           {/* Galerie d'images principale */}
+  //           <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
+  //             <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
+  //               <img 
+  //                 src={images[0]} 
+  //                 alt={property.title} 
+  //                 className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" 
+  //               />
+  //             </div>
+  //             {images.slice(1, 5).map((img, i) => (
+  //               <div key={i} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(i + 1)}>
+  //                 <img 
+  //                   src={img} 
+  //                   alt={`${property.title} - ${i + 2}`} 
+  //                   className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" 
+  //                 />
+  //               </div>
+  //             ))}
+  //             <button className="absolute bottom-4 right-4 bg-white rounded-lg px-4 py-2 text-sm font-medium shadow-md hover:shadow-lg transition-all hover:bg-gray-100">
+  //               Afficher toutes les photos
+  //             </button>
+  //           </div>
 
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Colonne de gauche - Informations */}
-              <div className="lg:col-span-2 space-y-8">
-                <div className="border-b pb-4">
-                  <div className="text-sm text-gray-500">
-                    Hôtel · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
-                  </div>
-                  <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Star className="w-5 h-5 fill-current text-[#00c9a7]" />
-                    <span className="font-medium">{property.rating}</span>
-                    <span className="text-gray-500">· {property.reviews} commentaires</span>
-                    <span className="text-gray-500">·</span>
-                    <span className="text-[#00c9a7] font-medium">Superhôte</span>
-                  </div>
-                </div>
+  //           <div className="grid lg:grid-cols-3 gap-8">
+  //             {/* Colonne de gauche - Informations */}
+  //             <div className="lg:col-span-2 space-y-8">
+  //               <div className="border-b pb-4">
+  //                 <div className="text-sm text-gray-500">
+  //                   Hôtel · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
+  //                 </div>
+  //                 <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
+  //                 <div className="flex items-center gap-2 mt-2">
+  //                   <Star className="w-5 h-5 fill-current text-[#00c9a7]" />
+  //                   <span className="font-medium">{property.rating}</span>
+  //                   <span className="text-gray-500">· {property.reviews} commentaires</span>
+  //                   <span className="text-gray-500">·</span>
+  //                   <span className="text-[#00c9a7] font-medium">Superhôte</span>
+  //                 </div>
+  //               </div>
 
-                <div className="bg-[#00c9a7]/10 rounded-xl p-5 flex gap-4 items-center">
-                  <Crown className="w-10 h-10 text-[#00c9a7]" />
-                  <div>
-                    <div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div>
-                    <div className="text-gray-600">Un des hôtels préférés des voyageurs au Bénin</div>
-                  </div>
-                </div>
+  //               <div className="bg-[#00c9a7]/10 rounded-xl p-5 flex gap-4 items-center">
+  //                 <Crown className="w-10 h-10 text-[#00c9a7]" />
+  //                 <div>
+  //                   <div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div>
+  //                   <div className="text-gray-600">Un des hôtels préférés des voyageurs au Bénin</div>
+  //                 </div>
+  //               </div>
 
-                <div className="flex gap-5 items-start">
-                  <img 
-                    src={hostImage} 
-                    alt={host} 
-                    className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" 
-                  />
-                  <div>
-                    <div className="font-semibold text-xl text-[#0F2940]">Hôte : {host}</div>
-                    {superhost && (
-                      <div className="flex items-center gap-1 text-[#00c9a7]">
-                        <Award className="w-4 h-4"/>Superhôte · {hostSince}
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-600">
-                      Taux de réponse {responseRate}% · Répond {responseTime}
-                    </div>
-                  </div>
-                </div>
+  //               <div className="flex gap-5 items-start">
+  //                 <img 
+  //                   src={hostImage} 
+  //                   alt={host} 
+  //                   className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" 
+  //                 />
+  //                 <div>
+  //                   <div className="font-semibold text-xl text-[#0F2940]">Hôte : {host}</div>
+  //                   {superhost && (
+  //                     <div className="flex items-center gap-1 text-[#00c9a7]">
+  //                       <Award className="w-4 h-4"/>Superhôte · {hostSince}
+  //                     </div>
+  //                   )}
+  //                   <div className="text-sm text-gray-600">
+  //                     Taux de réponse {responseRate}% · Répond {responseTime}
+  //                   </div>
+  //                 </div>
+  //               </div>
 
-                <div>
-                  <p className="text-gray-700 leading-relaxed">{property.description}</p>
-                  {longDescription && longDescription !== property.description && (
-                    <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>
-                  )}
-                </div>
+  //               <div>
+  //                 <p className="text-gray-700 leading-relaxed">{property.description}</p>
+  //                 {longDescription && longDescription !== property.description && (
+  //                   <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>
+  //                 )}
+  //               </div>
 
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-xl text-[#0F2940]">Équipements premium</h3>
-                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
-                      Voir tout
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
-                      <div key={i} className="flex items-center gap-3 text-gray-700">
-                        <Check className="w-5 h-5 text-[#00c9a7]"/>{a}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+  //               <div className="border-t pt-4">
+  //                 <div className="flex justify-between items-center mb-4">
+  //                   <h3 className="font-semibold text-xl text-[#0F2940]">Équipements premium</h3>
+  //                   <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
+  //                     Voir tout
+  //                   </button>
+  //                 </div>
+  //                 <div className="grid grid-cols-2 gap-4">
+  //                   {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
+  //                     <div key={i} className="flex items-center gap-3 text-gray-700">
+  //                       <Check className="w-5 h-5 text-[#00c9a7]"/>{a}
+  //                     </div>
+  //                   ))}
+  //                 </div>
+  //               </div>
 
-                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-2xl p-6">
-                  <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2">
-                    <Sparkles className="w-6 h-6 text-[#00c9a7]" />
-                    Ce que nos clients disent
-                  </h3>
-                  <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                    <div className="flex flex-col md:flex-row gap-6 items-start">
-                      <div className="relative">
-                        <img 
-                          src={testimonials[currentTestimonial]?.avatar || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
-                          alt={testimonials[currentTestimonial]?.name || "Client"}
-                          className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" 
-                        />
-                        <div className="absolute -bottom-2 -right-2 bg-[#00c9a7] rounded-full p-1">
-                          <Star className="w-4 h-4 fill-white text-white" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                          <span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span>
-                          <span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span>
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />
-                          ))}
-                          <span className="text-sm text-gray-500 ml-2">{testimonials[currentTestimonial]?.rating || 5}</span>
-                        </div>
-                        <p className="text-gray-700 mt-3 leading-relaxed">"{testimonials[currentTestimonial]?.text || "Excellent séjour !"}"</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  //               <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-2xl p-6">
+  //                 <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2">
+  //                   <Sparkles className="w-6 h-6 text-[#00c9a7]" />
+  //                   Ce que nos clients disent
+  //                 </h3>
+  //                 <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
+  //                   <div className="flex flex-col md:flex-row gap-6 items-start">
+  //                     <div className="relative">
+  //                       <img 
+  //                         src={testimonials[currentTestimonial]?.avatar || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
+  //                         alt={testimonials[currentTestimonial]?.name || "Client"}
+  //                         className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" 
+  //                       />
+  //                       <div className="absolute -bottom-2 -right-2 bg-[#00c9a7] rounded-full p-1">
+  //                         <Star className="w-4 h-4 fill-white text-white" />
+  //                       </div>
+  //                     </div>
+  //                     <div className="flex-1">
+  //                       <div className="flex justify-between items-center flex-wrap gap-2">
+  //                         <span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span>
+  //                         <span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span>
+  //                       </div>
+  //                       <div className="flex items-center gap-1 mt-1">
+  //                         {[...Array(5)].map((_, i) => (
+  //                           <Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />
+  //                         ))}
+  //                         <span className="text-sm text-gray-500 ml-2">{testimonials[currentTestimonial]?.rating || 5}</span>
+  //                       </div>
+  //                       <p className="text-gray-700 mt-3 leading-relaxed">"{testimonials[currentTestimonial]?.text || "Excellent séjour !"}"</p>
+  //                     </div>
+  //                   </div>
+  //                 </div>
+  //               </div>
 
-                <div className="border rounded-xl p-5">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location.split(',')[0]}</h3>
-                    <button onClick={() => setShowCalendar(!showCalendar)} className="text-[#00c9a7] text-sm underline">
-                      Sélectionner
-                    </button>
-                  </div>
-                  {showCalendar && (
-                    <div className="mt-4 border rounded-lg p-4">
-                      <div className="grid grid-cols-7 gap-1 text-center text-sm">
-                        {["L","M","M","J","V","S","D"].map(d => <div key={d} className="font-medium text-gray-500">{d}</div>)}
-                        {Array.from({length: 35}).map((_, i) => <button key={i} className="aspect-square rounded-full hover:bg-[#00c9a7]/20">{i+1}</button>)}
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-sm text-gray-500 mt-3">
-                    <Calendar className="inline w-4 h-4 mr-1"/>{checkIn} — {checkOut}
-                  </div>
-                </div>
-              </div>
+  //               <div className="border rounded-xl p-5">
+  //                 <div className="flex justify-between items-center">
+  //                   <h3 className="font-semibold text-lg text-[#0F2940]">2 nuits à {property.location.split(',')[0]}</h3>
+  //                   <button onClick={() => setShowCalendar(!showCalendar)} className="text-[#00c9a7] text-sm underline">
+  //                     Sélectionner
+  //                   </button>
+  //                 </div>
+  //                 {showCalendar && (
+  //                   <div className="mt-4 border rounded-lg p-4">
+  //                     <div className="grid grid-cols-7 gap-1 text-center text-sm">
+  //                       {["L","M","M","J","V","S","D"].map(d => <div key={d} className="font-medium text-gray-500">{d}</div>)}
+  //                       {Array.from({length: 35}).map((_, i) => <button key={i} className="aspect-square rounded-full hover:bg-[#00c9a7]/20">{i+1}</button>)}
+  //                     </div>
+  //                   </div>
+  //                 )}
+  //                 <div className="text-sm text-gray-500 mt-3">
+  //                   <Calendar className="inline w-4 h-4 mr-1"/>{checkIn} — {checkOut}
+  //                 </div>
+  //               </div>
+  //             </div>
 
-              {/* Colonne de droite - Réservation */}
-              <div className="lg:col-span-1 space-y-6">
-                <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <span className="text-3xl font-bold text-[#0F2940]">{property.priceNumber.toLocaleString()} FCFA</span>
-                      <span className="text-gray-500"> / nuit</span>
-                    </div>
-                    <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full">
-                      <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating}
-                    </div>
-                  </div>
-                  <div className="border rounded-xl my-5 overflow-hidden">
-                    <div className="flex">
-                      <div className="flex-1 p-3 border-r">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
-                        <div className="font-medium">{checkIn}</div>
-                      </div>
-                      <div className="flex-1 p-3">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
-                        <div className="font-medium">{checkOut}</div>
-                      </div>
-                    </div>
-                    <div className="p-3 border-t">
-                      <div className="text-xs font-bold text-gray-500 uppercase">Voyageurs</div>
-                      <div className="font-medium">{guests} adulte</div>
-                    </div>
-                  </div>
-                  <div className="space-y-3 mb-5">
-                    <div className={`border rounded-xl p-3 cursor-pointer transition-all ${selectedPriceOption === "non-remboursable" ? "border-[#00c9a7] bg-[#00c9a7]/5 shadow-md" : ""}`} onClick={() => setSelectedPriceOption("non-remboursable")}>
-                      <div className="flex justify-between font-medium">
-                        <span>Non remboursable</span>
-                        <span>{nonRefundableTotal.toLocaleString()} FCFA</span>
-                      </div>
-                      <div className="text-xs text-gray-500">Paiement immédiat</div>
-                    </div>
-                    <div className="border rounded-xl p-3 cursor-not-allowed opacity-50">
-                      <div className="flex justify-between">
-                        <span>Remboursable</span>
-                        <span>{refundableTotal.toLocaleString()} FCFA</span>
-                      </div>
-                      <div className="text-xs text-gray-500">Annulation gratuite avant le 10 mai</div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={onReserve} 
-                    className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-bold text-lg hover:bg-[#00b892] transition-all hover:scale-105 transform shadow-md"
-                  >
-                    Réserver
-                  </button>
-                  <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  //             {/* Colonne de droite - Réservation */}
+  //             <div className="lg:col-span-1 space-y-6">
+  //               <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
+  //                 <div className="flex justify-between items-center">
+  //                   <div>
+  //                     <span className="text-3xl font-bold text-[#0F2940]">{(property.priceNumber || property.price || 0).toLocaleString()} FCFA</span>
+  //                     <span className="text-gray-500"> / nuit</span>
+  //                   </div>
+  //                   <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full">
+  //                     <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating}
+  //                   </div>
+  //                 </div>
+  //                 <div className="border rounded-xl my-5 overflow-hidden">
+  //                   <div className="flex">
+  //                     <div className="flex-1 p-3 border-r">
+  //                       <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
+  //                       <div className="font-medium">{checkIn}</div>
+  //                     </div>
+  //                     <div className="flex-1 p-3">
+  //                       <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
+  //                       <div className="font-medium">{checkOut}</div>
+  //                     </div>
+  //                   </div>
+  //                   <div className="p-3 border-t">
+  //                     <div className="text-xs font-bold text-gray-500 uppercase">Voyageurs</div>
+  //                     <div className="font-medium">{guests} adulte</div>
+  //                   </div>
+  //                 </div>
+  //                 <div className="space-y-3 mb-5">
+  //                   <div className={`border rounded-xl p-3 cursor-pointer transition-all ${selectedPriceOption === "non-remboursable" ? "border-[#00c9a7] bg-[#00c9a7]/5 shadow-md" : ""}`} onClick={() => setSelectedPriceOption("non-remboursable")}>
+  //                     <div className="flex justify-between font-medium">
+  //                       <span>Non remboursable</span>
+  //                       <span>{nonRefundableTotal.toLocaleString()} FCFA</span>
+  //                     </div>
+  //                     <div className="text-xs text-gray-500">Paiement immédiat</div>
+  //                   </div>
+  //                   <div className="border rounded-xl p-3 cursor-not-allowed opacity-50">
+  //                     <div className="flex justify-between">
+  //                       <span>Remboursable</span>
+  //                       <span>{refundableTotal.toLocaleString()} FCFA</span>
+  //                     </div>
+  //                     <div className="text-xs text-gray-500">Annulation gratuite avant le 10 mai</div>
+  //                   </div>
+  //                 </div>
+  //                 <button 
+  //                   onClick={onReserve} 
+  //                   className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-bold text-lg hover:bg-[#00b892] transition-all hover:scale-105 transform shadow-md"
+  //                 >
+  //                   Réserver
+  //                 </button>
+  //                 <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
+  //               </div>
+  //             </div>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
-  const CheckoutModalComponent = ({ property, totalPrice, onClose }: any) => (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h2 className="text-xl font-bold mb-4">Confirmer la réservation</h2>
-        <p className="mb-2">Hôtel : {property?.title}</p>
-        <p className="mb-4">Total : {totalPrice?.toLocaleString()} FCFA</p>
-        <button onClick={onClose} className="w-full bg-[#00c9a7] py-3 rounded-xl font-bold">Confirmer</button>
-      </div>
-    </div>
-  );
+  
 
   return (
     <div className="min-h-screen bg-white">
@@ -7181,7 +9465,7 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
                 onClick={() => setDetailProperty(property)}
               >
                 <div className="relative overflow-hidden rounded-xl">
-                  <img src={property.image} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <img src={property.images?.[0] || property.image || '/placeholder.jpg'} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
                   <div className="absolute top-3 right-3 bg-[#00c9a7] text-white text-xs font-bold px-2 py-1 rounded-full">Coup de cœur</div>
                 </div>
                 <h3 className="font-semibold mt-2 text-[#0F2940] text-lg">{property.title}</h3>
@@ -7227,7 +9511,16 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
         />
       )}
       {showCheckout && checkoutData && (
-        <CheckoutModalComponent {...checkoutData} onClose={() => setShowCheckout(false)} />
+        <CheckoutModal
+          propertyId={checkoutData.property.id}
+          propertyTitle={checkoutData.property.title || `Réservation #${checkoutData.property.id}`}
+          checkIn={checkoutData.checkIn}
+          checkOut={checkoutData.checkOut}
+          guests={checkoutData.guests}
+          totalPrice={checkoutData.totalPrice}
+          onClose={() => setShowCheckout(false)}
+          onSuccess={(id: number) => onNavigate?.({ name: 'confirmation', id: id.toString() })}
+        />
       )}
     </div>
   );
@@ -7289,7 +9582,7 @@ export function CityPage({ onNavigate, city }: { onNavigate?: (route: Route) => 
     return (
       <div className="group cursor-pointer" onClick={() => handleNavigate({ name: 'listing', id: property.id.toString() })}>
         <div className="relative overflow-hidden rounded-2xl">
-          <img src={property.image} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={property.images?.[0] || property.image || '/placeholder.jpg'} alt={property.title} className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
           <button 
             onClick={handleFavoriteClick}
             className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
@@ -7412,5 +9705,2499 @@ export function CityPage({ onNavigate, city }: { onNavigate?: (route: Route) => 
 }
 
 
+// pages/admin/AdminDashboardPage.tsx
 
 
+
+const COLORS = ['#00c9a7', '#0f2940', '#ff6b6b', '#f5a623', '#4a90e2', '#9013fe'];
+
+export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin-dashboard'],
+    queryFn: () => adminService.getDashboard(),
+    refetchInterval: 30000,
+  });
+
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [animatedCards, setAnimatedCards] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAnimatedCards({ all: true }), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) return <LoadingSkeleton />;
+  if (error) return <ErrorMessage onRetry={() => refetch()} />;
+
+  const resp: any = data?.data;
+  const stats = resp?.stats || {};
+  const activities = resp?.recent_activities || [];
+  const chartData = resp?.chart_data || { labels: [], revenue: [], bookings: [], users: [] };
+  const unreadCount = resp?.unread_notifications || 0;
+
+  const revenueChartData = chartData.labels.map((label: string, idx: number) => ({
+    day: label,
+    revenue: chartData.revenue[idx] / 1000,
+    bookings: chartData.bookings[idx],
+    users: chartData.users[idx],
+    averageValue: chartData.revenue[idx] / (chartData.bookings[idx] || 1),
+  }));
+
+  const conversionRate = stats.properties ? 
+    ((stats.properties.approved || 0) / (stats.properties.pending + stats.properties.approved || 1) * 100).toFixed(1) : 0;
+  const bookingSuccessRate = stats.bookings ?
+    ((stats.bookings.completed || 0) / (stats.bookings.total || 1) * 100).toFixed(1) : 0;
+
+  const topDestinations = resp?.top_destinations || [
+    { city: 'Cotonou', count: 234, revenue: 45600000 },
+    { city: 'Porto-Novo', count: 89, revenue: 12300000 },
+    { city: 'Parakou', count: 56, revenue: 7800000 },
+    { city: 'Abomey', count: 45, revenue: 6700000 },
+    { city: 'Grand-Popo', count: 34, revenue: 5100000 },
+  ];
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête responsive */}
+      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 mb-6">
+        <div className="w-full xs:w-auto">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+            Tableau de bord
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">Aperçu global de la plateforme</p>
+        </div>
+        <div className="flex flex-wrap gap-2 w-full xs:w-auto">
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value as any)}
+            className="flex-1 xs:flex-none bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+          >
+            <option value="week">7 jours</option>
+            <option value="month">30 jours</option>
+            <option value="year">12 mois</option>
+          </select>
+          <button
+            onClick={() => refetch()}
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 transition"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="bg-white border border-gray-200 rounded-xl p-2 hover:bg-gray-50 transition relative"
+            >
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border z-50">
+                <div className="p-3 border-b font-semibold text-sm">Notifications</div>
+                <div className="max-h-80 overflow-y-auto">
+                  {activities.slice(0, 5).map((act: any, idx: number) => (
+                    <div key={idx} className="p-3 hover:bg-gray-50 border-b text-sm">
+                      <p className="text-sm">{act.title || act.message}</p>
+                      <p className="text-xs text-gray-400 mt-1">{act.time}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Cartes stats - Grille responsive */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6">
+        <StatsCard
+          icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
+          title="Utilisateurs"
+          value={stats.users?.total || 0}
+          subValue={`+${stats.users?.new_today || 0} aujourd'hui`}
+          trend={stats.users?.growth || 12}
+          color="blue"
+          animated={animatedCards.all}
+        />
+        <StatsCard
+          icon={<Home className="w-5 h-5 sm:w-6 sm:h-6" />}
+          title="Propriétés"
+          value={stats.properties?.total || 0}
+          subValue={`${stats.properties?.pending || 0} en attente`}
+          trend={stats.properties?.growth || 8}
+          color="green"
+          animated={animatedCards.all}
+        />
+        <StatsCard
+          icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />}
+          title="Chiffre d'affaires"
+          value={`${(stats.payments?.total_amount || 0).toLocaleString()} FCFA`}
+          subValue={`+${(stats.payments?.today_amount || 0).toLocaleString()} FCFA`}
+          trend={stats.payments?.growth || 15}
+          color="purple"
+          animated={animatedCards.all}
+        />
+        <StatsCard
+          icon={<Calendar className="w-5 h-5 sm:w-6 sm:h-6" />}
+          title="Réservations"
+          value={stats.bookings?.confirmed || 0}
+          subValue={`${stats.bookings?.pending_payment || 0} en attente`}
+          trend={stats.bookings?.growth || 10}
+          color="orange"
+          animated={animatedCards.all}
+        />
+      </div>
+
+      {/* Deuxième ligne stats - responsive */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <MetricCard
+          title="Taux de conversion"
+          value={`${conversionRate}%`}
+          subtitle="Propriétés approuvées"
+          color="indigo"
+          icon={<Activity className="w-5 h-5" />}
+        />
+        <MetricCard
+          title="Satisfaction"
+          value="4.9/5"
+          subtitle="Moyenne des notes"
+          color="emerald"
+          icon={<Star className="w-5 h-5" />}
+          stars
+        />
+        <MetricCard
+          title="Taux de réussite"
+          value={`${bookingSuccessRate}%`}
+          subtitle="Réservations complétées"
+          color="rose"
+          icon={<CheckCircle className="w-5 h-5" />}
+        />
+        <MetricCard
+          title="Panier moyen"
+          value={`${((stats.payments?.total_amount || 0) / (stats.bookings?.confirmed || 1)).toLocaleString()} FCFA`}
+          subtitle="par réservation"
+          color="amber"
+          icon={<Wallet className="w-5 h-5" />}
+        />
+      </div>
+
+      {/* Graphiques - Stack responsives */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
+        <ChartCard title="Évolution du CA" icon={<TrendingUp className="w-5 h-5" />}>
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={revenueChartData}>
+              <defs>
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#00c9a7" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#00c9a7" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={window.innerWidth < 640 ? 2 : 0} />
+              <YAxis tickFormatter={(value) => `${value}k`} tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
+              <Area type="monotone" dataKey="revenue" stroke="#00c9a7" fill="url(#revenueGradient)" name="CA (k FCFA)" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Réservations vs Utilisateurs" icon={<BarChart3 className="w-5 h-5" />}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={revenueChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={window.innerWidth < 640 ? 2 : 0} />
+              <YAxis tick={{ fontSize: 10 }} />
+              <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px' }} />
+              <Bar dataKey="bookings" fill="#0f2940" name="Réservations" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="users" fill="#00c9a7" name="Nouveaux users" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* Destinations et répartition - responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg lg:col-span-1">
+          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-[#00c9a7]" />
+            Top Destinations
+          </h3>
+          <div className="space-y-3">
+            {topDestinations.slice(0, 4).map((dest, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm">{dest.city}</p>
+                    <p className="text-xs text-gray-400">{dest.count} réservations</p>
+                  </div>
+                </div>
+                <p className="font-semibold text-[#00c9a7] text-sm">{(dest.revenue / 1000000).toFixed(1)}M FCFA</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg lg:col-span-2">
+          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
+            <PieChart className="w-5 h-5 text-[#00c9a7]" />
+            Répartition des propriétés
+          </h3>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <ResponsiveContainer width="100%" height={200}>
+              <RePieChart>
+                <Pie
+                  data={[
+                    { name: 'Appartements', value: 45, color: '#00c9a7' },
+                    { name: 'Villas', value: 25, color: '#0f2940' },
+                    { name: 'Studios', value: 15, color: '#ff6b6b' },
+                    { name: 'Maisons', value: 10, color: '#f5a623' },
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {[
+                    { name: 'Appartements', value: 45, color: '#00c9a7' },
+                    { name: 'Villas', value: 25, color: '#0f2940' },
+                    { name: 'Studios', value: 15, color: '#ff6b6b' },
+                    { name: 'Maisons', value: 10, color: '#f5a623' },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </RePieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-3 justify-center">
+              {[
+                { label: 'Appartements', value: 45, color: '#00c9a7' },
+                { label: 'Villas', value: 25, color: '#0f2940' },
+                { label: 'Studios', value: 15, color: '#ff6b6b' },
+                { label: 'Maisons', value: 10, color: '#f5a623' },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs">{item.label}</span>
+                  <span className="text-xs font-semibold">{item.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Activités et alertes - responsive */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg">
+          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-[#00c9a7]" />
+            Activités récentes
+          </h3>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {activities.slice(0, 8).map((act: any, idx: number) => (
+              <div key={idx} className="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50 transition text-sm">
+                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                  {act.type === 'property_submitted' && <Home className="w-4 h-4 text-orange-500" />}
+                  {act.type === 'payment_received' && <CreditCard className="w-4 h-4 text-green-500" />}
+                  {act.type === 'user_registered' && <UserPlus className="w-4 h-4 text-blue-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm truncate">{act.title || act.message}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{act.time}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg">
+          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-[#00c9a7]" />
+            Actions rapides
+          </h3>
+          <div className="space-y-3">
+            <ActionCard
+              title="Propriétés en attente"
+              count={stats.properties?.pending || 0}
+              color="yellow"
+              icon={<Home className="w-5 h-5" />}
+              action={() => onNavigate?.({ name: 'admin-properties' })}
+            />
+            <ActionCard
+              title="Paiements en attente"
+              count={stats.bookings?.pending_payment || 0}
+              color="red"
+              icon={<CreditCard className="w-5 h-5" />}
+              action={() => onNavigate?.({ name: 'admin-payments' })}
+            />
+            <ActionCard
+              title="Utilisateurs à vérifier"
+              count={stats.users?.pending_verification || 0}
+              color="green"
+              icon={<Users className="w-5 h-5" />}
+              action={() => onNavigate?.({ name: 'admin-users' })}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Composants auxiliaires responsives
+const StatsCard = ({ icon, title, value, subValue, trend, color, animated }: any) => {
+  const colorClasses = {
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-green-600',
+    purple: 'from-purple-500 to-purple-600',
+    orange: 'from-orange-500 to-orange-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 text-white transform transition-all duration-500 hover:scale-105`}>
+      <div className="flex justify-between items-start">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-lg flex items-center justify-center">
+          {icon}
+        </div>
+        {trend && <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-full">↑ {trend}%</span>}
+      </div>
+      <p className="text-white/80 text-xs sm:text-sm mt-2">{title}</p>
+      <p className="text-lg sm:text-xl md:text-2xl font-bold mt-0.5">{value}</p>
+      <p className="text-white/60 text-xs mt-1 truncate">{subValue}</p>
+    </div>
+  );
+};
+
+const MetricCard = ({ title, value, subtitle, color, icon, stars }: any) => {
+  const colorClasses = {
+    indigo: 'from-indigo-500 to-indigo-600',
+    emerald: 'from-emerald-500 to-emerald-600',
+    rose: 'from-rose-500 to-rose-600',
+    amber: 'from-amber-500 to-amber-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl p-3 sm:p-4 text-white hover:scale-105 transition-all duration-300`}>
+      <div className="flex justify-between items-start">
+        <div>{icon}</div>
+        {stars && (
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star key={star} className="w-3 h-3 fill-yellow-300 text-yellow-300" />
+            ))}
+          </div>
+        )}
+      </div>
+      <p className="text-white/80 text-xs mt-2">{title}</p>
+      <p className="text-xl sm:text-2xl font-bold mt-0.5">{value}</p>
+      <p className="text-white/60 text-xs mt-1">{subtitle}</p>
+    </div>
+  );
+};
+
+const ChartCard = ({ title, icon, children }: any) => (
+  <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-lg">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="text-[#00c9a7]">{icon}</div>
+      <h3 className="font-semibold text-sm sm:text-base">{title}</h3>
+    </div>
+    {children}
+  </div>
+);
+
+const ActionCard = ({ title, count, color, icon, action }: any) => {
+  const colorClasses = {
+    yellow: 'from-yellow-50 to-yellow-100 border-yellow-200',
+    red: 'from-red-50 to-red-100 border-red-200',
+    green: 'from-green-50 to-green-100 border-green-200',
+  };
+
+  const textColors = {
+    yellow: 'text-yellow-800',
+    red: 'text-red-800',
+    green: 'text-green-800',
+  };
+
+  return (
+    <div className={`bg-gradient-to-r ${colorClasses[color]} rounded-xl p-3 flex items-center justify-between border`}>
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-full bg-white/50 flex items-center justify-center`}>
+          {icon}
+        </div>
+        <div>
+          <p className={`font-medium text-sm ${textColors[color]}`}>{title}</p>
+          <p className={`text-xs ${textColors[color]} opacity-75`}>{count} élément(s)</p>
+        </div>
+      </div>
+      <button
+        onClick={action}
+        className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium hover:shadow transition"
+      >
+        Voir
+      </button>
+    </div>
+  );
+};
+
+const ErrorMessage = ({ onRetry }: { onRetry: () => void }) => (
+  <div className="flex flex-col items-center justify-center min-h-screen p-4">
+    <div className="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
+    <p className="text-gray-600 text-sm text-center mb-6">Impossible de charger les données</p>
+    <button onClick={onRetry} className="px-6 py-2 bg-[#00c9a7] text-white rounded-full">Réessayer</button>
+  </div>
+);
+
+// pages/admin/AdminPropertiesPage.tsx
+
+
+export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-pending-properties'],
+    queryFn: () => adminService.getPendingProperties(),
+    refetchInterval: 10000,
+  });
+  const queryClient = useQueryClient();
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id, notes, featured }: { id: number; notes?: string; featured?: boolean }) =>
+      adminService.approveProperty(id, notes, featured),
+    onSuccess: () => {
+      toast.success('Propriété approuvée avec succès');
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      setSelectedProperty(null);
+      refetch();
+    },
+    onError: () => toast.error('Erreur lors de l’approbation'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      adminService.rejectProperty(id, reason),
+    onSuccess: () => {
+      toast.success('Propriété rejetée');
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      setSelectedProperty(null);
+      refetch();
+    },
+    onError: () => toast.error('Erreur lors du rejet'),
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const payload = data ?? {};
+  const properties = Array.isArray(payload)
+    ? payload
+    : payload.data ?? payload.data?.data ?? [];
+  const stats = payload.stats ?? payload.data?.stats ?? { total_pending: 0, pending_today: 0 };
+  
+  const filteredProperties = properties.filter((property: any) => {
+    return searchTerm === '' || 
+      property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const handleApprove = (property: any) => {
+    const notes = prompt("Ajouter une note (optionnelle) :");
+    approveMutation.mutate({ id: property.id, notes: notes || undefined, featured: false });
+  };
+
+  const handleReject = (property: any) => {
+    const reason = prompt("Raison du rejet (requise) :");
+    if (reason && reason.length >= 10) {
+      rejectMutation.mutate({ id: property.id, reason });
+    } else if (reason) {
+      toast.error('La raison doit contenir au moins 10 caractères');
+    }
+  };
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          Modération des propriétés
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Validez ou rejetez les annonces en attente</p>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatCard 
+          icon={<Home className="w-5 h-5" />} 
+          label="En attente" 
+          value={stats.total_pending || 0} 
+          color="yellow"
+        />
+        <StatCard 
+          icon={<Calendar className="w-5 h-5" />} 
+          label="Aujourd'hui" 
+          value={stats.pending_today || 0} 
+          color="blue"
+        />
+        <StatCard 
+          icon={<Users className="w-5 h-5" />} 
+          label="Hôtes" 
+          value={new Set(properties.map((p: any) => p.user_id)).size} 
+          color="green"
+        />
+        <StatCard 
+          icon={<MapPin className="w-5 h-5" />} 
+          label="Villes" 
+          value={new Set(properties.map((p: any) => p.city)).size} 
+          color="purple"
+        />
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher par titre, ville ou hôte..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+          />
+        </div>
+      </div>
+
+      {/* Liste des propriétés */}
+      <div className="space-y-4">
+        {filteredProperties.length === 0 ? (
+          <div className="bg-white rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center">
+            <Home className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Aucune propriété en attente de modération</p>
+          </div>
+        ) : (
+          filteredProperties.map((property: any) => (
+            <PropertyCard
+              key={property.id}
+              property={property}
+              onView={() => setSelectedProperty(property)}
+              onApprove={() => handleApprove(property)}
+              onReject={() => handleReject(property)}
+              onNavigate={onNavigate}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Modal de détail */}
+      {selectedProperty && (
+        <PropertyDetailModal
+          property={selectedProperty}
+          onClose={() => setSelectedProperty(null)}
+          onApprove={() => handleApprove(selectedProperty)}
+          onReject={() => handleReject(selectedProperty)}
+          onNavigate={onNavigate}
+        />
+      )}
+    </div>
+  );
+}
+
+// pages/admin/AdminUsersPage.tsx
+
+export function AdminUsersPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: () => adminService.getUsers(),
+    refetchInterval: 30000,
+  });
+  const queryClient = useQueryClient();
+
+  const suspendMutation = useMutation({
+    mutationFn: ({ id, days }: { id: number; days: number }) => adminService.suspendUser(id, days),
+    onSuccess: () => {
+      toast.success('Utilisateur suspendu');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      refetch();
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  const activateMutation = useMutation({
+    mutationFn: (id: number) => adminService.activateUser(id),
+    onSuccess: () => {
+      toast.success('Utilisateur activé');
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      refetch();
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const users = data?.data || data || [];
+  
+  const filteredUsers = users.filter((user: any) => {
+    const matchesSearch = searchTerm === '' || 
+      `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.phone?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter === 'all' || user.user_type === roleFilter;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && user.is_active) ||
+      (statusFilter === 'inactive' && !user.is_active);
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const stats = {
+    total: users.length,
+    active: users.filter((u: any) => u.is_active).length,
+    inactive: users.filter((u: any) => !u.is_active).length,
+    hosts: users.filter((u: any) => u.user_type === 'hote').length,
+    travelers: users.filter((u: any) => u.user_type === 'voyageur').length,
+    admins: users.filter((u: any) => u.user_type === 'admin').length,
+    newThisWeek: users.filter((u: any) => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(u.created_at) > weekAgo;
+    }).length,
+  };
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          Gestion des utilisateurs
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Gérez et modérez les utilisateurs de la plateforme</p>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 mb-6">
+        <StatBadge label="Total" value={stats.total} color="gray" />
+        <StatBadge label="Actifs" value={stats.active} color="green" />
+        <StatBadge label="Inactifs" value={stats.inactive} color="red" />
+        <StatBadge label="Hôtes" value={stats.hosts} color="blue" />
+        <StatBadge label="Voyageurs" value={stats.travelers} color="purple" />
+        <StatBadge label="Admins" value={stats.admins} color="orange" />
+        <StatBadge label="Nouveaux" value={stats.newThisWeek} color="emerald" icon={<UserPlus className="w-3 h-3" />} />
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, email ou téléphone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            >
+              <option value="all">Tous les rôles</option>
+              <option value="voyageur">Voyageurs</option>
+              <option value="hote">Hôtes</option>
+              <option value="admin">Administrateurs</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            >
+              <option value="all">Tous statuts</option>
+              <option value="active">Actifs</option>
+              <option value="inactive">Inactifs</option>
+            </select>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+            >
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des utilisateurs */}
+      <div className="space-y-3">
+        {filteredUsers.length === 0 ? (
+          <div className="bg-white rounded-xl p-8 text-center">
+            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Aucun utilisateur trouvé</p>
+          </div>
+        ) : (
+          filteredUsers.map((user: any) => (
+            <UserCard
+              key={user.id}
+              user={user}
+              onView={() => setSelectedUser(user)}
+              onSuspend={() => {
+                const days = parseInt(prompt("Durée de suspension (jours) :", "30") || "30");
+                if (!isNaN(days) && days > 0) suspendMutation.mutate({ id: user.id, days });
+              }}
+              onActivate={() => activateMutation.mutate(user.id)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Modal de détail */}
+      {selectedUser && (
+        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+      )}
+    </div>
+  );
+}
+
+// Composant de carte utilisateur
+const UserCard = ({ user, onView, onSuspend, onActivate }: any) => {
+  const roleColors = {
+    voyageur: 'bg-blue-100 text-blue-700',
+    hote: 'bg-green-100 text-green-700',
+    admin: 'bg-purple-100 text-purple-700',
+  };
+
+  const getInitials = () => {
+    return `${(user.first_name || '')?.charAt(0) || ''}${(user.last_name || '')?.charAt(0) || ''}`.toUpperCase() || '?';
+  };
+
+  return (
+    <div className="bg-white rounded-xl sm:rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Avatar */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold text-lg shrink-0">
+            {getInitials()}
+          </div>
+          <div className="sm:hidden">
+            <p className="font-semibold">{user.first_name} {user.last_name}</p>
+            <p className="text-xs text-gray-500">{user.user_type}</p>
+          </div>
+        </div>
+
+        {/* Infos */}
+        <div className="flex-1 min-w-0">
+          <div className="hidden sm:block">
+            <p className="font-semibold">{user.first_name} {user.last_name}</p>
+            <p className="text-sm text-gray-500">{user.user_type}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Mail className="w-3 h-3" />
+              <span className="text-xs truncate">{user.email}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Phone className="w-3 h-3" />
+              <span className="text-xs">{user.phone || 'Non renseigné'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Calendar className="w-3 h-3" />
+              <span className="text-xs">Inscrit le {new Date(user.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Statut et actions */}
+        <div className="flex items-center justify-between sm:justify-end gap-3">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className="text-xs text-gray-500 hidden sm:inline">{user.is_active ? 'Actif' : 'Suspendu'}</span>
+          </div>
+          
+          <button
+            onClick={onView}
+            className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          
+          {user.is_active ? (
+            <button
+              onClick={onSuspend}
+              className="p-2 bg-orange-100 text-orange-600 rounded-lg hover:bg-orange-200 transition"
+              title="Suspendre"
+            >
+              <Ban className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onActivate}
+              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition"
+              title="Activer"
+            >
+              <UserCheck className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Modal de détail utilisateur
+const UserDetailModal = ({ user, onClose }: any) => {
+  const getInitials = () => {
+    return `${(user.first_name || '')?.charAt(0) || ''}${(user.last_name || '')?.charAt(0) || ''}`.toUpperCase() || '?';
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
+          <h3 className="font-bold text-lg">Détails de l'utilisateur</h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">✕</button>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {/* En-tête avec avatar */}
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold text-2xl">
+              {getInitials()}
+            </div>
+            <div>
+              <p className="text-xl font-bold">{user.first_name} {user.last_name}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  user.user_type === 'hote' ? 'bg-green-100 text-green-700' :
+                  user.user_type === 'voyageur' ? 'bg-blue-100 text-blue-700' :
+                  'bg-purple-100 text-purple-700'
+                }`}>
+                  {user.user_type === 'hote' ? 'Hôte' : user.user_type === 'voyageur' ? 'Voyageur' : 'Admin'}
+                </span>
+                <div className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="text-xs text-gray-500">{user.is_active ? 'Actif' : 'Suspendu'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Informations personnelles */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <p className="font-semibold text-sm mb-3">👤 Informations personnelles</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Nom complet</span>
+                <span className="font-medium">{user.first_name} {user.last_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Email</span>
+                <span className="font-mono text-xs">{user.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Téléphone</span>
+                <span>{user.phone || 'Non renseigné'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Inscrit le</span>
+                <span>{new Date(user.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Dernière connexion</span>
+                <span>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Jamais'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Vérifié</span>
+                <span>{user.verification_status === 'verified' ? '✅ Oui' : '❌ Non'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Statistiques utilisateur */}
+          <div className="bg-gray-50 rounded-xl p-4">
+            <p className="font-semibold text-sm mb-3">📊 Statistiques</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-lg font-bold text-[#00c9a7]">{user.total_properties || 0}</p>
+                <p className="text-xs text-gray-500">Propriétés</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-lg font-bold text-[#00c9a7]">{user.total_bookings || 0}</p>
+                <p className="text-xs text-gray-500">Réservations</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-lg font-bold text-[#00c9a7]">{user.total_reviews || 0}</p>
+                <p className="text-xs text-gray-500">Avis</p>
+              </div>
+              <div className="bg-white rounded-lg p-2">
+                <p className="text-lg font-bold text-[#00c9a7]">{user.average_rating || 0}★</p>
+                <p className="text-xs text-gray-500">Note moyenne</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Historique des suspensions */}
+          {user.suspended_until && (
+            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+              <div className="flex items-center gap-2 text-yellow-700">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-sm font-medium">Compte suspendu jusqu'au {new Date(user.suspended_until).toLocaleDateString()}</p>
+              </div>
+              {user.suspension_reason && (
+                <p className="text-xs text-yellow-600 mt-2">Raison : {user.suspension_reason}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="sticky bottom-0 bg-white p-4 border-t flex gap-3">
+          {user.is_active ? (
+            <button
+              onClick={() => {
+                const days = parseInt(prompt("Durée de suspension (jours) :", "30") || "30");
+                if (!isNaN(days) && days > 0) {
+                  window.location.reload();
+                }
+              }}
+              className="flex-1 bg-orange-500 text-white py-3 rounded-xl font-semibold hover:bg-orange-600 transition"
+            >
+              <Ban className="w-5 h-5 inline mr-2" />
+              Suspendre
+            </button>
+          ) : (
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold hover:bg-green-600 transition"
+            >
+              <UserCheck className="w-5 h-5 inline mr-2" />
+              Activer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// pages/admin/AdminBookingPage.tsx
+
+
+export function AdminBookingsPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-bookings'],
+    queryFn: () => adminService.getBookings(),
+  });
+  const queryClient = useQueryClient();
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: number) => adminService.cancelBooking(id),
+    onSuccess: () => {
+      toast.success('Réservation annulée');
+      queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      refetch();
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const bookings = data?.data?.data || [];
+  
+  const filteredBookings = bookings.filter((booking: any) => {
+    const matchesSearch = searchTerm === '' || 
+      booking.booking_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.property?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || booking.booking_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: bookings.length,
+    confirmed: bookings.filter((b: any) => b.booking_status === 'confirmed').length,
+    pending: bookings.filter((b: any) => b.booking_status === 'pending').length,
+    completed: bookings.filter((b: any) => b.booking_status === 'completed').length,
+    cancelled: bookings.filter((b: any) => b.booking_status === 'cancelled').length,
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête responsive */}
+      <div className="mb-5">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          Réservations
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Gérez toutes les réservations de la plateforme</p>
+      </div>
+
+      {/* Statistiques - grille responsive */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
+        <StatBadge label="Total" value={stats.total} color="gray" />
+        <StatBadge label="Confirmées" value={stats.confirmed} color="green" />
+        <StatBadge label="En attente" value={stats.pending} color="yellow" />
+        <StatBadge label="Terminées" value={stats.completed} color="blue" />
+        <StatBadge label="Annulées" value={stats.cancelled} color="red" />
+      </div>
+
+      {/* Recherche et filtres - responsive */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-5">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            >
+              <option value="all">Tous</option>
+              <option value="confirmed">Confirmées</option>
+              <option value="pending">En attente</option>
+              <option value="completed">Terminées</option>
+              <option value="cancelled">Annulées</option>
+            </select>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+            >
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des réservations - responsive */}
+      <div className="space-y-3">
+        {filteredBookings.length === 0 ? (
+          <div className="bg-white rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center">
+            <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Aucune réservation trouvée</p>
+          </div>
+        ) : (
+          filteredBookings.map((booking: any) => (
+            <BookingCard 
+              key={booking.id} 
+              booking={booking} 
+              isExpanded={expandedId === booking.id}
+              onToggle={() => toggleExpand(booking.id)}
+              onCancel={() => {
+                if (confirm("Annuler cette réservation ?")) cancelMutation.mutate(booking.id);
+              }}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Composant de carte réservation responsive
+const BookingCard = ({ booking, isExpanded, onToggle, onCancel }: any) => {
+  const statusConfig = {
+    confirmed: { color: 'green', icon: CheckCircle, label: 'Confirmée' },
+    pending: { color: 'yellow', icon: Clock, label: 'En attente' },
+    completed: { color: 'blue', icon: CheckCircle, label: 'Terminée' },
+    cancelled: { color: 'red', icon: XCircle, label: 'Annulée' },
+  };
+  
+  const config = statusConfig[booking.booking_status as keyof typeof statusConfig] || statusConfig.pending;
+  const StatusIcon = config.icon;
+
+  return (
+    <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden">
+      {/* En-tête de la carte - toujours visible */}
+      <div 
+        className="p-3 sm:p-4 cursor-pointer hover:bg-gray-50 transition"
+        onClick={onToggle}
+      >
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className={`w-10 h-10 rounded-xl bg-${config.color}-100 flex items-center justify-center shrink-0`}>
+              <StatusIcon className={`w-5 h-5 text-${config.color}-600`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded">
+                  #{booking.booking_reference?.slice(-8)}
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full bg-${config.color}-100 text-${config.color}-700`}>
+                  {config.label}
+                </span>
+              </div>
+              <p className="font-semibold text-gray-800 text-sm mt-1 truncate">{booking.property?.title}</p>
+              <p className="text-xs text-gray-500">{booking.property?.district}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+            <div className="text-left sm:text-right">
+              <p className="text-base sm:text-lg font-bold text-[#00c9a7]">{booking.total_amount?.toLocaleString()} FCFA</p>
+              <p className="text-xs text-gray-400">{booking.check_in} → {booking.check_out}</p>
+            </div>
+            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`} />
+          </div>
+        </div>
+      </div>
+
+      {/* Détails étendus */}
+      {isExpanded && (
+        <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {/* Voyageur */}
+            <div className="bg-white rounded-xl p-3 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-4 h-4 text-[#00c9a7]" />
+                <h4 className="font-semibold text-sm">Voyageur</h4>
+              </div>
+              <p className="font-medium text-sm">{booking.user?.full_name}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                <Mail className="w-3 h-3" />
+                <span className="truncate">{booking.user?.email}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                <Phone className="w-3 h-3" />
+                <span>{booking.user?.phone || 'Non renseigné'}</span>
+              </div>
+            </div>
+
+            {/* Détails séjour */}
+            <div className="bg-white rounded-xl p-3 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="w-4 h-4 text-[#00c9a7]" />
+                <h4 className="font-semibold text-sm">Séjour</h4>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Arrivée</span>
+                  <span className="font-medium">{booking.check_in}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Départ</span>
+                  <span className="font-medium">{booking.check_out}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Nuits</span>
+                  <span className="font-medium">{booking.nights_count || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Voyageurs</span>
+                  <span className="font-medium">{booking.guests_count || 1}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Paiement */}
+            <div className="bg-white rounded-xl p-3 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <CreditCard className="w-4 h-4 text-[#00c9a7]" />
+                <h4 className="font-semibold text-sm">Paiement</h4>
+              </div>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Méthode</span>
+                  <span className="font-medium capitalize">{booking.payment_method || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Statut</span>
+                  <span className={`font-medium ${booking.payment_status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {booking.payment_status === 'paid' ? 'Payé' : 'En attente'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {booking.booking_status !== 'cancelled' && booking.booking_status !== 'completed' && (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={onCancel}
+                className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs hover:bg-red-600 transition"
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Composant de badge statistique responsive
+const StatBadge = ({ label, value, color }: { label: string; value: number; color: string }) => {
+  const colorClasses = {
+    gray: 'bg-gray-100 text-gray-700',
+    green: 'bg-green-100 text-green-700',
+    yellow: 'bg-yellow-100 text-yellow-700',
+    blue: 'bg-blue-100 text-blue-700',
+    red: 'bg-red-100 text-red-700',
+  };
+
+  return (
+    <div className={`rounded-lg sm:rounded-xl p-2 sm:p-3 text-center ${colorClasses[color]}`}>
+      <p className="text-lg sm:text-2xl font-bold">{value}</p>
+      <p className="text-xs hidden sm:block">{label}</p>
+      <p className="text-[10px] sm:hidden">{label.slice(0, 3)}</p>
+    </div>
+  );
+};
+
+
+// pages/admin/AdminPayementsPage.tsx
+
+
+export function AdminPaymentsPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-payments'],
+    queryFn: () => adminService.getPayments(),
+    refetchInterval: 30000,
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const allPayments = data?.data?.data || [];
+  
+  const filteredPayments = allPayments.filter((payment: any) => {
+    const matchesSearch = searchTerm === '' || 
+      payment.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.booking?.booking_reference?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || payment.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: allPayments.length,
+    totalAmount: allPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+    success: allPayments.filter((p: any) => p.status === 'success').length,
+    pending: allPayments.filter((p: any) => p.status === 'pending').length,
+    failed: allPayments.filter((p: any) => p.status === 'failed').length,
+    today: allPayments.filter((p: any) => {
+      const today = new Date().toDateString();
+      return new Date(p.created_at).toDateString() === today;
+    }).reduce((sum: number, p: any) => sum + (p.amount || 0), 0),
+  };
+
+  const successRate = stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : 0;
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          Suivi des paiements
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez et gérez toutes les transactions financières</p>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
+        <StatCard icon={<CreditCard className="w-5 h-5" />} label="Transactions" value={stats.total} color="blue" />
+        <StatCard icon={<Wallet className="w-5 h-5" />} label="Volume total" value={`${(stats.totalAmount / 1000000).toFixed(1)}M`} color="purple" subValue="FCFA" />
+        <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Succès" value={stats.success} color="green" />
+        <StatCard icon={<Clock className="w-5 h-5" />} label="En attente" value={stats.pending} color="yellow" />
+        <StatCard icon={<XCircle className="w-5 h-5" />} label="Échouées" value={stats.failed} color="red" />
+        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Taux succès" value={`${successRate}%`} color="emerald" />
+      </div>
+
+      {/* Résumé quotidien */}
+      <div className="bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-xl sm:rounded-2xl p-4 mb-6 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <p className="text-white/80 text-sm">Transactions aujourd'hui</p>
+            <p className="text-2xl font-bold">{stats.today.toLocaleString()} FCFA</p>
+          </div>
+          <div className="flex gap-4">
+            <div>
+              <p className="text-white/80 text-xs">Moyenne par jour</p>
+              <p className="text-lg font-semibold">{((stats.totalAmount / 30) || 0).toLocaleString()} FCFA</p>
+            </div>
+            <div>
+              <p className="text-white/80 text-xs">Meilleur jour</p>
+              <p className="text-lg font-semibold">{Math.max(...allPayments.map((p: any) => p.amount || 0)).toLocaleString()} FCFA</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par transaction ID ou réservation..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            >
+              <option value="all">Tous statuts</option>
+              <option value="success">Succès</option>
+              <option value="pending">En attente</option>
+              <option value="failed">Échoué</option>
+            </select>
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+            >
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des transactions */}
+      <div className="space-y-3">
+        {filteredPayments.length === 0 ? (
+          <div className="bg-white rounded-xl p-8 text-center">
+            <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-sm">Aucune transaction trouvée</p>
+          </div>
+        ) : (
+          filteredPayments.map((payment: any, idx: number) => (
+            <PaymentCard
+              key={payment.id}
+              payment={payment}
+              index={idx}
+              onView={() => setSelectedPayment(payment)}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Modal de détails */}
+      {selectedPayment && (
+        <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
+      )}
+    </div>
+  );
+}
+
+// Composant de carte paiement
+const PaymentCard = ({ payment, index, onView }: any) => {
+  const statusConfig = {
+    success: { color: 'green', icon: CheckCircle, label: 'Succès' },
+    pending: { color: 'yellow', icon: Clock, label: 'En attente' },
+    failed: { color: 'red', icon: XCircle, label: 'Échoué' },
+  };
+  
+  const config = statusConfig[payment.status as keyof typeof statusConfig] || statusConfig.pending;
+  const StatusIcon = config.icon;
+
+  return (
+    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className={`w-10 h-10 rounded-xl bg-${config.color}-100 flex items-center justify-center shrink-0`}>
+            <StatusIcon className={`w-5 h-5 text-${config.color}-600`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded">
+                {payment.transaction_id?.slice(-12)}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full bg-${config.color}-100 text-${config.color}-700`}>
+                {config.label}
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-gray-800 mt-1">
+              {payment.booking?.property?.title || 'Réservation'}
+            </p>
+            <p className="text-xs text-gray-500">Réf: {payment.booking?.booking_reference || '-'}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+          <div className="text-left sm:text-right">
+            <p className="text-base sm:text-lg font-bold text-[#00c9a7]">{payment.amount?.toLocaleString()} FCFA</p>
+            <div className="flex items-center gap-1 mt-1">
+              <Smartphone className="w-3 h-3 text-gray-400" />
+              <p className="text-xs text-gray-400">{payment.payment_method || 'Mobile Money'}</p>
+            </div>
+          </div>
+          <button
+            onClick={onView}
+            className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+          >
+            <Eye className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Modal de détails du paiement
+const PaymentDetailModal = ({ payment, onClose }: any) => {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b sticky top-0 bg-white">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-lg">Détails du paiement</h3>
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">✕</button>
+          </div>
+        </div>
+        
+        <div className="p-5 space-y-4">
+          {/* Montant */}
+          <div className="text-center">
+            <p className="text-gray-500 text-sm">Montant total</p>
+            <p className="text-3xl font-bold text-[#00c9a7]">{payment.amount?.toLocaleString()} FCFA</p>
+          </div>
+
+          {/* Détails */}
+          <div className="space-y-3">
+            <DetailRow label="Transaction ID" value={payment.transaction_id} />
+            <DetailRow label="Réservation" value={payment.booking?.booking_reference} />
+            <DetailRow label="Propriété" value={payment.booking?.property?.title} />
+            <DetailRow label="Voyageur" value={payment.booking?.user?.full_name} />
+            <DetailRow label="Méthode" value={payment.payment_method || 'Mobile Money'} />
+            <DetailRow label="Statut" value={payment.status} status />
+            <DetailRow label="Date" value={new Date(payment.created_at).toLocaleString()} />
+            {payment.paid_at && <DetailRow label="Payé le" value={new Date(payment.paid_at).toLocaleString()} />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Composant de ligne de détail
+const DetailRow = ({ label, value, status }: any) => (
+  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+    <span className="text-sm text-gray-500">{label}</span>
+    {status ? (
+      <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+        value === 'success' ? 'bg-green-100 text-green-700' :
+        value === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+        'bg-red-100 text-red-700'
+      }`}>
+        {value === 'success' ? 'Succès' : value === 'pending' ? 'En attente' : 'Échoué'}
+      </span>
+    ) : (
+      <span className="text-sm font-medium text-gray-800">{value || '-'}</span>
+    )}
+  </div>
+);
+
+
+
+export function AdminMessagesPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [filterType, setFilterType] = useState<'all' | 'flagged' | 'unread'>('all');
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-messages'],
+    queryFn: () => adminService.getMessages(),
+    refetchInterval: 15000,
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const allMessages = data?.data?.data || [];
+  
+  const filteredMessages = allMessages.filter((msg: any) => {
+    const matchesSearch = searchTerm === '' || 
+      msg.sender?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      msg.receiver?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      msg.message?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (filterType === 'flagged') return matchesSearch && msg.is_flagged;
+    if (filterType === 'unread') return matchesSearch && !msg.is_read;
+    return matchesSearch;
+  });
+
+  const stats = {
+    total: allMessages.length,
+    unread: allMessages.filter((m: any) => !m.is_read).length,
+    flagged: allMessages.filter((m: any) => m.is_flagged).length,
+    today: allMessages.filter((m: any) => {
+      const today = new Date().toDateString();
+      return new Date(m.created_at).toDateString() === today;
+    }).length,
+  };
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête */}
+      <div className="mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          Surveillance des messages
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez et modérez les conversations entre utilisateurs</p>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatCard icon={<MessageCircle className="w-5 h-5" />} label="Total messages" value={stats.total} color="blue" />
+        <StatCard icon={<Mail className="w-5 h-5" />} label="Non lus" value={stats.unread} color="yellow" />
+        <StatCard icon={<Flag className="w-5 h-5" />} label="Signalés" value={stats.flagged} color="red" />
+        <StatCard icon={<Calendar className="w-5 h-5" />} label="Aujourd'hui" value={stats.today} color="green" />
+      </div>
+
+      {/* Filtres et recherche */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par expéditeur, destinataire ou contenu..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            />
+          </div>
+          <div className="flex gap-2">
+            <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="Tous" />
+            <FilterButton active={filterType === 'unread'} onClick={() => setFilterType('unread')} label="Non lus" />
+            <FilterButton active={filterType === 'flagged'} onClick={() => setFilterType('flagged')} label="Signalés" />
+            <button
+              onClick={() => refetch()}
+              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+            >
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des messages */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Colonne gauche - Liste */}
+        <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+          {filteredMessages.length === 0 ? (
+            <div className="bg-white rounded-xl p-8 text-center">
+              <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Aucun message trouvé</p>
+            </div>
+          ) : (
+            filteredMessages.map((msg: any, idx: number) => (
+              <MessageCard
+                key={msg.id}
+                message={msg}
+                isSelected={selectedMessage?.id === msg.id}
+                onClick={() => setSelectedMessage(msg)}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Colonne droite - Détails du message */}
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden sticky top-4 h-[600px] flex flex-col">
+          {selectedMessage ? (
+            <MessageDetail message={selectedMessage} onClose={() => setSelectedMessage(null)} />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6">
+              <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+              <p className="text-center">Sélectionnez un message<br />pour voir les détails</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Composant de carte message
+const MessageCard = ({ message, isSelected, onClick }: any) => {
+  const isUnread = !message.is_read;
+  const isFlagged = message.is_flagged;
+  
+  return (
+    <div
+      onClick={onClick}
+      className={`bg-white rounded-xl p-3 cursor-pointer transition-all hover:shadow-md ${
+        isSelected ? 'ring-2 ring-[#00c9a7] shadow-lg' : 'shadow-sm'
+      } ${isUnread ? 'border-l-4 border-l-[#00c9a7]' : ''}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold shrink-0">
+          {message.sender?.full_name?.charAt(0) || '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex justify-between items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm truncate">{message.sender?.full_name || 'Inconnu'}</p>
+              <p className="text-xs text-gray-500 truncate">→ {message.receiver?.full_name || 'Inconnu'}</p>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              {isFlagged && <Flag className="w-3 h-3 text-red-500 fill-red-500" />}
+              {isUnread && <div className="w-2 h-2 rounded-full bg-[#00c9a7] animate-pulse"></div>}
+            </div>
+          </div>
+          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.message}</p>
+          <p className="text-xs text-gray-400 mt-1">{formatDate(message.created_at)}</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+      </div>
+    </div>
+  );
+};
+
+// Composant de détail du message
+const MessageDetail = ({ message, onClose }: any) => {
+  const [showFullMessage, setShowFullMessage] = useState(false);
+  
+  return (
+    <>
+      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold">
+            {message.sender?.full_name?.charAt(0) || '?'}
+          </div>
+          <div>
+            <p className="font-semibold text-sm">{message.sender?.full_name || 'Expéditeur inconnu'}</p>
+            <p className="text-xs text-gray-500">{message.sender?.email || 'Email non disponible'}</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg transition">
+          ✕
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Informations de l'expéditeur */}
+        <div className="bg-gray-50 rounded-xl p-3">
+          <div className="flex items-center gap-3 mb-2">
+            <User className="w-4 h-4 text-[#00c9a7]" />
+            <p className="font-semibold text-sm">Informations expéditeur</p>
+          </div>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Nom complet</span>
+              <span className="font-medium">{message.sender?.full_name || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Email</span>
+              <span className="font-medium text-sm">{message.sender?.email || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Téléphone</span>
+              <span className="font-medium">{message.sender?.phone || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Informations destinataire */}
+        <div className="bg-gray-50 rounded-xl p-3">
+          <div className="flex items-center gap-3 mb-2">
+            <User className="w-4 h-4 text-[#00c9a7]" />
+            <p className="font-semibold text-sm">Informations destinataire</p>
+          </div>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Nom complet</span>
+              <span className="font-medium">{message.receiver?.full_name || '-'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Email</span>
+              <span className="font-medium">{message.receiver?.email || '-'}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenu du message */}
+        <div className="bg-gray-50 rounded-xl p-3">
+          <div className="flex items-center gap-3 mb-2">
+            <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
+            <p className="font-semibold text-sm">Contenu du message</p>
+          </div>
+          <div className={`text-sm text-gray-700 leading-relaxed ${showFullMessage ? '' : 'max-h-32 overflow-hidden relative'}`}>
+            <p className="whitespace-pre-wrap break-words">{message.message}</p>
+            {!showFullMessage && message.message?.length > 200 && (
+              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-50 to-transparent"></div>
+            )}
+          </div>
+          {message.message?.length > 200 && (
+            <button
+              onClick={() => setShowFullMessage(!showFullMessage)}
+              className="text-xs text-[#00c9a7] mt-2 hover:underline"
+            >
+              {showFullMessage ? 'Voir moins' : 'Voir plus'}
+            </button>
+          )}
+        </div>
+
+        {/* Métadonnées */}
+        <div className="bg-gray-50 rounded-xl p-3">
+          <div className="flex items-center gap-3 mb-2">
+            <Clock className="w-4 h-4 text-[#00c9a7]" />
+            <p className="font-semibold text-sm">Métadonnées</p>
+          </div>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Date d'envoi</span>
+              <span className="font-medium">{formatDateTime(message.created_at)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Lu le</span>
+              <span className="font-medium">{message.read_at ? formatDateTime(message.read_at) : 'Non lu'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="p-4 border-t bg-gray-50 flex gap-2">
+        <button className="flex-1 px-3 py-2 bg-[#00c9a7] text-white rounded-lg text-sm hover:bg-[#00b892] transition flex items-center justify-center gap-2">
+          <Reply className="w-4 h-4" />
+          Répondre
+        </button>
+        {!message.is_flagged && (
+          <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 transition">
+            <Flag className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </>
+  );
+};
+
+// Composant de carte statistique
+const StatCard = ({ icon, label, value, color }: any) => {
+  const colors = {
+    blue: 'from-blue-500 to-blue-600',
+    yellow: 'from-yellow-500 to-yellow-600',
+    red: 'from-red-500 to-red-600',
+    green: 'from-green-500 to-green-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-3 text-white`}>
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          {icon}
+        </div>
+        <span className="text-xl font-bold">{value}</span>
+      </div>
+      <p className="text-white/80 text-xs mt-2">{label}</p>
+    </div>
+  );
+};
+
+// Bouton de filtre
+const FilterButton = ({ active, onClick, label }: any) => (
+  <button
+    onClick={onClick}
+    className={`px-3 py-2 rounded-xl text-sm transition ${
+      active ? 'bg-[#00c9a7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+    }`}
+  >
+    {label}
+  </button>
+);
+
+// Utilitaires de formatage
+const formatDate = (date: string) => {
+  const d = new Date(date);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'À l\'instant';
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (hours < 24) return `Il y a ${hours} h`;
+  if (days < 7) return `Il y a ${days} j`;
+  return d.toLocaleDateString('fr-FR');
+};
+
+const formatDateTime = (date: string) => {
+  const d = new Date(date);
+  return d.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+export function AdminReportsPage() {
+  const [selectedPeriod, setSelectedPeriod] = useState<'monthly' | 'annual' | 'custom'>('monthly');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [activeTab, setActiveTab] = useState<'overview' | 'financial' | 'users' | 'properties'>('overview');
+  
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-reports-summary', selectedPeriod, customStartDate, customEndDate],
+    queryFn: () => adminService.getSummaryReport({
+      period: selectedPeriod,
+      start_date: customStartDate,
+      end_date: customEndDate,
+    }),
+  });
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const report = data?.data || {};
+  const chartData = report.chart_data || { labels: [], revenue: [], users: [], bookings: [] };
+  
+  const revenueChartData = chartData.labels.map((label: string, idx: number) => ({
+    name: label,
+    revenue: chartData.revenue?.[idx] || 0,
+    users: chartData.users?.[idx] || 0,
+    bookings: chartData.bookings?.[idx] || 0,
+  }));
+
+  // Statistiques de croissance
+  const growthRates = {
+    users: report.users_growth || 12.5,
+    properties: report.properties_growth || 8.3,
+    bookings: report.bookings_growth || 15.7,
+    revenue: report.revenue_growth || 22.4,
+  };
+
+  // Répartition des propriétés par type
+  const propertyTypes = [
+    { name: 'Appartements', value: report.appartements_count || 45, color: '#00c9a7' },
+    { name: 'Villas', value: report.villas_count || 25, color: '#0f2940' },
+    { name: 'Studios', value: report.studios_count || 15, color: '#ff6b6b' },
+    { name: 'Maisons', value: report.maisons_count || 10, color: '#f5a623' },
+  ];
+
+  // Méthodes de paiement
+  const paymentMethods = [
+    { name: 'Mobile Money', value: report.mobile_money_percentage || 65, color: '#00c9a7' },
+    { name: 'Carte bancaire', value: report.card_percentage || 25, color: '#0f2940' },
+    { name: 'Autres', value: report.other_percentage || 10, color: '#ff6b6b' },
+  ];
+
+  const exportReport = async (format: 'csv' | 'pdf' | 'excel' | 'json') => {
+    try {
+      const blob = await adminService.exportReport(selectedPeriod, format, {
+        start_date: customStartDate,
+        end_date: customEndDate,
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rapport_${selectedPeriod}_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : format}`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success(`Export ${format.toUpperCase()} lancé avec succès`);
+    } catch {
+      toast.error('Erreur lors de l\'export');
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Rapport Bluefin-Immo',
+          text: `Rapport ${selectedPeriod} - ${report.total_revenue?.toLocaleString()} FCFA de CA`,
+          url: window.location.href,
+        });
+        toast.success('Partagé avec succès');
+      } catch {
+        toast.error('Partage annulé');
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success('Lien copié dans le presse-papier');
+    }
+  };
+
+  return (
+    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+      {/* En-tête */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+            Rapports & analyses
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez la performance de votre plateforme</p>
+        </div>
+        
+        <div className="flex gap-2">
+          <button
+            onClick={handlePrint}
+            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+            title="Imprimer"
+          >
+            <Printer className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleShare}
+            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+            title="Partager"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => refetch()}
+            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+            title="Rafraîchir"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Sélecteur de période */}
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            <PeriodButton
+              active={selectedPeriod === 'monthly'}
+              onClick={() => setSelectedPeriod('monthly')}
+              label="Mensuel"
+            />
+            <PeriodButton
+              active={selectedPeriod === 'annual'}
+              onClick={() => setSelectedPeriod('annual')}
+              label="Annuel"
+            />
+            <PeriodButton
+              active={selectedPeriod === 'custom'}
+              onClick={() => setSelectedPeriod('custom')}
+              label="Personnalisé"
+            />
+          </div>
+          
+          {selectedPeriod === 'custom' && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              />
+              <span className="text-gray-400 self-center hidden sm:inline">→</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Onglets */}
+      <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-3">
+        <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="📊 Vue d'ensemble" />
+        <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label="💰 Financier" />
+        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="👥 Utilisateurs" />
+        <TabButton active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} label="🏠 Propriétés" />
+      </div>
+
+      {/* Contenu des onglets */}
+      {activeTab === 'overview' && (
+        <OverviewTab report={report} growthRates={growthRates} chartData={revenueChartData} />
+      )}
+      
+      {activeTab === 'financial' && (
+        <FinancialTab report={report} paymentMethods={paymentMethods} chartData={revenueChartData} />
+      )}
+      
+      {activeTab === 'users' && (
+        <UsersTab report={report} growthRates={growthRates} />
+      )}
+      
+      {activeTab === 'properties' && (
+        <PropertiesTab report={report} propertyTypes={propertyTypes} growthRates={growthRates} />
+      )}
+
+      {/* Section export */}
+      <div className="mt-6 bg-white rounded-xl sm:rounded-2xl p-5 shadow-sm">
+        <h3 className="font-semibold text-base mb-3 flex items-center gap-2">
+          <Download className="w-5 h-5 text-[#00c9a7]" />
+          Exporter le rapport
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          <ExportButton onClick={() => exportReport('csv')} icon={<FileSpreadsheet className="w-4 h-4" />} label="CSV" color="green" />
+          <ExportButton onClick={() => exportReport('excel')} icon={<FileSpreadsheet className="w-4 h-4" />} label="Excel" color="blue" />
+          <ExportButton onClick={() => exportReport('pdf')} icon={<FileText className="w-4 h-4" />} label="PDF" color="red" />
+          <ExportButton onClick={() => exportReport('json')} icon={<FileJson className="w-4 h-4" />} label="JSON" color="purple" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Onglet Vue d'ensemble
+const OverviewTab = ({ report, growthRates, chartData }: any) => (
+  <div className="space-y-6">
+    {/* Cartes KPI */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <KPICard
+        title="Chiffre d'affaires"
+        value={`${(report.total_revenue || 0).toLocaleString()} FCFA`}
+        growth={growthRates.revenue}
+        icon={<DollarSign className="w-5 h-5" />}
+        color="green"
+      />
+      <KPICard
+        title="Utilisateurs"
+        value={(report.total_users || 0).toLocaleString()}
+        growth={growthRates.users}
+        icon={<Users className="w-5 h-5" />}
+        color="blue"
+      />
+      <KPICard
+        title="Réservations"
+        value={(report.total_bookings || 0).toLocaleString()}
+        growth={growthRates.bookings}
+        icon={<Calendar className="w-5 h-5" />}
+        color="purple"
+      />
+      <KPICard
+        title="Propriétés"
+        value={(report.total_properties || 0).toLocaleString()}
+        growth={growthRates.properties}
+        icon={<Home className="w-5 h-5" />}
+        color="orange"
+      />
+    </div>
+
+    {/* Graphique d'évolution */}
+    <div className="bg-white rounded-xl p-5 shadow-sm">
+      <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
+        <TrendingUp className="w-5 h-5 text-[#00c9a7]" />
+        Évolution des revenus
+      </h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <AreaChart data={chartData}>
+          <defs>
+            <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#00c9a7" stopOpacity={0.3}/>
+              <stop offset="95%" stopColor="#00c9a7" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+          <Area type="monotone" dataKey="revenue" stroke="#00c9a7" fill="url(#revenueGradient)" name="CA (FCFA)" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+
+    {/* Résumé des périodes */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h4 className="font-semibold text-sm mb-3">📈 Période actuelle</h4>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Nouveaux utilisateurs</span>
+            <span className="font-semibold">{report.new_users || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Nouvelles propriétés</span>
+            <span className="font-semibold">{report.new_properties || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Réservations</span>
+            <span className="font-semibold">{report.bookings_count || 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Chiffre d'affaires</span>
+            <span className="font-semibold text-[#00c9a7]">{(report.revenue || 0).toLocaleString()} FCFA</span>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h4 className="font-semibold text-sm mb-3">🏆 Performances</h4>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-500">Panier moyen</span>
+            <span className="font-semibold">{((report.total_revenue || 0) / (report.total_bookings || 1)).toLocaleString()} FCFA</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Taux de conversion</span>
+            <span className="font-semibold text-green-600">{report.conversion_rate || 0}%</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Satisfaction</span>
+            <span className="font-semibold">{report.satisfaction_rate || 4.8}/5</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">Taux d'occupation</span>
+            <span className="font-semibold">{report.occupancy_rate || 68}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Onglet Financier
+const FinancialTab = ({ report, paymentMethods, chartData }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
+        <p className="text-white/80 text-sm">Revenus totaux</p>
+        <p className="text-2xl font-bold mt-1">{report.total_revenue?.toLocaleString() || 0} FCFA</p>
+        <p className="text-white/60 text-xs mt-2">Depuis la création</p>
+      </div>
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
+        <p className="text-white/80 text-sm">Transactions</p>
+        <p className="text-2xl font-bold mt-1">{report.total_transactions || 0}</p>
+        <p className="text-white/60 text-xs mt-2">+{report.new_transactions || 0} cette période</p>
+      </div>
+      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+        <p className="text-white/80 text-sm">Commission moyenne</p>
+        <p className="text-2xl font-bold mt-1">{report.average_commission || 12}%</p>
+        <p className="text-white/60 text-xs mt-2">par transaction</p>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold text-base mb-4">📊 Méthodes de paiement</h3>
+        <ResponsiveContainer width="100%" height={250}>
+          <RePieChart>
+            <Pie
+              data={paymentMethods}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={90}
+              paddingAngle={5}
+              dataKey="value"
+            >
+              {paymentMethods.map((entry: any, index: number) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </RePieChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold text-base mb-4">📈 Revenus par période</h3>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+            <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+            <Bar dataKey="revenue" fill="#00c9a7" name="CA" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  </div>
+);
+
+// Onglet Utilisateurs
+const UsersTab = ({ report, growthRates }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <UserStatCard
+        title="Total utilisateurs"
+        value={report.total_users || 0}
+        growth={growthRates.users}
+        icon={<Users className="w-5 h-5" />}
+        color="blue"
+      />
+      <UserStatCard
+        title="Hôtes"
+        value={report.total_hosts || 0}
+        growth={report.hosts_growth || 8}
+        icon={<Home className="w-5 h-5" />}
+        color="green"
+      />
+      <UserStatCard
+        title="Voyageurs"
+        value={report.total_travelers || 0}
+        growth={report.travelers_growth || 15}
+        icon={<Users className="w-5 h-5" />}
+        color="purple"
+      />
+      <UserStatCard
+        title="Actifs"
+        value={report.active_users || 0}
+        growth={report.active_users_growth || 10}
+        icon={<Activity className="w-5 h-5" />}
+        color="orange"
+      />
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h4 className="font-semibold text-sm mb-3">🆕 Nouveaux inscrits</h4>
+        <p className="text-2xl font-bold text-[#00c9a7]">{report.new_users || 0}</p>
+        <p className="text-sm text-gray-500 mt-1">Cette période</p>
+      </div>
+      <div className="bg-white rounded-xl p-4 shadow-sm">
+        <h4 className="font-semibold text-sm mb-3">🎯 Taux de rétention</h4>
+        <p className="text-2xl font-bold text-[#00c9a7]">{report.retention_rate || 78}%</p>
+        <p className="text-sm text-gray-500 mt-1">Utilisateurs revenant</p>
+      </div>
+    </div>
+  </div>
+);
+
+// Onglet Propriétés
+const PropertiesTab = ({ report, propertyTypes, growthRates }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <PropertyStatCard
+        title="Total propriétés"
+        value={report.total_properties || 0}
+        growth={growthRates.properties}
+        icon={<Home className="w-5 h-5" />}
+        color="green"
+      />
+      <PropertyStatCard
+        title="Actives"
+        value={report.active_properties || 0}
+        growth={report.active_properties_growth || 12}
+        icon={<Award className="w-5 h-5" />}
+        color="blue"
+      />
+      <PropertyStatCard
+        title="En attente"
+        value={report.pending_properties || 0}
+        growth={-5}
+        icon={<Clock className="w-5 h-5" />}
+        color="yellow"
+      />
+      <PropertyStatCard
+        title="Publiées"
+        value={report.published_properties || 0}
+        growth={report.published_growth || 15}
+        icon={<Zap className="w-5 h-5" />}
+        color="purple"
+      />
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="bg-white rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold text-base mb-4">🏠 Répartition par type</h3>
+        <ResponsiveContainer width="100%" height={250}>
+          <RePieChart>
+            <Pie
+              data={propertyTypes}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={90}
+              paddingAngle={5}
+              dataKey="value"
+            >
+              {propertyTypes.map((entry: any, index: number) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </RePieChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="bg-white rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold text-base mb-4">📍 Top destinations</h3>
+        <div className="space-y-3">
+          {report.top_cities?.map((city: any, idx: number) => (
+            <div key={idx} className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
+                  {idx + 1}
+                </span>
+                <span>{city.name}</span>
+              </div>
+              <div className="flex gap-4">
+                <span className="text-sm text-gray-500">{city.count} propriétés</span>
+                <span className="font-semibold text-[#00c9a7]">{city.revenue?.toLocaleString()} FCFA</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Composants auxiliaires
+const PeriodButton = ({ active, onClick, label }: any) => (
+  <button
+    onClick={onClick}
+    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+      active ? 'bg-[#00c9a7] text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+    }`}
+  >
+    {label}
+  </button>
+);
+
+const TabButton = ({ active, onClick, label }: any) => (
+  <button
+    onClick={onClick}
+    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+      active ? 'bg-[#00c9a7] text-white' : 'text-gray-600 hover:bg-gray-100'
+    }`}
+  >
+    {label}
+  </button>
+);
+
+const ExportButton = ({ onClick, icon, label, color }: any) => {
+  const colors = {
+    green: 'bg-green-50 text-green-600 hover:bg-green-100',
+    blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+    red: 'bg-red-50 text-red-600 hover:bg-red-100',
+    purple: 'bg-purple-50 text-purple-600 hover:bg-purple-100',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${colors[color]}`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+};
+
+const KPICard = ({ title, value, growth, icon, color }: any) => {
+  const isPositive = growth >= 0;
+  const colors = {
+    green: 'from-green-500 to-green-600',
+    blue: 'from-blue-500 to-blue-600',
+    purple: 'from-purple-500 to-purple-600',
+    orange: 'from-orange-500 to-orange-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white transform hover:scale-105 transition-all duration-300`}>
+      <div className="flex justify-between items-start">
+        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+          {icon}
+        </div>
+        <div className={`flex items-center gap-1 text-xs ${isPositive ? 'text-green-200' : 'text-red-200'}`}>
+          {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+          {Math.abs(growth)}%
+        </div>
+      </div>
+      <p className="text-white/80 text-xs mt-3">{title}</p>
+      <p className="text-xl font-bold mt-0.5">{value}</p>
+    </div>
+  );
+};
+
+const UserStatCard = ({ title, value, growth, icon, color }: any) => {
+  const colors = {
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-green-600',
+    purple: 'from-purple-500 to-purple-600',
+    orange: 'from-orange-500 to-orange-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          {icon}
+        </div>
+        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">↑ {growth}%</span>
+      </div>
+      <p className="text-white/80 text-xs mt-2">{title}</p>
+      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
+    </div>
+  );
+};
+
+const PropertyStatCard = ({ title, value, growth, icon, color }: any) => {
+  const isPositive = growth >= 0;
+  const colors = {
+    green: 'from-green-500 to-green-600',
+    blue: 'from-blue-500 to-blue-600',
+    yellow: 'from-yellow-500 to-yellow-600',
+    purple: 'from-purple-500 to-purple-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          {icon}
+        </div>
+        <span className={`text-xs ${isPositive ? 'text-green-200' : 'text-red-200'}`}>
+          {isPositive ? '↑' : '↓'} {Math.abs(growth)}%
+        </span>
+      </div>
+      <p className="text-white/80 text-xs mt-2">{title}</p>
+      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
+    </div>
+  );
+};
+
+// Skeleton de chargement
+const LoadingSkeleton = () => (
+  <div className="p-3 sm:p-4 md:p-6">
+    <div className="animate-pulse">
+      <div className="h-6 sm:h-8 bg-gray-200 rounded w-48 mb-4"></div>
+      <div className="bg-gray-200 rounded-xl h-16 mb-6"></div>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {[1, 2, 3, 4].map(i => <div key={i} className="bg-gray-200 rounded-xl h-28"></div>)}
+      </div>
+      <div className="bg-gray-200 rounded-xl h-80 mb-6"></div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-gray-200 rounded-xl h-40"></div>
+        <div className="bg-gray-200 rounded-xl h-40"></div>
+      </div>
+    </div>
+  </div>
+);
