@@ -134,12 +134,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Centre d'aide</span>
                 </button>
               </li>
-              <li>
-                <button onClick={() => handleNavigation('company-info')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Informations société</span>
-                </button>
-              </li>
+          
             </ul>
           </div>
         </div>
