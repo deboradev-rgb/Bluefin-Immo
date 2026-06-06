@@ -54,7 +54,6 @@ import { AdminHeader } from './components/AdminHeader';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { WhatsAppButton } from './components/WhatsAppButton';
 
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -115,6 +114,25 @@ function AppContent() {
     setMobileNavActive(tabFromPage(route.name));
   }, [route.name]);
 
+  // Écouter les changements d'authentification
+  useEffect(() => {
+    const handleAuthChange = () => {
+      console.log('🔄 Changement d\'authentification détecté');
+      const currentRoute = parseRoute(window.location.pathname + window.location.search);
+      
+      // Si on est sur une page admin et qu'on n'est plus admin, rediriger
+      if (currentRoute.name.startsWith('admin-') && currentRoute.name !== 'admin-login') {
+        if (!isAuthenticated || user?.user_type !== 'admin') {
+          console.log('🚫 Accès admin non autorisé, redirection vers home');
+          navigate({ name: 'home' });
+        }
+      }
+    };
+    
+    window.addEventListener('authChange', handleAuthChange);
+    return () => window.removeEventListener('authChange', handleAuthChange);
+  }, [isAuthenticated, user, navigate]);
+
   const handleMobileNavigate = (tab: Tab | { name: string; id?: string }) => {
     // Si c'est un objet Route
     if (typeof tab === 'object') {
@@ -133,30 +151,47 @@ function AppContent() {
       'account', 'account-reservations', 'host-dashboard', 'host-annonces',
       'host-calendrier', 'host-reservations', 'messages', 'host-messages', 'favorites', 'publish',
     ];
+    
     if (protectedRoutes.includes(route.name)) {
-      if (loading) return true;
       return isAuthenticated;
     }
+    
     if (route.name.startsWith('host-') && route.name !== 'host-dashboard') {
-      if (loading) return true;
       return isAuthenticated && (user?.user_type === 'hote' || user?.user_type === 'admin');
     }
+    
     if (route.name.startsWith('admin-') && route.name !== 'admin-login') {
-      if (loading) return true;
       return isAuthenticated && user?.user_type === 'admin';
     }
+    
     return true;
   };
 
+  // ⭐ AFFICHER UN ÉCRAN DE CHARGEMENT PENDANT L'AUTHENTIFICATION ⭐
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#00c9a7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Chargement de votre session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Vérifier si la route est autorisée APRÈS le chargement
   if (!isRouteAllowed(route)) {
+    console.log('🚫 Route non autorisée, redirection vers home');
     navigate({ name: 'home' });
     return null;
   }
 
+  // Page de login admin
   if (route.name === 'admin-login') {
     return <AdminLoginPage onNavigate={navigate} />;
   }
 
+  // Routes admin protégées
   if (route.name.startsWith('admin-') && user?.user_type === 'admin') {
     const renderAdminPage = () => {
       switch (route.name) {
@@ -170,6 +205,7 @@ function AppContent() {
         default: return <AdminDashboardPage onNavigate={navigate} />;
       }
     };
+    
     return (
       <div className="flex h-screen bg-gray-100">
         <AdminSidebar />
@@ -181,6 +217,7 @@ function AppContent() {
     );
   }
 
+  // Routes publiques et protégées classiques
   return (
     <div className="min-h-screen bg-white">
       <Navbar

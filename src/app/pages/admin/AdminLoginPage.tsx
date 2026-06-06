@@ -1,6 +1,6 @@
 // src/app/pages/admin/AdminLoginPage.tsx
-import { useState } from 'react';
-import adminService from '../../../services/admin.service';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
 import type { Route } from '../../router';
 
@@ -14,6 +14,16 @@ export function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { login, user, isAuthenticated } = useAuth();
+
+  // ⭐ Redirection automatique quand l'utilisateur devient admin
+  useEffect(() => {
+    console.log('🔍 AdminLoginPage - user:', user, 'isAuthenticated:', isAuthenticated);
+    if (isAuthenticated && user?.user_type === 'admin') {
+      console.log('✅ Admin détecté, redirection vers dashboard');
+      onNavigate?.({ name: 'admin-dashboard' });
+    }
+  }, [user, isAuthenticated, onNavigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,24 +31,15 @@ export function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
     setError('');
     
     try {
-      // ✅ Appel à adminService.login
-      const response = await adminService.login(email, password);
+      const response = await login(email, password);
+      console.log('📦 Response login:', response);
       
-      // ✅ Vérification que l'utilisateur est admin
-      if (response.user?.user_type === 'admin') {
-        // ✅ Sauvegarder le token
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        
-        // ✅ Rediriger vers le dashboard admin
-        onNavigate?.({ name: 'admin-dashboard' });
-      } else {
-        setError('Compte non autorisé pour l’administration');
-      }
+      // La redirection se fera via l'useEffect ci-dessus
+      // Pas besoin de rediriger ici immédiatement
+      
     } catch (err: any) {
       console.error('Erreur login admin:', err);
       setError('Identifiants invalides ou compte non autorisé');
-    } finally {
       setIsLoading(false);
     }
   };

@@ -5,7 +5,7 @@ import {
   Calendar, DollarSign, Eye, Star, CheckCircle, XCircle,
   Clock, Zap, Award, MapPin, Activity, BarChart3, PieChart,
   UserPlus, Building2, Wallet, RefreshCw, ChevronRight,
-  Menu, X
+  Menu, X, LogOut, ArrowLeft
 } from 'lucide-react';
 import adminService from '../../../services/admin.service';
 import {
@@ -28,6 +28,7 @@ import {
 } from 'recharts';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const COLORS = ['#00c9a7', '#0f2940', '#ff6b6b', '#f5a623', '#4a90e2', '#9013fe'];
 
@@ -42,11 +43,27 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [animatedCards, setAnimatedCards] = useState<Record<string, boolean>>({});
+  const { logout } = useAuth();
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimatedCards({ all: true }), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  // Fonction pour retourner à l'accueil
+  const handleGoToHome = () => {
+    console.log('🔄 Redirection vers home');
+    onNavigate?.({ name: 'home' });
+  };
+
+  // Fonction pour se déconnecter
+  const handleLogout = async () => {
+    if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+      await logout();
+      onNavigate?.({ name: 'home' });
+      toast.success('Déconnexion réussie');
+    }
+  };
 
   if (isLoading) return <LoadingSkeleton />;
   if (error) return <ErrorMessage onRetry={() => refetch()} />;
@@ -80,57 +97,92 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
 
   return (
     <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête responsive */}
-      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 mb-6">
-        <div className="w-full xs:w-auto">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
-            Tableau de bord
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">Aperçu global de la plateforme</p>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full xs:w-auto">
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value as any)}
-            className="flex-1 xs:flex-none bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-          >
-            <option value="week">7 jours</option>
-            <option value="month">30 jours</option>
-            <option value="year">12 mois</option>
-          </select>
-          <button
-            onClick={() => refetch()}
-            className="bg-white border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <div className="relative">
+      {/* Barre de navigation avec boutons */}
+      <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* Logo / Titre */}
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#00c9a7] to-[#0f2940] rounded-xl flex items-center justify-center">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Dashboard Admin</h1>
+              <p className="text-xs text-gray-500">Bienvenue Super Admin</p>
+            </div>
+          </div>
+
+          {/* Boutons d'action */}
+          <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+            {/* Bouton Retour Accueil */}
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="bg-white border border-gray-200 rounded-xl p-2 hover:bg-gray-50 transition relative"
+              onClick={handleGoToHome}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors duration-200"
             >
-              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
+              <ArrowLeft className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-600">Accueil</span>
             </button>
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border z-50">
-                <div className="p-3 border-b font-semibold text-sm">Notifications</div>
-                <div className="max-h-80 overflow-y-auto">
-                  {activities.slice(0, 5).map((act: any, idx: number) => (
-                    <div key={idx} className="p-3 hover:bg-gray-50 border-b text-sm">
-                      <p className="text-sm">{act.title || act.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{act.time}</p>
-                    </div>
-                  ))}
+
+            {/* Bouton Actualiser */}
+            <button
+              onClick={() => refetch()}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors duration-200"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-600 hidden sm:inline">Actualiser</span>
+            </button>
+
+            {/* Bouton Notifications */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors duration-200 relative"
+              >
+                <Bell className="w-4 h-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-600 hidden sm:inline">Notifs</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border z-50">
+                  <div className="p-3 border-b font-semibold text-sm">Notifications</div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {activities.slice(0, 5).map((act: any, idx: number) => (
+                      <div key={idx} className="p-3 hover:bg-gray-50 border-b text-sm">
+                        <p className="text-sm">{act.title || act.message}</p>
+                        <p className="text-xs text-gray-400 mt-1">{act.time}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Bouton Déconnexion */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 rounded-xl transition-colors duration-200 border border-red-200"
+            >
+              <LogOut className="w-4 h-4 text-red-600" />
+              <span className="text-sm font-medium text-red-600">Déconnexion</span>
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Période sélecteur */}
+      <div className="flex justify-end mb-6">
+        <select
+          value={selectedPeriod}
+          onChange={(e) => setSelectedPeriod(e.target.value as any)}
+          className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] shadow-sm"
+        >
+          <option value="week">7 derniers jours</option>
+          <option value="month">30 derniers jours</option>
+          <option value="year">12 derniers mois</option>
+        </select>
       </div>
 
       {/* Cartes stats - Grille responsive */}
@@ -376,7 +428,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   );
 }
 
-// Composants auxiliaires responsives
+// StatsCard component (same as before)
 const StatsCard = ({ icon, title, value, subValue, trend, color, animated }: any) => {
   const colorClasses = {
     blue: 'from-blue-500 to-blue-600',
