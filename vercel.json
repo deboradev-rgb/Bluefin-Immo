@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://api.bluefin-immo.com/api/v1/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
