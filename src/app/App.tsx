@@ -52,6 +52,8 @@ import { parseRoute, routeToPath, tabFromPage, routeFromTab, type Route, type Pa
 import { AdminSidebar } from './components/AdminSidebar';
 import { AdminHeader } from './components/AdminHeader';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { WhatsAppButton } from './components/WhatsAppButton';
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,10 +73,26 @@ function AppContent() {
   const [isBookingSheetOpen, setIsBookingSheetOpen] = useState(false);
   const { user, isAuthenticated, loading } = useAuth();
 
-  const navigate = (to: Route) => {
-    console.log('🔍 Navigation appelée avec:', to);
-    setRoute(to);
-    const path = routeToPath(to);
+  const navigate = (to: Route | string) => {
+    // Gérer le cas où to est une string (ex: 'auth', 'home')
+    let routeObject: Route;
+    
+    if (typeof to === 'string') {
+      routeObject = { name: to as Page };
+    } else {
+      routeObject = to;
+    }
+    
+    console.log('🔍 Navigation appelée avec:', routeObject);
+    
+    // Vérifier si la route est valide
+    if (!routeObject.name) {
+      console.error('❌ Route invalide:', routeObject);
+      routeObject = { name: 'home' };
+    }
+    
+    setRoute(routeObject);
+    const path = routeToPath(routeObject);
     const current = window.location.pathname + window.location.search;
     if (current !== path) {
       window.history.pushState({}, '', path);
@@ -84,7 +102,11 @@ function AppContent() {
   };
 
   useEffect(() => {
-    const onPop = () => setRoute(parseRoute(window.location.pathname + window.location.search));
+    const onPop = () => {
+      const newRoute = parseRoute(window.location.pathname + window.location.search);
+      console.log('🔍 Popstate détecté, nouvelle route:', newRoute);
+      setRoute(newRoute);
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
@@ -101,8 +123,8 @@ function AppContent() {
     }
     
     // Si c'est un Tab (string)
-    const route = routeFromTab(tab);
-    navigate(route);
+    const routeObj = routeFromTab(tab);
+    navigate(routeObj);
     if (tab !== 'auth') setMobileNavActive(tab);
   };
 
@@ -168,18 +190,7 @@ function AppContent() {
         currentPage={route.name}
       />
 
-      {/* Bouton WhatsApp Admin */}
-      <a
-        href="https://api.whatsapp.com/send?phone=+33651088321&text=Bonjour%20Bluefin%20Immo%20admin%2C%20j%27ai%20besoin%20d%27aide"
-        target="_blank"
-        rel="noreferrer noopener"
-        className="fixed bottom-6 right-4 z-50 flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-3 text-white shadow-xl hover:bg-[#1ebe5b] transition-colors sm:px-5 sm:py-4"
-      >
-        <svg className="w-5 h-5 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.783 1.14L.855 2.677 3.21 9.713a9.877 9.877 0 001.502 4.844h.004c2.364 2.044 5.921 3.268 9.77 3.268 5.442 0 9.886-4.108 9.886-9.159 0-2.341-.896-4.531-2.521-6.18a9.916 9.916 0 00-7.086-2.937z"/>
-        </svg>
-        <span className="text-xs sm:text-sm font-semibold">WhatsApp</span>
-      </a>
+      <WhatsAppButton />
 
       {/* Routes */}
       {route.name === 'home' && <HomePage onNavigate={navigate} />}

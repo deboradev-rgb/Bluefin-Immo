@@ -112,15 +112,26 @@ class AdminService {
   }
 
   // ==================== MODÉRATION DES PROPRIÉTÉS ====================
-  async getPendingProperties() {
-    const response = await v1Api.get('/admin/properties/pending');
-    const payload = response.data;
-    const properties = Array.isArray(payload)
-      ? payload
-      : payload?.data ?? payload?.data?.data ?? [];
-    const stats = payload?.stats ?? payload?.data?.stats ?? { total_pending: 0, pending_today: 0 };
-    return { data: properties, stats };
-  }
+  // admin.service.ts
+async getPendingProperties() {
+  console.log('🔍 Appel API: /admin/properties/pending');
+  
+  const response = await v1Api.get('/admin/properties/pending');
+  
+  // ✅ LOG POUR VOIR LA STRUCTURE COMPLÈTE
+  console.log('✅ Réponse API complète:', response.data);
+  console.log('✅ Propriétés:', response.data?.data?.data || response.data?.data);
+  console.log('✅ Première propriété:', (response.data?.data?.data || response.data?.data)?.[0]);
+  console.log('✅ Photos de la première:', (response.data?.data?.data || response.data?.data)?.[0]?.photos);
+  
+  const payload = response.data;
+  const properties = Array.isArray(payload)
+    ? payload
+    : payload?.data ?? payload?.data?.data ?? [];
+  const stats = payload?.stats ?? payload?.data?.stats ?? { total_pending: 0, pending_today: 0 };
+  
+  return { data: properties, stats };
+}
 
   async getPropertyForModeration(id: number) {
     const response = await v1Api.get(`/admin/properties/${id}/moderate`);

@@ -208,7 +208,7 @@ const isActive = (itemName: string) => {
               {menuOpen ? <X className="w-5 h-5 text-[#0f2940]" /> : <Menu className="w-5 h-5 text-[#0f2940]" />}
             </button>
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] flex items-center justify-center shadow-md">
-              <User className="w-5 h-5 text-white" />
+              
             </div>
           </div>
         </div>
@@ -516,79 +516,59 @@ const isActive = (itemName: string) => {
         </div>
       </div>
 
-      {/* Mobile menu drawer */}
-      {menuOpen && (
-        <div className="lg:hidden fixed inset-x-0 top-[88px] bg-white shadow-2xl z-40 border-t border-[#e2f5f2]">
-          <div className="px-4 py-6 space-y-4">
-            <div className="space-y-2">
-              {navItems.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => {
-                    onNavigate?.(item.route);
-                    setMenuOpen(false);
-                  }}
-                  className={`w-full text-left py-4 px-4 rounded-xl transition-all duration-300 font-medium text-base flex items-center gap-3
-                    ${isActive(item.name) 
-                      ? 'bg-gradient-to-r from-[#00c9a7] to-[#00b396] text-white shadow-md' 
-                      : 'text-[#0f2940] hover:bg-gray-50'
-                    }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span>{item.name}</span>
-                </button>
-              ))}
-            </div>
-            
-            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
-            
-            <div className="flex items-center justify-between gap-3 py-2 px-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <Globe className="w-5 h-5 text-[#00c9a7]" />
-                <select
-                  value={lang}
-                  onChange={(e) => setLang(e.target.value)}
-                  className="bg-transparent border-none outline-none text-sm font-medium text-[#0f2940]"
-                >
-                  <option>FR</option>
-                  <option>EN</option>
-                </select>
-              </div>
-              <div className="w-px h-5 bg-gray-300"></div>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="bg-transparent border-none outline-none text-sm font-medium text-[#0f2940]"
-              >
-                <option>XOF</option>
-                <option>EUR</option>
-              </select>
-            </div>
-            
-            <button
-              onClick={() => {
-                onNavigate?.({ name: 'become-host' });
-                setMenuOpen(false);
-              }}
-              className="w-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white py-4 rounded-xl font-medium text-base relative overflow-hidden group"
-            >
-              <span className="relative z-10">✨ Devenir hôte</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-[#00c9a7] to-[#00b396] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-            </button>
-            
-            <button
-              onClick={() => {
-                onNavigate?.({ name: 'auth' });
-                setMenuOpen(false);
-              }}
-              className="w-full text-[#0f2940] py-4 rounded-xl font-medium text-base border-2 border-[#00c9a7]/30 hover:border-[#00c9a7] transition-all flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-5 h-5" />
-              <span>S'inscrire/Se connecter</span>
-            </button>
-          </div>
-        </div>
-      )}
+     {/* Mobile menu drawer */}
+{menuOpen && (
+  <div className="lg:hidden fixed inset-x-0 top-[88px] bg-white shadow-xl z-40 border-t border-[#e2f5f2]">
+    <div className="px-4 py-3 space-y-2">
+      {/* Navigation items */}
+      <div className="space-y-1">
+        {navItems.map((item) => (
+          <button
+            key={item.name}
+            onClick={() => {
+              onNavigate?.(item.route);
+              setMenuOpen(false);
+            }}
+            className={`w-full text-left py-2.5 px-3 rounded-lg transition-all text-sm flex items-center gap-2
+              ${isActive(item.name) 
+                ? 'bg-gradient-to-r from-[#00c9a7] to-[#00b396] text-white shadow-sm' 
+                : 'text-[#0f2940] hover:bg-gray-50'
+              }`}
+          >
+            <item.icon className="w-4 h-4" />
+            <span className="text-sm">{item.name}</span>
+          </button>
+        ))}
+      </div>
+      
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-2"></div>
+      
+      {/* Devenir hôte button */}
+      <button
+        onClick={() => {
+          onNavigate?.({ name: 'become-host' });
+          setMenuOpen(false);
+        }}
+        className="w-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white py-2.5 rounded-lg text-sm font-medium relative overflow-hidden group"
+      >
+        <span className="relative z-10">✨ Devenir hôte</span>
+        <span className="absolute inset-0 bg-gradient-to-r from-[#00c9a7] to-[#00b396] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+      </button>
+      
+      {/* Auth button */}
+      <button
+        onClick={() => {
+          onNavigate?.({ name: 'auth' });
+          setMenuOpen(false);
+        }}
+        className="w-full text-[#0f2940] py-2.5 rounded-lg text-sm font-medium border border-[#00c9a7]/30 hover:border-[#00c9a7] transition-all flex items-center justify-center gap-2"
+      >
+        <LogIn className="w-4 h-4" />
+        <span>S'inscrire</span>
+      </button>
+    </div>
+  </div>
+)}
 
       <style>{`
         @keyframes slideDown {

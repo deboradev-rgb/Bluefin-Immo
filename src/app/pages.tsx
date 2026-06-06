@@ -11,6 +11,8 @@ import { Hero } from './components/Hero';
 import { ListingCard } from './components/ListingCard';
 import { ListingDetail } from './components/ListingDetail';
 import { useFavorites } from './hooks/useFavorites';
+import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
+// import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
 
 import { Layout } from './components/Layout';
 
@@ -1098,8 +1100,8 @@ const CommunityCommitment = ({ onAccept, onBack }: any) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <div className="max-w-2xl mx-auto p-6">
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto pb-24 lg:pb-0">
+      <div className="max-w-2xl mx-auto p-6 pb-8">
         <button onClick={onBack} className="flex items-center gap-2 text-gray-600 mb-6">
           <ArrowLeft className="w-5 h-5" /> Retour
         </button>
@@ -1133,45 +1135,68 @@ const CommunityCommitment = ({ onAccept, onBack }: any) => {
 // ========== ÉTAPES FACILES ==========
 const EasySteps = ({ onContinue, onQuit }: any) => {
   const steps = [
-    { icon: Home, title: "Créez votre annonce", desc: "Décrivez votre logement en quelques étapes" },
-    { icon: Calendar, title: "Calendrier et tarifs", desc: "Définissez vos disponibilités et prix" },
-    { icon: Users, title: "Accueillez les voyageurs", desc: "Recevez des réservations et gérez vos hôtes" }
+    { icon: Home, title: "Créez votre annonce", desc: "Décrivez votre logement en quelques étapes", color: "from-[#00c9a7] to-[#00b396]" },
+    { icon: Calendar, title: "Calendrier et tarifs", desc: "Définissez vos disponibilités et prix", color: "from-[#0f2940] to-[#1a3a52]" },
+    { icon: Users, title: "Accueillez les voyageurs", desc: "Recevez des réservations et gérez vos hôtes", color: "from-[#ff6b6b] to-[#ff5252]" }
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold text-[#0F2940] text-center mb-2">Comment ça marche ?</h1>
-        <p className="text-gray-500 text-center mb-8">Devenez hôte en 3 étapes simples</p>
+    <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-sm overflow-y-auto">
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="max-w-4xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden">
+          {/* Header avec bouton de fermeture */}
+          <div className="relative bg-gradient-to-r from-[#0f2940] to-[#1a3a52] px-6 py-8 text-center">
+            <button
+              onClick={onQuit}
+              className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Comment ça marche ?</h1>
+            <p className="text-white/80 text-sm md:text-base">Devenez hôte en 3 étapes simples</p>
+          </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {steps.map((step, idx) => {
-            const Icon = step.icon;
-            return (
-              <div key={idx} className="text-center">
-                <div className="w-16 h-16 mx-auto bg-[#00c9a7]/10 rounded-full flex items-center justify-center mb-3">
-                  <Icon className="w-8 h-8 text-[#00c9a7]" />
-                </div>
-                <h3 className="font-semibold text-[#0F2940]">{step.title}</h3>
-                <p className="text-sm text-gray-500 mt-1">{step.desc}</p>
-              </div>
-            );
-          })}
-        </div>
+          {/* Steps */}
+          <div className="p-6 md:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {steps.map((step, idx) => {
+                const Icon = step.icon;
+                return (
+                  <div key={idx} className="group text-center">
+                    {/* Étape numéro */}
+                    <div className="relative mb-4">
+                      <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white text-xs font-bold flex items-center justify-center">
+                        {idx + 1}
+                      </div>
+                      <div className={`w-20 h-20 mx-auto bg-gradient-to-r ${step.color} rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className="w-10 h-10 text-white" />
+                      </div>
+                    </div>
+                    <h3 className="font-semibold text-[#0F2940] text-lg mb-2">{step.title}</h3>
+                    <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
 
-        <div className="flex gap-4">
-          <button
-            onClick={onContinue}
-            className="flex-1 bg-[#00c9a7] text-[#0F2940] py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
-          >
-            Créer mon annonce
-          </button>
-          <button
-            onClick={onQuit}
-            className="flex-1 border border-gray-300 py-3 rounded-xl font-semibold hover:bg-gray-50 transition"
-          >
-            Plus tard
-          </button>
+            {/* Boutons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-slate-100">
+              <button
+                onClick={onContinue}
+                className="flex-1 bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-3 px-6 rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
+              >
+                Créer mon annonce
+              </button>
+              <button
+                onClick={onQuit}
+                className="flex-1 border-2 border-slate-200 text-slate-600 py-3 px-6 rounded-xl font-semibold hover:bg-slate-50 hover:border-slate-300 transition-all duration-300"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -7770,7 +7795,7 @@ export function AboutPage({ onNavigate }: PageProps) {
             À propos de Bluefin Immo
           </span>
           <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl text-white leading-tight mb-4">
-            Confort, praticité<br />et <em className="text-[#00C9A7] not-italic">sérénité</em> —<br />à chaque séjour.
+            Confort, Praticité<br />et <em className="text-[#00C9A7] not-italic">Sérénité</em> —<br />à chaque séjour.
           </h1>
           <p className="text-base text-white/50 max-w-md mx-auto">
             Des logements meublés modernes, soigneusement sélectionnés, pour que vous vous sentiez chez vous dès le premier instant.
@@ -8116,7 +8141,7 @@ interface TermsPage {
 
 export function TermsPage({ onNavigate }: PageProps) {
   const sections = [
-    { title: "1. Introduction", content: "Bluefin Immo s'engage à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations personnelles lorsque vous utilisez notre service de guide digital de Cotonou." },
+    { title: "1. Introduction", content: "Bluefin Immo s'engage à protéger votre vie privée. Cette politique de confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations personnelles lorsque vous utilisez notre service." },
     { title: "2. Informations que nous collectons", content: "Nous collectons les informations suivantes lorsque vous utilisez notre service : informations d'identification (nom, prénom, adresse e-mail), informations de paiement (montant des transactions, méthodes de paiement traitées par nos prestataires de paiement sécurisés), informations de préférence (langue préférée pour le guide), et données techniques (adresse IP, type de navigateur, pages visitées pour améliorer notre service)." },
     { title: "3. Utilisation des informations", content: "Nous utilisons vos informations pour : fournir et améliorer notre service de mise en relation, traiter vos paiements, vous envoyer vos identifiants d'accès, personnaliser votre expérience selon votre langue préférée, et communiquer avec vous concernant votre compte ou nos services." },
     { title: "4. Partage des informations", content: "Nous ne vendons, n'échangeons ni ne louons vos informations personnelles à des tiers. Nous pouvons partager vos informations uniquement avec nos prestataires de services de confiance (processeurs de paiement, services d'email) qui nous aident à exploiter notre service, sous réserve qu'ils acceptent de garder ces informations confidentielles." },
@@ -8540,6 +8565,7 @@ export function ServicesPage({ onNavigate }: PageProps) {
 
 // ========== PAGE PRINCIPALE BECOME HOST ==========
 export function BecomeHost({ onNavigate }: PageProps) {
+  const [selectedOption, setSelectedOption] = useState<'property' | 'experience' | 'service' | null>(null);
   const [showAuthPage, setShowAuthPage] = useState(false);
   const [showCommitment, setShowCommitment] = useState(false);
   const [userData, setUserData] = useState<any>(null);
@@ -8556,61 +8582,595 @@ export function BecomeHost({ onNavigate }: PageProps) {
   
   const handleCommitmentAccept = () => {
     setShowCommitment(false);
-    // Redirect to host dashboard after accepting commitment
-    onNavigate?.({ name: 'host-dashboard' });
+    if (selectedOption === 'property') {
+      onNavigate?.({ name: 'publish' });
+    } else if (selectedOption === 'experience') {
+      onNavigate?.({ name: 'publish-experience' });
+    } else if (selectedOption === 'service') {
+      onNavigate?.({ name: 'publish-service' });
+    } else {
+      onNavigate?.({ name: 'host-dashboard' });
+    }
   };
 
-  // If authentication page is shown
+  const handleOptionSelect = (option: 'property' | 'experience' | 'service') => {
+    setSelectedOption(option);
+    setShowAuthPage(true);
+  };
+
   if (showAuthPage) {
-    return <AuthPage onNavigate={onNavigate} onAuthSuccess={handleAuthSuccess} hideBackButton={false} />;
+    return <HostOnlyAuthPage onNavigate={onNavigate} onAuthSuccess={handleAuthSuccess} hideBackButton={false} />;
   }
 
-  // If community commitment is shown
   if (showCommitment) {
     return <CommunityCommitment onAccept={handleCommitmentAccept} onBack={() => { setShowCommitment(false); setShowAuthPage(true); }} />;
   }
 
-  // Main become host page
+  const hostOptions = [
+    {
+      id: 'property' as const,
+      title: 'Logement',
+      description: 'Mettez votre logement en location',
+      icon: Home,
+      color: 'from-[#00c9a7] to-[#00b396]',
+    },
+    {
+      id: 'experience' as const,
+      title: 'Expérience',
+      description: 'Partagez votre passion',
+      icon: Compass,
+      color: 'from-[#0f2940] to-[#1a3a52]',
+    },
+    {
+      id: 'service' as const,
+      title: 'Service',
+      description: 'Proposez vos services',
+      icon: Briefcase,
+      color: 'from-[#ff6b6b] to-[#ff5252]',
+    },
+  ];
+
+  const benefits = [
+    {
+      icon: Shield,
+      title: 'Sécurité renforcée',
+      description: 'Paiements sécurisés'
+    },
+    {
+      icon: MessageCircle,
+      title: 'Assistance 7j/7',
+      description: 'Une équipe disponible'
+    },
+    {
+      icon: CreditCard,
+      title: 'Paiements rapides',
+      description: 'Vos gains sous 24h'
+    },
+    {
+      icon: Globe,
+      title: 'Visibilité internationale',
+      description: 'Vue dans le monde entier'
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-          <ArrowLeft className="w-4 h-4" /> Retour
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-5 py-4">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-3 flex items-center gap-2 hover:text-[#00c9a7] transition-colors group">
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Retour
         </button>
-        <h1 className="text-2xl text-[#0F2940]">Devenir hôte</h1>
-        <p className="text-sm text-gray-500 mt-2">Partagez votre logement et gagnez avec une expérience d'hébergement optimisée.</p>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0F2940]">Devenir hôte</h1>
+        <p className="text-xs sm:text-sm text-gray-500 mt-1">Partagez votre espace et créez des revenus supplémentaires</p>
       </div>
 
-      <div className="px-5 py-8 grid gap-8 lg:grid-cols-[1fr_0.8fr] items-start">
-        <div className="space-y-8">
-          <div className="rounded-[2rem] bg-[#f4fffe] p-10">
-            <h2 className="text-3xl text-[#0F2940] font-semibold mb-4">Héberger n'a jamais été aussi simple.</h2>
-            <p className="text-gray-600 leading-relaxed">Notre site reprend l'ergonomie Airbnb pour proposer un parcours clair, un calendrier intuitif et une gestion des annonces adaptée aux hôtes africains.</p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
+        {/* Section Hero / Call to Action */}
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0f2940] to-[#1a3a52] p-6 sm:p-8 md:p-12 mb-8 sm:mb-12 text-center">
+          <div className="relative z-10">
+            <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[#00ffdb] mb-2 sm:mb-3">Hébergeurs</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-4">Rejoignez la communauté</h2>
+            <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-2xl mx-auto">
+              Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs locaux et internationaux.
+            </p>
           </div>
-          <div className="grid gap-4">
+        </div>
+
+        {/* 3 Options: Logement, Expérience, Service - Version mobile en row avec flex */}
+        <div className="mb-8 sm:mb-12">
+          <div className="text-center mb-6 sm:mb-8">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Comment souhaitez-vous contribuer ?</h3>
+            <p className="text-gray-500 text-xs sm:text-sm">Choisissez le type d'offre que vous voulez proposer</p>
+          </div>
+          
+          {/* Version mobile: flex row with equal width */}
+          <div className="flex flex-row gap-2 sm:hidden">
+            {hostOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleOptionSelect(option.id)}
+                  className="flex-1 group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-center transition-all duration-300 hover:shadow-lg active:scale-95"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-r ${option.color} opacity-0 group-active:opacity-10 transition-opacity duration-300`} />
+                  <div className="relative z-10">
+                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${option.color} text-white flex items-center justify-center mx-auto mb-2 shadow-md`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-[#0F2940] mb-1">
+                      {option.title}
+                    </h3>
+                    <p className="text-[10px] text-gray-500 leading-tight">
+                      {option.description}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Version desktop: grid layout */}
+          <div className="hidden sm:grid sm:grid-cols-3 gap-4 md:gap-6">
+            {hostOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => handleOptionSelect(option.id)}
+                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                >
+                  <div className={`absolute inset-0 bg-gradient-to-r ${option.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                  <div className="relative z-10">
+                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-r ${option.color} text-white flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="w-6 h-6 md:w-7 md:h-7" />
+                    </div>
+                    <h3 className="text-base md:text-lg font-semibold text-[#0F2940] mb-2 group-hover:text-[#00c9a7] transition-colors">
+                      {option.title}
+                    </h3>
+                    <p className="text-xs md:text-sm text-gray-500 leading-relaxed">
+                      {option.description}
+                    </p>
+                    <div className="mt-4 flex items-center gap-2 text-sm font-medium text-[#00c9a7] opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
+                      <span>Commencer</span>
+                      <ArrowLeft className="w-4 h-4 rotate-180" />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section Avantages - 2x2 sur mobile, 4x1 sur desktop */}
+        <div className="mb-8 sm:mb-12">
+          <div className="text-center mb-6 sm:mb-8">
+            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Pourquoi devenir hôte ?</h3>
+            <p className="text-gray-500 text-xs sm:text-sm">Des avantages conçus pour vous accompagner</p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {benefits.map((benefit, index) => {
               const Icon = benefit.icon;
               return (
-                <div key={index} className="rounded-3xl border border-gray-100 p-6 shadow-sm hover:shadow-lg transition-shadow">
-                  <div className="w-14 h-14 rounded-3xl bg-[#00c9a7]/10 text-[#00c9a7] flex items-center justify-center mb-4">
-                    <Icon className="w-7 h-7" />
+                <div key={index} className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 p-3 sm:p-4 md:p-6 text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg sm:rounded-xl bg-[#00c9a7]/10 text-[#00c9a7] flex items-center justify-center mx-auto mb-2 sm:mb-3 group-hover:scale-110 transition-transform duration-300">
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
                   </div>
-                  <h3 className="text-lg text-[#0F2940] mb-2">{benefit.title}</h3>
-                  <p className="text-gray-600 text-sm">{benefit.description}</p>
+                  <h4 className="text-xs sm:text-sm md:text-base font-semibold text-[#0F2940] mb-1">{benefit.title}</h4>
+                  <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed">{benefit.description}</p>
                 </div>
               );
             })}
           </div>
         </div>
-        <div className="rounded-[2rem] bg-[#0F2940] p-8 text-white">
-          <div className="mb-6">
-            <p className="text-sm uppercase tracking-[0.2em] text-[#00ffdb]">Hébergeurs</p>
-            <h2 className="text-3xl font-semibold mt-4">Rejoignez la communauté</h2>
-          </div>
-          <p className="text-sm text-white/80 leading-relaxed mb-8">Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs locaux et internationaux.</p>
-          <button onClick={handleStart} className="w-full rounded-2xl bg-[#00c9a7] py-4 text-[#0F2940] font-semibold hover:bg-[#00e0b0] transition-colors">
-            Accéder à mon espace hôte
+
+        {/* Bouton Accéder à mon espace - Tout en bas */}
+        <div className="flex justify-center pt-6 sm:pt-8 border-t border-slate-200">
+          <button
+            onClick={handleStart}
+            className="group relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#00c9a7] to-[#0f2940] px-6 sm:px-8 md:px-12 py-2.5 sm:py-3 md:py-4 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 active:scale-95"
+          >
+            <span className="relative z-10 flex items-center gap-2 text-sm sm:text-base">
+              Accéder à mon espace
+              <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 rotate-180 group-hover:translate-x-1 transition-transform" />
+            </span>
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Nouveau composant AuthPage spécifique pour les hôtes (sans options voyageur/visiteur)
+// HostOnlyAuthPage.tsx - Composant dédié aux hôtes avec design moderne
+function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
+  const { login, register } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    property_address: '',
+    property_type: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // const LogoUrl = './assets/Bluefin Immo_01.jpg.jpeg';
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const validateLogin = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    if (!formData.password) newErrors.password = "Le mot de passe est requis";
+    return newErrors;
+  };
+
+  const validateSignup = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.firstName) newErrors.firstName = "Le prénom est requis";
+    if (!formData.lastName) newErrors.lastName = "Le nom est requis";
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    if (!formData.password) newErrors.password = "Le mot de passe est requis";
+    else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    if (!formData.property_address) newErrors.property_address = "L'adresse de la propriété est requise";
+    if (!formData.property_type) newErrors.property_type = "Le type de propriété est requis";
+    return newErrors;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    setSuccessMessage('');
+    let validationErrors = {};
+    if (mode === 'login') validationErrors = validateLogin();
+    else validationErrors = validateSignup();
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        const payload = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          user_type: 'hote',
+          property_address: formData.property_address,
+          property_type: formData.property_type,
+        };
+        const response = await register(payload);
+        setSuccessMessage('Inscription réussie ! Redirection...');
+        setTimeout(() => {
+          if (onAuthSuccess) {
+            onAuthSuccess(response?.user);
+          } else {
+            onNavigate?.({ name: 'host-dashboard' });
+          }
+        }, 1500);
+      } else if (mode === 'login') {
+        const response = await login(formData.email, formData.password);
+        const userType = response?.user?.user_type;
+        
+        if (userType !== 'hote') {
+          setErrors({ general: 'Cet espace est réservé aux hôtes. Veuillez utiliser un compte hôte.' });
+          setLoading(false);
+          return;
+        }
+        
+        setSuccessMessage('Connexion réussie !');
+        setTimeout(() => {
+          if (onAuthSuccess) {
+            onAuthSuccess(response?.user);
+          } else {
+            onNavigate?.({ name: 'host-dashboard' });
+          }
+        }, 1500);
+      }
+    } catch (err: any) {
+      setErrors({ general: err.response?.data?.message || 'Erreur, veuillez réessayer' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
+      {!hideBackButton && (
+      // Dans HostOnlyAuthPage (à l'intérieur de BecomeHost ou dans le fichier pages.tsx)
+<div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center gap-4 z-20">
+  <button 
+    onClick={() => {
+      console.log('Retour button clicked');
+      
+      // Méthode 1: Essayer avec onNavigate
+      if (onNavigate) {
+        onNavigate({ name: 'become-host' });
+      }
+      
+      // Méthode 2: Forcer la navigation directe après un court délai
+      setTimeout(() => {
+        // Vérifier si on est toujours sur la même page
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('auth') || !currentPath.includes('become-host')) {
+          console.log('🔍 Fallback: navigation forcée vers become-host');
+          window.location.href = '/become-host';
+        }
+      }, 100);
+    }} 
+    className="p-2 rounded-full hover:bg-slate-100 transition-all duration-300 group"
+  >
+    <ArrowLeft className="w-5 h-5 text-slate-600 group-hover:text-[#0F2940]" />
+  </button>
+  <h1 className="text-lg font-semibold text-[#0F2940]">
+    {mode === 'login' ? 'Espace Hôte' : 'Devenir Hôte'}
+  </h1>
+</div>
+      )}
+
+      <div className="flex items-center justify-center px-4 py-12 md:py-16">
+        <div className="w-full max-w-md">
+          {/* Card moderne avec effet glassmorphism léger */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
+            <div className="p-8 md:p-10">
+              {/* Logo et titre */}
+              <div className="text-center mb-8">
+                <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-[#00c9a7]/10 to-[#0f2940]/10 p-1">
+                  <div className="w-full h-full rounded-xl overflow-hidden bg-white">
+                    <img 
+                      src={LogoUrl} 
+                      alt="Bluefin-Immo" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<span class="text-3xl font-bold text-white bg-gradient-to-r from-[#00c9a7] to-[#0f2940] w-full h-full flex items-center justify-center">B</span>';
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <h2 className="text-3xl font-bold text-[#0F2940] mb-2">
+                  {mode === 'login' ? 'Bon retour parmi nous' : 'Commencez votre aventure'}
+                </h2>
+                <p className="text-slate-500 text-sm">
+                  {mode === 'login' 
+                    ? 'Connectez-vous à votre espace hôte' 
+                    : 'Créez votre compte et partagez votre espace'}
+                </p>
+              </div>
+
+              {/* Messages de statut */}
+              {successMessage && (
+                <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <Check className="w-5 h-5 text-emerald-500" />
+                  <p className="text-sm text-emerald-700">{successMessage}</p>
+                </div>
+              )}
+              
+              {errors.general && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <p className="text-sm text-red-700">{errors.general}</p>
+                </div>
+              )}
+
+              {/* Formulaire */}
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {mode === 'signup' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Prénom</label>
+                        <div className="relative group">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                          <input
+                            type="text"
+                            name="firstName"
+                            value={formData.firstName}
+                            onChange={handleChange}
+                            placeholder="Jean"
+                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.firstName ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                          />
+                        </div>
+                        {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Nom</label>
+                        <div className="relative group">
+                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                          <input
+                            type="text"
+                            name="lastName"
+                            value={formData.lastName}
+                            onChange={handleChange}
+                            placeholder="Dupont"
+                            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.lastName ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                          />
+                        </div>
+                        {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Téléphone</label>
+                      <div className="relative group">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          placeholder="+229 XX XX XX XX"
+                          className="w-full pl-10 pr-4 py-3 border border-slate-200 bg-slate-50/50 rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Adresse de la propriété</label>
+                      <input
+                        type="text"
+                        name="property_address"
+                        value={formData.property_address}
+                        onChange={handleChange}
+                        placeholder="Rue, quartier, ville"
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.property_address ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                      />
+                      {errors.property_address && <p className="text-xs text-red-500 mt-1">{errors.property_address}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Type de propriété</label>
+                      <select
+                        name="property_type"
+                        value={formData.property_type}
+                        onChange={handleChange}
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all bg-slate-50/50 ${errors.property_type ? 'border-red-500' : 'border-slate-200'}`}
+                      >
+                        <option value="">Sélectionnez un type</option>
+                        <option value="appartement">🏢 Appartement</option>
+                        <option value="maison">🏠 Maison</option>
+                        <option value="villa">🏰 Villa</option>
+                        <option value="chambre">🛏️ Chambre privée</option>
+                      </select>
+                      {errors.property_type && <p className="text-xs text-red-500 mt-1">{errors.property_type}</p>}
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="contact@example.com"
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.email ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                    />
+                  </div>
+                  {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Mot de passe</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="••••••••"
+                      className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.password ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)} 
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
+                </div>
+
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Confirmer mot de passe</label>
+                    <div className="relative group">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#00c9a7] transition-colors" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="••••••••"
+                        className={`w-full pl-10 pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all ${errors.confirmPassword ? 'border-red-500 bg-red-50/50' : 'border-slate-200 bg-slate-50/50'}`}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-3.5 rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Chargement...</span>
+                    </div>
+                  ) : mode === 'login' ? (
+                    'Se connecter'
+                  ) : (
+                    'Créer mon compte hôte'
+                  )}
+                </button>
+              </form>
+
+              {/* Switch entre connexion et inscription */}
+              <div className="text-center mt-8 pt-6 border-t border-slate-100">
+                {mode === 'login' ? (
+                  <p className="text-sm text-slate-500">
+                    Pas encore de compte hôte ?{' '}
+                    <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-semibold hover:underline">
+                      S'inscrire
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Déjà un compte hôte ?{' '}
+                    <button onClick={() => setMode('login')} className="text-[#00c9a7] font-semibold hover:underline">
+                      Se connecter
+                    </button>
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer moderne */}
+          <p className="text-center text-xs text-slate-400 mt-6">
+            En continuant, vous acceptez nos{' '}
+            <button className="text-[#00c9a7] hover:underline">conditions générales</button>
+          </p>
         </div>
       </div>
     </div>
@@ -8626,7 +9186,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'traveler' | 'host' | 'visitor'>('traveler');
+  const [selectedRole, setSelectedRole] = useState<'traveler' | 'visitor'>('traveler'); // Changé: retiré 'host'
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -8693,21 +9253,15 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
           phone: formData.phone,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
-          user_type: selectedRole === 'host' ? 'hote' : 'voyageur',
+          user_type: 'voyageur', // Toujours voyageur, plus hôte
         };
-        if (selectedRole === 'host') {
-          payload.property_address = formData.property_address;
-          payload.property_type = formData.property_type;
-        }
+        // Retiré les champs spécifiques hôte
         const response = await register(payload);
         setSuccessMessage('Inscription réussie ! Redirection...');
-        // Après inscription, rediriger selon le rôle
-        const userType = response?.user?.user_type;
+        // Après inscription, rediriger vers profil
         setTimeout(() => {
-          if (onAuthSuccess && userType === 'hote') {
+          if (onAuthSuccess) {
             onAuthSuccess(response?.user);
-          } else if (userType === 'hote') {
-            onNavigate?.({ name: 'host-dashboard' });
           } else {
             onNavigate?.({ name: 'profile' });
           }
@@ -8757,9 +9311,9 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     }
   };
 
+  // Roles modifiés: seulement Voyageur et Visiteur
   const roles = [
     { id: 'traveler' as const, name: 'Voyageur', icon: Compass },
-    { id: 'host' as const, name: 'Hôte', icon: Home },
     { id: 'visitor' as const, name: 'Visiteur', icon: Briefcase },
   ];
 
@@ -8800,14 +9354,32 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
               ) : (
                 <>
                   <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <span className="text-2xl font-bold text-white">B</span>
+                    {/* Logo */}
+                    <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg bg-white">
+                      <img 
+                        src={LogoUrl} 
+                        alt="Bluefin-Immo" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<span class="text-2xl font-bold text-white bg-gradient-to-r from-[#00c9a7] to-[#0f2940] w-full h-full flex items-center justify-center">B</span>';
+                          }
+                        }}
+                      />
                     </div>
                     <h2 className="text-2xl font-bold text-[#0F2940]">
                       {mode === 'login' && 'Bienvenue !'}
                       {mode === 'signup' && 'Rejoignez Bluefin-Immo'}
                       {mode === 'forgot' && 'Besoin d\'aide ?'}
                     </h2>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {mode === 'login' && 'Connectez-vous à votre compte'}
+                      {mode === 'signup' && 'Créez votre compte en quelques secondes'}
+                      {mode === 'forgot' && 'Entrez votre email pour recevoir un code'}
+                    </p>
                   </div>
 
                   {successMessage && (
@@ -8822,7 +9394,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     {mode === 'signup' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-2 gap-2"> {/* Changé: grid-cols-2 au lieu de 3 */}
                           {roles.map(role => {
                             const Icon = role.icon;
                             return (
@@ -8907,36 +9479,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                       </div>
                     )}
 
-                    {mode === 'signup' && selectedRole === 'host' && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Adresse de la propriété</label>
-                          <input
-                            type="text"
-                            name="property_address"
-                            value={formData.property_address}
-                            onChange={handleChange}
-                            placeholder="Rue, quartier, ville"
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété</label>
-                          <select
-                            name="property_type"
-                            value={formData.property_type}
-                            onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-200 rounded-xl"
-                          >
-                            <option value="">Sélectionnez</option>
-                            <option value="appartement">Appartement</option>
-                            <option value="maison">Maison</option>
-                            <option value="villa">Villa</option>
-                            <option value="chambre">Chambre privée</option>
-                          </select>
-                        </div>
-                      </>
-                    )}
+                    {/* Section des champs hôte complètement supprimée */}
 
                     {mode !== 'forgot' && (
                       <div>

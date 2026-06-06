@@ -11,45 +11,60 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 // ✅ UNE SEULE FONCTION getImageUrl (pas de doublon)
-// AdminPropertiesPage.tsx
-const getImageUrl = (photo: any): string => {
+const getImageUrl = (photo: any, propertyId?: number): string => {
   if (!photo) return '/placeholder.jpg';
   
-  // Si c'est une URL complète qui fonctionne déjà
-  if (photo.full_url && photo.full_url.startsWith('https://api.bluefin-immo.com')) {
+  // ✅ NOUVELLE LOGIQUE : Utiliser le chemin direct du serveur de fichiers
+  // Extraire le nom du fichier depuis photo_path ou photo_url
+  let filename = '';
+  let propId = propertyId || photo.property_id;
+  
+  if (photo.photo_path) {
+    filename = photo.photo_path.split('/').pop() || '';
+  } else if (photo.photo_url) {
+    filename = photo.photo_url.split('/').pop() || '';
+  }
+  
+  // Si on a un ID de propriété et un nom de fichier, construire l'URL correcte
+  if (propId && filename) {
+    const correctUrl = `https://srv2197-files.hstgr.io/28a0f068e12622a7/files/public_html/api/public/storage/properties/${propId}/${filename}`;
+    console.log('✅ URL construite:', correctUrl);
+    return correctUrl;
+  }
+  
+  // Fallback: utiliser full_url si disponible
+  if (photo.full_url) {
+    console.log('⚠️ Fallback full_url:', photo.full_url);
     return photo.full_url;
   }
   
-  if (photo.photo_url && photo.photo_url.startsWith('https://api.bluefin-immo.com')) {
+  // Dernier fallback
+  if (photo.photo_url) {
+    console.log('⚠️ Fallback photo_url:', photo.photo_url);
     return photo.photo_url;
   }
   
-  // Si c'est un chemin relatif, construire l'URL complète avec l'API
-  const baseUrl = 'https://api.bluefin-immo.com/api/storage/photos/';
-  let path = photo.photo_url || photo.photo_path || '';
-  
-  // Nettoyer le chemin (enlever les préfixes indésirables)
-  path = path.replace(/^\/?(api\/storage\/photos\/|storage\/photos\/|storage\/|photos\/)/, '');
-  
-  // Si le chemin commence par http, c'est déjà une URL
-  if (path.startsWith('http')) {
-    return path;
-  }
-  
-  return `${baseUrl}${path}`;
+  console.log('❌ Aucune image trouvée');
+  return '/placeholder.jpg';
 };
-
 // ✅ UNE SEULE FONCTION getPropertyImage
+
 const getPropertyImage = (property: any): string => {
+  if (!property) return '/placeholder.jpg';
+  
   if (property.photos && property.photos.length > 0) {
-    return getImageUrl(property.photos[0]);
+    // ✅ Passer l'ID de la propriété à getImageUrl
+    return getImageUrl(property.photos[0], property.id);
   }
+  
   if (property.cover_photo) {
-    return getImageUrl(property.cover_photo);
+    return getImageUrl(property.cover_photo, property.id);
   }
+  
   if (property.image_url) {
-    return getImageUrl(property.image_url);
+    return getImageUrl(property.image_url, property.id);
   }
+  
   return '/placeholder.jpg';
 };
 
@@ -133,6 +148,10 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
   console.log('🔍 Photos de la première propriété:', properties[0]?.photos);
   console.log('🔍 Photo URL brute:', properties[0]?.photos?.[0]?.photo_url);
   console.log('🔍 Photo path brute:', properties[0]?.photos?.[0]?.photo_path);
+
+  console.log('🔍 Image de la première propriété:', getPropertyImage(properties[0]));
+
+  
 
   const approveMutation = useMutation({
     mutationFn: ({ id, notes, featured }: { id: number; notes?: string; featured?: boolean }) =>
