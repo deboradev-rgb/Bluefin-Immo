@@ -9017,8 +9017,8 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
             <div>
               <h3 class="font-semibold text-lg mb-3">Combien de temps le processus de vérification prend-il ?</h3>
               <div class="bg-gradient-to-r from-[#f4fffe] to-white rounded-xl p-5 border border-[#e2f5f2]">
-                <p>En général, le processus de vérification prend quelques semaines. Toutefois, cela peut prendre plus de temps, en particulier dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en liste d'attente.</p>
-              </div>
+  <p>En général, le processus de vérification prend <strong>24h à 48h</strong>. Toutefois, cela peut prendre plus de temps, en particulier dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en liste d'attente.</p>
+</div>
             </div>
           </div>
         `
