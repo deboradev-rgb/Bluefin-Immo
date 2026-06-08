@@ -8711,7 +8711,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
     { id: "hote_logement", label: "Hôte d'un logement", icon: Home },
     { id: "hote_experience", label: "Hôte d'expérience", icon: Sparkles },
     { id: "hote_service", label: "Hôte de services", icon: Briefcase },
-    { id: "administrateur", label: "Administrateur de voyages", icon: Globe },
+
   ];
 
   // Rôles visibles et cachés pour le menu sur mobile
