@@ -8856,7 +8856,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
             
             <h3 class="font-semibold text-lg mt-4">Combien de temps dure la vérification ?</h3>
             <div class="bg-[#f4fffe] rounded-xl p-4">
-              <p>En général, le processus prend <strong>quelques semaines</strong>. Cependant, cela peut prendre plus de temps dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en <strong>liste d'attente</strong>.</p>
+              <p>En général, le processus prend <strong>24 heures à 48 heures</strong>. Cependant, cela peut prendre plus de temps dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en <strong>liste d'attente</strong>.</p>
             </div>
           </div>
         `
