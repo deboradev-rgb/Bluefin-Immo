@@ -8747,37 +8747,42 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
         `
       },
       { 
-        id: "experience-deposer-demande", 
-        title: "Que dois-je faire pour déposer ma demande ?", 
-        description: "Guide étape par étape pour soumettre votre expérience.",
-        content: `
-          <div class="space-y-4">
-            <p>Rien de plus simple ! Suivez ces étapes :</p>
-            <div class="space-y-3">
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
-                <div><strong>Présentez-vous</strong> et décrivez votre expérience en détail.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
-                <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité, des détails précis et un itinéraire.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
-                <div><strong>Définissez vos tarifs</strong> de manière compétitive.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
-                <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
-              </div>
-            </div>
-            <p>Notre équipe pourra vous contacter pour vous suggérer des ajustements ou vous demander certains documents (agréments, justificatif d'assurance). Une fois approuvée, votre annonce est en ligne et vous pouvez commencer à recevoir des réservations.</p>
-            <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
-              <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
-            </div>
-          </div>
-        `
-      },
+  id: "experience-deposer-demande", 
+  title: "Que dois-je faire pour déposer ma demande ?", 
+  description: "Guide étape par étape pour soumettre votre expérience.",
+  content: `
+    <div class="space-y-4">
+      <p>Rien de plus simple ! Suivez ces étapes :</p>
+      <div class="space-y-3">
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
+          <div><strong>Présentez-vous</strong> et décrivez votre expérience en détail.</div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
+          <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité, des détails précis et un itinéraire.</div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
+          <div><strong>Définissez vos tarifs</strong> de manière compétitive.</div>
+        </div>
+        <div class="flex gap-3">
+          <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
+          <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
+        </div>
+      </div>
+      <p>Notre équipe pourra vous contacter pour vous suggérer des ajustements ou vous demander certains documents (agréments, justificatif d'assurance). Une fois approuvée, votre annonce est en ligne et vous pouvez commencer à recevoir des réservations.</p>
+      <div class=" rounded-xl p-4 text-center">
+        <button 
+          onclick="window.location.href='/auth'" 
+          class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition cursor-pointer"
+        >
+          Commencer mon inscription
+        </button>
+      </div>
+    </div>
+  `
+},
       { 
         id: "experience-frais", 
         title: "Quels sont les frais Bluefin ?", 
