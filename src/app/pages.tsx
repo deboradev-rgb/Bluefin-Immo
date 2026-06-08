@@ -8723,29 +8723,29 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
     title: "Aide pour les hôtes d'expérience",
     description: "Trouvez des réponses à vos questions sur la création, la gestion et la promotion de vos expériences.",
     articles: [
-      { 
-        id: "experience-adaptee", 
-        title: "Mon expérience est-elle adaptée sur Bluefin ?", 
-        description: "Découvrez les critères pour qu'une expérience soit éligible sur Bluefin Immo.",
-        content: `
-          <div class="space-y-4">
-            <p>Les Expériences Bluefin sont des activités mémorables animées par des hôtes passionnés, experts de leur ville.</p>
-            <p><strong>Types d'expériences acceptées :</strong></p>
-            <ul class="list-disc pl-5 space-y-1">
-              <li>Visites insolites et circuits thématiques</li>
-              <li>Dégustations et ateliers culinaires</li>
-              <li>Ateliers créatifs (artisanat, peinture, photographie)</li>
-              <li>Cours (danse, musique, langue, cuisine)</li>
-              <li>Activités en plein air (randonnée, vélo, sports)</li>
-              <li>Expériences culturelles et immmersives</li>
-            </ul>
-            <p>Chaque expérience est conçue pour être unique et authentique.</p>
-            <div class="bg-[#f4fffe] rounded-xl p-4 mt-4">
-              <p class="text-sm text-[#0F2940]">📌 <strong>En savoir plus :</strong> Consultez nos critères détaillés pour les expériences Bluefin.</p>
-            </div>
-          </div>
-        `
-      },
+     { 
+  id: "experience-adaptee", 
+  title: "Mon expérience est-elle adaptée sur Bluefin ?", 
+  description: "Découvrez les critères pour qu'une expérience soit éligible sur Bluefin Immo.",
+  content: `
+    <div class="space-y-4">
+      <p>Les Expériences Bluefin sont des activités mémorables animées par des hôtes passionnés, experts de leur ville.</p>
+      <p><strong>Types d'expériences acceptées :</strong></p>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Visites insolites</div>
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Dégustations culinaires</div>
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Ateliers créatifs</div>
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Cours (danse, musique)</div>
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Activités en plein air</div>
+        <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Expériences culturelles</div>
+      </div>
+      <p>Chaque expérience est conçue pour être unique et authentique.</p>
+      <div class="bg-[#f4fffe] rounded-xl p-4 mt-4">
+        <p class="text-sm text-[#0F2940]"><strong> En savoir plus :</strong> Consultez nos critères détaillés pour les expériences Bluefin.</p>
+      </div>
+    </div>
+  `
+},
       { 
   id: "experience-deposer-demande", 
   title: "Que dois-je faire pour déposer ma demande ?", 
@@ -8828,7 +8828,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
               <li>Les <strong>délais de traitement</strong> de votre établissement bancaire</li>
             </ul>
             <div class="bg-[#f4fffe] rounded-xl p-4">
-              <p class="font-semibold text-[#0F2940]">⏱️ Délai standard :</p>
+              <p class="font-semibold text-[#0F2940]">⏱Délai standard :</p>
               <p>Vous recevez votre paiement dès le <strong>lendemain de la réalisation de l'expérience</strong>.</p>
             </div>
           </div>
@@ -8910,16 +8910,16 @@ const getServiceContent = () => ({
           <p>Les services Bluefin-Immo sont des prestations d'excellente qualité qui agrémentent le séjour des voyageurs.</p>
           <p><strong>Catégories de services acceptés :</strong></p>
           <div class="grid grid-cols-2 gap-3">
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍽️ Traiteur</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">👨‍🍳 Chef privé</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💇‍♀️ Coiffure</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💄 Maquillage</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💆‍♀️ Massage</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💅 Mani-pédi</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🏋️ Coaching privé</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">📸 Photographie</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍲 Plats préparés</div>
-            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🧘 Soins bien-être</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Traiteur</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">Chef privé</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Coiffure</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Maquillage</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Massage</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Mani-pédi</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Coaching privé</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Photographie</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Plats préparés</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center"> Soins bien-être</div>
           </div>
         </div>
       `
@@ -8963,7 +8963,7 @@ const getServiceContent = () => ({
         <div class="space-y-4">
           <p>La création et l'envoi de l'annonce sont <strong>gratuits</strong>.</p>
           <div class="bg-[#f4fffe] rounded-xl p-4">
-            <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
+            <p class="font-semibold text-[#0F2940]">Frais de service :</p>
             <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
             <p>Pour chaque service réservé, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
           </div>
@@ -8995,7 +8995,7 @@ const getServiceContent = () => ({
         <div class="space-y-4">
           <p>Le délai varie selon le mode de versement choisi et les délais de traitement bancaire.</p>
           <div class="bg-[#f4fffe] rounded-xl p-4">
-            <p><strong>⏱️ Délai standard :</strong> Paiement reçu dès le <strong>lendemain de la réalisation du service</strong>.</p>
+            <p><strong>⏱Délai standard :</strong> Paiement reçu dès le <strong>lendemain de la réalisation du service</strong>.</p>
           </div>
         </div>
       `
@@ -9063,7 +9063,7 @@ const getServiceContent = () => ({
               <div class="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
                 <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                 <p class="text-xs text-blue-700">
-                  💡 Les exigences varient selon la commune et le type de service proposé (alimentation, bien-être, transport, etc.).
+                  Les exigences varient selon la commune et le type de service proposé (alimentation, bien-être, transport, etc.).
                 </p>
               </div>
             </div>
