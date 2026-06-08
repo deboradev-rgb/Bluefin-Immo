@@ -8774,7 +8774,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
       <p>Notre équipe pourra vous contacter pour vous suggérer des ajustements ou vous demander certains documents (agréments, justificatif d'assurance). Une fois approuvée, votre annonce est en ligne et vous pouvez commencer à recevoir des réservations.</p>
       <div class=" rounded-xl p-4 text-center">
         <button 
-          onclick="window.location.href='/auth'" 
+          onclick="window.location.href='/become-host'" 
           class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition cursor-pointer"
         >
           Commencer mon inscription
