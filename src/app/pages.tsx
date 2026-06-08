@@ -8791,7 +8791,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
           <div class="space-y-4">
             <p>La création et l'envoi de l'annonce en vue de sa vérification sont <strong>gratuits</strong>.</p>
             <div class="bg-[#f4fffe] rounded-xl p-4">
-              <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
+              <p class="font-semibold text-[#0F2940]">Frais de service :</p>
               <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
               <p class="text-sm text-gray-600">Pour chaque expérience réservée, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
             </div>
