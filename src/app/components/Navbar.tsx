@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, ChevronLeft, ChevronRight, Users, Plus, Minus } from 'lucide-react';
+import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, ChevronLeft, ChevronRight, Users, Plus, Minus, Baby, Dog, Info } from 'lucide-react';
 import type { Route } from '../router';
 import Logo from '../assets/Bluefin Immo_01.jpg.jpeg';
 
@@ -26,6 +26,8 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
   const [checkOut, setCheckOut] = useState("");
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
+  const [babies, setBabies] = useState(0);
+  const [pets, setPets] = useState(0);
   const [activeTab, setActiveTab] = useState<"destination" | "dates" | "guests" | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
@@ -67,10 +69,20 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
 
   const guestLabel = () => {
     const totalGuests = adults + children;
+    const parts = [];
+    
     if (totalGuests > 0) {
-      return `${totalGuests} voyageur${totalGuests > 1 ? 's' : ''}`;
+      parts.push(`${totalGuests} voyageur${totalGuests > 1 ? 's' : ''}`);
     }
-    return "Ajouter des voyageurs";
+    if (babies > 0) {
+      parts.push(`${babies} bébé${babies > 1 ? 's' : ''}`);
+    }
+    if (pets > 0) {
+      parts.push(`${pets} animal${pets > 1 ? 's' : ''}`);
+    }
+    
+    if (parts.length === 0) return "Ajouter des voyageurs";
+    return parts.join(" · ");
   };
 
   const dateLabel = () => {
@@ -157,7 +169,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
     
     setIsSearching(true);
     
-    const totalGuests = adults + children;
+    const totalGuests = adults + children + (babies > 0 ? 1 : 0);
     
     const searchParams = {
       destination: destination,
@@ -185,7 +197,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
     
     setIsSearching(true);
     
-    const totalGuests = adults + children;
+    const totalGuests = adults + children + (babies > 0 ? 1 : 0);
     
     const searchParams = {
       destination: destination,
@@ -411,7 +423,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
 
               <div className="w-px h-8 bg-gray-200"></div>
 
-              {/* Bouton Voyageurs */}
+              {/* Bouton Voyageurs - Version complète avec bébés et animaux */}
               <div className="relative flex-1">
                 <button
                   onClick={() => setActiveTab(activeTab === "guests" ? null : "guests")}
@@ -424,9 +436,9 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                   </div>
                 </button>
                 
-                {/* Popup Voyageurs */}
+                {/* Popup Voyageurs - Version complète */}
                 {activeTab === "guests" && (
-                  <div ref={guestsPopupRef} className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
+                  <div ref={guestsPopupRef} className="absolute top-full right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
                     <div className="p-5">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold">Voyageurs</h3>
@@ -481,9 +493,69 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                             </button>
                           </div>
                         </div>
+                        
+                        {/* Bébés */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm flex items-center gap-2">
+                              <Baby className="w-4 h-4 text-[#00c9a7]" />
+                              Bébés
+                            </p>
+                            <p className="text-xs text-gray-500">Moins de 2 ans</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => setBabies(Math.max(0, babies - 1))} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-base font-medium">{babies}</span>
+                            <button 
+                              onClick={() => setBabies(babies + 1)} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Animaux domestiques */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm flex items-center gap-2">
+                              <Dog className="w-4 h-4 text-[#00c9a7]" />
+                              Animaux domestiques
+                            </p>
+                            <p className="text-xs text-gray-500">Vous voyagez avec un animal ?</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => setPets(Math.max(0, pets - 1))} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-base font-medium">{pets}</span>
+                            <button 
+                              onClick={() => setPets(pets + 1)} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                       
-                      <div className="mt-6 pt-4 border-t border-gray-100">
+                      {/* Note informative */}
+                      <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-blue-700">
+                          Les bébés et animaux n'affectent pas le nombre total de voyageurs mais sont pris en compte par certains hôtes.
+                        </p>
+                      </div>
+                      
+                      <div className="mt-4 pt-3 border-t border-gray-100">
                         <button 
                           onClick={() => setActiveTab(null)} 
                           className="w-full bg-[#00c9a7] text-white py-2.5 rounded-lg font-medium hover:bg-[#00b396] transition"
@@ -510,7 +582,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
         </div>
       </div>
 
-      {/* Mobile Search Modal */}
+      {/* Mobile Search Modal - Version complète */}
       {mobileSearchActive && (
         <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
           <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
@@ -583,7 +655,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
               </div>
             </div>
 
-            {/* Voyageurs */}
+            {/* Voyageurs - Version complète sur mobile */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Voyageurs</label>
               <div className="space-y-4 bg-gray-50 rounded-xl p-4">
@@ -607,6 +679,34 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                     <button onClick={() => setChildren(Math.max(0, children - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">-</button>
                     <span className="w-8 text-center text-base font-medium">{children}</span>
                     <button onClick={() => setChildren(children + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">+</button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      <Baby className="w-4 h-4 text-[#00c9a7]" />
+                      Bébés
+                    </p>
+                    <p className="text-xs text-gray-500">Moins de 2 ans</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setBabies(Math.max(0, babies - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">-</button>
+                    <span className="w-8 text-center text-base font-medium">{babies}</span>
+                    <button onClick={() => setBabies(babies + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">+</button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      <Dog className="w-4 h-4 text-[#00c9a7]" />
+                      Animaux
+                    </p>
+                    <p className="text-xs text-gray-500">Vous voyagez avec un animal ?</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setPets(Math.max(0, pets - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">-</button>
+                    <span className="w-8 text-center text-base font-medium">{pets}</span>
+                    <button onClick={() => setPets(pets + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">+</button>
                   </div>
                 </div>
               </div>

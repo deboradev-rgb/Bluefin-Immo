@@ -2323,128 +2323,138 @@ const filtersList = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux noté
 // Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
 // Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
 const mapProperty = (p: any) => {
- 
-console.log('Données brutes de la propriété:', p);
-console.log('Clés disponibles:', Object.keys(p));
-console.log('photos:', p.photos);
-console.log('cover_photo:', p.cover_photo);
-console.log('photo_urls:', p.photo_urls);
-console.log('photo_url:', p.photo_url);
-console.log('image:', p.image);
-console.log('image_url:', p.image_url);
-console.log('images:', p.images);
-console.log('gallery:', p.gallery);
-  const isAdminProperty = Boolean(
-    p.added_by_admin || p.is_admin || p.source === 'admin' || p.created_by === 'admin' || p.user?.user_type === 'admin' || p.host?.user_type === 'admin'
-  );
-  // Utiliser le prix fourni par l'API si disponible (admin ou non)
-  const rawPrice = p.price_per_night ?? p.price ?? 0;
-  const priceValue = Number(rawPrice) || 0;
+  console.log('Données brutes de la propriété:', p);
   
-  // ✅ FONCTION POUR RÉCUPÉRER LA PREMIÈRE PHOTO
+  // ✅ FONCTION AMÉLIORÉE POUR RÉCUPÉRER LA PREMIÈRE PHOTO
   const getFirstImage = () => {
-    const normalizeCandidate = (cand: any): string => {
-      if (!cand) return '';
-      // If it's an object with known keys, extract the string
-      if (typeof cand === 'object') {
-        const s = cand.full_url || cand.photo_url || cand.url || cand.path || cand.file?.url || cand.file?.path || cand.photo_path;
-        if (s) return getImageUrl(s);
-        return '';
-      }
-      if (typeof cand === 'string') return getImageUrl(cand);
-      return '';
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    
+    const normalizeUrl = (url: string): string => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/')) return `${API_URL}${url}`;
+      return `${API_URL}/${url}`;
     };
-
-    // Try cover_photo
-    const coverCand = p?.cover_photo;
-    const cover = normalizeCandidate(coverCand);
-    if (cover) return cover;
-
-    // Try singular fields
-    const singulars = [p?.photo_url, p?.image_url, p?.image, p?.cover_photo?.photo_url, p?.cover_photo?.url];
-    for (const s of singulars) {
-      const n = normalizeCandidate(s);
-      if (n) return n;
+    
+    // 1. Vérifier cover_photo (si c'est un objet)
+    if (p.cover_photo && typeof p.cover_photo === 'object') {
+      const url = p.cover_photo.photo_url || p.cover_photo.url || p.cover_photo.path;
+      if (url) return normalizeUrl(url);
     }
-
-    // Try photos array
+    
+    // 2. Vérifier cover_photo (si c'est une string)
+    if (p.cover_photo && typeof p.cover_photo === 'string') {
+      return normalizeUrl(p.cover_photo);
+    }
+    
+    // 3. Vérifier photos array
     if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
-      const first = p.photos[0];
-      const n = normalizeCandidate(first);
-      if (n) return n;
+      const firstPhoto = p.photos[0];
+      if (typeof firstPhoto === 'string') {
+        return normalizeUrl(firstPhoto);
+      }
+      if (firstPhoto && typeof firstPhoto === 'object') {
+        const url = firstPhoto.photo_url || firstPhoto.url || firstPhoto.path || firstPhoto.file?.url;
+        if (url) return normalizeUrl(url);
+      }
     }
-
-    // Try photo_urls array
+    
+    // 4. Vérifier photo_urls array
     if (p.photo_urls && Array.isArray(p.photo_urls) && p.photo_urls.length > 0) {
-      const n = normalizeCandidate(p.photo_urls[0]);
-      if (n) return n;
+      return normalizeUrl(p.photo_urls[0]);
     }
-
-    // Other common arrays
-    const arrays = ['images', 'media', 'gallery'];
-    for (const key of arrays) {
-      const arr = p[key];
-      if (arr && Array.isArray(arr) && arr.length > 0) {
-        const n = normalizeCandidate(arr[0]);
-        if (n) return n;
+    
+    // 5. Vérifier images array
+    if (p.images && Array.isArray(p.images) && p.images.length > 0) {
+      return normalizeUrl(p.images[0]);
+    }
+    
+    // 6. Vérifier les champs individuels
+    const singularFields = ['photo_url', 'image_url', 'image', 'image_path', 'photo_path'];
+    for (const field of singularFields) {
+      if (p[field]) {
+        return normalizeUrl(p[field]);
       }
     }
-
-    // Generic search (shallow)
-    for (const k of Object.keys(p || {})) {
-      const val = p[k];
-      const n = normalizeCandidate(val);
-      if (n) return n;
-      if (Array.isArray(val) && val.length > 0) {
-        const n2 = normalizeCandidate(val[0]);
-        if (n2) return n2;
-      }
-    }
-
-    console.warn('Aucune image trouvée pour:', p?.id, p?.title);
+    
+    console.warn('⚠️ Aucune image trouvée pour la propriété:', p.id, p.title);
     return '/placeholder.jpg';
   };
-  // ✅ FONCTION POUR RÉCUPÉRER JUSQU'À 3 IMAGES
-  const getAllImages = () => {
+  
+  // ✅ FONCTION POUR RÉCUPÉRER TOUTES LES IMAGES
+  const getAllImages = (): string[] => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const images: string[] = [];
-    const pushUnique = (u: string) => { if (u && !images.includes(u) && images.length < 3) images.push(u); };
-
-    // cover
-    pushUnique(getFirstImage());
-
-    // photos[]
+    
+    const normalizeUrl = (url: string): string => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/')) return `${API_URL}${url}`;
+      return `${API_URL}/${url}`;
+    };
+    
+    const addImage = (url: string) => {
+      const normalized = normalizeUrl(url);
+      if (normalized && !images.includes(normalized) && images.length < 5) {
+        images.push(normalized);
+      }
+    };
+    
+    // 1. Cover photo
+    if (p.cover_photo) {
+      if (typeof p.cover_photo === 'object') {
+        addImage(p.cover_photo.photo_url || p.cover_photo.url || p.cover_photo.path);
+      } else if (typeof p.cover_photo === 'string') {
+        addImage(p.cover_photo);
+      }
+    }
+    
+    // 2. Photos array
     if (p.photos && Array.isArray(p.photos)) {
       for (const photo of p.photos) {
-        if (images.length >= 3) break;
-        const n = (typeof photo === 'string') ? getImageUrl(photo) : (photo && (photo.full_url || photo.photo_url || photo.url || photo.path || photo.file?.url) ? getImageUrl(photo.full_url || photo.photo_url || photo.url || photo.path || photo.file?.url) : '');
-        pushUnique(n);
+        if (images.length >= 5) break;
+        if (typeof photo === 'string') {
+          addImage(photo);
+        } else if (photo && typeof photo === 'object') {
+          addImage(photo.photo_url || photo.url || photo.path || photo.file?.url);
+        }
       }
     }
-
-    // photo_urls
+    
+    // 3. Photo URLs array
     if (p.photo_urls && Array.isArray(p.photo_urls)) {
       for (const url of p.photo_urls) {
-        if (images.length >= 3) break;
-        pushUnique(getImageUrl(url));
+        if (images.length >= 5) break;
+        addImage(url);
       }
     }
-
-    // images/media/gallery
-    const tryArrays = ['images','media','gallery','gallery_photos'];
-    for (const key of tryArrays) {
-      const arr = p[key];
-      if (!arr || !Array.isArray(arr)) continue;
-      for (const it of arr) {
-        if (images.length >= 3) break;
-        const n = (typeof it === 'string') ? getImageUrl(it) : (it && (it.full_url || it.photo_url || it.url || it.path || it.file?.url) ? getImageUrl(it.full_url || it.photo_url || it.url || it.path || it.file?.url) : '');
-        pushUnique(n);
+    
+    // 4. Images array
+    if (p.images && Array.isArray(p.images)) {
+      for (const img of p.images) {
+        if (images.length >= 5) break;
+        addImage(img);
       }
-      if (images.length >= 3) break;
     }
-
-    if (images.length === 0) images.push('/placeholder.jpg');
+    
+    // 5. Fallback
+    if (images.length === 0) {
+      images.push('/placeholder.jpg');
+    }
+    
     return images;
   };
+  
+  const allImages = getAllImages();
+  const firstImage = allImages[0];
+  
+  const rawPrice = p.price_per_night ?? p.price ?? 0;
+  const priceValue = Number(rawPrice) || 0;
+  const isAdminProperty = Boolean(
+    p.added_by_admin || p.is_admin || p.source === 'admin' || 
+    p.created_by === 'admin' || p.user?.user_type === 'admin' || 
+    p.host?.user_type === 'admin'
+  );
   
   return {
     id: p.id,
@@ -2455,15 +2465,21 @@ console.log('gallery:', p.gallery);
     priceDisplay: priceValue ? `${priceValue.toLocaleString()} FCFA` : '0 FCFA',
     rating: isAdminProperty ? (p.average_rating || 0) : 0,
     reviews: isAdminProperty ? (p.reviews_count || 0) : 0,
-    images: getAllImages(),  // ← Toutes les photos (max 3)
-    image: (getAllImages()[0]) || getFirstImage(),  // ← Première photo
-    beds: isAdminProperty ? (p.beds || 0) : 0,
-    baths: isAdminProperty ? (p.bathrooms || 0) : 0,
-    description: isAdminProperty ? p.description : '',
+    images: allImages,
+    image: firstImage,
+    beds: p.beds || 0,
+    baths: p.bathrooms || 0,
+    description: p.description,
     type: p.property_type,
     city: p.city,
     district: p.district,
     isAdminProperty,
+    host: p.user?.full_name || p.host?.full_name || `${p.user?.first_name || ''} ${p.user?.last_name || ''}`.trim() || 'Hôte vérifié',
+    hostImage: p.user?.avatar_url || p.host?.avatar_url || null,
+    hostId: p.user?.id || p.host?.id || null,
+    superhost: p.superhost || false,
+    property_type: p.property_type,
+    max_guests: p.max_guests || p.beds || 1,
   };
 };
 
@@ -5072,55 +5088,109 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
 };
 
   // ✅ Transformation des données - CORRECTION POUR L'HÔTE
-  const property = {
-    id: rawProperty.id,
-    title: rawProperty.title,
-    location: `${rawProperty.district}, ${rawProperty.city}`,
-    price: rawProperty.price_per_night,
-    priceNumber: parseFloat(rawProperty.price_per_night),
-    priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
-    rating: parseFloat(rawProperty.average_rating) || 0,
-    reviews: rawProperty.reviews_count || 0,
-    image: (() => {
-      const first = rawProperty.photos?.[0] || null;
-      const url = first?.photo_url || first?.url || first?.path || first?.file?.url || rawProperty.image || null;
-      if (!url) return '/placeholder.jpg';
-      return url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
-    })(),
-    images: (rawProperty.photos && Array.isArray(rawProperty.photos) ? rawProperty.photos.map((p: any) => {
-      const url = p?.photo_url || p?.url || p?.path || p?.file?.url || p;
-      if (!url) return null;
-      return (typeof url === 'string' && url.startsWith('http')) ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
-    }).filter(Boolean) : (rawProperty.images || [])),
-    beds: rawProperty.beds || 0,
-    baths: rawProperty.bathrooms || 0,
-    description: rawProperty.description,
-    longDescription: rawProperty.description,
-    amenities: [
-      rawProperty.has_wifi && 'Wi-Fi',
-      rawProperty.has_air_conditioning && 'Climatisation',
-      rawProperty.has_parking && 'Parking gratuit',
-      rawProperty.has_pool && 'Piscine',
-      rawProperty.has_kitchen && 'Cuisine équipée',
-      rawProperty.has_tv && 'Télévision',
-      rawProperty.has_breakfast && 'Petit-déjeuner',
-      rawProperty.has_generator && 'Générateur',
-      rawProperty.has_water_tank && 'Réservoir d\'eau',
-      rawProperty.has_gym && 'Salle de sport',
-      rawProperty.has_spa && 'Spa',
-      rawProperty.has_elevator && 'Ascenseur',
-      rawProperty.has_laundry && 'Lave-linge',
-      rawProperty.has_cctv && 'Caméras de surveillance',
-      rawProperty.has_electric_fence && 'Clôture électrique',
-      rawProperty.allows_pets && 'Animaux acceptés',
-      rawProperty.allows_children && 'Enfants acceptés',
-      rawProperty.airport_shuttle && 'Navette aéroport',
-      rawProperty.housekeeping && 'Ménage inclus',
-      rawProperty.room_service && 'Service en chambre',
-      rawProperty.wheelchair_accessible && 'Accessible fauteuil roulant',
-    ].filter(Boolean),
-    // ✅ Priorité à rawProperty.user puis fallback sur le vrai nom de l'hôte
-    host: (() => {
+  // Dans ListingPage, vers ligne 5100
+const property = {
+  id: rawProperty.id,
+  title: rawProperty.title,
+  location: `${rawProperty.district}, ${rawProperty.city}`,
+  price: rawProperty.price_per_night,
+  priceNumber: parseFloat(rawProperty.price_per_night),
+  priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
+  rating: parseFloat(rawProperty.average_rating) || 0,
+  reviews: rawProperty.reviews_count || 0,
+  
+  // ✅ CORRECTION POUR LES IMAGES
+  image: (() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    
+    const normalizeUrl = (url: string): string => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/')) return `${API_URL}${url}`;
+      return `${API_URL}/${url}`;
+    };
+    
+    // Vérifier cover_photo
+    if (rawProperty.cover_photo) {
+      if (typeof rawProperty.cover_photo === 'object') {
+        const url = rawProperty.cover_photo.photo_url || rawProperty.cover_photo.url || rawProperty.cover_photo.path;
+        if (url) return normalizeUrl(url);
+      } else if (typeof rawProperty.cover_photo === 'string') {
+        return normalizeUrl(rawProperty.cover_photo);
+      }
+    }
+    
+    // Vérifier photos
+    if (rawProperty.photos && Array.isArray(rawProperty.photos) && rawProperty.photos.length > 0) {
+      const firstPhoto = rawProperty.photos[0];
+      if (typeof firstPhoto === 'string') {
+        return normalizeUrl(firstPhoto);
+      }
+      if (firstPhoto && typeof firstPhoto === 'object') {
+        const url = firstPhoto.photo_url || firstPhoto.url || firstPhoto.path || firstPhoto.file?.url;
+        if (url) return normalizeUrl(url);
+      }
+    }
+    
+    return '/placeholder.jpg';
+  })(),
+  
+  images: (() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const images: string[] = [];
+    
+    const normalizeUrl = (url: string): string => {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      if (url.startsWith('/')) return `${API_URL}${url}`;
+      return `${API_URL}/${url}`;
+    };
+    
+    // Ajouter cover_photo
+    if (rawProperty.cover_photo) {
+      if (typeof rawProperty.cover_photo === 'object') {
+        const url = rawProperty.cover_photo.photo_url || rawProperty.cover_photo.url || rawProperty.cover_photo.path;
+        if (url) images.push(normalizeUrl(url));
+      } else if (typeof rawProperty.cover_photo === 'string') {
+        images.push(normalizeUrl(rawProperty.cover_photo));
+      }
+    }
+    
+    // Ajouter les photos
+    if (rawProperty.photos && Array.isArray(rawProperty.photos)) {
+      for (const photo of rawProperty.photos) {
+        if (images.length >= 5) break;
+        if (typeof photo === 'string') {
+          images.push(normalizeUrl(photo));
+        } else if (photo && typeof photo === 'object') {
+          const url = photo.photo_url || photo.url || photo.path || photo.file?.url;
+          if (url) images.push(normalizeUrl(url));
+        }
+      }
+    }
+    
+    if (images.length === 0) images.push('/placeholder.jpg');
+    return images;
+  })(),
+  
+  beds: rawProperty.beds || 0,
+  baths: rawProperty.bathrooms || 0,
+  description: rawProperty.description,
+  longDescription: rawProperty.description,
+  amenities: [/* ... */],
+  host: (() => {
+    const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
+    const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
+    return rawProperty.user?.full_name
+      || userName
+      || rawProperty.host?.full_name
+      || hostName
+      || rawProperty.published_by?.full_name
+      || rawProperty.host_name
+      || 'Hôte vérifié';
+  })(),
+  hostImage: (() => {
+    const hostName = (() => {
       const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
       const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
       return rawProperty.user?.full_name
@@ -5130,46 +5200,19 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
         || rawProperty.published_by?.full_name
         || rawProperty.host_name
         || 'Hôte vérifié';
-    })(),
-    hostImage: (() => {
-      const hostName = (() => {
-        const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
-        const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
-        return rawProperty.user?.full_name
-          || userName
-          || rawProperty.host?.full_name
-          || hostName
-          || rawProperty.published_by?.full_name
-          || rawProperty.host_name
-          || 'Hôte vérifié';
-      })();
-      return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
-    })(),
-    hostSince: (rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at)
-      ? new Date(rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at).getFullYear().toString()
-      : '2024',
-    hostId: rawProperty.user?.id || rawProperty.host?.id || rawProperty.published_by?.id || rawProperty.host_id || null,
-    superhost: rawProperty.superhost || false,
-    responseRate: 100,
-    responseTime: 'quelques heures',
-    property_type: rawProperty.property_type,
-    bluefin_certified: rawProperty.bluefin_certified || false,
-    has_generator: rawProperty.has_generator || false,
-    has_wifi: rawProperty.has_wifi || false,
-    has_air_conditioning: rawProperty.has_air_conditioning || false,
-    has_water_tank: rawProperty.has_water_tank || false,
-    cancellation_policy: rawProperty.cancellation_policy || 'moderate',
-    instant_booking: rawProperty.instant_booking || false,
-    check_in_time: '15:00',
-    check_out_time: '11:00',
-    max_guests: rawProperty.max_guests || 1,
-    bedrooms: rawProperty.bedrooms || 0,
-    min_stay: rawProperty.min_stay || 1,
-    status: rawProperty.status,
-    status_label: rawProperty.status_label,
-    status_color: rawProperty.status_color,
-    rejection_reason: rawProperty.rejection_reason,
-  };
+    })();
+    return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
+  })(),
+  hostSince: (rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at)
+    ? new Date(rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at).getFullYear().toString()
+    : '2024',
+  hostId: rawProperty.user?.id || rawProperty.host?.id || rawProperty.published_by?.id || rawProperty.host_id || null,
+  superhost: rawProperty.superhost || false,
+  responseRate: 100,
+  responseTime: 'quelques heures',
+  property_type: rawProperty.property_type,
+  // ... autres champs
+};
 
   // ✅ Log pour vérifier l'hôte
   console.log('🔍 Property data:', {
