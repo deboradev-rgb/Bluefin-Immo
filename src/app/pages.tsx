@@ -8675,51 +8675,402 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
   const visibleRoles = roles.slice(0, 3);
   const hiddenRoles = roles.slice(3);
 
+  // Contenu pour Hôte d'expérience
+  const getExperienceContent = () => ({
+    title: "Aide pour les hôtes d'expérience",
+    description: "Trouvez des réponses à vos questions sur la création, la gestion et la promotion de vos expériences.",
+    articles: [
+      { 
+        id: "experience-adaptee", 
+        title: "Mon expérience est-elle adaptée sur Bluefin ?", 
+        description: "Découvrez les critères pour qu'une expérience soit éligible sur Bluefin Immo.",
+        content: `
+          <div class="space-y-4">
+            <p>Les Expériences Bluefin sont des activités mémorables animées par des hôtes passionnés, experts de leur ville.</p>
+            <p><strong>Types d'expériences acceptées :</strong></p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Visites insolites et circuits thématiques</li>
+              <li>Dégustations et ateliers culinaires</li>
+              <li>Ateliers créatifs (artisanat, peinture, photographie)</li>
+              <li>Cours (danse, musique, langue, cuisine)</li>
+              <li>Activités en plein air (randonnée, vélo, sports)</li>
+              <li>Expériences culturelles et immmersives</li>
+            </ul>
+            <p>Chaque expérience est conçue pour être unique et authentique.</p>
+            <div class="bg-[#f4fffe] rounded-xl p-4 mt-4">
+              <p class="text-sm text-[#0F2940]">📌 <strong>En savoir plus :</strong> Consultez nos critères détaillés pour les expériences Bluefin.</p>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "experience-deposer-demande", 
+        title: "Que dois-je faire pour déposer ma demande ?", 
+        description: "Guide étape par étape pour soumettre votre expérience.",
+        content: `
+          <div class="space-y-4">
+            <p>Rien de plus simple ! Suivez ces étapes :</p>
+            <div class="space-y-3">
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
+                <div><strong>Présentez-vous</strong> et décrivez votre expérience en détail.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
+                <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité, des détails précis et un itinéraire.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
+                <div><strong>Définissez vos tarifs</strong> de manière compétitive.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
+                <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
+              </div>
+            </div>
+            <p>Notre équipe pourra vous contacter pour vous suggérer des ajustements ou vous demander certains documents (agréments, justificatif d'assurance). Une fois approuvée, votre annonce est en ligne et vous pouvez commencer à recevoir des réservations.</p>
+            <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
+              <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "experience-frais", 
+        title: "Quels sont les frais Bluefin ?", 
+        description: "Détail des frais de service appliqués.",
+        content: `
+          <div class="space-y-4">
+            <p>La création et l'envoi de l'annonce en vue de sa vérification sont <strong>gratuits</strong>.</p>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
+              <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
+              <p class="text-sm text-gray-600">Pour chaque expérience réservée, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
+            </div>
+            <p class="text-sm text-gray-500">Exemple : Pour une expérience à 100 000 FCFA, vous recevrez 85 000 FCFA.</p>
+          </div>
+        `
+      },
+      { 
+        id: "experience-visibilite", 
+        title: "Comment les voyageurs découvriront-ils mon expérience ?", 
+        description: "Visibilité et promotion de votre expérience.",
+        content: `
+          <div class="space-y-4">
+            <p>Votre expérience bénéficie d'une visibilité optimale sur Bluefin Immo grâce à :</p>
+            <ul class="list-disc pl-5 space-y-2">
+              <li>Un <strong>onglet dédié</strong> aux expériences sur la plateforme</li>
+              <li>Les <strong>résultats de recherche</strong> des voyageurs</li>
+              <li>Les <strong>recommandations personnalisées</strong></li>
+              <li>Les <strong>communications par e-mail et notifications</strong></li>
+              <li>Les <strong>suggestions directes</strong> dans le récapitulatif de séjour</li>
+            </ul>
+          </div>
+        `
+      },
+      { 
+        id: "experience-versement", 
+        title: "Dans quel délai vais-je recevoir mon versement ?", 
+        description: "Délais de paiement pour les hôtes.",
+        content: `
+          <div class="space-y-4">
+            <p>Le délai varie selon :</p>
+            <ul class="list-disc pl-5 space-y-2">
+              <li>Le <strong>mode de versement</strong> choisi dans votre profil Bluefin Immo</li>
+              <li>Les <strong>délais de traitement</strong> de votre établissement bancaire</li>
+            </ul>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <p class="font-semibold text-[#0F2940]">⏱️ Délai standard :</p>
+              <p>Vous recevez votre paiement dès le <strong>lendemain de la réalisation de l'expérience</strong>.</p>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "experience-verification", 
+        title: "Processus de vérification", 
+        description: "Comment se déroule la vérification de votre annonce.",
+        content: `
+          <div class="space-y-4">
+            <h3 class="font-semibold text-lg">En quoi consiste le processus de vérification ?</h3>
+            <p>Après envoi de votre annonce :</p>
+            <ol class="list-decimal pl-5 space-y-2">
+              <li>Vous recevez un <strong>e-mail de confirmation</strong> détaillant les prochaines étapes</li>
+              <li>Chaque expérience est <strong>examinée individuellement</strong> par un membre de notre équipe</li>
+              <li>Nous vérifions la <strong>conformité</strong> avec nos critères de qualité</li>
+            </ol>
+            
+            <h3 class="font-semibold text-lg mt-4">Comment les expériences sont-elles évaluées ?</h3>
+            <p>Critères d'évaluation :</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>Le parcours et l'expertise de l'hôte</li>
+              <li>Formations et certifications</li>
+              <li>Récompenses et distinctions</li>
+              <li>Qualité du portfolio</li>
+              <li>Originalité de la proposition</li>
+              <li>Avis laissés par les voyageurs</li>
+            </ul>
+            
+            <h3 class="font-semibold text-lg mt-4">Combien de temps dure la vérification ?</h3>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <p>En général, le processus prend <strong>quelques semaines</strong>. Cependant, cela peut prendre plus de temps dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en <strong>liste d'attente</strong>.</p>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "experience-agrement", 
+        title: "Agrément et Assurance", 
+        description: "Informations sur les documents requis et les assurances.",
+        content: `
+          <div class="space-y-4">
+            <h3 class="font-semibold text-lg">Dois-je avoir un permis d'exploitation ?</h3>
+            <p>Tout dépend de votre type d'annonce et de la réglementation locale. Si un agrément ou d'autres documents sont nécessaires, nous vous en informerons après vérification de votre annonce.</p>
+            
+            <h3 class="font-semibold text-lg mt-4">Dois-je avoir ma propre assurance ?</h3>
+            <p><strong>Oui</strong>. Bluefin exige que vous souscriviez une <strong>assurance responsabilité civile</strong> adaptée à votre activité. Il est possible que nous vous demandions de nous fournir une preuve de cette assurance.</p>
+            
+            <h3 class="font-semibold text-lg mt-4">Est-ce que Bluefin-Immo fournit une assurance ?</h3>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p>Bluefin Immo <strong>ne propose pas de couverture d'assurance directe</strong>. Dans les rares cas où votre responsabilité serait engagée (préjudice corporel, dommage matériel ou vol), vous seriez personnellement exposé en l'absence d'assurance.</p>
+              <p class="mt-2">Nous vous conseillons de vous couvrir en amont, et notre équipe reste à votre disposition pour vous orienter vers les solutions les plus adaptées.</p>
+            </div>
+          </div>
+        `
+      }
+    ],
+    quickLinks: [
+      { icon: Sparkles, label: "Créer une expérience" },
+      { icon: Calendar, label: "Mon calendrier" },
+      { icon: MessageCircle, label: "Messages" },
+      { icon: CreditCard, label: "Mes paiements" },
+    ]
+  });
+
+  // Contenu pour Hôte de service
+  const getServiceContent = () => ({
+    title: "Aide pour les hôtes de services",
+    description: "Trouvez des réponses à vos questions sur la création et la gestion de vos services.",
+    articles: [
+      { 
+        id: "service-adapte", 
+        title: "Mon service est-il adapté sur Bluefin ?", 
+        description: "Découvrez les types de services acceptés sur Bluefin Immo.",
+        content: `
+          <div class="space-y-4">
+            <p>Les services Bluefin-Immo sont des prestations d'excellente qualité qui agrémentent le séjour des voyageurs.</p>
+            <p><strong>Catégories de services acceptés :</strong></p>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍽️ Traiteur</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">👨‍🍳 Chef privé</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💇‍♀️ Coiffure</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💄 Maquillage</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💆‍♀️ Massage</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💅 Mani-pédi</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🏋️ Coaching privé</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">📸 Photographie</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍲 Plats préparés</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🧘 Soins bien-être</div>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "service-deposer-demande", 
+        title: "Que dois-je faire pour déposer ma demande ?", 
+        description: "Guide pour soumettre votre service.",
+        content: `
+          <div class="space-y-4">
+            <p>Suivez ces étapes simples :</p>
+            <div class="space-y-3">
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
+                <div><strong>Présentez-vous</strong> et décrivez votre service en détail.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
+                <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité et des informations précises.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
+                <div><strong>Définissez vos tarifs</strong> de manière attractive.</div>
+              </div>
+              <div class="flex gap-3">
+                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
+                <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
+              </div>
+            </div>
+            <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
+              <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "service-frais", 
+        title: "Quels sont les frais Bluefin ?", 
+        description: "Frais de service pour les services.",
+        content: `
+          <div class="space-y-4">
+            <p>La création et l'envoi de l'annonce sont <strong>gratuits</strong>.</p>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
+              <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
+              <p>Pour chaque service réservé, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "service-visibilite", 
+        title: "Comment les voyageurs découvriront-ils mon service ?", 
+        description: "Visibilité de votre service.",
+        content: `
+          <div class="space-y-4">
+            <p>Votre service bénéficie d'une visibilité optimale :</p>
+            <ul class="list-disc pl-5 space-y-2">
+              <li>Onglet dédié aux services sur la plateforme</li>
+              <li>Résultats de recherche pertinents</li>
+              <li>Recommandations personnalisées</li>
+              <li>Communications par e-mail et notifications</li>
+              <li>Suggestions dans le récapitulatif de séjour</li>
+            </ul>
+          </div>
+        `
+      },
+      { 
+        id: "service-versement", 
+        title: "Dans quel délai vais-je recevoir mon versement ?", 
+        description: "Délais de paiement.",
+        content: `
+          <div class="space-y-4">
+            <p>Le délai varie selon le mode de versement choisi et les délais de traitement bancaire.</p>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <p><strong>⏱️ Délai standard :</strong> Paiement reçu dès le <strong>lendemain de la réalisation du service</strong>.</p>
+            </div>
+          </div>
+        `
+      },
+      { 
+        id: "service-verification", 
+        title: "Processus de vérification", 
+        description: "Comment se déroule la vérification.",
+        content: `
+          <div class="space-y-4">
+            <p>Après envoi de votre annonce, vous recevez un e-mail de confirmation. Chaque service est examiné individuellement par notre équipe.</p>
+            <p><strong>Critères d'évaluation :</strong> parcours et expertise de l'hôte, formations, certifications, qualité du portfolio, originalité, avis des voyageurs.</p>
+            <p>Le processus prend généralement quelques semaines.</p>
+          </div>
+        `
+      },
+      { 
+        id: "service-agrement", 
+        title: "Agrément et Assurance", 
+        description: "Documents requis et assurances.",
+        content: `
+          <div class="space-y-4">
+            <p>Un permis d'exploitation peut être requis selon votre activité et la réglementation locale.</p>
+            <p><strong>Assurance :</strong> Bluefin exige une assurance responsabilité civile adaptée à votre activité.</p>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p>Bluefin Immo ne fournit pas d'assurance. Nous vous conseillons de vous couvrir en amont.</p>
+            </div>
+          </div>
+        `
+      }
+    ],
+    quickLinks: [
+      { icon: Briefcase, label: "Créer un service" },
+      { icon: Calendar, label: "Mon calendrier" },
+      { icon: MessageCircle, label: "Messages" },
+      { icon: CreditCard, label: "Mes paiements" },
+    ]
+  });
+
+  // Contenu original pour les voyageurs
+  const getTravelerContent = () => ({
+    title: "Aide pour les voyageurs",
+    description: "Trouvez des réponses à vos questions sur les réservations, les annulations, les paiements et plus encore.",
+    articles: [
+      { id: "annuler-reservation", title: "Annuler votre réservation de logement", description: "Vos projets ont changé ? Découvrez comment annuler." },
+      { id: "modes-paiement", title: "Modes de paiement acceptés", description: "Cartes, mobile money, FedaPay : tous les moyens de payer." },
+      { id: "modifier-date", title: "Modifier la date ou l'heure de votre réservation", description: "Reprogrammer un service ou une expérience." },
+      { id: "hote-annule", title: "Si votre hôte annule votre réservation", description: "Que faire et quels remboursements ?" },
+      { id: "quand-payer", title: "Quand vous payerez votre réservation", description: "Délais de paiement selon le type de séjour." },
+      { id: "comment-reserver", title: "Comment réserver un logement ?", description: "Guide pas à pas pour réserver." },
+    ],
+    quickLinks: [
+      { icon: CreditCard, label: "Paiements et remboursements" },
+      { icon: Calendar, label: "Gérer mes réservations" },
+      { icon: MessageCircle, label: "Contacter l'hôte" },
+      { icon: AlertCircle, label: "Signaler un problème" },
+    ]
+  });
+
+  // Contenu pour Hôte de logement
+  const getHostContent = () => ({
+    title: "Aide pour les hôtes de logement",
+    description: "Trouvez des réponses à vos questions sur la gestion de vos annonces, les réservations et plus encore.",
+    articles: [
+      { id: "devenir-hote", title: "Devenir hôte sur Bluefin-Immo", description: "Comment publier votre première annonce." },
+      { id: "gerer-reservations", title: "Gérer vos réservations", description: "Calendrier, messages, paiements." },
+      { id: "tarifs", title: "Fixer vos tarifs", description: "Conseils pour optimiser vos prix." },
+      { id: "assurance-hote", title: "Assurance et protection", description: "Protégez votre logement et vos biens." },
+      { id: "reglementation", title: "Règlementation locale", description: "Ce que vous devez savoir avant de louer." },
+    ],
+    quickLinks: [
+      { icon: Home, label: "Gérer mon annonce" },
+      { icon: Calendar, label: "Mon calendrier" },
+      { icon: MessageCircle, label: "Messages" },
+      { icon: CreditCard, label: "Paiements reçus" },
+    ]
+  });
+
+  // Contenu pour Administrateur
+  const getAdminContent = () => ({
+    title: "Aide pour les administrateurs",
+    description: "Guide pour la gestion et l'administration de la plateforme.",
+    articles: [
+      { id: "admin-properties", title: "Gestion des propriétés", description: "Modérer et approuver les annonces." },
+      { id: "admin-users", title: "Gestion des utilisateurs", description: "Gérer les comptes et les permissions." },
+      { id: "admin-payments", title: "Suivi des paiements", description: "Gérer les transactions et les remboursements." },
+      { id: "admin-reports", title: "Rapports et analyses", description: "Analyser les performances de la plateforme." },
+    ],
+    quickLinks: [
+      { icon: Building, label: "Dashboard" },
+      { icon: Users, label: "Utilisateurs" },
+      { icon: Home, label: "Propriétés" },
+      { icon: CreditCard, label: "Paiements" },
+    ]
+  });
+
   const getRoleContent = () => {
-    if (selectedRole === "voyageur") {
-      return {
-        title: "Aide pour les voyageurs",
-        description: "Trouvez des réponses à vos questions sur les réservations, les annulations, les paiements et plus encore.",
-        articles: [
-          { id: "annuler-reservation", title: "Annuler votre réservation de logement", description: "Vos projets ont changé ? Découvrez comment annuler." },
-          { id: "modes-paiement", title: "Modes de paiement acceptés", description: "Cartes, mobile money, FedaPay : tous les moyens de payer." },
-          { id: "modifier-date", title: "Modifier la date ou l'heure de votre réservation", description: "Reprogrammer un service ou une expérience." },
-          { id: "hote-annule", title: "Si votre hôte annule votre réservation", description: "Que faire et quels remboursements ?" },
-          { id: "quand-payer", title: "Quand vous payerez votre réservation", description: "Délais de paiement selon le type de séjour." },
-          { id: "comment-reserver", title: "Comment réserver un logement ?", description: "Guide pas à pas pour réserver." },
-        ],
-        quickLinks: [
-          { icon: CreditCard, label: "Paiements et remboursements" },
-          { icon: Calendar, label: "Gérer mes réservations" },
-          { icon: MessageCircle, label: "Contacter l'hôte" },
-          { icon: AlertCircle, label: "Signaler un problème" },
-        ]
-      };
+    switch (selectedRole) {
+      case "voyageur":
+        return getTravelerContent();
+      case "hote_logement":
+        return getHostContent();
+      case "hote_experience":
+        return getExperienceContent();
+      case "hote_service":
+        return getServiceContent();
+      case "administrateur":
+        return getAdminContent();
+      default:
+        return getTravelerContent();
     }
-    return { 
-      title: "Aide pour les hôtes", 
-      description: "Trouvez des réponses à vos questions sur la gestion de vos annonces, les réservations et plus encore.",
-      articles: [
-        { id: "devenir-hote", title: "Devenir hôte sur Bf-Immo", description: "Comment publier votre première annonce." },
-        { id: "gerer-reservations", title: "Gérer vos réservations", description: "Calendrier, messages, paiements." },
-        { id: "tarifs", title: "Fixer vos tarifs", description: "Conseils pour optimiser vos prix." },
-      ],
-      quickLinks: [
-        { icon: Home, label: "Gérer mon annonce" },
-        { icon: Calendar, label: "Mon calendrier" },
-        { icon: MessageCircle, label: "Messages" },
-        { icon: CreditCard, label: "Paiements reçus" },
-      ]
-    };
   };
 
   const content = getRoleContent();
+  
   const suggestions = [
     "Comment réserver un logement ?",
     "Annuler une réservation",
     "Modes de paiement acceptés",
     "Problème avec mon hôte",
     "Devenir hôte",
+    "Créer une expérience",
+    "Créer un service",
+    "Assurance hôte",
   ];
 
   const handleNavigate = (route: any) => {
@@ -8750,7 +9101,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
               className="w-full pl-12 pr-4 py-3 rounded-full text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
             />
             {showSuggestions && searchQuery && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 z-50 max-h-64 overflow-y-auto">
                 {suggestions.filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())).map((suggestion, idx) => (
                   <button key={idx} onClick={() => { setSearchQuery(suggestion); setShowSuggestions(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700">
                     {suggestion}
@@ -8782,10 +9133,9 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
           })}
         </div>
 
-        {/* Version Mobile - scroll horizontal avec menu pour les éléments cachés */}
+        {/* Version Mobile */}
         <div className="md:hidden">
           <div className="flex items-center gap-2">
-            {/* Scroll horizontal pour les premiers rôles */}
             <div className="flex-1 overflow-x-auto scrollbar-hide flex gap-2 pb-2">
               {visibleRoles.map((role) => {
                 const Icon = role.icon;
@@ -8804,7 +9154,6 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
               })}
             </div>
 
-            {/* Menu déroulant pour les rôles restants */}
             {hiddenRoles.length > 0 && (
               <div className="relative">
                 <button
@@ -8824,13 +9173,9 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
                   <ChevronDown className={`w-3 h-3 transition-transform ${showRolesMenu ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Dropdown menu */}
                 {showRolesMenu && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowRolesMenu(false)}
-                    />
+                    <div className="fixed inset-0 z-40" onClick={() => setShowRolesMenu(false)} />
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
                       {hiddenRoles.map((role) => {
                         const Icon = role.icon;
@@ -8861,7 +9206,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
           </div>
         </div>
 
-        {/* Indicateur de scroll pour mobile (optionnel) */}
+        {/* Indicateur de scroll pour mobile */}
         <div className="md:hidden flex justify-center mt-3">
           <div className="flex gap-1">
             <div className="w-6 h-1 rounded-full bg-[#00c9a7]/40"></div>
@@ -8881,7 +9226,21 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
                 <div 
                   key={idx} 
                   className="border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer hover:border-[#00c9a7] group" 
-                  onClick={() => setSelectedArticle({ id: article.id, title: article.title, category: selectedRole === "voyageur" ? "Voyageur" : "Hôte", content: "" })}
+                  onClick={() => {
+                    if (article.content) {
+                      setSelectedArticle({ 
+                        id: article.id, 
+                        title: article.title, 
+                        category: selectedRole === "voyageur" ? "Voyageur" : 
+                                  selectedRole === "hote_experience" ? "Hôte d'expérience" :
+                                  selectedRole === "hote_service" ? "Hôte de services" :
+                                  selectedRole === "hote_logement" ? "Hôte de logement" : "Administrateur", 
+                        content: article.content 
+                      });
+                    } else {
+                      setSelectedArticle({ id: article.id, title: article.title, category: "Voyageur", content: "" });
+                    }
+                  }}
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center group-hover:bg-[#00c9a7]/20 transition">
@@ -8904,7 +9263,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
             <div className="bg-gradient-to-br from-[#00c9a7] to-[#00b396] rounded-2xl p-6 text-white text-center">
               <h3 className="text-xl font-semibold mb-2">Nous sommes là pour vous aider</h3>
               <p className="text-white/90 text-sm mb-4">Connectez-vous pour obtenir de l'aide pour vos réservations, votre compte et plus encore.</p>
-              <button className="bg-white text-[#00c9a7] px-6 py-2 rounded-full font-medium hover:bg-white/90 transition">
+              <button onClick={() => handleNavigate({ name: 'auth' })} className="bg-white text-[#00c9a7] px-6 py-2 rounded-full font-medium hover:bg-white/90 transition">
                 Me connecter ou m'inscrire
               </button>
             </div>
@@ -8914,13 +9273,13 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
               {content.quickLinks.map((link, idx) => {
                 const Icon = link.icon;
                 return (
-                  <a key={idx} href="#" className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
+                  <button key={idx} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                     <div className="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center group-hover:bg-[#00c9a7]/20 transition">
                       <Icon className="w-5 h-5 text-[#00c9a7]" />
                     </div>
                     <span className="text-gray-700 group-hover:text-[#0F2940]">{link.label}</span>
                     <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
-                  </a>
+                  </button>
                 );
               })}
             </div>
@@ -8928,13 +9287,13 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
             <div className="border border-gray-200 rounded-2xl p-6">
               <h3 className="font-semibold text-[#0F2940] mb-3">Les politiques de la communauté</h3>
               <p className="text-sm text-gray-600 mb-3">Nos actions pour établir un climat de confiance.</p>
-              <a href="#" className="text-[#00c9a7] text-sm font-medium">En savoir plus</a>
+              <button className="text-[#00c9a7] text-sm font-medium">En savoir plus</button>
             </div>
             
             <div className="border border-gray-200 rounded-2xl p-6">
               <h3 className="font-semibold text-[#0F2940] mb-3">Conseils et consignes de sécurité</h3>
               <p className="text-sm text-gray-600 mb-3">Conseils de sécurité pour les voyageurs.</p>
-              <a href="#" className="text-[#00c9a7] text-sm font-medium">En savoir plus</a>
+              <button className="text-[#00c9a7] text-sm font-medium">En savoir plus</button>
             </div>
 
             <div className="rounded-[2rem] bg-[#f4fffe] border border-[#e2f5f2] p-6">
@@ -8953,13 +9312,28 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
         </div>
       </section>
 
-      {/* Modal pour l'article "annuler-reservation" avec onglets */}
-      {selectedArticle && selectedArticle.id === "annuler-reservation" && (
-        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+      {/* Modal pour les articles avec contenu */}
+      {selectedArticle && selectedArticle.content && (
+        <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+                <div>
+                  <span className="text-sm text-[#00c9a7] font-medium">Guide pratique • {selectedArticle.category}</span>
+                  <h2 className="text-2xl font-semibold text-[#0F2940]">{selectedArticle.title}</h2>
+                </div>
+                <button onClick={() => setSelectedArticle(null)} className="p-2 rounded-full hover:bg-gray-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+            </div>
+          </div>
+        </div>
       )}
       
-      {/* Modal pour les autres articles */}
-      {selectedArticle && selectedArticle.id !== "annuler-reservation" && articlesData[selectedArticle.id] && (
+      {/* Modal pour les articles de voyageur */}
+      {selectedArticle && !selectedArticle.content && selectedArticle.id !== "annuler-reservation" && articlesData[selectedArticle.id] && (
         <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto p-4">
           <div className="min-h-screen flex items-center justify-center">
             <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -8976,6 +9350,11 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal spécial pour annuler-reservation */}
+      {selectedArticle && selectedArticle.id === "annuler-reservation" && (
+        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
       )}
     </div>
   );
@@ -9316,26 +9695,484 @@ export function CompanyInfoPage({ onNavigate }: PageProps) {
 
 
 // ==================== BLOG PAGE ====================
+
+// Données des articles de blog
+const blogArticlesData = [
+  {
+    id: "preparer-logement",
+    title: "Préparez votre logement pour accueillir des voyageurs",
+    excerpt: "Des habitudes de nettoyage rigoureuses, des produits de base bien choisis et des attentions particulières : les ingrédients d'un séjour cinq étoiles.",
+    category: "Guide Hôte",
+    readTime: "8 min de lecture",
+    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80",
+    content: `
+      <div class="space-y-8">
+        <!-- Introduction -->
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-2xl p-6">
+          <p class="text-lg text-gray-700 leading-relaxed">
+            Un logement bien préparé, c'est la promesse d'une première impression mémorable. 
+            Le souci du détail fait toute la différence entre un voyageur satisfait et un voyageur 
+            qui revient et qui laisse une évaluation élogieuse.
+          </p>
+        </div>
+
+        <!-- Section 01 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">01</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Un nettoyage irréprochable</h2>
+          </div>
+          <p class="text-gray-600 mb-4">Les hôtes les plus performants partagent une discipline commune : une routine de nettoyage stricte, appliquée sans exception avant chaque arrivée.</p>
+          <ul class="space-y-3 text-gray-600 list-disc pl-5">
+            <li>Nettoyez soigneusement les zones très passagères : plans de travail, drains de lavabo, flacons de savon. Vérifiez qu'aucun cheveu ne vous a échappé.</li>
+            <li>Aérez chaque pièce. Ouvrez les fenêtres, dépoussiérez les surfaces et nettoyez tous les sols, y compris sous les meubles.</li>
+            <li>Faites les lits avec des draps frais et fournissez des serviettes propres pour chaque voyageur.</li>
+            <li>Créez une check-list à suivre entre chaque réservation pour ne rien négliger.</li>
+          </ul>
+        </div>
+
+        <!-- Section 02 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">02</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Les produits de base indispensables</h2>
+          </div>
+          <p class="text-gray-600 mb-4">Les voyageurs s'attendent à trouver certains équipements essentiels dès leur arrivée. Voici les incontournables à toujours avoir en stock :</p>
+          <ul class="space-y-2 text-gray-600 list-disc pl-5 mb-6">
+            <li>Papier toilette en quantité suffisante</li>
+            <li>Savon pour les mains et le corps</li>
+            <li>Une serviette propre par voyageur</li>
+            <li>Un oreiller et du linge de lit pour chaque couchage</li>
+          </ul>
+          
+          <div class="grid md:grid-cols-2 gap-4 mt-4">
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940] mb-2">🍳 Cuisine</h4>
+              <p class="text-sm text-gray-600">Table et chaises pour tous les voyageurs, cafetière, bouilloire, casseroles et ustensiles, sel, poivre, huile de cuisson, liquide vaisselle et torchons.</p>
+            </div>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940] mb-2">🛋️ Salon</h4>
+              <p class="text-sm text-gray-600">Places assises pour tous les voyageurs, téléviseur avec service de streaming, manuel de la maison.</p>
+            </div>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940] mb-2">🛁 Salle de bain</h4>
+              <p class="text-sm text-gray-600">Serviettes et tapis de bain, brosse à WC et ventouse, shampoing, après-shampoing et sèche-cheveux.</p>
+            </div>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940] mb-2">🛏️ Chambre</h4>
+              <p class="text-sm text-gray-600">Stores ou rideaux occultants, rangements pour vêtements et espace pour les bagages, couvertures supplémentaires.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 03 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">03</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Les petits plus qui font la différence</h2>
+          </div>
+          <p class="text-gray-600 mb-4">Ce sont souvent les attentions inattendues qui transforment un séjour ordinaire en une expérience mémorable.</p>
+          <div class="space-y-4">
+            <div class="flex gap-3">
+              <span class="text-2xl">🎁</span>
+              <div><strong>Cadeau de bienvenue</strong> - Laissez une note manuscrite, un panier de produits locaux ou une attention particulière pour une occasion spéciale.</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-2xl">🎨</span>
+              <div><strong>Décoration soignée</strong> - Tableaux, plantes, coussins — une décoration chaleureuse crée une atmosphère unique.</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-2xl">📖</span>
+              <div><strong>Manuel de la maison</strong> - Imprimez-le et placez-le sur le comptoir de la cuisine, là où vos voyageurs le trouveront facilement dès leur arrivée.</div>
+            </div>
+            <div class="flex gap-3">
+              <span class="text-2xl">🔌</span>
+              <div><strong>Équipements spécifiques</strong> - Bouchons d'oreille, adaptateurs électriques, parapluies, serviettes de plage — pensez aux besoins propres à votre emplacement.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#0f2940] text-white rounded-2xl p-6 text-center">
+          <p class="italic">Une fois votre logement prêt, passez-y une nuit ou demandez à des proches d'y séjourner. Leurs retours vous révéleront rapidement ce qui mérite encore d'être amélioré.</p>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: "optimiser-annonce",
+    title: "Comment optimiser votre annonce pour attirer plus de voyageurs",
+    excerpt: "Photos soignées, équipements bien renseignés, titre accrocheur et règlement clair — quatre leviers pour faire briller votre logement.",
+    category: "Guide Hôte",
+    readTime: "10 min de lecture",
+    image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&q=80",
+    content: `
+      <div class="space-y-8">
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-2xl p-6">
+          <p class="text-lg text-gray-700 leading-relaxed">
+            Une annonce bien construite, c'est votre meilleur commercial. Les détails font la différence 
+            entre un logement qui passe inaperçu et un logement qui décroche des réservations dès les premières semaines.
+          </p>
+        </div>
+
+        <!-- Section 01 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">01</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Des photos qui donnent envie</h2>
+          </div>
+          <p class="text-gray-600 mb-4">Les photos sont l'élément le plus décisif de votre annonce. Un voyageur prend sa décision en quelques secondes — vos visuels doivent capter l'attention immédiatement.</p>
+          <ul class="space-y-3 text-gray-600 list-disc pl-5">
+            <li><strong>Misez sur la lumière naturelle</strong> — Identifiez les moments de la journée où vos pièces sont les mieux éclairées.</li>
+            <li><strong>Soignez votre cadrage</strong> — Alternez plans larges et plans rapprochés. Photographiez à hauteur des yeux.</li>
+            <li><strong>Créez une visite complète</strong> — Photographiez tous les espaces auxquels les voyageurs auront accès.</li>
+          </ul>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
+            <p class="text-sm"><strong>💡 Conseil pro :</strong> Pour aller plus loin, faites appel à un photographe professionnel. Des photos de qualité augmentent significativement le taux de conversion de votre annonce.</p>
+          </div>
+        </div>
+
+        <!-- Section 02 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">02</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Tous vos équipements bien renseignés</h2>
+          </div>
+          <p class="text-gray-600 mb-4">De nombreux voyageurs filtrent leurs recherches par équipements. Une liste exhaustive augmente directement votre visibilité.</p>
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Wifi</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Piscine</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Jacuzzi</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Cuisine équipée</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Télévision</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Climatisation</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Lave-linge</span>
+            <span class="px-3 py-1 bg-gray-100 rounded-full text-sm">Parking gratuit</span>
+          </div>
+        </div>
+
+        <!-- Section 03 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">03</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Un titre et une description qui marquent</h2>
+          </div>
+          <div class="space-y-4">
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940]">📝 Un titre court et percutant</h4>
+              <p>Exemple : <span class="italic">"Loft moderne surplombant le centre-ville"</span></p>
+            </div>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940]">✨ Mettez en avant ce qui vous distingue</h4>
+              <p>Exemple : <span class="italic">"Cabane confortable avec cuisine professionnelle"</span></p>
+            </div>
+            <div class="bg-[#f4fffe] rounded-xl p-4">
+              <h4 class="font-semibold text-[#0f2940]">💬 Une description comme une conversation</h4>
+              <p>Écrivez comme si vous expliquiez votre logement à un ami.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 04 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">04</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Un règlement intérieur clair</h2>
+          </div>
+          <p class="text-gray-600 mb-4">Un règlement bien rédigé protège votre logement et évite les malentendus.</p>
+          <ul class="space-y-2 text-gray-600 list-disc pl-5">
+            <li>Animaux de compagnie</li>
+            <li>Événements et fêtes</li>
+            <li>Tabac et vapotage</li>
+            <li>Heures de calme</li>
+            <li>Horaires d'arrivée et de départ</li>
+            <li>Nombre maximum de voyageurs autorisés</li>
+          </ul>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: "ameliorer-annonce",
+    title: "Améliorer son annonce au fil du temps",
+    excerpt: "Quelques ajustements apportés au bon moment peuvent transformer les performances de votre annonce.",
+    category: "Guide Hôte",
+    readTime: "7 min de lecture",
+    image: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80",
+    content: `
+      <div class="space-y-8">
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-2xl p-6">
+          <p class="text-lg text-gray-700 leading-relaxed">
+            Tout comme votre logement, quelques ajustements apportés au bon moment peuvent transformer les performances de votre annonce.
+            En affinant vos photos, vos équipements et votre tarification, vous attirez davantage de voyageurs.
+          </p>
+        </div>
+
+        <!-- Section 01 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">01</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Mettez à jour vos photos</h2>
+          </div>
+          <ul class="space-y-3 text-gray-600 list-disc pl-5">
+            <li>Ajoutez des légendes à vos photos</li>
+            <li>Soignez la composition — activez la grille, vérifiez la résolution</li>
+            <li>Faites appel à un professionnel si nécessaire</li>
+          </ul>
+        </div>
+
+        <!-- Section 02 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">02</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Enrichissez vos informations</h2>
+          </div>
+          <ul class="space-y-3 text-gray-600 list-disc pl-5">
+            <li>Mettez en avant les équipements recherchés</li>
+            <li>Maintenez votre annonce à jour</li>
+            <li>Restez simple et direct</li>
+            <li>Utilisez les retours de vos voyageurs</li>
+          </ul>
+        </div>
+
+        <!-- Section 03 -->
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold text-xl">03</div>
+            <h2 class="text-2xl font-semibold text-[#0f2940]">Offrez le meilleur rapport qualité-prix</h2>
+          </div>
+          <ul class="space-y-3 text-gray-600 list-disc pl-5">
+            <li>Adoptez une tarification compétitive</li>
+            <li>Justifiez votre prix par votre offre</li>
+          </ul>
+          <div class="bg-[#f4fffe] rounded-xl p-4 mt-4">
+            <p class="text-sm"><strong>💡 À savoir :</strong> Le prix total que voient les voyageurs inclut votre tarif par nuit, les frais supplémentaires, les frais de service Bluefin Immo et les taxes applicables.</p>
+          </div>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: "top-destinations-benin",
+    title: "Top 10 des destinations incontournables au Bénin",
+    excerpt: "Découvrez les villes et villages à ne pas manquer lors de votre prochain voyage au Bénin.",
+    category: "Guide Voyageur",
+    readTime: "12 min de lecture",
+    image: "https://images.unsplash.com/photo-1590759668628-05b3b8986301?w=800&q=80",
+    content: `
+      <div class="space-y-6">
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-2xl p-6">
+          <p class="text-lg text-gray-700">Le Bénin regorge de trésors culturels et naturels. Voici notre sélection des 10 destinations à absolument découvrir.</p>
+        </div>
+        
+        <div class="space-y-4">
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">1</div>
+            <div><strong class="text-[#0f2940]">Cotonou</strong> — La capitale économique, vibrante et animée.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">2</div>
+            <div><strong class="text-[#0f2940]">Porto-Novo</strong> — La capitale officielle, riche en histoire.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">3</div>
+            <div><strong class="text-[#0f2940]">Ouidah</strong> — Berceau du vaudou et porte du non-retour.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">4</div>
+            <div><strong class="text-[#0f2940]">Grand-Popo</strong> — Plages paradisiaques et détente absolue.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">5</div>
+            <div><strong class="text-[#0f2940]">Abomey</strong> — Les palais royaux, classés à l'UNESCO.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">6</div>
+            <div><strong class="text-[#0f2940]">Parakou</strong> — Porte d'entrée du nord Bénin.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">7</div>
+            <div><strong class="text-[#0f2940]">Natitingou</strong> — Les célèbres Tata Somba.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">8</div>
+            <div><strong class="text-[#0f2940]">Ganvié</strong> — Le village lacustre sur pilotis.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">9</div>
+            <div><strong class="text-[#0f2940]">Pendjari</strong> — Le parc national pour un safari inoubliable.</div>
+          </div>
+          <div class="flex gap-4 items-start">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center font-bold flex-shrink-0">10</div>
+            <div><strong class="text-[#0f2940]">Dassa-Zoumè</strong> — Les collines sacrées et la basilique.</div>
+          </div>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: "guide-cuisine-beninoise",
+    title: "Guide de la cuisine béninoise : plats typiques à déguster",
+    excerpt: "Découvrez les saveurs authentiques du Bénin à travers ses plats traditionnels.",
+    category: "Culture & Gastronomie",
+    readTime: "6 min de lecture",
+    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80",
+    content: `
+      <div class="space-y-6">
+        <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-2xl p-6">
+          <p class="text-lg text-gray-700">La cuisine béninoise est riche en saveurs. Voici un guide des plats incontournables à goûter absolument.</p>
+        </div>
+        
+        <div class="space-y-4">
+          <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#00c9a7]">
+            <h3 class="font-semibold text-lg text-[#0f2940]">🍛 Le Riz au Gras</h3>
+            <p class="text-gray-600">Plat national du Bénin, ce riz cuit dans une sauce tomate épicée avec du poisson ou de la viande.</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#00c9a7]">
+            <h3 class="font-semibold text-lg text-[#0f2940]">🍲 La Pâte (Akassa)</h3>
+            <p class="text-gray-600">Préparée à base de maïs ou de manioc, accompagnée de sauces variées (graines, gombo, arachide).</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#00c9a7]">
+            <h3 class="font-semibold text-lg text-[#0f2940]">🐟 Le Poisson braisé</h3>
+            <p class="text-gray-600">Spécialité du bord de mer, mariné aux épices locales et grillé au feu de bois.</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#00c9a7]">
+            <h3 class="font-semibold text-lg text-[#0f2940]">🥘 L'Igname pilée (Foutou)</h3>
+            <p class="text-gray-600">Accompagnement traditionnel servi avec des sauces relevées.</p>
+          </div>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: "conseils-voyage-benin",
+    title: "5 conseils pratiques pour un voyage réussi au Bénin",
+    excerpt: "Préparez votre séjour avec ces conseils essentiels pour profiter pleinement du Bénin.",
+    category: "Guide Voyageur",
+    readTime: "5 min de lecture",
+    image: "https://images.unsplash.com/photo-1489392191049-fc10c97e64b6?w=800&q=80",
+    content: `
+      <div class="space-y-6">
+        <div class="grid gap-4">
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">1</div>
+            <div><strong>La meilleure période pour voyager</strong> — De novembre à février pendant la saison sèche.</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">2</div>
+            <div><strong>Les formalités administratives</strong> — Vérifiez les conditions de visa.</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">3</div>
+            <div><strong>La santé et la sécurité</strong> — Vaccins recommandés et précautions sanitaires.</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">4</div>
+            <div><strong>Les moyens de transport</strong> — Taxis, zémidjans, bus interurbains.</div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold">5</div>
+            <div><strong>La monnaie et le budget</strong> — La monnaie locale est le Franc CFA.</div>
+          </div>
+        </div>
+      </div>
+    `
+  }
+];
+
+
+
 export function BlogPage({ onNavigate }: PageProps) {
+  const [selectedArticle, setSelectedArticle] = useState<any>(null);
+
   return (
-    <div className="bg-white min-h-screen py-10">
-      <div className="max-w-[980px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Blog & Guides" subtitle="Des conseils de voyage au Bénin et des idées d'itinéraires.">
-          <div className="grid gap-6">
-            {blogArticles.map((article) => (
-              <button
-                key={article.title}
-                onClick={() => onNavigate?.({ name: 'about' })}
-                className="text-left rounded-3xl border border-[#e2f5f2] p-6 bg-[#f4fffe] hover:shadow-lg transition-shadow"
+    <>
+      <div className="bg-white min-h-screen py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* En-tête avec retour */}
+          <div className="mb-8">
+            <button 
+              onClick={() => onNavigate?.({ name: 'home' })} 
+              className="flex items-center gap-2 text-gray-500 hover:text-[#00c9a7] transition-colors mb-4"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              <span>Retour à l'accueil</span>
+            </button>
+            <h1 className="text-3xl font-bold text-[#0F2940]">Blog & Actualités</h1>
+            <p className="text-gray-500 mt-2">Des conseils de voyage au Bénin et des idées d'itinéraires pour les hôtes et voyageurs</p>
+          </div>
+
+          {/* Catégories */}
+          <div className="flex flex-wrap gap-2 mb-8">
+            <button className="px-4 py-2 rounded-full bg-[#00c9a7] text-white text-sm font-medium">
+              Tous les articles
+            </button>
+            <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition">
+              Guide Hôte
+            </button>
+            <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition">
+              Guide Voyageur
+            </button>
+            <button className="px-4 py-2 rounded-full bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition">
+              Culture & Gastronomie
+            </button>
+          </div>
+
+          {/* Grille des articles */}
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {blogArticlesData.map((article, index) => (
+              <div
+                key={article.id}
+                onClick={() => setSelectedArticle(article)}
+                className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
               >
-                <h3 className="text-xl font-semibold text-[#0f2940] mb-2">{article.title}</h3>
-                <p className="text-sm text-[#6b7280]">{article.excerpt}</p>
-              </button>
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={article.image} 
+                    alt={article.title} 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute top-3 left-3">
+                    <span className="px-2 py-1 bg-[#00c9a7] text-white text-xs rounded-full">
+                      {article.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
+                    <span>{article.readTime}</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#0F2940] mb-2 line-clamp-2 group-hover:text-[#00c9a7] transition-colors">
+                    {article.title}
+                  </h3>
+                  <p className="text-gray-500 text-sm line-clamp-3 mb-4">
+                    {article.excerpt}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                        <span className="text-sm font-bold text-[#00c9a7]">B</span>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-[#0F2940]">Bluefin-Immo</p>
+                        <p className="text-xs text-gray-400">Guide officiel</p>
+                      </div>
+                    </div>
+                    <button className="text-[#00c9a7] text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+                      Lire <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        </PageSection>
+        </div>
       </div>
-    </div>
+
+      {/* Modal Article */}
+      {selectedArticle && (
+        <ArticleModal article={selectedArticle} onClose={() => setSelectedArticle(null)} />
+      )}
+    </>
   );
 }
 

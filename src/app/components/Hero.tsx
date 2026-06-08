@@ -235,7 +235,7 @@ export function Hero({ onSearch, onNavigate }: HeroProps) {
           </p>
         </div>
 
-      
+        
 
         {/* Mobile search panel */}
         <div className="lg:hidden w-full max-w-sm">

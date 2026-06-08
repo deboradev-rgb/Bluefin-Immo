@@ -42,10 +42,10 @@ export function Footer({ onNavigate }: FooterProps) {
     <footer className="bg-slate-950 text-slate-100 mt-16 pb-20 lg:pb-0">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8">
         
-        {/* Section principale - 1 colonne sur mobile, 4 colonnes sur desktop */}
+        {/* Section principale - Ordre corrigé : Assistance | Acceuil Voyageur | Contact | Aide */}
         <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 sm:gap-8 border-t border-slate-800 pt-8 sm:pt-12 pb-6 sm:pb-8">
           
-          {/* Assistance */}
+          {/* COLONNE 1 - Assistance */}
           <div>
             <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
               <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
@@ -67,7 +67,47 @@ export function Footer({ onNavigate }: FooterProps) {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* COLONNE 2 - Acceuil de Voyageur (avant Contact) */}
+          <div>
+            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
+              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
+              Acceuil de Voyageur
+            </h3>
+            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
+              <li>
+                <button onClick={() => handleNavigation('publish')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos logement sur BF</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => handleNavigation('experience')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Expériences sur BF</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => handleNavigation('services')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Services sur BF</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => handleNavigation('car-rental')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Location de Véhicules</span>
+                </button>
+              </li>
+              <li>
+                <button onClick={() => handleNavigation('airport-transfer')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
+                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Prise en charge à l'Aéroport</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* COLONNE 3 - Contact (après Acceuil de Voyageur) */}
           <div>
             <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
               <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
@@ -93,47 +133,7 @@ export function Footer({ onNavigate }: FooterProps) {
             </ul>
           </div>
 
-          {/* Bluefin-Immo */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
-             Acceuil de Voyageur
-            </h3>
-            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
-              <li>
-                <button onClick={() => handleNavigation('terms', 'privacy')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos logement sur BF</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={() => handleNavigation('terms', 'cgu')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Expériences sur BF</span>
-                </button>
-              </li>
-              <li>
-                <button onClick={() => handleNavigation('site-functioning')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Services sur BF</span>
-                </button>
-              </li>
-               <li>
-                <button onClick={() => handleNavigation('site-functioning')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Location de Véhicules</span>
-                </button>
-              </li>
-               <li>
-                <button onClick={() => handleNavigation('site-functioning')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Prise en charge à l'Aeroport</span>
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Aide */}
+          {/* COLONNE 4 - Aide */}
           <div>
             <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
               <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
