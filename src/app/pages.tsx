@@ -8891,296 +8891,299 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
   });
 
   // Contenu pour Hôte de service
-  const getServiceContent = () => ({
-    title: "Aide pour les hôtes de services",
-    description: "Trouvez des réponses à vos questions sur la création et la gestion de vos services.",
-    articles: [
-      { 
-        id: "service-adapte", 
-        title: "Mon service est-il adapté sur Bluefin ?", 
-        description: "Découvrez les types de services acceptés sur Bluefin Immo.",
-        content: `
-          <div class="space-y-4">
-            <p>Les services Bluefin-Immo sont des prestations d'excellente qualité qui agrémentent le séjour des voyageurs.</p>
-            <p><strong>Catégories de services acceptés :</strong></p>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍽️ Traiteur</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">👨‍🍳 Chef privé</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💇‍♀️ Coiffure</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💄 Maquillage</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💆‍♀️ Massage</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💅 Mani-pédi</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🏋️ Coaching privé</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">📸 Photographie</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍲 Plats préparés</div>
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🧘 Soins bien-être</div>
-            </div>
+ 
+const getServiceContent = () => ({
+  title: "Aide pour les hôtes de services",
+  description: "Trouvez des réponses à vos questions sur la création et la gestion de vos services.",
+  articles: [
+    { 
+      id: "service-adapte", 
+      title: "Mon service est-il adapté sur Bluefin ?", 
+      description: "Découvrez les types de services acceptés sur Bluefin Immo.",
+      content: `
+        <div class="space-y-4">
+          <p>Les services Bluefin-Immo sont des prestations d'excellente qualité qui agrémentent le séjour des voyageurs.</p>
+          <p><strong>Catégories de services acceptés :</strong></p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍽️ Traiteur</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">👨‍🍳 Chef privé</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💇‍♀️ Coiffure</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💄 Maquillage</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💆‍♀️ Massage</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">💅 Mani-pédi</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🏋️ Coaching privé</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">📸 Photographie</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🍲 Plats préparés</div>
+            <div class="bg-[#f4fffe] rounded-xl p-3 text-center">🧘 Soins bien-être</div>
           </div>
-        `
-      },
-      { 
-        id: "service-deposer-demande", 
-        title: "Que dois-je faire pour déposer ma demande ?", 
-        description: "Guide pour soumettre votre service.",
-        content: `
-          <div class="space-y-4">
-            <p>Suivez ces étapes simples :</p>
-            <div class="space-y-3">
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
-                <div><strong>Présentez-vous</strong> et décrivez votre service en détail.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
-                <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité et des informations précises.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
-                <div><strong>Définissez vos tarifs</strong> de manière attractive.</div>
-              </div>
-              <div class="flex gap-3">
-                <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
-                <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
-              </div>
-            </div>
-            <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
-              <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
-            </div>
-          </div>
-        `
-      },
-      { 
-        id: "service-frais", 
-        title: "Quels sont les frais Bluefin ?", 
-        description: "Frais de service pour les services.",
-        content: `
-          <div class="space-y-4">
-            <p>La création et l'envoi de l'annonce sont <strong>gratuits</strong>.</p>
-            <div class="bg-[#f4fffe] rounded-xl p-4">
-              <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
-              <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
-              <p>Pour chaque service réservé, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
-            </div>
-          </div>
-        `
-      },
-      { 
-        id: "service-visibilite", 
-        title: "Comment les voyageurs découvriront-ils mon service ?", 
-        description: "Visibilité de votre service.",
-        content: `
-          <div class="space-y-4">
-            <p>Votre service bénéficie d'une visibilité optimale :</p>
-            <ul class="list-disc pl-5 space-y-2">
-              <li>Onglet dédié aux services sur la plateforme</li>
-              <li>Résultats de recherche pertinents</li>
-              <li>Recommandations personnalisées</li>
-              <li>Communications par e-mail et notifications</li>
-              <li>Suggestions dans le récapitulatif de séjour</li>
-            </ul>
-          </div>
-        `
-      },
-      { 
-        id: "service-versement", 
-        title: "Dans quel délai vais-je recevoir mon versement ?", 
-        description: "Délais de paiement.",
-        content: `
-          <div class="space-y-4">
-            <p>Le délai varie selon le mode de versement choisi et les délais de traitement bancaire.</p>
-            <div class="bg-[#f4fffe] rounded-xl p-4">
-              <p><strong>⏱️ Délai standard :</strong> Paiement reçu dès le <strong>lendemain de la réalisation du service</strong>.</p>
-            </div>
-          </div>
-        `
-      },
-     
-      { 
-        id: "experience-verification", 
-        title: "Processus de vérification", 
-        description: "Comment se déroule la vérification de votre expérience.",
-        content: `
-          <div class="space-y-6">
-            <!-- Contenu similaire à service-verification mais adapté aux expériences -->
-            <div>
-              <h3 class="font-semibold text-lg mb-3">En quoi consiste le processus de vérification ?</h3>
-              <div class="bg-gradient-to-r from-[#f4fffe] to-white rounded-xl p-5 border border-[#e2f5f2]">
-                <p>Après envoi de votre annonce, vous recevez un e-mail de confirmation détaillant les prochaines étapes. Chaque expérience est ensuite examinée individuellement par un membre de notre équipe, qui s'assure qu'elle répond bien à nos critères de conformité.</p>
-              </div>
-            </div>
-            <div>
-              <h3 class="font-semibold text-lg mb-3">Comment les expériences sont-elles évaluées ?</h3>
-              <div class="bg-gradient-to-r from-[#f4fffe] to-white rounded-xl p-5 border border-[#e2f5f2]">
-                <p>La qualité est au cœur de notre sélection. Pour évaluer chaque expérience, nous prenons en compte plusieurs critères : le parcours et l'expertise de l'hôte, ses formations et certifications, ses éventuelles récompenses, la qualité de son portfolio, l'originalité de sa proposition et les avis laissés par les voyageurs.</p>
-              </div>
-            </div>
-            <div>
-              <h3 class="font-semibold text-lg mb-3">Combien de temps le processus de vérification prend-il ?</h3>
-              <div class="bg-gradient-to-r from-[#f4fffe] to-white rounded-xl p-5 border border-[#e2f5f2]">
-  <p>En général, le processus de vérification prend <strong>24h à 48h</strong>. Toutefois, cela peut prendre plus de temps, en particulier dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en liste d'attente.</p>
-</div>
-            </div>
-          </div>
-        `
-      },
-
-      { 
-  id: "service-agrement", 
-  title: "Agrément et Assurance", 
-  description: "Documents requis, assurances et responsabilités.",
-  content: `
-    <div class="space-y-6">
-      <!-- Introduction -->
-      <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-xl p-5">
-        <p class="text-gray-700 leading-relaxed">
-          La protection de votre activité et la conformité réglementaire sont essentielles pour exercer sereinement. 
-          Bluefin Immo vous guide dans vos obligations et vous conseille pour vous protéger au mieux.
-        </p>
-      </div>
-
-      <!-- Permis d'exploitation -->
-      <div>
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-            <FileText className="w-5 h-5 text-[#00c9a7]" />
-          </div>
-          <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir un permis d'exploitation ?</h3>
         </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-          <p class="text-gray-700 leading-relaxed">
-            Tout dépend de votre type d'annonce, ainsi que de la <strong>réglementation locale</strong>. 
-            Si un agrément ou d'autres documents sont nécessaires, nous vous en informerons après vérification de votre annonce. 
-            Nous vous demanderons alors de nous les faire parvenir.
-          </p>
-          <div class="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-            <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-            <p class="text-xs text-blue-700">
-              💡 Les exigences varient selon la commune et le type de service proposé (alimentation, bien-être, transport, etc.).
+      `
+    },
+    { 
+      id: "service-deposer-demande", 
+      title: "Que dois-je faire pour déposer ma demande ?", 
+      description: "Guide pour soumettre votre service.",
+      content: `
+        <div class="space-y-4">
+          <p>Suivez ces étapes simples :</p>
+          <div class="space-y-3">
+            <div class="flex gap-3">
+              <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div>
+              <div><strong>Présentez-vous</strong> et décrivez votre service en détail.</div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div>
+              <div><strong>Enrichissez votre annonce</strong> avec des photos de qualité et des informations précises.</div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div>
+              <div><strong>Définissez vos tarifs</strong> de manière attractive.</div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div>
+              <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
+            </div>
+          </div>
+          <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
+            <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "service-frais", 
+      title: "Quels sont les frais Bluefin ?", 
+      description: "Frais de service pour les services.",
+      content: `
+        <div class="space-y-4">
+          <p>La création et l'envoi de l'annonce sont <strong>gratuits</strong>.</p>
+          <div class="bg-[#f4fffe] rounded-xl p-4">
+            <p class="font-semibold text-[#0F2940]">💰 Frais de service :</p>
+            <p class="text-2xl font-bold text-[#00c9a7] mt-2">15%</p>
+            <p>Pour chaque service réservé, Bluefin-Immo déduit automatiquement 15% des frais de service du versement.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "service-visibilite", 
+      title: "Comment les voyageurs découvriront-ils mon service ?", 
+      description: "Visibilité de votre service.",
+      content: `
+        <div class="space-y-4">
+          <p>Votre service bénéficie d'une visibilité optimale :</p>
+          <ul class="list-disc pl-5 space-y-2">
+            <li>Onglet dédié aux services sur la plateforme</li>
+            <li>Résultats de recherche pertinents</li>
+            <li>Recommandations personnalisées</li>
+            <li>Communications par e-mail et notifications</li>
+            <li>Suggestions dans le récapitulatif de séjour</li>
+          </ul>
+        </div>
+      `
+    },
+    { 
+      id: "service-versement", 
+      title: "Dans quel délai vais-je recevoir mon versement ?", 
+      description: "Délais de paiement.",
+      content: `
+        <div class="space-y-4">
+          <p>Le délai varie selon le mode de versement choisi et les délais de traitement bancaire.</p>
+          <div class="bg-[#f4fffe] rounded-xl p-4">
+            <p><strong>⏱️ Délai standard :</strong> Paiement reçu dès le <strong>lendemain de la réalisation du service</strong>.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "service-verification", 
+      title: "Processus de vérification", 
+      description: "Comment se déroule la vérification de votre service.",
+      content: `
+        <div class="space-y-4">
+          <h3 class="font-semibold text-lg">En quoi consiste le processus de vérification ?</h3>
+          <p>Après envoi de votre annonce :</p>
+          <ol class="list-decimal pl-5 space-y-2">
+            <li>Vous recevez un <strong>e-mail de confirmation</strong> détaillant les prochaines étapes</li>
+            <li>Chaque service est <strong>examiné individuellement</strong> par un membre de notre équipe</li>
+            <li>Nous vérifions la <strong>conformité</strong> avec nos critères de qualité</li>
+          </ol>
+          
+          <h3 class="font-semibold text-lg mt-4">Comment les services sont-ils évalués ?</h3>
+          <p>Critères d'évaluation :</p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Le parcours et l'expertise de l'hôte</li>
+            <li>Formations et certifications</li>
+            <li>Récompenses et distinctions</li>
+            <li>Qualité du portfolio</li>
+            <li>Originalité de la proposition</li>
+            <li>Avis laissés par les voyageurs</li>
+          </ul>
+          
+          <h3 class="font-semibold text-lg mt-4">Combien de temps dure la vérification ?</h3>
+          <div class="bg-[#f4fffe] rounded-xl p-4">
+            <p>En général, le processus prend <strong>24h à 48h</strong>. Cependant, cela peut prendre plus de temps dans les zones géographiques où la demande est forte. Dans ce cas, nous pourrions vous mettre en <strong>liste d'attente</strong>.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "service-agrement", 
+      title: "Agrément et Assurance", 
+      description: "Documents requis, assurances et responsabilités.",
+      content: `
+        <div class="space-y-6">
+          <!-- Introduction -->
+          <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-xl p-5">
+            <p class="text-gray-700 leading-relaxed">
+              La protection de votre activité et la conformité réglementaire sont essentielles pour exercer sereinement. 
+              Bluefin Immo vous guide dans vos obligations et vous conseille pour vous protéger au mieux.
             </p>
           </div>
-        </div>
-      </div>
 
-      <!-- Assurance responsabilité civile -->
-      <div>
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-[#00c9a7]" />
-          </div>
-          <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir ma propre assurance ?</h3>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-          <p class="text-gray-700 leading-relaxed mb-4">
-            <strong class="text-[#00c9a7]">Oui</strong>, Bluefin exige que vous souscriviez une 
-            <strong>assurance responsabilité civile</strong> adaptée à votre activité.
-          </p>
-          <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div class="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-              <div>
-                <p class="font-medium text-amber-800">Document requis</p>
-                <p class="text-sm text-amber-700 mt-1">
-                  Il est possible que nous vous demandions de nous fournir une <strong>preuve de cette assurance</strong> 
-                  (attestation, contrat, etc.).
+          <!-- Permis d'exploitation -->
+          <div>
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-[#00c9a7]" />
+              </div>
+              <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir un permis d'exploitation ?</h3>
+            </div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+              <p class="text-gray-700 leading-relaxed">
+                Tout dépend de votre type d'annonce, ainsi que de la <strong>réglementation locale</strong>. 
+                Si un agrément ou d'autres documents sont nécessaires, nous vous en informerons après vérification de votre annonce. 
+                Nous vous demanderons alors de nous les faire parvenir.
+              </p>
+              <div class="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p class="text-xs text-blue-700">
+                  💡 Les exigences varient selon la commune et le type de service proposé (alimentation, bien-être, transport, etc.).
                 </p>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Couverture Bluefin Immo -->
-      <div>
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-            <Building className="w-5 h-5 text-[#00c9a7]" />
-          </div>
-          <h3 class="font-semibold text-lg text-[#0F2940]">Est-ce que Bluefin-Immo fournit une assurance ?</h3>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-          <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <div class="flex items-start gap-3">
-              <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
-              <div>
-                <p class="font-medium text-red-800">Bluefin Immo ne propose pas de couverture d'assurance directe</p>
-                <p class="text-sm text-red-700 mt-1">
-                  Dans les rares cas où votre responsabilité serait engagée en cas de préjudice corporel, 
-                  de dommage matériel ou de vol subi par un voyageur durant une prestation, vous seriez 
-                  <strong>personnellement exposé</strong> en l'absence d'assurance.
-                </p>
+          <!-- Assurance responsabilité civile -->
+          <div>
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-[#00c9a7]" />
+              </div>
+              <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir ma propre assurance ?</h3>
+            </div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+              <p class="text-gray-700 leading-relaxed mb-4">
+                <strong class="text-[#00c9a7]">Oui</strong>, Bluefin exige que vous souscriviez une 
+                <strong>assurance responsabilité civile</strong> adaptée à votre activité.
+              </p>
+              <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p class="font-medium text-amber-800">Document requis</p>
+                    <p class="text-sm text-amber-700 mt-1">
+                      Il est possible que nous vous demandions de nous fournir une <strong>preuve de cette assurance</strong> 
+                      (attestation, contrat, etc.).
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div class="flex items-start gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-              <div>
-                <p class="font-medium text-green-800">Notre recommandation</p>
-                <p class="text-sm text-green-700 mt-1">
-                  Nous vous conseillons de <strong>vous couvrir en amont</strong>, et notre équipe reste à votre disposition 
-                  pour vous orienter vers les solutions les plus adaptées à votre activité.
-                </p>
+
+          <!-- Couverture Bluefin Immo -->
+          <div>
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                <Building className="w-5 h-5 text-[#00c9a7]" />
+              </div>
+              <h3 class="font-semibold text-lg text-[#0F2940]">Est-ce que Bluefin-Immo fournit une assurance ?</h3>
+            </div>
+            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+              <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div class="flex items-start gap-3">
+                  <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                  <div>
+                    <p class="font-medium text-red-800">Bluefin Immo ne propose pas de couverture d'assurance directe</p>
+                    <p class="text-sm text-red-700 mt-1">
+                      Dans les rares cas où votre responsabilité serait engagée en cas de préjudice corporel, 
+                      de dommage matériel ou de vol subi par un voyageur durant une prestation, vous seriez 
+                      <strong>personnellement exposé</strong> en l'absence d'assurance.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                  <div>
+                    <p class="font-medium text-green-800">Notre recommandation</p>
+                    <p class="text-sm text-green-700 mt-1">
+                      Nous vous conseillons de <strong>vous couvrir en amont</strong>, et notre équipe reste à votre disposition 
+                      pour vous orienter vers les solutions les plus adaptées à votre activité.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Récapitulatif des documents -->
-      <div class="bg-[#0f2940] rounded-xl p-5 text-white">
-        <h4 class="font-semibold mb-3 flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-[#00c9a7]" />
-          Documents à préparer
-        </h4>
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div class="flex items-center gap-2 text-sm text-white/80">
-            <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-              <Check className="w-3 h-3 text-[#00c9a7]" />
+          <!-- Récapitulatif des documents -->
+          <div class="bg-[#0f2940] rounded-xl p-5 text-white">
+            <h4 class="font-semibold mb-3 flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-[#00c9a7]" />
+              Documents à préparer
+            </h4>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div class="flex items-center gap-2 text-sm text-white/80">
+                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[#00c9a7]" />
+                </div>
+                <span>Permis d'exploitation (si requis)</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-white/80">
+                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[#00c9a7]" />
+                </div>
+                <span>Attestation d'assurance RC Pro</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-white/80">
+                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[#00c9a7]" />
+                </div>
+                <span>Diplômes ou certifications (selon activité)</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm text-white/80">
+                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[#00c9a7]" />
+                </div>
+                <span>Agrément sanitaire (pour activités alimentaires)</span>
+              </div>
             </div>
-            <span>Permis d'exploitation (si requis)</span>
           </div>
-          <div class="flex items-center gap-2 text-sm text-white/80">
-            <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-              <Check className="w-3 h-3 text-[#00c9a7]" />
-            </div>
-            <span>Attestation d'assurance RC Pro</span>
-          </div>
-          <div class="flex items-center gap-2 text-sm text-white/80">
-            <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-              <Check className="w-3 h-3 text-[#00c9a7]" />
-            </div>
-            <span>Diplômes ou certifications (selon activité)</span>
-          </div>
-          <div class="flex items-center gap-2 text-sm text-white/80">
-            <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-              <Check className="w-3 h-3 text-[#00c9a7]" />
-            </div>
-            <span>Agrément sanitaire (pour activités alimentaires)</span>
-          </div>
-        </div>
-      </div>
 
-      <!-- Contact support -->
-      <div class="bg-gradient-to-r from-[#00c9a7]/5 to-transparent rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
-        <div class="flex items-center gap-2">
-          <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
-          <span class="text-sm text-gray-600">Une question sur les assurances ?</span>
+          <!-- Contact support -->
+          <div class="bg-gradient-to-r from-[#00c9a7]/5 to-transparent rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+              <span class="text-sm text-gray-600">Une question sur les assurances ?</span>
+            </div>
+            <button class="px-4 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition">
+              Contacter le support
+            </button>
+          </div>
         </div>
-        <button class="px-4 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition">
-          Contacter le support
-        </button>
-      </div>
-    </div>
-  `
-}
-    ],
-    quickLinks: [
-      { icon: Briefcase, label: "Créer un service" },
-      { icon: Calendar, label: "Mon calendrier" },
-      { icon: MessageCircle, label: "Messages" },
-      { icon: CreditCard, label: "Mes paiements" },
-    ]
-  });
+      `
+    }
+  ],
+  quickLinks: [
+    { icon: Briefcase, label: "Créer un service" },
+    { icon: Calendar, label: "Mon calendrier" },
+    { icon: MessageCircle, label: "Messages" },
+    { icon: CreditCard, label: "Mes paiements" },
+  ]
+});
 
   // Contenu original pour les voyageurs
   const getTravelerContent = () => ({
@@ -9221,23 +9224,7 @@ export function HelpPage({ onNavigate }: { onNavigate?: (route: any) => void }) 
     ]
   });
 
-  // Contenu pour Administrateur
-  const getAdminContent = () => ({
-    title: "Aide pour les administrateurs",
-    description: "Guide pour la gestion et l'administration de la plateforme.",
-    articles: [
-      { id: "admin-properties", title: "Gestion des propriétés", description: "Modérer et approuver les annonces." },
-      { id: "admin-users", title: "Gestion des utilisateurs", description: "Gérer les comptes et les permissions." },
-      { id: "admin-payments", title: "Suivi des paiements", description: "Gérer les transactions et les remboursements." },
-      { id: "admin-reports", title: "Rapports et analyses", description: "Analyser les performances de la plateforme." },
-    ],
-    quickLinks: [
-      { icon: Building, label: "Dashboard" },
-      { icon: Users, label: "Utilisateurs" },
-      { icon: Home, label: "Propriétés" },
-      { icon: CreditCard, label: "Paiements" },
-    ]
-  });
+
 
   const getRoleContent = () => {
     switch (selectedRole) {
