@@ -42,108 +42,108 @@ export function Footer({ onNavigate }: FooterProps) {
     <footer className="bg-slate-950 text-slate-100 mt-16 pb-20 lg:pb-0">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:py-12 sm:px-6 lg:px-8">
         
-        {/* Section principale - Ordre corrigé : Assistance | Acceuil Voyageur | Contact | Aide */}
-        <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6 sm:gap-8 border-t border-slate-800 pt-8 sm:pt-12 pb-6 sm:pb-8">
+        {/* Section principale avec grid responsive et alignement vertical */}
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-8 lg:gap-6 border-t border-slate-800 pt-8 sm:pt-12 pb-6 sm:pb-8">
           
-          {/* COLONNE 1 - Assistance */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
-              <Building className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
+          {/* COLONNE 1 - Assistance (3 colonnes sur 12) */}
+          <div className="lg:col-span-3 flex flex-col">
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-base">
+              <Building className="w-4 h-4 text-[#00C9A7]" />
               Assistance
             </h3>
-            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
+            <ul className="space-y-3 text-sm text-slate-300">
               <li>
-                <button onClick={() => handleNavigation('about')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">À propos de nous</span>
+                <button onClick={() => handleNavigation('about')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">À propos de nous</span>
                 </button>
               </li>
               <li>
-                <button onClick={() => handleNavigation('blog')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Blog & Actualités</span>
+                <button onClick={() => handleNavigation('blog')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Blog & Actualités</span>
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* COLONNE 2 - Acceuil de Voyageur (avant Contact) */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
-              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
+          {/* COLONNE 2 - Acceuil de Voyageur (4 colonnes sur 12) */}
+          <div className="lg:col-span-4 flex flex-col">
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-base">
+              <Users className="w-4 h-4 text-[#00C9A7]" />
               Acceuil de Voyageur
             </h3>
-            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
+            <ul className="space-y-3 text-sm text-slate-300">
               <li>
-                <button onClick={() => handleNavigation('publish')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos logement sur BF</span>
+                <button onClick={() => handleNavigation('publish')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Mettez vos logement sur BF</span>
                 </button>
               </li>
               <li>
-                <button onClick={() => handleNavigation('experience')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Expériences sur BF</span>
+                <button onClick={() => handleNavigation('experience')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Mettez vos Expériences sur BF</span>
                 </button>
               </li>
               <li>
-                <button onClick={() => handleNavigation('services')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Mettez vos Services sur BF</span>
+                <button onClick={() => handleNavigation('services')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Mettez vos Services sur BF</span>
                 </button>
               </li>
               <li>
-                <button onClick={() => handleNavigation('car-rental')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Location de Véhicules</span>
+                <button onClick={() => handleNavigation('car-rental')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Location de Véhicules</span>
                 </button>
               </li>
               <li>
-                <button onClick={() => handleNavigation('airport-transfer')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Prise en charge à l'Aéroport</span>
+                <button onClick={() => handleNavigation('airport-transfer')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Prise en charge à l'Aéroport</span>
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* COLONNE 3 - Contact (après Acceuil de Voyageur) */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
-              <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
+          {/* COLONNE 3 - Contact (3 colonnes sur 12) */}
+          <div className="lg:col-span-3 flex flex-col">
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-base">
+              <Mail className="w-4 h-4 text-[#00C9A7]" />
               Contact
             </h3>
-            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
-              <li className="flex items-start gap-2 sm:gap-3">
-                <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mt-0.5 text-[#00C9A7] flex-shrink-0" />
-                <span className="break-words">Cotonou, Bénin</span>
+            <ul className="space-y-3 text-sm text-slate-300">
+              <li className="flex items-start gap-3">
+                <MapPin className="w-4 h-4 mt-0.5 text-[#00C9A7] flex-shrink-0" />
+                <span>Cotonou, Bénin</span>
               </li>
-              <li className="flex items-center gap-2 sm:gap-3">
-                <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7] flex-shrink-0" />
-                <span className="break-words">+229 01 23 45 67</span>
+              <li className="flex items-center gap-3">
+                <Phone className="w-4 h-4 text-[#00C9A7] flex-shrink-0" />
+                <span>+229 01 23 45 67</span>
               </li>
-              <li className="flex items-center gap-2 sm:gap-3">
-                <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7] flex-shrink-0" />
-                <span className="break-words text-xs">contact@bluefinimmo.com</span>
+              <li className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-[#00C9A7] flex-shrink-0" />
+                <span className="break-all">contact@bluefinimmo.com</span>
               </li>
-              <li className="flex items-start gap-2 sm:gap-3">
-                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 mt-0.5 text-[#00C9A7] flex-shrink-0" />
-                <span className="break-words">Lun - Ven : 9h - 18h</span>
+              <li className="flex items-start gap-3">
+                <Clock className="w-4 h-4 mt-0.5 text-[#00C9A7] flex-shrink-0" />
+                <span>Lun - Ven : 9h - 18h</span>
               </li>
             </ul>
           </div>
 
-          {/* COLONNE 4 - Aide */}
-          <div>
-            <h3 className="font-semibold text-white mb-3 sm:mb-5 flex items-center gap-2 text-sm sm:text-base">
-              <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00C9A7]" />
+          {/* COLONNE 4 - Aide (2 colonnes sur 12 - poussée à droite) */}
+          <div className="lg:col-span-2 lg:col-start-11 flex flex-col">
+            <h3 className="font-semibold text-white mb-4 flex items-center gap-2 text-base">
+              <HelpCircle className="w-4 h-4 text-[#00C9A7]" />
               Aide
             </h3>
-            <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
+            <ul className="space-y-3 text-sm text-slate-300">
               <li>
-                <button onClick={() => handleNavigation('help')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group w-full sm:w-auto">
-                  <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                  <span className="group-hover:translate-x-1 transition-transform duration-300 text-left">Centre d'aide</span>
+                <button onClick={() => handleNavigation('help')} className="hover:text-[#00C9A7] transition-colors duration-300 flex items-center gap-1 group">
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1" />
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Centre d'aide</span>
                 </button>
               </li>
             </ul>
@@ -151,7 +151,7 @@ export function Footer({ onNavigate }: FooterProps) {
         </div>
 
         {/* Copyright et bas de page */}
-        <div className="border-t border-slate-800 pt-6 sm:pt-8">
+        <div className="border-t border-slate-800 pt-6 sm:pt-8 mt-4">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
             {/* Logo */}
             <div className="flex items-center gap-2 order-1 lg:order-1">
@@ -160,7 +160,7 @@ export function Footer({ onNavigate }: FooterProps) {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-[#00C9A7] rounded transform rotate-45"></div>
                 </div>
               </div>
-              <div className="text-white text-xs sm:text-sm font-bold">Bluefin-Immo</div>
+              <div className="text-white text-sm font-bold">Bluefin-Immo</div>
             </div>
 
             {/* Liens légaux */}
