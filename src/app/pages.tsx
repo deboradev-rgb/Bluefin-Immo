@@ -8949,9 +8949,14 @@ const getServiceContent = () => ({
               <div><strong>Soumettez votre annonce</strong> à notre équipe pour validation.</div>
             </div>
           </div>
-          <div class="bg-[#00c9a7]/10 rounded-xl p-4 text-center">
-            <button class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition">Commencer mon inscription</button>
-          </div>
+          <div class=" rounded-xl p-4 text-center">
+        <button 
+          onclick="window.location.href='/become-host'" 
+          class="bg-[#00c9a7] text-white px-6 py-2 rounded-full font-medium hover:bg-[#00b892] transition cursor-pointer"
+        >
+          Commencer mon inscription
+        </button>
+      </div>
         </div>
       `
     },
