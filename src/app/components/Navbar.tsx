@@ -1,76 +1,84 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, User, Globe, Menu, X, MapPin, Home, Star, Server, LogIn, Phone, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, ChevronLeft, ChevronRight, Users, Plus, Minus } from 'lucide-react';
 import type { Route } from '../router';
 import Logo from '../assets/Bluefin Immo_01.jpg.jpeg';
 
-// Liste des destinations
 const destinationsList = [
-  "Abomey", "Abomey-Calavi", "Adjarra", "Adja-Ouèrè", "Agbangnizoun", "Aglangandan", "Ahomey", "Akpro-Missérété",
-  "Allada", "Athiémé", "Avrankou", "Bantè", "Bassila", "Bembéréké", "Bétérou", "Bohicon", "Bonou", "Bopa",
-  "Cotonou", "Cové", "Dassa-Zoumè", "Djakotomey", "Dogbo", "Fidjrossè", "Ganhi", "Ganvié", "Glazoué",
-  "Godomey", "Grand-Popo", "Guilmaro", "Hinvi", "Hounvè", "Ifangni", "Kandi", "Kérou", "Kétou", "Kouandé",
-  "Lalo", "Lokossa", "Malanville", "Massi", "Matéri", "Ménontin", "Monomitenga", "Natitingou", "N'Dali",
-  "Nikki", "Ouidah", "Ouèssè", "Pahou", "Parakou", "Péhunco", "Pobè", "Porto-Novo", "Sakété", "Savalou",
-  "Savè", "Ségbana", "Sèmè-Kpodji", "Sinendé", "So-Ava", "Tanguiéta", "Tanvè", "Tchaourou", "Toffo", "Tori-Bossito",
-  "Toucountouna", "Zagnanado", "Zè", "Zogbodomey"
+  "Abomey", "Abomey-Calavi", "Cotonou", "Porto-Novo", "Parakou", "Ouidah", "Grand-Popo",
+  "Natitingou", "Kandi", "Lokossa", "Dogbo", "Bohicon", "Dassa-Zoumè", "Savalou", "Fidjrossè",
+  "Haie Vive", "Ganhi", "Akpakpa", "Menontin", "Cadjèhoun", "Jéricho", "Saint-Michel"
 ];
 
-export function Navbar({ onGoHome, onNavigate, currentPage }: NavbarProps) {
+interface NavbarProps {
+  onGoHome: () => void;
+  onNavigate?: (route: Route) => void;
+  currentPage?: string;
+  onSearch?: (searchParams: { destination: string; checkIn: string; checkOut: string; guests: number }) => void;
+}
+
+export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lang, setLang] = useState('FR');
-  const [currency, setCurrency] = useState('XOF');
+  const [isSearching, setIsSearching] = useState(false);
   
   // États pour la barre de recherche
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-  const [guestCounts, setGuestCounts] = useState({ adults: 0, children: 0, babies: 0, pets: 0 });
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
   const [activeTab, setActiveTab] = useState<"destination" | "dates" | "guests" | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
   
   const searchRef = useRef<HTMLDivElement>(null);
+  const destinationPopupRef = useRef<HTMLDivElement>(null);
+  const datesPopupRef = useRef<HTMLDivElement>(null);
+  const guestsPopupRef = useRef<HTMLDivElement>(null);
 
-  // Dans ton Navbar.tsx, modifie navItems :
+  const navItems = [
+    { name: 'Logement', icon: Home, route: { name: 'home' } as Route },
+    { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route },
+    { name: 'Service', icon: Server, route: { name: 'services' } as Route },
+  ];
 
-const navItems = [
-  { name: 'Logement', icon: Home, route: { name: 'home' } as Route },  // Redirige vers SearchPage
-  { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route },     // Redirige vers ExperiencePage
-  { name: 'Service', icon: Server, route: { name: 'services' } as Route } ,
-    // Redirige vers BecomeHostPage
-];
-
-const isActive = (itemName: string) => {
-  if (itemName === 'Logement' && currentPage === 'home') return true;
-  if (itemName === 'Expérience' && currentPage === 'experience') return true;
-  if (itemName === 'Service' && currentPage === 'services') return true;
-
-  return false;
-};
+  const isActive = (itemName: string) => {
+    if (itemName === 'Logement' && currentPage === 'home') return true;
+    if (itemName === 'Expérience' && currentPage === 'experience') return true;
+    if (itemName === 'Service' && currentPage === 'services') return true;
+    return false;
+  };
 
   // Fermer les popups au clic en dehors
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      if (activeTab === "destination" && destinationPopupRef.current && !destinationPopupRef.current.contains(event.target as Node)) {
+        setActiveTab(null);
+      }
+      if (activeTab === "dates" && datesPopupRef.current && !datesPopupRef.current.contains(event.target as Node)) {
+        setActiveTab(null);
+      }
+      if (activeTab === "guests" && guestsPopupRef.current && !guestsPopupRef.current.contains(event.target as Node)) {
         setActiveTab(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [activeTab]);
 
   const guestLabel = () => {
-    const totalGuests = guestCounts.adults + guestCounts.children;
-    const parts = [];
-    if (totalGuests > 0) parts.push(`${totalGuests} voyageur${totalGuests > 1 ? 's' : ''}`);
-    if (guestCounts.babies > 0) parts.push(`${guestCounts.babies} bébé${guestCounts.babies > 1 ? 's' : ''}`);
-    if (guestCounts.pets > 0) parts.push(`${guestCounts.pets} animal${guestCounts.pets > 1 ? 's' : ''}`);
-    return parts.length > 0 ? parts.join(" · ") : "Ajouter des voyageurs";
+    const totalGuests = adults + children;
+    if (totalGuests > 0) {
+      return `${totalGuests} voyageur${totalGuests > 1 ? 's' : ''}`;
+    }
+    return "Ajouter des voyageurs";
   };
 
   const dateLabel = () => {
     if (checkIn && checkOut) {
-      return `${new Date(checkIn).toLocaleDateString('fr-BJ', { day: 'numeric', month: 'short' })} - ${new Date(checkOut).toLocaleDateString('fr-BJ', { day: 'numeric', month: 'short' })}`;
+      return `${new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+    }
+    if (checkIn) {
+      return `${new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} → ?`;
     }
     return "Quand ?";
   };
@@ -91,6 +99,11 @@ const isActive = (itemName: string) => {
     }
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    }
+    const remainingDays = 42 - days.length;
+    for (let i = 1; i <= remainingDays; i++) {
+      const nextDate = new Date(year, month + 1, i);
+      days.push({ date: nextDate, isCurrentMonth: false });
     }
     return days;
   };
@@ -114,6 +127,11 @@ const isActive = (itemName: string) => {
   };
 
   const handleDateSelect = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (date < today) return;
+    
     if (!checkIn || (checkIn && checkOut)) {
       setCheckIn(date.toISOString().split('T')[0]);
       setCheckOut("");
@@ -133,46 +151,85 @@ const isActive = (itemName: string) => {
 
   const days = getDaysInMonth(currentMonth);
 
+  // Fonction de recherche
   const handleSearch = () => {
-    console.log('Recherche:', { destination, checkIn, checkOut, guestCounts });
+    if (isSearching) return;
+    
+    setIsSearching(true);
+    
+    const totalGuests = adults + children;
+    
+    const searchParams = {
+      destination: destination,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      guests: totalGuests > 0 ? totalGuests : 1
+    };
+    
+    console.log('🔍 Recherche en cours:', searchParams);
+    
+    if (onSearch) {
+      onSearch(searchParams);
+    }
+    
     setActiveTab(null);
     setMobileSearchActive(false);
+    
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 500);
+  };
+
+  const handleMobileSearch = () => {
+    if (isSearching) return;
+    
+    setIsSearching(true);
+    
+    const totalGuests = adults + children;
+    
+    const searchParams = {
+      destination: destination,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      guests: totalGuests > 0 ? totalGuests : 1
+    };
+    
+    if (onSearch) {
+      onSearch(searchParams);
+    }
+    
+    setMobileSearchActive(false);
+    
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 500);
   };
 
   return (
-    <nav className="bg-white border-b border-[#e2f5f2] sticky top-0 z-50 w-full">
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 w-full">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-3 lg:py-4">
         
-        {/* Première ligne: Logo + Navigation centrale + Actions droite */}
+        {/* Première ligne - Logo et navigation */}
         <div className="flex items-center justify-between gap-4">
-          {/* Logo à gauche */}
-          <button
-            onClick={onGoHome}
-            className="flex items-center gap-3 flex-shrink-0 group transition-all hover:scale-105 duration-300"
-          >
-            <img 
-              src={Logo} 
-              alt="Bluefin-Immo Logo" 
-              className="w-12 h-12 lg:w-16 lg:h-16 object-contain rounded-xl shadow-md group-hover:shadow-xl transition-all"
-            />
+          {/* Logo */}
+          <button onClick={onGoHome} className="flex items-center gap-3 flex-shrink-0 group">
+            <img src={Logo} alt="Logo" className="w-10 h-10 lg:w-12 lg:h-12 object-contain rounded-xl shadow-md group-hover:shadow-lg transition-all" />
             <div className="hidden sm:block">
-              <div className="font-bold text-lg lg:text-xl bg-gradient-to-r from-[#0f2940] to-[#1a3a52] bg-clip-text text-transparent">
-                Bluefin-Immo
-              </div>
-              <div className="text-xs text-[#00c9a7] font-medium">L'hébergement au Bénin</div>
+              <div className="font-bold text-lg lg:text-xl text-[#0f2940]">Bluefin-Immo</div>
+              <div className="text-xs text-[#00c9a7]">L'hébergement au Bénin</div>
             </div>
           </button>
 
-          {/* Navigation Links - Desktop centré */}
-          <div className="hidden lg:flex items-center gap-2 absolute left-1/2 transform -translate-x-1/2">
+          {/* Navigation Desktop */}
+          <div className="hidden lg:flex items-center gap-2">
             {navItems.map((item) => (
               <button
                 key={item.name}
                 onClick={() => onNavigate?.(item.route)}
-                className={`px-5 py-2.5 rounded-full transition-all duration-300 font-medium text-sm flex items-center gap-2 whitespace-nowrap
+                className={`px-4 py-2 rounded-full transition-all text-sm flex items-center gap-2
                   ${isActive(item.name) 
                     ? 'bg-gradient-to-r from-[#00c9a7] to-[#00b396] text-white shadow-md' 
-                    : 'text-[#0f2940] hover:bg-[#f4fffe] hover:scale-105'
+                    : 'text-[#0f2940] hover:bg-gray-50'
                   }`}
               >
                 <item.icon className="w-4 h-4" />
@@ -181,63 +238,54 @@ const isActive = (itemName: string) => {
             ))}
           </div>
 
-          {/* Right actions — complètement à droite */}
-          <div className="hidden lg:flex items-center gap-3 flex-shrink-0 ml-auto">
-            <button
-              onClick={() => onNavigate?.({ name: 'become-host' })}
-              className="relative px-6 py-2.5 rounded-full overflow-hidden group bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white font-medium text-sm transition-all duration-300 hover:shadow-lg hover:scale-105"
-            >
-              <span className="relative z-10">Devenir hôte</span>
-              <span className="absolute inset-0 bg-gradient-to-r from-[#00c9a7] to-[#00b396] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+          {/* Actions droite */}
+          <div className="hidden lg:flex items-center gap-3">
+            <button onClick={() => onNavigate?.({ name: 'become-host' })} className="px-5 py-2 rounded-full bg-[#0f2940] text-white text-sm hover:bg-[#1a3a52] transition">
+              Devenir hôte
             </button>
-            <button
-              onClick={() => onNavigate?.({ name: 'auth' })}
-              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#00c9a7]/10 to-transparent text-[#0f2940] font-medium text-sm transition-all duration-300 hover:shadow-md hover:scale-105 flex items-center gap-2 border border-[#00c9a7]/20"
-            >
+            <button onClick={() => onNavigate?.({ name: 'auth' })} className="px-5 py-2 rounded-full border border-[#00c9a7] text-[#0f2940] text-sm flex items-center gap-2 hover:bg-[#00c9a7]/5 transition">
               <LogIn className="w-4 h-4" />
-              <span>S'inscrire</span>
+              S'inscrire
             </button>
           </div>
 
-          {/* Mobile right actions */}
-          <div className="flex lg:hidden items-center gap-2 flex-shrink-0">
-            <button
-              className="w-10 h-10 rounded-full border border-[#e2f5f2] flex items-center justify-center hover:border-[#00c9a7] transition-all hover:shadow-md"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              {menuOpen ? <X className="w-5 h-5 text-[#0f2940]" /> : <Menu className="w-5 h-5 text-[#0f2940]" />}
+          {/* Mobile buttons */}
+          <div className="flex lg:hidden items-center gap-2">
+            <button onClick={() => setMobileSearchActive(true)} className="p-2 rounded-full bg-gray-50 border border-gray-200">
+              <Search className="w-5 h-5 text-[#00c9a7]" />
             </button>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] flex items-center justify-center shadow-md">
-              
-            </div>
+            <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 rounded-full border border-gray-200">
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
-        {/* Barre de recherche interactive - Desktop centrée */}
+        {/* Barre de recherche Desktop */}
         <div className="hidden lg:flex justify-center mt-6" ref={searchRef}>
-          <div className="bg-white rounded-full shadow-xl border border-gray-200 hover:shadow-2xl transition-all duration-300 max-w-4xl w-full">
-            <div className="flex items-center gap-1 p-1">
-              {/* Destination */}
-              <div className="relative flex-[1.5]">
+          <div className="bg-white rounded-full shadow-xl border border-gray-200 hover:shadow-2xl transition-all w-full max-w-3xl">
+            <div className="flex items-center p-1">
+              
+              {/* Bouton Destination */}
+              <div className="relative flex-[1.3]">
                 <button
                   onClick={() => setActiveTab(activeTab === "destination" ? null : "destination")}
-                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${
-                    activeTab === "destination" ? "bg-gray-50 shadow-inner" : "hover:bg-gray-50"
-                  }`}
+                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${activeTab === "destination" ? "bg-gray-50" : "hover:bg-gray-50"}`}
                 >
-                  <div className="text-xs font-medium text-gray-700">Destination</div>
+                  <div className="text-xs font-medium text-gray-500">Destination</div>
                   <div className="text-sm text-gray-900 truncate flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-[#00c9a7]" />
                     {destination || "Rechercher une destination"}
                   </div>
                 </button>
+                
+                {/* Popup Destination */}
                 {activeTab === "destination" && (
-                  <div className="absolute top-full left-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
+                  <div ref={destinationPopupRef} className="absolute top-full left-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Où souhaitez-vous aller ?</h3>
+                        <h3 className="font-semibold">Où souhaitez-vous aller ?</h3>
                         <button onClick={() => setActiveTab(null)} className="p-1 rounded-full hover:bg-gray-100">
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                       <input
@@ -246,21 +294,22 @@ const isActive = (itemName: string) => {
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
                         value={destination}
                         onChange={(e) => setDestination(e.target.value)}
+                        autoFocus
                       />
-                      <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
-                        <div className="font-semibold text-sm text-gray-500 mb-2">Villes du Bénin</div>
-                        {destinationsList.filter(place => 
-                          place.toLowerCase().includes(destination.toLowerCase())
-                        ).map((place) => (
-                          <button
-                            key={place}
-                            onClick={() => { setDestination(place); setActiveTab(null); }}
-                            className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors"
-                          >
-                            <div className="font-medium">{place}</div>
-                            <div className="text-sm text-gray-500">Bénin</div>
-                          </button>
-                        ))}
+                      <div className="mt-4 space-y-1 max-h-64 overflow-y-auto">
+                        <div className="text-xs font-semibold text-gray-500 mb-2">Destinations populaires</div>
+                        {destinationsList
+                          .filter(place => place.toLowerCase().includes(destination.toLowerCase()))
+                          .slice(0, 10)
+                          .map((place) => (
+                            <button
+                              key={place}
+                              onClick={() => { setDestination(place); setActiveTab(null); }}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm"
+                            >
+                              {place}
+                            </button>
+                          ))}
                       </div>
                     </div>
                   </div>
@@ -269,70 +318,90 @@ const isActive = (itemName: string) => {
 
               <div className="w-px h-8 bg-gray-200"></div>
 
-              {/* Dates */}
+              {/* Bouton Dates */}
               <div className="relative flex-1">
                 <button
                   onClick={() => setActiveTab(activeTab === "dates" ? null : "dates")}
-                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${
-                    activeTab === "dates" ? "bg-gray-50 shadow-inner" : "hover:bg-gray-50"
-                  }`}
+                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${activeTab === "dates" ? "bg-gray-50" : "hover:bg-gray-50"}`}
                 >
-                  <div className="text-xs font-medium text-gray-700">Dates</div>
+                  <div className="text-xs font-medium text-gray-500">Dates</div>
                   <div className="text-sm text-gray-900 flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-[#00c9a7]" />
                     {dateLabel()}
                   </div>
                 </button>
+                
+                {/* Popup Dates - Calendrier */}
                 {activeTab === "dates" && (
-                  <div className="absolute top-full left-0 mt-2 w-[640px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
-                    <div className="p-6">
+                  <div ref={datesPopupRef} className="absolute top-full left-0 mt-2 w-[640px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
+                    <div className="p-5">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Sélectionnez vos dates</h3>
+                        <h3 className="font-semibold">Sélectionnez vos dates</h3>
                         <button onClick={() => setActiveTab(null)} className="p-1 rounded-full hover:bg-gray-100">
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="flex items-center justify-between mb-6">
+                      
+                      {/* Navigation mois */}
+                      <div className="flex items-center justify-between mb-4">
                         <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100">
                           <ChevronLeft className="w-5 h-5" />
                         </button>
-                        <span className="font-semibold">
-                          {currentMonth.toLocaleDateString('fr-BJ', { month: 'long', year: 'numeric' })}
+                        <span className="font-semibold text-base">
+                          {currentMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
                         </span>
                         <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100">
                           <ChevronRight className="w-5 h-5" />
                         </button>
                       </div>
+                      
+                      {/* Jours de la semaine */}
                       <div className="grid grid-cols-7 gap-1 mb-2">
                         {weekDays.map(day => (
                           <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">{day}</div>
                         ))}
                       </div>
+                      
+                      {/* Jours du mois */}
                       <div className="grid grid-cols-7 gap-1">
                         {days.map((day, index) => {
                           const isSelected = isDateSelected(day.date);
                           const inRange = isInRange(day.date);
                           const isToday = day.date.toDateString() === new Date().toDateString();
+                          const isPast = day.date < new Date(new Date().setHours(0, 0, 0, 0));
+                          
                           return (
                             <button
                               key={index}
-                              onClick={() => handleDateSelect(day.date)}
-                              disabled={!day.isCurrentMonth}
+                              onClick={() => !isPast && handleDateSelect(day.date)}
+                              disabled={isPast}
                               className={`relative aspect-square rounded-full text-sm transition-all
-                                ${!day.isCurrentMonth && 'text-gray-300 cursor-not-allowed'}
-                                ${isSelected && 'bg-[#00c9a7] text-white hover:bg-[#00b892]'}
+                                ${isPast && 'text-gray-300 cursor-not-allowed'}
+                                ${!day.isCurrentMonth && !isPast && 'text-gray-300'}
+                                ${isSelected && 'bg-[#00c9a7] text-white shadow-md'}
                                 ${inRange && !isSelected && 'bg-[#00c9a7]/10'}
-                                ${isToday && !isSelected && 'border-2 border-[#00c9a7]'}
-                                ${!isSelected && !inRange && day.isCurrentMonth && 'hover:bg-gray-100'}`}
+                                ${isToday && !isSelected && !inRange && !isPast && 'border-2 border-[#00c9a7]'}
+                                ${!isSelected && !inRange && !isPast && day.isCurrentMonth && 'hover:bg-gray-100'}`}
                             >
                               {day.date.getDate()}
                             </button>
                           );
                         })}
                       </div>
-                      <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end">
-                        <button onClick={() => setActiveTab(null)} className="px-6 py-2 bg-[#00c9a7] text-[#0F2940] rounded-lg font-semibold">
-                          Fermer
+                      
+                      {/* Boutons d'action */}
+                      <div className="mt-5 pt-4 border-t border-gray-100 flex justify-between">
+                        <button 
+                          onClick={() => { setCheckIn(""); setCheckOut(""); }}
+                          className="text-sm text-gray-500 hover:text-[#00c9a7] transition"
+                        >
+                          Effacer les dates
+                        </button>
+                        <button 
+                          onClick={() => setActiveTab(null)} 
+                          className="px-5 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b396] transition"
+                        >
+                          Valider
                         </button>
                       </div>
                     </div>
@@ -342,62 +411,84 @@ const isActive = (itemName: string) => {
 
               <div className="w-px h-8 bg-gray-200"></div>
 
-              {/* Voyageurs */}
+              {/* Bouton Voyageurs */}
               <div className="relative flex-1">
                 <button
                   onClick={() => setActiveTab(activeTab === "guests" ? null : "guests")}
-                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${
-                    activeTab === "guests" ? "bg-gray-50 shadow-inner" : "hover:bg-gray-50"
-                  }`}
+                  className={`w-full text-left px-5 py-3 rounded-full transition-all ${activeTab === "guests" ? "bg-gray-50" : "hover:bg-gray-50"}`}
                 >
-                  <div className="text-xs font-medium text-gray-700">Voyageurs</div>
-                  <div className="text-sm text-gray-900 truncate">{guestLabel()}</div>
+                  <div className="text-xs font-medium text-gray-500">Voyageurs</div>
+                  <div className="text-sm text-gray-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-[#00c9a7]" />
+                    {guestLabel()}
+                  </div>
                 </button>
+                
+                {/* Popup Voyageurs */}
                 {activeTab === "guests" && (
-                  <div className="absolute top-full right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
-                    <div className="p-6">
+                  <div ref={guestsPopupRef} className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
+                    <div className="p-5">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold">Voyageurs</h3>
+                        <h3 className="font-semibold">Voyageurs</h3>
                         <button onClick={() => setActiveTab(null)} className="p-1 rounded-full hover:bg-gray-100">
-                          <X className="w-5 h-5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <div className="space-y-6">
-                        {[
-                          { label: "Adultes", description: "13 ans et plus", key: "adults" },
-                          { label: "Enfants", description: "De 2 à 12 ans", key: "children" },
-                          { label: "Bébés", description: "Moins de 2 ans", key: "babies" },
-                          { label: "Animaux domestiques", description: "Vous voyagez avec un animal ?", key: "pets" },
-                        ].map(({ label, description, key }) => (
-                          <div key={key} className="flex items-center justify-between">
-                            <div>
-                              <p className="font-semibold text-[#0F2940]">{label}</p>
-                              <p className="text-sm text-gray-500">{description}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <button 
-                                onClick={() => setGuestCounts(prev => ({ ...prev, [key]: Math.max(0, (prev[key as keyof typeof prev] as number) - 1) }))} 
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400"
-                              >
-                                -
-                              </button>
-                              <span className="w-6 text-center text-[#0F2940]">{guestCounts[key as keyof typeof guestCounts]}</span>
-                              <button 
-                                onClick={() => setGuestCounts(prev => ({ ...prev, [key]: (prev[key as keyof typeof prev] as number) + 1 }))} 
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400"
-                              >
-                                +
-                              </button>
-                            </div>
+                      
+                      <div className="space-y-5">
+                        {/* Adultes */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Adultes</p>
+                            <p className="text-xs text-gray-500">13 ans et plus</p>
                           </div>
-                        ))}
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => setAdults(Math.max(1, adults - 1))} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-base font-medium">{adults}</span>
+                            <button 
+                              onClick={() => setAdults(adults + 1)} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Enfants */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">Enfants</p>
+                            <p className="text-xs text-gray-500">De 2 à 12 ans</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => setChildren(Math.max(0, children - 1))} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center text-base font-medium">{children}</span>
+                            <button 
+                              onClick={() => setChildren(children + 1)} 
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="mt-6 pt-4 border-t border-gray-200">
+                      
+                      <div className="mt-6 pt-4 border-t border-gray-100">
                         <button 
                           onClick={() => setActiveTab(null)} 
-                          className="w-full bg-[#00c9a7] text-[#0F2940] py-3 rounded-lg font-semibold"
+                          className="w-full bg-[#00c9a7] text-white py-2.5 rounded-lg font-medium hover:bg-[#00b396] transition"
                         >
-                          Fermer
+                          Valider
                         </button>
                       </div>
                     </div>
@@ -405,186 +496,151 @@ const isActive = (itemName: string) => {
                 )}
               </div>
 
-              {/* Bouton recherche */}
+              {/* Bouton Rechercher */}
               <button 
                 onClick={handleSearch}
-                className="bg-[#00c9a7] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:bg-[#00b396] transition-all duration-300 hover:scale-105 ml-1"
+                disabled={isSearching}
+                className="bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:shadow-lg transition-all ml-1 font-medium disabled:opacity-50"
               >
-                <Search className="w-5 h-5" />
-                <span className="font-medium">Rechercher</span>
+                <Search className="w-4 h-4" />
+                <span>{isSearching ? 'Recherche...' : 'Rechercher'}</span>
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Barre de recherche mobile - Toujours visible */}
-        <div className="lg:hidden mt-3">
-          <button
-            onClick={() => setMobileSearchActive(!mobileSearchActive)}
-            className="w-full flex items-center gap-2 bg-[#f4fffe] border border-[#e2f5f2] rounded-full px-4 py-3 shadow-sm hover:shadow-md transition-all"
-          >
-            <Search className="w-4 h-4 text-[#00c9a7] flex-shrink-0" />
-            <span className="text-sm font-medium text-[#0f2940] truncate">
-              {destination || "Où allez-vous ?"}
-            </span>
-          </button>
-
-          {/* Formulaire de recherche mobile expansible */}
-          {mobileSearchActive && (
-            <div className="fixed inset-x-0 top-0 bg-white shadow-2xl z-50 p-4 animate-slideDown" style={{ top: '80px' }}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Rechercher</h3>
-                  <button onClick={() => setMobileSearchActive(false)} className="p-2 rounded-full hover:bg-gray-100">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <div className="border border-gray-200 rounded-xl p-3">
-                  <div className="text-xs font-medium text-gray-700 mb-1">Destination</div>
-                  <input
-                    type="text"
-                    placeholder="Rechercher une destination"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    className="w-full outline-none text-sm"
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="flex gap-2">
-                  <div className="flex-1 border border-gray-200 rounded-xl p-3">
-                    <div className="text-xs font-medium text-gray-700 mb-1">Arrivée</div>
-                    <input
-                      type="date"
-                      value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="w-full outline-none text-sm"
-                    />
-                  </div>
-                  <div className="flex-1 border border-gray-200 rounded-xl p-3">
-                    <div className="text-xs font-medium text-gray-700 mb-1">Départ</div>
-                    <input
-                      type="date"
-                      value={checkOut}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="w-full outline-none text-sm"
-                    />
-                  </div>
-                </div>
-                
-                <div className="border border-gray-200 rounded-xl p-3">
-                  <div className="text-xs font-medium text-gray-700 mb-2">Voyageurs</div>
-                  <div className="space-y-3">
-                    {[
-                      { label: "Adultes", key: "adults" },
-                      { label: "Enfants", key: "children" },
-                      { label: "Bébés", key: "babies" },
-                      { label: "Animaux", key: "pets" },
-                    ].map(({ label, key }) => (
-                      <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm">{label}</span>
-                        <div className="flex items-center gap-4">
-                          <button 
-                            onClick={() => setGuestCounts(prev => ({ ...prev, [key]: Math.max(0, (prev[key as keyof typeof prev] as number) - 1) }))} 
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-                          >
-                            -
-                          </button>
-                          <span className="w-6 text-center">{guestCounts[key as keyof typeof guestCounts]}</span>
-                          <button 
-                            onClick={() => setGuestCounts(prev => ({ ...prev, [key]: (prev[key as keyof typeof prev] as number) + 1 }))} 
-                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
+      {/* Mobile Search Modal */}
+      {mobileSearchActive && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
+            <button onClick={() => setMobileSearchActive(false)} className="p-2 rounded-full hover:bg-gray-100">
+              <X className="w-5 h-5" />
+            </button>
+            <h2 className="font-semibold text-[#0F2940]">Rechercher</h2>
+            <div className="w-10"></div>
+          </div>
+          
+          <div className="p-4 space-y-5 pb-20">
+            {/* Destination */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Destination</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="Où allez-vous ?"
+                  className="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7]"
+                  autoFocus
+                />
+              </div>
+              {destination && (
+                <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                  {destinationsList
+                    .filter(place => place.toLowerCase().includes(destination.toLowerCase()))
+                    .slice(0, 8)
+                    .map((place) => (
+                      <button
+                        key={place}
+                        onClick={() => setDestination(place)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm"
+                      >
+                        {place}
+                      </button>
                     ))}
-                  </div>
                 </div>
-                
-                <button 
-                  onClick={handleSearch}
-                  className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-medium"
-                >
-                  Rechercher
-                </button>
+              )}
+            </div>
+
+            {/* Dates */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Dates</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <input
+                    type="date"
+                    value={checkIn}
+                    onChange={(e) => setCheckIn(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-3 border border-gray-200 rounded-xl text-sm"
+                    placeholder="Arrivée"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Arrivée</p>
+                </div>
+                <div>
+                  <input
+                    type="date"
+                    value={checkOut}
+                    onChange={(e) => setCheckOut(e.target.value)}
+                    min={checkIn || new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-3 border border-gray-200 rounded-xl text-sm"
+                    placeholder="Départ"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Départ</p>
+                </div>
               </div>
             </div>
-          )}
+
+            {/* Voyageurs */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Voyageurs</label>
+              <div className="space-y-4 bg-gray-50 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Adultes</p>
+                    <p className="text-xs text-gray-500">13 ans et plus</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setAdults(Math.max(1, adults - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">-</button>
+                    <span className="w-8 text-center text-base font-medium">{adults}</span>
+                    <button onClick={() => setAdults(adults + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">+</button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Enfants</p>
+                    <p className="text-xs text-gray-500">De 2 à 12 ans</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => setChildren(Math.max(0, children - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">-</button>
+                    <span className="w-8 text-center text-base font-medium">{children}</span>
+                    <button onClick={() => setChildren(children + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bouton Rechercher */}
+            <button onClick={handleMobileSearch} disabled={isSearching} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3.5 rounded-xl font-semibold shadow-lg disabled:opacity-50">
+              {isSearching ? 'Recherche...' : 'Rechercher'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-     {/* Mobile menu drawer */}
-{menuOpen && (
-  <div className="lg:hidden fixed inset-x-0 top-[88px] bg-white shadow-xl z-40 border-t border-[#e2f5f2]">
-    <div className="px-4 py-3 space-y-2">
-      {/* Navigation items */}
-      <div className="space-y-1">
-        {navItems.map((item) => (
-          <button
-            key={item.name}
-            onClick={() => {
-              onNavigate?.(item.route);
-              setMenuOpen(false);
-            }}
-            className={`w-full text-left py-2.5 px-3 rounded-lg transition-all text-sm flex items-center gap-2
-              ${isActive(item.name) 
-                ? 'bg-gradient-to-r from-[#00c9a7] to-[#00b396] text-white shadow-sm' 
-                : 'text-[#0f2940] hover:bg-gray-50'
-              }`}
-          >
-            <item.icon className="w-4 h-4" />
-            <span className="text-sm">{item.name}</span>
-          </button>
-        ))}
-      </div>
-      
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-2"></div>
-      
-      {/* Devenir hôte button */}
-      <button
-        onClick={() => {
-          onNavigate?.({ name: 'become-host' });
-          setMenuOpen(false);
-        }}
-        className="w-full bg-gradient-to-r from-[#0f2940] to-[#1a3a52] text-white py-2.5 rounded-lg text-sm font-medium relative overflow-hidden group"
-      >
-        <span className="relative z-10">✨ Devenir hôte</span>
-        <span className="absolute inset-0 bg-gradient-to-r from-[#00c9a7] to-[#00b396] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-      </button>
-      
-      {/* Auth button */}
-      <button
-        onClick={() => {
-          onNavigate?.({ name: 'auth' });
-          setMenuOpen(false);
-        }}
-        className="w-full text-[#0f2940] py-2.5 rounded-lg text-sm font-medium border border-[#00c9a7]/30 hover:border-[#00c9a7] transition-all flex items-center justify-center gap-2"
-      >
-        <LogIn className="w-4 h-4" />
-        <span>S'inscrire</span>
-      </button>
-    </div>
-  </div>
-)}
-
-      <style>{`
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
+      {/* Mobile Menu */}
+      {menuOpen && (
+        <div className="lg:hidden fixed inset-x-0 top-[73px] bottom-0 bg-white shadow-xl z-40 border-t overflow-y-auto">
+          <div className="p-4 space-y-2">
+            {navItems.map((item) => (
+              <button key={item.name} onClick={() => { onNavigate?.(item.route); setMenuOpen(false); }} className="w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 hover:bg-gray-50">
+                <item.icon className="w-5 h-5" />
+                <span>{item.name}</span>
+              </button>
+            ))}
+            <div className="h-px bg-gray-100 my-2"></div>
+            <button onClick={() => { onNavigate?.({ name: 'become-host' }); setMenuOpen(false); }} className="w-full bg-[#0f2940] text-white py-3 rounded-xl text-center font-medium">
+              ✨ Devenir hôte
+            </button>
+            <button onClick={() => { onNavigate?.({ name: 'auth' }); setMenuOpen(false); }} className="w-full border border-[#00c9a7] py-3 rounded-xl text-center font-medium flex items-center justify-center gap-2">
+              <LogIn className="w-4 h-4" />
+              S'inscrire
+            </button>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
