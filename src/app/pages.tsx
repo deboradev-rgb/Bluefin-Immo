@@ -9496,7 +9496,8 @@ export function AboutPage({ onNavigate }: PageProps) {
   );
 }
 
-// ========== PAGE SITE FUNCTIONING ==========
+// ==================== PAGE FONCTIONNEMENT DU SITE ====================
+
 export function SiteFunctioningPage({ onNavigate }: PageProps) {
   const steps = [
     {
@@ -9536,10 +9537,36 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
     { icon: Award, title: "Hôtes vérifiés", desc: "Des professionnels de confiance" }
   ];
 
+  // Nouvelles sections
+  const engagements = [
+    { title: "Réactivité", desc: "Répondre aux demandes dans les 24 heures", icon: MessageCircle },
+    { title: "Accueil", desc: "Accepter les réservations lorsque le logement est disponible", icon: Home },
+    { title: "Fiabilité", desc: "Honorer les réservations confirmées", icon: Shield },
+    { title: "Qualité", desc: "Maintenir un niveau de satisfaction élevé via les évaluations", icon: Award }
+  ];
+
+  const experienceCriteria = [
+    { title: "Expertise", desc: "Maîtrise du domaine et partage authentique", icon: Star },
+    { title: "Accès privilégié", desc: "Lieux ou activités inaccessibles seul", icon: MapPin },
+    { title: "Relation", desc: "Cadre humain et bienveillant", icon: Users }
+  ];
+
+  const rankingFactors = [
+    { title: "Profil du Locataire", desc: "Lieu de recherche, historique, favoris", icon: User },
+    { title: "Qualité de l'annonce", desc: "Avis, prix, localisation, réactivité, équipements", icon: Home },
+    { title: "Paramètres de la recherche", desc: "Nombre d'occupants, durée, date, filtres prix", icon: Filter }
+  ];
+
+  const paymentMethods = [
+    { name: "Visa", icon: "💳", bg: "bg-blue-50" },
+    { name: "Mastercard", icon: "💳", bg: "bg-red-50" },
+    { name: "Mobile Money", icon: "📱", bg: "bg-green-50" }
+  ];
+
   return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-5 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-4 flex items-center gap-2 hover:text-[#00c9a7] transition">
           <ArrowLeft className="w-4 h-4" /> Retour
         </button>
         <h1 className="text-2xl text-[#0F2940]">Fonctionnement du site</h1>
@@ -9553,7 +9580,284 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
         </div>
       </section>
 
-      {/* Étapes pour voyageurs */}
+      {/* Qu'est-ce que Bluefin Immo */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Qu'est-ce que Bluefin Immo ?</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm">
+            <p className="text-gray-700 leading-relaxed mb-6">
+              Bluefin Immo est une plateforme en ligne spécialisée dans la location de logements meublés, 
+              la découverte d'expériences locales et l'accès à des services à la demande. Elle met en relation 
+              des Propriétaires qui proposent des biens et des prestations avec des Locataires en recherche 
+              de logements meublés de qualité ou d'expériences authentiques.
+            </p>
+            <div className="grid md:grid-cols-3 gap-4 mt-6">
+              <div className="bg-[#f4fffe] rounded-xl p-4 text-center border border-[#e2f5f2]">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Home className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940]">Hébergements</h3>
+                <p className="text-sm text-gray-500">Location de logements meublés pour séjours courts, moyens ou longs</p>
+              </div>
+              <div className="bg-[#f4fffe] rounded-xl p-4 text-center border border-[#e2f5f2]">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Star className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940]">Expériences</h3>
+                <p className="text-sm text-gray-500">Activités animées par des locaux passionnés</p>
+              </div>
+              <div className="bg-[#f4fffe] rounded-xl p-4 text-center border border-[#e2f5f2]">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Briefcase className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940]">Services</h3>
+                <p className="text-sm text-gray-500">Services à la demande liés au logement ou au séjour</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-6 text-center italic">
+              La création d'un compte est nécessaire pour publier une Annonce ou effectuer une réservation.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Qui peut devenir propriétaire */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Qui peut devenir Propriétaire sur Bluefin Immo ?</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <p className="text-gray-700 text-center mb-6">
+              Tout particulier ou professionnel peut publier un logement meublé. L'inscription et la mise en ligne sont gratuites.
+            </p>
+            <div className="grid md:grid-cols-4 gap-4">
+              {engagements.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={idx} className="text-center p-4 rounded-xl hover:shadow-md transition">
+                    <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Icon className="w-6 h-6 text-[#00c9a7]" />
+                    </div>
+                    <h3 className="font-semibold text-[#0F2940] text-sm">{item.title}</h3>
+                    <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Qui peut proposer une expérience */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Qui peut proposer une Expérience sur Bluefin Immo ?</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm">
+            <p className="text-gray-700 text-center mb-6">
+              Les Expériences sont des activités animées par des passionnés du territoire. Il n'est pas nécessaire de louer un logement pour en proposer ou en réserver une.
+            </p>
+            <div className="grid md:grid-cols-3 gap-6">
+              {experienceCriteria.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={idx} className="text-center p-4 rounded-xl bg-[#f4fffe] border border-[#e2f5f2]">
+                    <div className="w-14 h-14 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Icon className="w-7 h-7 text-[#00c9a7]" />
+                    </div>
+                    <h3 className="font-semibold text-[#0F2940] text-lg">{item.title}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Classement des annonces */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Classement des annonces</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <p className="text-gray-700 text-center mb-6">
+              L'algorithme prend en compte trois grandes catégories de facteurs :
+            </p>
+            <div className="grid md:grid-cols-3 gap-6">
+              {rankingFactors.map((item, idx) => {
+                const Icon = item.icon;
+                return (
+                  <div key={idx} className="p-4 rounded-xl bg-gray-50">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-[#00c9a7]/10 rounded-full flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-[#00c9a7]" />
+                      </div>
+                      <h3 className="font-semibold text-[#0F2940]">{item.title}</h3>
+                    </div>
+                    <p className="text-sm text-gray-500">{item.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-sm text-gray-500 text-center mt-6 italic">
+              Il n'est pas possible de payer pour améliorer le classement de son annonce.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Frais de service */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Frais de service</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm">
+            <p className="text-gray-700 text-center mb-6">
+              L'inscription et la mise en ligne sont gratuites. Des frais de service sont prélevés à la confirmation d'une réservation :
+            </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-[#f4fffe] rounded-xl p-6 text-center border border-[#e2f5f2]">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <User className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940">Côté Locataire</h3>
+                <p className="text-sm text-gray-500 mt-2">Commission affichée avant confirmation</p>
+              </div>
+              <div className="bg-[#f4fffe] rounded-xl p-6 text-center border border-[#e2f5f2]">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Home className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940]">Côté Propriétaire</h3>
+                <p className="text-sm text-gray-500 mt-2">Commission déduite du montant reversé</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Modes de paiement */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Modes de paiement</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <div className="flex flex-wrap justify-center gap-4 mb-6">
+              {paymentMethods.map((method, idx) => (
+                <div key={idx} className={`${method.bg} rounded-xl px-6 py-3 text-center min-w-[120px]`}>
+                  <span className="text-2xl mr-2">{method.icon}</span>
+                  <span className="font-medium text-gray-700">{method.name}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-gray-600 text-center text-sm">
+              Le débit intervient à l'acceptation par le Propriétaire, ou immédiatement en réservation instantanée. 
+              Le paiement est retenu 24 heures après l'entrée dans les lieux avant d'être transféré au Propriétaire.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Protection des propriétaires */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Protection des Propriétaires</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940] text-lg">Garantie Propriétaire</h3>
+              </div>
+              <p className="text-gray-600 text-sm">Couvre les dommages matériels causés par les Locataires</p>
+            </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-[#00c9a7]/10 rounded-full flex items-center justify-center">
+                  <Award className="w-6 h-6 text-[#00c9a7]" />
+                </div>
+                <h3 className="font-semibold text-[#0F2940] text-lg">Assurance Responsabilité Civile</h3>
+              </div>
+              <p className="text-gray-600 text-sm">Protège contre les réclamations de tiers</p>
+            </div>
+          </div>
+          <p className="text-sm text-gray-400 text-center mt-6 italic">
+            Ces protections ne remplacent pas votre assurance habitation personnelle.
+          </p>
+        </div>
+      </section>
+
+      {/* Centre de résolution et assistance */}
+      <section className="py-12">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Centre de résolution et assistance</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-[#f4fffe] rounded-xl p-5">
+                <h3 className="font-semibold text-[#0F2940] mb-2 flex items-center gap-2">
+                  <User className="w-5 h-5 text-[#00c9a7]" />
+                  Locataire
+                </h3>
+                <p className="text-gray-600 text-sm">2 jours après le départ pour ouvrir une demande</p>
+              </div>
+              <div className="bg-[#f4fffe] rounded-xl p-5">
+                <h3 className="font-semibold text-[#0F2940] mb-2 flex items-center gap-2">
+                  <Home className="w-5 h-5 text-[#00c9a7]" />
+                  Propriétaire
+                </h3>
+                <p className="text-gray-600 text-sm">2 jours après le départ pour demander une retenue</p>
+              </div>
+            </div>
+            <p className="text-gray-600 text-center mt-6 text-sm">
+              Si aucun accord n'est trouvé sous 72h, vous pouvez faire intervenir l'équipe Bluefin Immo via votre espace personnel.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Désactivation d'une annonce ou d'un compte */}
+      <section className="py-12 bg-gray-50">
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-[#0F2940] mb-4">Désactivation d'une annonce ou d'un compte</h2>
+            <div className="w-20 h-1 bg-[#00c9a7] mx-auto"></div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-sm">
+            <p className="text-gray-700 text-center mb-4">Un compte peut être suspendu en cas de :</p>
+            <ul className="space-y-3 max-w-md mx-auto">
+              <li className="flex items-center gap-3 text-gray-600"><XCircle className="w-5 h-5 text-red-500" /> Non-respect des valeurs de la communauté</li>
+              <li className="flex items-center gap-3 text-gray-600"><AlertCircle className="w-5 h-5 text-orange-500" /> Signalement d'un problème</li>
+              <li className="flex items-center gap-3 text-gray-600"><Clock className="w-5 h-5 text-yellow-500" /> Taux de réponse ou d'acceptation trop faible</li>
+              <li className="flex items-center gap-3 text-gray-600"><Calendar className="w-5 h-5 text-purple-500" /> Annulations répétées de réservations confirmées</li>
+            </ul>
+            <p className="text-sm text-gray-500 text-center mt-6 italic">
+              En cas de suspension, toutes les réservations en cours ou futures peuvent être annulées.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Étapes pour voyageurs - Conservation du design original */}
       <section className="py-12">
         <div className="max-w-6xl mx-auto px-5">
           <h2 className="text-3xl font-bold text-[#0F2940] text-center mb-4">Pour les voyageurs</h2>
@@ -9563,9 +9867,9 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
             {steps.map((step, idx) => {
               const Icon = step.icon;
               return (
-                <div key={idx} className={`${step.color} rounded-2xl p-6 relative overflow-hidden`}>
+                <div key={idx} className={`${step.color} rounded-2xl p-6 relative overflow-hidden hover:shadow-lg transition-shadow`}>
                   <div className="text-6xl font-bold text-gray-300/30 absolute top-4 right-4">{step.number}</div>
-                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4">
+                  <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
                     <Icon className="w-7 h-7 text-[#00c9a7]" />
                   </div>
                   <h3 className="text-xl font-semibold text-[#0F2940] mb-2">{step.title}</h3>
@@ -9586,22 +9890,22 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
           </div>
           
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                 <span className="text-2xl font-bold text-[#00c9a7]">1</span>
               </div>
               <h3 className="font-semibold text-[#0F2940] mb-2">Créez votre annonce</h3>
               <p className="text-gray-500 text-sm">Décrivez votre logement, ajoutez des photos et fixez vos tarifs</p>
             </div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                 <span className="text-2xl font-bold text-[#00c9a7]">2</span>
               </div>
               <h3 className="font-semibold text-[#0F2940] mb-2">Recevez des réservations</h3>
               <p className="text-gray-500 text-sm">Les voyageurs réservent votre logement directement</p>
             </div>
-            <div className="text-center">
-              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="text-center group">
+              <div className="w-20 h-20 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                 <span className="text-2xl font-bold text-[#00c9a7]">3</span>
               </div>
               <h3 className="font-semibold text-[#0F2940] mb-2">Recevez vos paiements</h3>
@@ -9614,13 +9918,13 @@ export function SiteFunctioningPage({ onNavigate }: PageProps) {
       {/* Fonctionnalités */}
       <section className="py-12">
         <div className="max-w-6xl mx-auto px-5">
-          <h2 className="text-3xl font-bold text-[#0F2940] text-center mb-10">Pourquoi choisir Blufin-Immo ?</h2>
+          <h2 className="text-3xl font-bold text-[#0F2940] text-center mb-10">Pourquoi choisir Bluefin-Immo ?</h2>
           <div className="grid md:grid-cols-4 gap-6">
             {features.map((feature, idx) => {
               const Icon = feature.icon;
               return (
-                <div key={idx} className="text-center p-4">
-                  <div className="w-14 h-14 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <div key={idx} className="text-center p-4 group">
+                  <div className="w-14 h-14 bg-[#00c9a7]/10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-[#00c9a7]/20 transition">
                     <Icon className="w-7 h-7 text-[#00c9a7]" />
                   </div>
                   <h3 className="font-semibold text-[#0F2940] mb-1">{feature.title}</h3>
