@@ -8976,22 +8976,22 @@ const getServiceContent = () => ({
       `
     },
     { 
-      id: "service-visibilite", 
-      title: "Comment les voyageurs découvriront-ils mon service ?", 
-      description: "Visibilité de votre service.",
-      content: `
-        <div class="space-y-4">
-          <p>Votre service bénéficie d'une visibilité optimale :</p>
-          <ul class="list-disc pl-5 space-y-2">
-            <li>Onglet dédié aux services sur la plateforme</li>
-            <li>Résultats de recherche pertinents</li>
-            <li>Recommandations personnalisées</li>
-            <li>Communications par e-mail et notifications</li>
-            <li>Suggestions dans le récapitulatif de séjour</li>
-          </ul>
-        </div>
-      `
-    },
+  id: "service-visibilite", 
+  title: "Comment les voyageurs découvriront-ils mon service ?", 
+  description: "Visibilité et promotion de votre service.",
+  content: `
+    <div class="space-y-4">
+      <p>Votre service bénéficie d'une visibilité optimale sur Bluefin Immo grâce à :</p>
+      <ul class="list-disc pl-5 space-y-2">
+        <li>Un <strong>onglet dédié</strong> aux services sur la plateforme</li>
+        <li>Les <strong>résultats de recherche</strong> des voyageurs</li>
+        <li>Les <strong>recommandations personnalisées</strong></li>
+        <li>Les <strong>communications par e-mail et notifications</strong></li>
+        <li>Les <strong>suggestions directes</strong> dans le récapitulatif de séjour</li>
+      </ul>
+    </div>
+  `
+},
     { 
       id: "service-versement", 
       title: "Dans quel délai vais-je recevoir mon versement ?", 
@@ -9038,154 +9038,25 @@ const getServiceContent = () => ({
       `
     },
     { 
-      id: "service-agrement", 
-      title: "Agrément et Assurance", 
-      description: "Documents requis, assurances et responsabilités.",
-      content: `
-        <div class="space-y-6">
-          <!-- Introduction -->
-          <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0f2940]/10 rounded-xl p-5">
-            <p class="text-gray-700 leading-relaxed">
-              La protection de votre activité et la conformité réglementaire sont essentielles pour exercer sereinement. 
-              Bluefin Immo vous guide dans vos obligations et vous conseille pour vous protéger au mieux.
-            </p>
-          </div>
-
-          <!-- Permis d'exploitation -->
-          <div>
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-[#00c9a7]" />
-              </div>
-              <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir un permis d'exploitation ?</h3>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-              <p class="text-gray-700 leading-relaxed">
-                Tout dépend de votre type d'annonce, ainsi que de la <strong>réglementation locale</strong>. 
-                Si un agrément ou d'autres documents sont nécessaires, nous vous en informerons après vérification de votre annonce. 
-                Nous vous demanderons alors de nous les faire parvenir.
-              </p>
-              <div class="mt-4 flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <p class="text-xs text-blue-700">
-                  Les exigences varient selon la commune et le type de service proposé (alimentation, bien-être, transport, etc.).
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Assurance responsabilité civile -->
-          <div>
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-[#00c9a7]" />
-              </div>
-              <h3 class="font-semibold text-lg text-[#0F2940]">Dois-je avoir ma propre assurance ?</h3>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-              <p class="text-gray-700 leading-relaxed mb-4">
-                <strong class="text-[#00c9a7]">Oui</strong>, Bluefin exige que vous souscriviez une 
-                <strong>assurance responsabilité civile</strong> adaptée à votre activité.
-              </p>
-              <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <p class="font-medium text-amber-800">Document requis</p>
-                    <p class="text-sm text-amber-700 mt-1">
-                      Il est possible que nous vous demandions de nous fournir une <strong>preuve de cette assurance</strong> 
-                      (attestation, contrat, etc.).
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Couverture Bluefin Immo -->
-          <div>
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                <Building className="w-5 h-5 text-[#00c9a7]" />
-              </div>
-              <h3 class="font-semibold text-lg text-[#0F2940]">Est-ce que Bluefin-Immo fournit une assurance ?</h3>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-              <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                <div class="flex items-start gap-3">
-                  <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                  <div>
-                    <p class="font-medium text-red-800">Bluefin Immo ne propose pas de couverture d'assurance directe</p>
-                    <p class="text-sm text-red-700 mt-1">
-                      Dans les rares cas où votre responsabilité serait engagée en cas de préjudice corporel, 
-                      de dommage matériel ou de vol subi par un voyageur durant une prestation, vous seriez 
-                      <strong>personnellement exposé</strong> en l'absence d'assurance.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
-                  <div>
-                    <p class="font-medium text-green-800">Notre recommandation</p>
-                    <p class="text-sm text-green-700 mt-1">
-                      Nous vous conseillons de <strong>vous couvrir en amont</strong>, et notre équipe reste à votre disposition 
-                      pour vous orienter vers les solutions les plus adaptées à votre activité.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Récapitulatif des documents -->
-          <div class="bg-[#0f2940] rounded-xl p-5 text-white">
-            <h4 class="font-semibold mb-3 flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-[#00c9a7]" />
-              Documents à préparer
-            </h4>
-            <div class="grid sm:grid-cols-2 gap-3">
-              <div class="flex items-center gap-2 text-sm text-white/80">
-                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-[#00c9a7]" />
-                </div>
-                <span>Permis d'exploitation (si requis)</span>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-white/80">
-                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-[#00c9a7]" />
-                </div>
-                <span>Attestation d'assurance RC Pro</span>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-white/80">
-                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-[#00c9a7]" />
-                </div>
-                <span>Diplômes ou certifications (selon activité)</span>
-              </div>
-              <div class="flex items-center gap-2 text-sm text-white/80">
-                <div class="w-5 h-5 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-[#00c9a7]" />
-                </div>
-                <span>Agrément sanitaire (pour activités alimentaires)</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Contact support -->
-          <div class="bg-gradient-to-r from-[#00c9a7]/5 to-transparent rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
-            <div class="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
-              <span class="text-sm text-gray-600">Une question sur les assurances ?</span>
-            </div>
-            <button class="px-4 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition">
-              Contacter le support
-            </button>
-          </div>
-        </div>
-      `
-    }
+  id: "service-agrement", 
+  title: "Agrément et Assurance", 
+  description: "Informations sur les documents requis et les assurances.",
+  content: `
+    <div class="space-y-4">
+      <h3 class="font-semibold text-lg">Dois-je avoir un permis d'exploitation ?</h3>
+      <p>Tout dépend de votre type d'annonce et de la réglementation locale. Si un agrément ou d'autres documents sont nécessaires, nous vous en informerons après vérification de votre annonce.</p>
+      
+      <h3 class="font-semibold text-lg mt-4">Dois-je avoir ma propre assurance ?</h3>
+      <p><strong>Oui</strong>. Bluefin exige que vous souscriviez une <strong>assurance responsabilité civile</strong> adaptée à votre activité. Il est possible que nous vous demandions de nous fournir une preuve de cette assurance.</p>
+      
+      <h3 class="font-semibold text-lg mt-4">Est-ce que Bluefin-Immo fournit une assurance ?</h3>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p>Bluefin Immo <strong>ne propose pas de couverture d'assurance directe</strong>. Dans les rares cas où votre responsabilité serait engagée (préjudice corporel, dommage matériel ou vol), vous seriez personnellement exposé en l'absence d'assurance.</p>
+        <p class="mt-2">Nous vous conseillons de vous couvrir en amont, et notre équipe reste à votre disposition pour vous orienter vers les solutions les plus adaptées.</p>
+      </div>
+    </div>
+  `
+},
   ],
   quickLinks: [
     { icon: Briefcase, label: "Créer un service" },
