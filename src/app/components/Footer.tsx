@@ -169,7 +169,7 @@ export function Footer({ onNavigate }: FooterProps) {
                 Confidentialité
               </button>
               <span className="text-slate-600">|</span>
-              <button onClick={() => handleNavigation('terms', 'cgu')} className="text-slate-400 hover:text-[#00C9A7] transition whitespace-nowrap">
+              <button onClick={() => handleNavigation('cgu')} className="text-slate-400 hover:text-[#00C9A7] transition whitespace-nowrap">
                 CGU
               </button>
               <span className="text-slate-600">|</span>

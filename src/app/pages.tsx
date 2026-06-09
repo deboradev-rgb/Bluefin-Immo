@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef  } from 'react';
+import React, { useState, useEffect, useRef, useMemo   } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation  } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +26,8 @@ import authService from '../services/auth.service';
 import adminService from '../services/admin.service';
 import { PageSection } from './components/PageSection';
 import hostService from '../services/host.service';
+import temporaryBookingService from '../services/temporaryBooking.service';
+
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from './utils/imageHelper';
 import type { Route } from './router';
@@ -37,7 +39,7 @@ import {
   UserPlus,CheckCircle, XCircle, Clock,Flag ,
   DollarSign,ArrowUp ,Activity ,Wallet ,Ban ,
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
-  Mail,Reply, Wifi,Wind,Coffee ,Car,
+  Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,
   Settings,  Calendar as CalendarIcon, 
   Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
   AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
@@ -2575,39 +2577,59 @@ interface PropertyDetailModalProps {
   onClose: () => void;
   onReserve: (bookingParams: PropertyDetailModalBookingParams) => void;
   onChat?: (hostId: any) => void;
+  onNavigate?: (route: any) => void;
 }
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
   onClose, 
   onReserve, 
-  onChat 
+  onChat,
+  onNavigate  
 }) => {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const { isAuthenticated, user } = useAuth();
+  
+  // ✅ États pour la vérification de disponibilité
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
+  
+  // ✅ Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCheckIn = urlParams.get('check_in');
+    if (urlCheckIn) return urlCheckIn;
+    
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
+  
   const [checkOut, setCheckOut] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlCheckOut = urlParams.get('check_out');
+    if (urlCheckOut) return urlCheckOut;
+    
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   });
-  const [guests, setGuests] = useState(1);
-  const [selectedPriceOption, setSelectedPriceOption] = useState<"non-remboursable" | "remboursable">("non-remboursable");
+  
+  // ✅ Types de voyageurs
+  const [adults, setAdults] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const guests = urlParams.get('guests');
+    return guests ? parseInt(guests) : 1;
+  });
+  const [children, setChildren] = useState(0);
+  const [babies, setBabies] = useState(0);
+  const [pets, setPets] = useState(0);
+  
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [selectedCheckInDate, setSelectedCheckInDate] = useState<Date | null>(null);
-  const [selectedCheckOutDate, setSelectedCheckOutDate] = useState<Date | null>(null);
-  const [calendarStart, setCalendarStart] = useState(() => {
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
-    return date;
-  });
 
   // États du formulaire
   const [fullName, setFullName] = useState('');
@@ -2622,60 +2644,51 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const maxGuests = property.max_guests || 10;
 
-  const formatDisplayDate = (date: Date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
-  const formatIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  // Calcul du nombre total de voyageurs
+  const totalGuests = adults + children;
+
   const formatDisplayFromIso = (isoDate: string) => {
     if (!isoDate) return '';
     const [year, month, day] = isoDate.split('-');
     return `${day}/${month}/${year}`;
   };
 
-  const handleDateSelect = (date: Date) => {
-    if (!selectedCheckInDate || (selectedCheckInDate && selectedCheckOutDate)) {
-      const nextDay = new Date(date);
-      nextDay.setDate(nextDay.getDate() + 1);
-      setSelectedCheckInDate(date);
-      setSelectedCheckOutDate(nextDay);
-      setCheckIn(formatIsoDate(date));
-      setCheckOut(formatIsoDate(nextDay));
-      return;
+  // ✅ Fonction pour vérifier la disponibilité
+  const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
+    if (!checkInDate || !checkOutDate) return;
+    
+    setIsCheckingAvailability(true);
+    setAvailabilityStatus('checking');
+    
+    try {
+      const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
+      
+      if (response.data.available) {
+        setAvailabilityStatus('available');
+        setAvailabilityMessage('✓ Ces dates sont disponibles !');
+      } else {
+        setAvailabilityStatus('unavailable');
+        setAvailabilityMessage(response.data.message || '❌ Ces dates ne sont pas disponibles. Veuillez en sélectionner d\'autres.');
+      }
+    } catch (error) {
+      console.error('Erreur vérification disponibilité:', error);
+      setAvailabilityStatus('unavailable');
+      setAvailabilityMessage('❌ Impossible de vérifier la disponibilité. Veuillez réessayer.');
+    } finally {
+      setIsCheckingAvailability(false);
     }
-
-    if (selectedCheckInDate && date <= selectedCheckInDate) {
-      const nextDay = new Date(date);
-      nextDay.setDate(nextDay.getDate() + 1);
-      setSelectedCheckInDate(date);
-      setSelectedCheckOutDate(nextDay);
-      setCheckIn(formatIsoDate(date));
-      setCheckOut(formatIsoDate(nextDay));
-      return;
-    }
-
-    setSelectedCheckOutDate(date);
-    setCheckOut(formatIsoDate(date));
   };
 
-  const calendarDays = Array.from({ length: 35 }, (_, index) => {
-    const date = new Date(calendarStart);
-    date.setDate(calendarStart.getDate() + index);
-    return date;
-  });
-
-  const isSelectedDay = (date: Date) => {
-    if (!selectedCheckInDate) return false;
-    if (selectedCheckInDate && !selectedCheckOutDate) {
-      return date.getTime() === selectedCheckInDate.getTime();
+  // ✅ Vérifier la disponibilité quand les dates changent
+  useEffect(() => {
+    if (checkIn && checkOut) {
+      const debounceTimer = setTimeout(() => {
+        checkAvailability(checkIn, checkOut);
+      }, 800);
+      
+      return () => clearTimeout(debounceTimer);
     }
-    return (
-      date.getTime() === selectedCheckInDate.getTime() ||
-      date.getTime() === selectedCheckOutDate?.getTime() ||
-      (selectedCheckOutDate && date > selectedCheckInDate && date < selectedCheckOutDate)
-    );
-  };
-
-  const effectiveCheckInDate = selectedCheckInDate || new Date(checkIn);
-  const effectiveCheckOutDate = selectedCheckOutDate || new Date(checkOut);
-  const nights = Math.max(1, Math.ceil((effectiveCheckOutDate.getTime() - effectiveCheckInDate.getTime()) / (1000 * 60 * 60 * 24)));
+  }, [checkIn, checkOut]);
 
   const getPropertyImages = (property: HotelProperty): string[] => {
     if (property.images && Array.isArray(property.images) && property.images.length > 0) {
@@ -2685,10 +2698,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     const baseImage = property.image;
     const imageVariants = [
       baseImage,
-      property.property_type === 'Villa' ? 'https://images.unsplash.com/photo-1613977257363-707ba9347c6c?w=800&q=80' :
-      property.property_type === 'Appartement' ? 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80' :
-      property.property_type === 'Studio' ? 'https://images.unsplash.com/photo-1560448204-603b3fc33ddc?w=800&q=80' :
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80',
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
       'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
     ];
@@ -2697,7 +2707,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     while (uniqueImages.length < 5) {
       uniqueImages.push(baseImage);
     }
-    
     return uniqueImages.slice(0, 5);
   };
 
@@ -2718,6 +2727,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
+
+  const effectiveCheckInDate = new Date(checkIn);
+  const effectiveCheckOutDate = new Date(checkOut);
+  const nights = Math.max(1, Math.ceil((effectiveCheckOutDate.getTime() - effectiveCheckInDate.getTime()) / (1000 * 60 * 60 * 24)));
 
   const subtotal = nightlyPrice * nights;
   const cleaningFee = 15000;
@@ -2743,10 +2756,8 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
     
     if (step === 2) {
-      if (!checkIn) errors.checkIn = 'Date d\'arrivée requise';
-      if (!checkOut) errors.checkOut = 'Date de départ requise';
-      if (!guests || guests < 1) errors.guests = 'Nombre de voyageurs requis';
-      if (guests > maxGuests) errors.guests = `Maximum ${maxGuests} voyageur${maxGuests > 1 ? 's' : ''}`;
+      if (!adults || adults < 1) errors.adults = 'Au moins 1 adulte requis';
+      if (totalGuests > maxGuests) errors.guests = `Maximum ${maxGuests} voyageur${maxGuests > 1 ? 's' : ''}`;
     }
     
     setFormErrors(errors);
@@ -2756,7 +2767,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const handleNextStep = () => {
     if (validateStep(currentStep)) {
       setCurrentStep(currentStep + 1);
-      // Scroll to top when changing step
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -2765,16 +2775,28 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     setCurrentStep(currentStep - 1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
+   
+  const handleReserveClick = () => {
+    console.log('🖱️ Clic sur Réserver - Ouverture du formulaire');
+    setShowBookingForm(true);
+    setCurrentStep(1);
+  };
+  
   const handleConfirmReservation = () => {
     if (!validateStep(2)) return;
+    
+    // ✅ Re-vérifier la disponibilité avant confirmation
+    if (availabilityStatus !== 'available') {
+      setFormErrors({ general: 'Ce logement n\'est pas disponible pour les dates sélectionnées.' });
+      return;
+    }
     
     setIsSubmitting(true);
     
     const bookingParams: PropertyDetailModalBookingParams = {
       checkIn,
       checkOut,
-      guests,
+      guests: totalGuests,
       nights,
       fullName: fullName.trim(),
       email: email.trim(),
@@ -2788,24 +2810,41 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
       paymentAmount: getPaymentAmount()
     };
     
-    setTimeout(() => {
-      onReserve(bookingParams);
-      setIsSubmitting(false);
-    }, 500);
-  };
-
-  const handleGuestsChange = (value: number) => {
-    if (value >= 1 && value <= maxGuests) {
-      setGuests(value);
-      if (formErrors.guests) {
-        setFormErrors(prev => ({ ...prev, guests: '' }));
+    if (!isAuthenticated) {
+      const tempData = {
+        propertyId: property.id,
+        checkIn,
+        checkOut,
+        guests: totalGuests,
+        nights,
+        bookingFormData: {
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          nationality,
+          idType,
+          idNumber: idNumber.trim(),
+          paymentOption,
+          totalAmount: total,
+          paymentAmount: getPaymentAmount()
+        }
+      };
+      
+      localStorage.setItem('temp_booking_data', JSON.stringify(tempData));
+      console.log('💾 Données sauvegardées temporairement:', tempData);
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=booking' });
+      } else {
+        window.location.href = '/auth?redirect=booking';
       }
+      setIsSubmitting(false);
+      return;
     }
-  };
-
-  const handleReserveClick = () => {
-    setShowBookingForm(true);
-    setCurrentStep(1);
+    
+    onReserve(bookingParams);
+    setIsSubmitting(false);
   };
 
   const handleBackToDetails = () => {
@@ -2827,31 +2866,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const formattedCheckIn = formatDisplayFromIso(checkIn);
   const formattedCheckOut = formatDisplayFromIso(checkOut);
 
-  // Styles pour les animations
-  const stepAnimation = {
-    enter: 'transform transition-all duration-500 ease-out',
-    enterFrom: 'opacity-0 translate-x-10',
-    enterTo: 'opacity-100 translate-x-0',
-    leave: 'transform transition-all duration-500 ease-in',
-    leaveFrom: 'opacity-100 translate-x-0',
-    leaveTo: 'opacity-0 -translate-x-10',
-  };
-
-  // Si le formulaire de réservation est affiché
+  // Vue du formulaire de réservation
   if (showBookingForm) {
     return (
       <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
         <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-32">
           <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp z-[201]">
             
-            {/* Header avec progression - sticky */}
+            {/* Header avec progression */}
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-5 z-20">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                  <button 
-                    onClick={handleBackToDetails} 
-                    className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-all"
-                  >
+                  <button onClick={handleBackToDetails} className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-all">
                     <ArrowLeft className="w-5 h-5 text-gray-600" />
                   </button>
                   <div>
@@ -2864,35 +2890,32 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 
                 {/* Stepper */}
                 <div className="flex items-center gap-2">
-                  {[1, 2, 3].map((step) => (
-                    <React.Fragment key={step}>
-                      <div 
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                          currentStep >= step 
-                            ? 'bg-[#00c9a7] text-white shadow-lg shadow-[#00c9a7]/30' 
-                            : 'bg-gray-100 text-gray-400'
-                        }`}
-                      >
+                  {[1, 2].map((step) => (
+                    <div key={step} className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                        currentStep >= step 
+                          ? 'bg-[#00c9a7] text-white shadow-lg shadow-[#00c9a7]/30' 
+                          : 'bg-gray-100 text-gray-400'
+                      }`}>
                         {currentStep > step ? <Check className="w-4 h-4" /> : step}
                       </div>
-                      {step < 3 && (
+                      {step < 2 && (
                         <div className={`w-12 h-0.5 rounded-full transition-all duration-300 ${
                           currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'
                         }`} />
                       )}
-                    </React.Fragment>
+                    </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Contenu scrollable avec padding-bottom pour éviter que le footer ne cache le contenu */}
+            {/* Contenu scrollable */}
             <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
               
               {/* Étape 1 - Informations personnelles */}
               {currentStep === 1 && (
                 <div className="space-y-6 animate-fadeIn">
-                  {/* Résumé rapide */}
                   <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-2xl p-4">
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 rounded-xl overflow-hidden">
@@ -2902,10 +2925,8 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                         <h3 className="font-semibold text-gray-900">{property.title}</h3>
                         <p className="text-sm text-gray-500">{property.location}</p>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className="flex items-center gap-0.5">
-                            <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
-                            <span className="text-sm font-medium">{property.rating}</span>
-                          </div>
+                          <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
+                          <span className="text-sm font-medium">{property.rating}</span>
                           <span className="text-xs text-gray-400">· {property.reviews} commentaires</span>
                         </div>
                       </div>
@@ -2923,62 +2944,26 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </h3>
                       
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nom complet <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.fullName ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                          placeholder="Jean Dupont"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet <span className="text-red-500">*</span></label>
+                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="Jean Dupont" />
                         {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.email ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                          placeholder="jean.dupont@email.com"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="jean.dupont@email.com" />
                         {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Téléphone <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.phone ? 'border-red-500 bg-red-50' : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                          placeholder="+229 97 00 00 00"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
+                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="+229 97 00 00 00" />
                         {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                        <input
-                          type="text"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 hover:border-gray-300 transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                          placeholder="Votre adresse complète"
-                        />
+                        <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="Votre adresse complète" />
                       </div>
                     </div>
 
@@ -2992,16 +2977,8 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </h3>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nationalité <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={nationality}
-                          onChange={(e) => setNationality(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.nationality ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                          }`}
-                        >
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nationalité <span className="text-red-500">*</span></label>
+                        <select value={nationality} onChange={(e) => setNationality(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]">
                           <option value="">Sélectionnez...</option>
                           <option value="beninoise">Béninoise</option>
                           <option value="francaise">Française</option>
@@ -3013,42 +2990,22 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Type de pièce <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                          value={idType}
-                          onChange={(e) => setIdType(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.idType ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                          }`}
-                        >
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Type de pièce <span className="text-red-500">*</span></label>
+                        <select value={idType} onChange={(e) => setIdType(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]">
                           <option value="">Sélectionnez...</option>
                           <option value="cni">Carte Nationale d'Identité</option>
                           <option value="passeport">Passeport</option>
                           <option value="permis">Permis de conduire</option>
-                          <option value="sejour">Titre de séjour</option>
                         </select>
                         {formErrors.idType && <p className="text-red-500 text-xs mt-1">{formErrors.idType}</p>}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Numéro de pièce <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={idNumber}
-                          onChange={(e) => setIdNumber(e.target.value)}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.idNumber ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                          }`}
-                          placeholder="Numéro du document"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de pièce <span className="text-red-500">*</span></label>
+                        <input type="text" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]" placeholder="Numéro du document" />
                         {formErrors.idNumber && <p className="text-red-500 text-xs mt-1">{formErrors.idNumber}</p>}
                       </div>
 
-                      {/* Sécurité */}
                       <div className="bg-[#00c9a7]/5 rounded-xl p-3 flex items-center gap-3">
                         <Fingerprint className="w-5 h-5 text-[#00c9a7]" />
                         <div>
@@ -3061,141 +3018,33 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 </div>
               )}
 
-              {/* Étape 2 - Dates et voyageurs */}
+              {/* Étape 2 - Paiement */}
               {currentStep === 2 && (
                 <div className="space-y-6 animate-fadeIn">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Dates */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <Calendar className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Dates de séjour
-                      </h3>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Date d'arrivée <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={checkIn}
-                          onChange={(e) => setCheckIn(e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.checkIn ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                          }`}
-                        />
-                        {formErrors.checkIn && <p className="text-red-500 text-xs mt-1">{formErrors.checkIn}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Date de départ <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          value={checkOut}
-                          onChange={(e) => setCheckOut(e.target.value)}
-                          min={checkIn}
-                          className={`w-full px-4 py-3 rounded-xl border transition-all focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent ${
-                            formErrors.checkOut ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                          }`}
-                        />
-                        {formErrors.checkOut && <p className="text-red-500 text-xs mt-1">{formErrors.checkOut}</p>}
-                      </div>
-
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Nombre de nuits</span>
-                          <span className="text-2xl font-bold text-[#00c9a7]">{nights}</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-2 text-sm text-gray-500">
-                          <span>Prix par nuit</span>
-                          <span>{nightlyPrice.toLocaleString()} FCFA</span>
-                        </div>
-                        <div className="flex justify-between items-center mt-1 text-sm text-gray-500">
-                          <span>Sous-total</span>
-                          <span>{subtotal.toLocaleString()} FCFA</span>
-                        </div>
-                      </div>
+                  {/* ✅ Indicateur de disponibilité */}
+                  {availabilityStatus === 'checking' && (
+                    <div className="bg-blue-50 rounded-xl p-3 flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span className="text-sm text-blue-600">Vérification des disponibilités...</span>
                     </div>
-
-                    {/* Voyageurs */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <Users className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Voyageurs
-                      </h3>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Nombre de voyageurs <span className="text-red-500">*</span>
-                        </label>
-                        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                          <button
-                            type="button"
-                            onClick={() => handleGuestsChange(guests - 1)}
-                            disabled={guests <= 1}
-                            className="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <span className="text-2xl font-bold">-</span>
-                          </button>
-                          
-                          <div className="flex-1 text-center">
-                            <span className="text-4xl font-bold text-[#0F2940]">{guests}</span>
-                            <span className="text-gray-500 ml-2">voyageur{guests > 1 ? 's' : ''}</span>
-                          </div>
-                          
-                          <button
-                            type="button"
-                            onClick={() => handleGuestsChange(guests + 1)}
-                            disabled={guests >= maxGuests}
-                            className="w-12 h-12 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <span className="text-2xl font-bold">+</span>
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">
-                          Capacité maximum : {maxGuests} voyageur{maxGuests > 1 ? 's' : ''}
-                        </p>
-                        {formErrors.guests && <p className="text-red-500 text-xs mt-1">{formErrors.guests}</p>}
-                      </div>
-
-                      {/* Icônes d'équipements */}
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <p className="text-sm font-medium text-gray-700 mb-3">Inclus dans votre séjour</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Wifi className="w-4 h-4 text-[#00c9a7]" />
-                            <span>Wi-Fi haut débit</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Wind className="w-4 h-4 text-[#00c9a7]" />
-                            <span>Climatisation</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Coffee className="w-4 h-4 text-[#00c9a7]" />
-                            <span>Petit-déjeuner</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Car className="w-4 h-4 text-[#00c9a7]" />
-                            <span>Parking gratuit</span>
-                          </div>
-                        </div>
-                      </div>
+                  )}
+                  
+                  {availabilityStatus === 'available' && (
+                    <div className="bg-green-50 rounded-xl p-3 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-sm text-green-600">✓ Logement disponible pour ces dates !</span>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
+                  
+                  {availabilityStatus === 'unavailable' && (
+                    <div className="bg-red-50 rounded-xl p-3 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <span className="text-sm text-red-600">{availabilityMessage}</span>
+                    </div>
+                  )}
 
-              {/* Étape 3 - Paiement */}
-              {currentStep === 3 && (
-                <div className="space-y-6 animate-fadeIn">
                   <div className="grid md:grid-cols-2 gap-6">
+                    
                     {/* Options de paiement */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
@@ -3206,66 +3055,39 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </h3>
 
                       <div className="space-y-3">
-                        <div 
-                          className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-                            paymentOption === '50' 
-                              ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' 
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                          onClick={() => setPaymentOption('50')}
-                        >
+                        <div className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${paymentOption === '50' ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' : 'border-gray-200'}`} onClick={() => setPaymentOption('50')}>
                           <div className="flex justify-between items-center">
                             <div>
                               <div className="font-semibold text-gray-900 flex items-center gap-2">
                                 <Wallet className="w-5 h-5 text-[#00c9a7]" />
                                 Payer 50% maintenant
                               </div>
-                              <div className="text-sm text-gray-500 mt-1">Solde à payer à l'arrivée</div>
+                              <div className="text-sm text-gray-500">Solde à payer à l'arrivée</div>
                             </div>
                             <div className="text-right">
                               <div className="font-bold text-xl text-[#00c9a7]">{Math.floor(total * 0.5).toLocaleString()} FCFA</div>
                               <div className="text-xs text-gray-400">Total: {total.toLocaleString()} FCFA</div>
                             </div>
                           </div>
-                          {paymentOption === '50' && (
-                            <div className="mt-3 pt-3 border-t border-[#00c9a7]/20 flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4 text-[#00c9a7]" />
-                              <span className="text-xs text-[#00c9a7]">Option sélectionnée</span>
-                            </div>
-                          )}
                         </div>
 
-                        <div 
-                          className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${
-                            paymentOption === '100' 
-                              ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' 
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                          onClick={() => setPaymentOption('100')}
-                        >
+                        <div className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${paymentOption === '100' ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' : 'border-gray-200'}`} onClick={() => setPaymentOption('100')}>
                           <div className="flex justify-between items-center">
                             <div>
                               <div className="font-semibold text-gray-900 flex items-center gap-2">
                                 <Lock className="w-5 h-5 text-[#00c9a7]" />
                                 Payer 100% maintenant
                               </div>
-                              <div className="text-sm text-gray-500 mt-1">Paiement complet sécurisé</div>
+                              <div className="text-sm text-gray-500">Paiement complet sécurisé</div>
                             </div>
                             <div className="text-right">
                               <div className="font-bold text-xl text-[#00c9a7]">{total.toLocaleString()} FCFA</div>
                               <div className="text-xs text-gray-400">Paiement unique</div>
                             </div>
                           </div>
-                          {paymentOption === '100' && (
-                            <div className="mt-3 pt-3 border-t border-[#00c9a7]/20 flex items-center gap-2">
-                              <CheckCircle className="w-4 h-4 text-[#00c9a7]" />
-                              <span className="text-xs text-[#00c9a7]">Option sélectionnée</span>
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      {/* Modes de paiement acceptés */}
                       <div className="bg-gray-50 rounded-xl p-4">
                         <p className="text-sm font-medium text-gray-700 mb-3">Moyens de paiement acceptés</p>
                         <div className="flex items-center gap-3">
@@ -3276,7 +3098,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Résumé de la commande */}
+                    {/* Résumé */}
                     <div className="space-y-4">
                       <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
@@ -3308,7 +3130,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Informations de paiement */}
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex items-center gap-3 text-sm text-gray-600">
                           <Shield className="w-5 h-5 text-[#00c9a7]" />
@@ -3325,57 +3146,28 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
               )}
             </div>
 
-            {/* Footer sticky avec boutons - z-index très élevé pour être au-dessus de MobileBottomNav */}
-            <div 
-              className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4"
-              style={{ 
-                zIndex: 9999,
-                position: 'sticky',
-                bottom: 0,
-                backgroundColor: 'white',
-                boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
-                marginTop: 'auto'
-              }}
-            >
+            {/* Footer avec boutons */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4" style={{ zIndex: 9999, position: 'sticky', bottom: 0, backgroundColor: 'white', boxShadow: '0 -4px 20px rgba(0,0,0,0.08)', marginTop: 'auto' }}>
               <div className="flex justify-between gap-3">
                 {currentStep === 1 && (
-                  <button
-                    onClick={handleNextStep}
-                    className="flex-1 px-8 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all"
-                  >
+                  <button onClick={handleNextStep} className="flex-1 px-8 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all">
                     Continuer
                   </button>
                 )}
                 
                 {currentStep === 2 && (
                   <>
-                    <button
-                      onClick={handlePrevStep}
-                      className="flex-1 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all"
-                    >
+                    <button onClick={handlePrevStep} className="flex-1 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all">
                       Retour
                     </button>
-                    <button
-                      onClick={handleNextStep}
-                      className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all"
-                    >
-                      Continuer
-                    </button>
-                  </>
-                )}
-                
-                {currentStep === 3 && (
-                  <>
-                    <button
-                      onClick={handlePrevStep}
-                      className="flex-1 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all"
-                    >
-                      Retour
-                    </button>
-                    <button
-                      onClick={handleConfirmReservation}
-                      disabled={isSubmitting}
-                      className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    <button 
+                      onClick={handleConfirmReservation} 
+                      disabled={isSubmitting || availabilityStatus !== 'available'} 
+                      className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
+                        availabilityStatus === 'available' && !isSubmitting
+                          ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
                     >
                       {isSubmitting ? (
                         <div className="flex items-center justify-center gap-2">
@@ -3390,35 +3182,19 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 )}
               </div>
             </div>
-
-            {/* Espace supplémentaire en bas pour éviter que le contenu ne soit caché */}
-            <div className="h-2" />
           </div>
         </div>
 
         <style>{`
-          @keyframes fadeInUp {
-            from {
-              opacity: 0;
-              transform: translateY(30px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          .animate-fadeInUp {
-            animation: fadeInUp 0.4s ease-out;
-          }
-          .animate-fadeIn {
-            animation: fadeInUp 0.3s ease-out;
-          }
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+          .animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
+          .animate-fadeIn { animation: fadeInUp 0.3s ease-out; }
         `}</style>
       </div>
     );
   }
 
-  // Vue détaillée de l'appartement (version simplifiée pour la lisibilité)
+  // Vue détaillée de l'appartement
   return (
     <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
       <div className="min-h-screen">
@@ -3440,30 +3216,20 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
           {/* Galerie d'images */}
           <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
             <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
-              <img 
-                src={images[0]} 
-                alt={property.title} 
-                className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" 
-              />
+              <img src={images[0]} alt={property.title} className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" />
             </div>
             {images.slice(1, 5).map((img, i) => (
               <div key={i} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(i + 1)}>
-                <img 
-                  src={img} 
-                  alt={`${property.title} - ${i + 2}`} 
-                  className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" 
-                />
+                <img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" />
               </div>
             ))}
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Colonne de gauche - Informations */}
+            {/* Colonne de gauche */}
             <div className="lg:col-span-2 space-y-8">
               <div className="border-b pb-4">
-                <div className="text-sm text-gray-500">
-                  {property.property_type || 'Logement'} · {property.beds} chambres · {property.beds} lits · {property.baths} sdb
-                </div>
+                <div className="text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres · {property.beds} lits · {property.baths} sdb</div>
                 <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
                 <div className="flex items-center gap-2 mt-2">
                   <Star className="w-5 h-5 fill-current text-[#00c9a7]" />
@@ -3473,87 +3239,37 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Badge coup de cœur */}
               {property.rating >= 4.8 && (
                 <div className="bg-[#00c9a7]/10 rounded-xl p-5 flex gap-4 items-center">
                   <Crown className="w-10 h-10 text-[#00c9a7]" />
-                  <div>
-                    <div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div>
-                    <div className="text-gray-600">Un des logements préférés des voyageurs au Bénin</div>
-                  </div>
+                  <div><div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div><div className="text-gray-600">Un des logements préférés des voyageurs au Bénin</div></div>
                 </div>
               )}
 
-              {/* Informations hôte */}
               <div className="flex gap-5 items-start">
-                <img 
-                  src={hostAvatarUrl}
-                  alt={host} 
-                  className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" 
-                />
+                <img src={hostAvatarUrl} alt={host} className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" />
                 <div>
                   <div className="font-semibold text-xl text-[#0F2940]">Hôte : {host}</div>
-                  {superhost && (
-                    <div className="flex items-center gap-1 text-[#00c9a7]">
-                      <Award className="w-4 h-4"/>Superhôte · {hostSince}
-                    </div>
-                  )}
-                  <div className="text-sm text-gray-600">
-                    Taux de réponse {responseRate}% · Répond {responseTime}
-                  </div>
+                  {superhost && <div className="flex items-center gap-1 text-[#00c9a7]"><Award className="w-4 h-4"/>Superhôte · {hostSince}</div>}
+                  <div className="text-sm text-gray-600">Taux de réponse {responseRate}% · Répond {responseTime}</div>
                 </div>
               </div>
 
-              {/* Description */}
-              <div>
-                <p className="text-gray-700 leading-relaxed">{property.description}</p>
-                {longDescription && longDescription !== property.description && (
-                  <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>
-                )}
-              </div>
+              <div><p className="text-gray-700 leading-relaxed">{property.description}</p>{longDescription && <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>}</div>
 
-              {/* Équipements */}
               <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-xl text-[#0F2940]">Équipements</h3>
-                  <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
-                    Voir tout
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
-                    <div key={i} className="flex items-center gap-3 text-gray-700">
-                      <Check className="w-5 h-5 text-[#00c9a7]"/>{a}
-                    </div>
-                  ))}
-                </div>
+                <div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-xl text-[#0F2940]">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div>
+                <div className="grid grid-cols-2 gap-4">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-3 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]"/>{a}</div>))}</div>
               </div>
 
-              {/* Témoignages */}
               <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-2xl p-6">
-                <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-[#00c9a7]" />
-                  Ce que nos clients disent
-                </h3>
+                <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2"><Sparkles className="w-6 h-6 text-[#00c9a7]" />Ce que nos clients disent</h3>
                 <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
                   <div className="flex flex-col md:flex-row gap-6 items-start">
-                    <div className="relative">
-                      <img 
-                        src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
-                        alt={testimonials[currentTestimonial]?.name || "Client"}
-                        className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" 
-                      />
-                    </div>
+                    <div className="relative"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} alt={testimonials[currentTestimonial]?.name || "Client"} className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" /></div>
                     <div className="flex-1">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span>
-                        <span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span>
-                      </div>
-                      <div className="flex items-center gap-1 mt-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />
-                        ))}
-                      </div>
+                      <div className="flex justify-between items-center flex-wrap gap-2"><span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span><span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span></div>
+                      <div className="flex items-center gap-1 mt-1">{[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />))}</div>
                       <p className="text-gray-700 mt-3 leading-relaxed">"{testimonials[currentTestimonial]?.text || "Excellent séjour !"}"</p>
                     </div>
                   </div>
@@ -3561,7 +3277,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Colonne de droite - Carte de réservation */}
+            {/* Colonne droite - Carte de réservation avec vérification disponibilité */}
             <div className="lg:col-span-1 pb-20">
               <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
                 <div className="flex justify-between items-center mb-4">
@@ -3574,73 +3290,158 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   </div>
                 </div>
 
+                {/* Sélecteurs de dates et voyageurs */}
                 <div className="border rounded-xl mb-5 overflow-hidden">
-                  <div className="flex">
-                    <div className="flex-1 p-3 border-r">
-                      <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
-                      <div className="font-medium">{formattedCheckIn || 'Sélectionner'}</div>
-                    </div>
+                  {/* Dates */}
+                  <div className="flex border-b border-gray-100">
                     <div className="flex-1 p-3">
-                      <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
-                      <div className="font-medium">{formattedCheckOut || 'Sélectionner'}</div>
+                      <div className="text-xs font-bold text-gray-500 uppercase mb-1">Arrivée</div>
+                      <input
+                        type="date"
+                        value={checkIn}
+                        onChange={(e) => {
+                          setCheckIn(e.target.value);
+                          if (checkOut && e.target.value > checkOut) {
+                            const nextDay = new Date(e.target.value);
+                            nextDay.setDate(nextDay.getDate() + 1);
+                            setCheckOut(nextDay.toISOString().split('T')[0]);
+                          }
+                        }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full text-sm font-medium text-gray-900 border-0 focus:ring-0 p-0"
+                      />
+                    </div>
+                    <div className="flex-1 p-3 border-l border-gray-100">
+                      <div className="text-xs font-bold text-gray-500 uppercase mb-1">Départ</div>
+                      <input
+                        type="date"
+                        value={checkOut}
+                        onChange={(e) => setCheckOut(e.target.value)}
+                        min={checkIn || new Date().toISOString().split('T')[0]}
+                        className="w-full text-sm font-medium text-gray-900 border-0 focus:ring-0 p-0"
+                      />
                     </div>
                   </div>
-                  <div className="p-3 border-t">
-                    <div className="text-xs font-bold text-gray-500 uppercase">Voyageurs</div>
-                    <div className="flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setGuests(Math.max(1, guests - 1))}
-                          className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="font-medium w-8 text-center">{guests}</span>
-                        <button
-                          onClick={() => setGuests(Math.min(maxGuests, guests + 1))}
-                          className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
-                        >
-                          +
-                        </button>
+
+                  {/* ✅ Indicateur de disponibilité */}
+                  {availabilityStatus === 'checking' && (
+                    <div className="p-2 bg-blue-50 border-t border-blue-100">
+                      <div className="flex items-center justify-center gap-2 text-xs text-blue-600">
+                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span>Vérification...</span>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        max {maxGuests}
-                      </span>
                     </div>
+                  )}
+                  
+                  {availabilityStatus === 'available' && (
+                    <div className="p-2 bg-green-50 border-t border-green-100">
+                      <div className="flex items-center justify-center gap-2 text-xs text-green-600">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Disponible</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {availabilityStatus === 'unavailable' && (
+                    <div className="p-2 bg-red-50 border-t border-red-100">
+                      <div className="flex items-center justify-center gap-2 text-xs text-red-600">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Non disponible</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Voyageurs */}
+                  <div className="p-3">
+                    <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
+                    
+                    {/* Adultes */}
+                    <div className="flex items-center justify-between py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Adultes</p>
+                        <p className="text-xs text-gray-400">13 ans et plus</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setAdults(Math.max(1, adults - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                        <span className="font-medium w-6 text-center text-sm">{adults}</span>
+                        <button onClick={() => setAdults(adults + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                      </div>
+                    </div>
+
+                    {/* Enfants */}
+                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                      <div><p className="text-sm font-medium text-gray-700">Enfants</p><p className="text-xs text-gray-400">De 2 à 12 ans</p></div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setChildren(Math.max(0, children - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                        <span className="font-medium w-6 text-center text-sm">{children}</span>
+                        <button onClick={() => setChildren(children + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                      </div>
+                    </div>
+
+                    {/* Bébés */}
+                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                      <div><p className="text-sm font-medium text-gray-700 flex items-center gap-1"><Baby className="w-4 h-4 text-[#00c9a7]" />Bébés</p><p className="text-xs text-gray-400">Moins de 2 ans</p></div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setBabies(Math.max(0, babies - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                        <span className="font-medium w-6 text-center text-sm">{babies}</span>
+                        <button onClick={() => setBabies(babies + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                      </div>
+                    </div>
+
+                    {/* Animaux */}
+                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
+                      <div><p className="text-sm font-medium text-gray-700 flex items-center gap-1"><Dog className="w-4 h-4 text-[#00c9a7]" />Animaux domestiques</p><p className="text-xs text-gray-400">Vous voyagez avec un animal ?</p></div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setPets(Math.max(0, pets - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                        <span className="font-medium w-6 text-center text-sm">{pets}</span>
+                        <button onClick={() => setPets(pets + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-gray-100">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Total voyageurs</span>
+                        <span className="font-medium text-[#0F2940]">{adults + children} personne{(adults + children) > 1 ? 's' : ''}</span>
+                      </div>
+                      {babies > 0 && <div className="flex justify-between text-xs mt-1"><span className="text-gray-500">Bébés</span><span className="font-medium text-[#0F2940]">{babies}</span></div>}
+                      {pets > 0 && <div className="flex justify-between text-xs mt-1"><span className="text-gray-500">Animaux</span><span className="font-medium text-[#0F2940]">{pets}</span></div>}
+                    </div>
+
+                    <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                      <p className="text-xs text-blue-600 flex items-center gap-1"><Info className="w-3 h-3" /> Les bébés et animaux n'affectent pas le nombre total de voyageurs</p>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-2">Capacité maximum : {maxGuests} voyageur{maxGuests > 1 ? 's' : ''}</p>
                   </div>
                 </div>
 
+                {/* Détail des prix */}
                 <div className="space-y-2 mb-5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                    <span>{subtotal.toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Frais de ménage</span>
-                    <span>{cleaningFee.toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Frais de service</span>
-                    <span>{serviceFee.toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="flex justify-between font-bold pt-2 border-t">
-                    <span>Total</span>
-                    <span className="text-[#00c9a7]">{total.toLocaleString()} FCFA</span>
-                  </div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotal.toLocaleString()} FCFA</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de ménage</span><span>{cleaningFee.toLocaleString()} FCFA</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service</span><span>{serviceFee.toLocaleString()} FCFA</span></div>
+                  <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><span className="text-[#00c9a7]">{total.toLocaleString()} FCFA</span></div>
                 </div>
 
+                {/* Bouton Réserver - désactivé si non disponible */}
                 <button 
                   onClick={handleReserveClick}
-                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-bold text-lg hover:shadow-lg transition-all hover:scale-105 transform"
+                  disabled={availabilityStatus !== 'available'}
+                  className={`w-full py-3 rounded-xl font-bold text-lg transition-all transform ${
+                    availabilityStatus === 'available'
+                      ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
-                  Réserver
+                  {availabilityStatus === 'available' 
+                    ? 'Réserver' 
+                    : availabilityStatus === 'checking' 
+                      ? 'Vérification...' 
+                      : 'Non disponible'}
                 </button>
 
                 {onChat && hostId && (
-                  <button
-                    onClick={() => onChat(hostId)}
-                    className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#0d6ad0] transition-all shadow-md"
-                  >
+                  <button onClick={() => onChat(hostId)} className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#0d6ad0] transition-all shadow-md">
                     Discuter avec l'hôte
                   </button>
                 )}
@@ -3982,10 +3783,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
-    
-    // Récupérer les données du formulaire depuis sessionStorage
     const [bookingFormData, setBookingFormData] = useState<any>(null);
-    
+
+    // Récupérer les données du formulaire depuis sessionStorage
     useEffect(() => {
         const savedData = sessionStorage.getItem('bookingFormData');
         if (savedData) {
@@ -3996,6 +3796,25 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
             } catch (e) {
                 console.error('Erreur lors du chargement des données:', e);
             }
+        }
+    }, []);
+
+    // ✅ Vérifier s'il y a des données temporaires au chargement
+    useEffect(() => {
+        const tempData = temporaryBookingService.getBookingData();
+        if (tempData && !bookingFormData) {
+            console.log('📦 Données temporaires trouvées:', tempData);
+            setBookingFormData({
+                check_in: tempData.checkIn,
+                check_out: tempData.checkOut,
+                guests: tempData.guests,
+                nights: tempData.nights,
+                guest_details: tempData.bookingFormData,
+                paymentOption: tempData.bookingFormData.paymentOption,
+                totalAmount: tempData.bookingFormData.totalAmount,
+                paymentAmount: tempData.bookingFormData.paymentAmount
+            });
+            temporaryBookingService.clearBookingData();
         }
     }, []);
 
@@ -4023,6 +3842,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     const cleaningFee = 15000;
     const total = subtotal + serviceFee + cleaningFee;
 
+    // ✅ Déclarer paymentAmount AVANT le modal
+    const paymentAmount = bookingFormData?.paymentAmount || total;
+
     // Validation des champs de paiement
     const validatePaymentDetails = () => {
         if (paymentMethod === 'mobile_money') {
@@ -4035,7 +3857,8 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 return false;
             }
         } else if (paymentMethod === 'card') {
-            if (!cardNumber || cardNumber.replace(/\s/g, '').length < 16) {
+            const cleanCardNumber = cardNumber.replace(/\s/g, '');
+            if (!cardNumber || cleanCardNumber.length < 16) {
                 setError('Veuillez entrer un numéro de carte valide');
                 return false;
             }
@@ -4055,52 +3878,40 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         return true;
     };
 
-    // Simulation de traitement de paiement
-    const processPayment = async () => {
+    const processPayment = async (): Promise<boolean> => {
         if (!validatePaymentDetails()) return false;
-        
         setIsProcessing(true);
         setPaymentStep('processing');
-        
-        // Simuler un appel API de paiement
         return new Promise((resolve) => {
             setTimeout(() => {
-                setIsProcessing(false);
                 resolve(true);
             }, 2000);
         });
     };
 
-    const handleConfirmBooking = async () => {
+    const handleOpenPaymentModal = () => {
         if (!user) {
             onNavigate?.({ name: 'auth' });
             return;
         }
-
         setError('');
-        
-        // Valider les informations de paiement
-        if (!validatePaymentDetails()) {
-            return;
-        }
-
-        // Ouvrir le modal de paiement
         setShowPaymentModal(true);
         setPaymentStep('form');
     };
 
     const handlePaymentSubmit = async () => {
-        // Traiter le paiement
+        if (!validatePaymentDetails()) return;
+
         const paymentSuccess = await processPayment();
-        
         if (!paymentSuccess) {
             setPaymentStep('error');
+            setError('Le paiement a échoué. Veuillez réessayer.');
+            setIsProcessing(false);
             return;
         }
 
         setPaymentStep('success');
         
-        // Préparer les données de réservation
         const guestDetails = bookingFormData?.guest_details || {
             full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email?.split('@')[0] || 'Voyageur',
             email: user?.email || '',
@@ -4111,7 +3922,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
             id_number: bookingFormData?.idNumber || ''
         };
 
-        const paymentAmount = bookingFormData?.paymentOption === '50' ? Math.floor(total * 0.5) : total;
+        const paymentAmountValue = bookingFormData?.paymentOption === '50' ? Math.floor(total * 0.5) : total;
 
         const bookingData: BookingData = {
             property_id: parseInt(propertyId || '0'),
@@ -4132,7 +3943,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
             },
             payment_option: bookingFormData?.paymentOption || '100',
             total_amount: bookingFormData?.totalAmount || total,
-            payment_amount: paymentAmount,
+            payment_amount: paymentAmountValue,
             nights: nights,
             special_requests: specialRequests || undefined
         };
@@ -4140,23 +3951,28 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         console.log('📤 Envoi à l\'API:', bookingData);
 
         try {
+            setLoading(true);
             const response = await bookingService.create(bookingData);
             const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id || response?.data?.id;
-            
             sessionStorage.removeItem('bookingFormData');
             
             if (bookingId) {
                 setTimeout(() => {
                     setShowPaymentModal(false);
+                    setLoading(false);
                     onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
                 }, 1500);
             } else {
                 setPaymentStep('error');
                 setError("Erreur: Impossible de récupérer l'ID de la réservation");
+                setIsProcessing(false);
+                setLoading(false);
             }
         } catch (err: any) {
             console.error('❌ Erreur:', err);
             setPaymentStep('error');
+            setIsProcessing(false);
+            setLoading(false);
             if (err.response?.data?.errors) {
                 const errors = err.response.data.errors;
                 const errorMessages = Object.values(errors).flat();
@@ -4169,7 +3985,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         }
     };
 
-    // Formatage du numéro de carte
     const formatCardNumber = (value: string) => {
         const cleaned = value.replace(/\s/g, '');
         const groups = cleaned.match(/.{1,4}/g);
@@ -4181,7 +3996,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         setCardNumber(formatted);
     };
 
-    // Formatage de la date d'expiration
     const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value.replace(/\D/g, '');
         if (value.length >= 2) {
@@ -4204,264 +4018,20 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 <div className="text-center bg-white rounded-2xl p-8 max-w-md">
                     <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <p className="text-red-500 mb-4">Propriété introuvable</p>
-                    <button 
-                        onClick={() => onNavigate?.({ name: 'home' })}
-                        className="text-[#00c9a7] underline"
-                    >
-                        Retour à l'accueil
-                    </button>
+                    <button onClick={() => onNavigate?.({ name: 'home' })} className="text-[#00c9a7] underline">Retour à l'accueil</button>
                 </div>
             </div>
         );
     }
 
     const guestInfo = bookingFormData?.guest_details || {};
-    const paymentAmount = bookingFormData?.paymentAmount || total;
-
-    // Composant Modal de paiement
-    const PaymentModal = () => (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-fadeInUp">
-                <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-[#0F2940]">
-                        {paymentStep === 'form' && 'Paiement sécurisé'}
-                        {paymentStep === 'processing' && 'Traitement en cours...'}
-                        {paymentStep === 'success' && 'Paiement réussi !'}
-                        {paymentStep === 'error' && 'Erreur de paiement'}
-                    </h3>
-                    <button 
-                        onClick={() => setShowPaymentModal(false)}
-                        className="p-2 rounded-full hover:bg-gray-100 transition"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="p-6">
-                    {paymentStep === 'form' && (
-                        <div className="space-y-6">
-                            {/* Montant à payer */}
-                            <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
-                                <p className="text-sm text-gray-600">Montant à payer</p>
-                                <p className="text-3xl font-bold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</p>
-                            </div>
-
-                            {/* Méthode de paiement */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-3">
-                                    Méthode de paiement
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => setPaymentMethod('mobile_money')}
-                                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${
-                                            paymentMethod === 'mobile_money'
-                                                ? 'border-[#00c9a7] bg-[#00c9a7]/5'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <Smartphone className={`w-6 h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                        <span className="text-sm font-medium">Mobile Money</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setPaymentMethod('card')}
-                                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${
-                                            paymentMethod === 'card'
-                                                ? 'border-[#00c9a7] bg-[#00c9a7]/5'
-                                                : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                        <span className="text-sm font-medium">Carte bancaire</span>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Formulaire Mobile Money */}
-                            {paymentMethod === 'mobile_money' && (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Opérateur
-                                        </label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                                                <button
-                                                    key={provider}
-                                                    onClick={() => setMobileProvider(provider)}
-                                                    className={`py-3 rounded-xl border-2 transition-all font-medium ${
-                                                        mobileProvider === provider
-                                                            ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]'
-                                                            : 'border-gray-200 hover:border-gray-300'
-                                                    }`}
-                                                >
-                                                    {provider}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Numéro Mobile Money
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            value={mobileMoneyNumber}
-                                            onChange={(e) => setMobileMoneyNumber(e.target.value)}
-                                            placeholder="97 00 00 00"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                                        />
-                                        <p className="text-xs text-gray-400 mt-1">
-                                            Vous recevrez une demande de paiement sur ce numéro
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Formulaire Carte Bancaire */}
-                            {paymentMethod === 'card' && (
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Numéro de carte
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={cardNumber}
-                                            onChange={handleCardNumberChange}
-                                            placeholder="1234 5678 9012 3456"
-                                            maxLength={19}
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Date d'expiration
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={cardExpiry}
-                                                onChange={handleExpiryChange}
-                                                placeholder="MM/AA"
-                                                maxLength={5}
-                                                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                CVV
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type={showCvv ? 'text' : 'password'}
-                                                    value={cardCvv}
-                                                    onChange={(e) => setCardCvv(e.target.value)}
-                                                    placeholder="123"
-                                                    maxLength={4}
-                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent pr-10"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowCvv(!showCvv)}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                                                >
-                                                    {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nom sur la carte
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={cardName}
-                                            onChange={(e) => setCardName(e.target.value.toUpperCase())}
-                                            placeholder="JEAN DUPONT"
-                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent uppercase"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
-                                    <AlertCircle className="w-5 h-5 text-red-500" />
-                                    <p className="text-sm text-red-600">{error}</p>
-                                </div>
-                            )}
-
-                            <button
-                                onClick={handlePaymentSubmit}
-                                className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
-                            >
-                                Payer {paymentAmount.toLocaleString()} FCFA
-                            </button>
-
-                            <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
-                                <div className="flex items-center gap-1">
-                                    <Lock className="w-3 h-3" />
-                                    <span>Paiement sécurisé</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Shield className="w-3 h-3" />
-                                    <span>Données chiffrées</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {paymentStep === 'processing' && (
-                        <div className="text-center py-8">
-                            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
-                            <p className="text-gray-600">Traitement du paiement en cours...</p>
-                            <p className="text-sm text-gray-400 mt-2">Veuillez ne pas fermer cette fenêtre</p>
-                        </div>
-                    )}
-
-                    {paymentStep === 'success' && (
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle className="w-8 h-8 text-green-500" />
-                            </div>
-                            <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
-                            <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
-                            <p className="text-sm text-gray-400 mt-4">Redirection en cours...</p>
-                        </div>
-                    )}
-
-                    {paymentStep === 'error' && (
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertCircle className="w-8 h-8 text-red-500" />
-                            </div>
-                            <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
-                            <p className="text-gray-500 mb-4">{error || 'Une erreur est survenue. Veuillez réessayer.'}</p>
-                            <button
-                                onClick={() => setPaymentStep('form')}
-                                className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
-                            >
-                                Réessayer
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
 
     return (
         <>
             <div className="bg-[#f4fffe] min-h-screen pb-12">
-                {/* Header mobile */}
                 <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => onNavigate?.({ name: 'listing', id: propertyId })}
-                            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition"
-                        >
+                        <button onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition">
                             <ArrowLeft className="w-5 h-5 text-gray-600" />
                         </button>
                         <div>
@@ -4476,12 +4046,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                     <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm">
                         <div className="flex items-start gap-3">
                             <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                <img 
-                                    src={property.images?.[0] || property.image} 
-                                    alt={property.title}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
-                                />
+                                <img src={property.images?.[0] || property.image} alt={property.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
@@ -4500,160 +4065,156 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                     </div>
 
                     <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Colonne gauche - Détails de la réservation */}
+                        {/* Colonne gauche */}
                         <div className="flex-1 space-y-4">
-                            {/* Détails du séjour */}
                             <div className="bg-white rounded-xl p-4 shadow-sm">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                                    <Calendar className="w-5 h-5 text-[#00c9a7]" />
-                                    Vos dates
-                                </h2>
+                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><Calendar className="w-5 h-5 text-[#00c9a7]" />Vos dates</h2>
                                 <div className="flex flex-wrap gap-4 text-sm">
-                                    <div>
-                                        <p className="text-gray-500">Arrivée</p>
-                                        <p className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500">Départ</p>
-                                        <p className="font-medium">{new Date(checkOut).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500">Durée</p>
-                                        <p className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-gray-500">Voyageurs</p>
-                                        <p className="font-medium">{guests} personne{guests > 1 ? 's' : ''}</p>
-                                    </div>
+                                    <div><p className="text-gray-500">Arrivée</p><p className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
+                                    <div><p className="text-gray-500">Départ</p><p className="font-medium">{new Date(checkOut).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
+                                    <div><p className="text-gray-500">Durée</p><p className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</p></div>
+                                    <div><p className="text-gray-500">Voyageurs</p><p className="font-medium">{guests} personne{guests > 1 ? 's' : ''}</p></div>
                                 </div>
                             </div>
 
-                            {/* Vos informations */}
                             {(guestInfo.full_name || guestInfo.email || guestInfo.phone) && (
                                 <div className="bg-white rounded-xl p-4 shadow-sm">
-                                    <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                                        <User className="w-5 h-5 text-[#00c9a7]" />
-                                        Vos informations
-                                    </h2>
+                                    <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><User className="w-5 h-5 text-[#00c9a7]" />Vos informations</h2>
                                     <div className="space-y-2 text-sm">
-                                        {guestInfo.full_name && (
-                                            <div className="flex flex-wrap justify-between">
-                                                <span className="text-gray-500">Nom complet</span>
-                                                <span className="font-medium">{guestInfo.full_name}</span>
-                                            </div>
-                                        )}
-                                        {guestInfo.email && (
-                                            <div className="flex flex-wrap justify-between">
-                                                <span className="text-gray-500">Email</span>
-                                                <span className="font-medium break-all">{guestInfo.email}</span>
-                                            </div>
-                                        )}
-                                        {guestInfo.phone && (
-                                            <div className="flex flex-wrap justify-between">
-                                                <span className="text-gray-500">Téléphone</span>
-                                                <span className="font-medium">{guestInfo.phone}</span>
-                                            </div>
-                                        )}
-                                        {guestInfo.nationality && (
-                                            <div className="flex flex-wrap justify-between">
-                                                <span className="text-gray-500">Nationalité</span>
-                                                <span className="font-medium">{guestInfo.nationality}</span>
-                                            </div>
-                                        )}
+                                        {guestInfo.full_name && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Nom complet</span><span className="font-medium">{guestInfo.full_name}</span></div>}
+                                        {guestInfo.email && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Email</span><span className="font-medium break-all">{guestInfo.email}</span></div>}
+                                        {guestInfo.phone && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Téléphone</span><span className="font-medium">{guestInfo.phone}</span></div>}
+                                        {guestInfo.nationality && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Nationalité</span><span className="font-medium">{guestInfo.nationality}</span></div>}
                                     </div>
                                 </div>
                             )}
 
-                            {/* Demandes spéciales */}
                             <div className="bg-white rounded-xl p-4 shadow-sm">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                                    <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
-                                    Demandes spéciales
-                                </h2>
-                                <textarea
-                                    value={specialRequests}
-                                    onChange={(e) => setSpecialRequests(e.target.value)}
-                                    placeholder="Horaires d'arrivée, allergies, demandes particulières..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm"
-                                    rows={3}
-                                />
+                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><MessageCircle className="w-5 h-5 text-[#00c9a7]" />Demandes spéciales</h2>
+                                <textarea value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Horaires d'arrivée, allergies, demandes particulières..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" rows={3} />
                             </div>
                         </div>
 
-                        {/* Colonne droite - Récapitulatif et paiement */}
+                        {/* Colonne droite */}
                         <div className="lg:w-96 space-y-4">
-                            {/* Carte des prix */}
                             <div className="bg-white rounded-xl p-4 shadow-sm sticky top-20">
                                 <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
-                                
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {nights} nuits</span>
-                                        <span>{subtotal.toLocaleString()} FCFA</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Frais de ménage</span>
-                                        <span>{cleaningFee.toLocaleString()} FCFA</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Frais de service</span>
-                                        <span>{serviceFee.toLocaleString()} FCFA</span>
-                                    </div>
+                                    <div className="flex justify-between"><span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotal.toLocaleString()} FCFA</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Frais de ménage</span><span>{cleaningFee.toLocaleString()} FCFA</span></div>
+                                    <div className="flex justify-between"><span className="text-gray-600">Frais de service</span><span>{serviceFee.toLocaleString()} FCFA</span></div>
                                     <div className="border-t border-gray-200 pt-3 mt-3">
-                                        <div className="flex justify-between font-bold">
-                                            <span>Total</span>
-                                            <span className="text-[#00c9a7] text-lg">{total.toLocaleString()} FCFA</span>
-                                        </div>
-                                        {bookingFormData?.paymentOption === '50' && (
-                                            <div className="flex justify-between text-sm mt-2">
-                                                <span className="text-gray-500">À payer maintenant</span>
-                                                <span className="font-semibold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</span>
-                                            </div>
-                                        )}
+                                        <div className="flex justify-between font-bold"><span>Total</span><span className="text-[#00c9a7] text-lg">{total.toLocaleString()} FCFA</span></div>
+                                        {bookingFormData?.paymentOption === '50' && <div className="flex justify-between text-sm mt-2"><span className="text-gray-500">À payer maintenant</span><span className="font-semibold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</span></div>}
                                     </div>
                                 </div>
-
-                                <button
-                                    onClick={handleConfirmBooking}
-                                    disabled={loading}
-                                    className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm"
-                                >
-                                    {loading ? 'Traitement...' : `Procéder au paiement`}
-                                </button>
-
-                                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
-                                    <div className="flex items-center gap-1">
-                                        <Lock className="w-3 h-3" />
-                                        <span>Paiement sécurisé</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <Shield className="w-3 h-3" />
-                                        <span>Garantie BF-Immo</span>
-                                    </div>
-                                </div>
+                                <button onClick={handleOpenPaymentModal} disabled={loading} className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm">{loading ? 'Traitement...' : 'Procéder au paiement'}</button>
+                                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400"><div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div><div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Garantie BF-Immo</span></div></div>
                             </div>
-
-                            {/* Besoin d'aide */}
-                            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center">
-                                    <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
-                                    <p className="text-xs text-gray-500">Contactez notre support</p>
-                                </div>
-                            </div>
+                            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center"><MessageCircle className="w-4 h-4 text-[#00c9a7]" /></div><div><p className="font-medium text-[#0F2940] text-sm">Une question ?</p><p className="text-xs text-gray-500">Contactez notre support</p></div></div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Modal de paiement */}
-            {showPaymentModal && <PaymentModal />}
+            {/* ✅ Modal de paiement - Défini directement dans le return */}
+            {showPaymentModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
+                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp" style={{ overflow: 'hidden' }}>
+                        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
+                            <h3 className="text-lg font-semibold text-[#0F2940]">
+                                {paymentStep === 'form' && 'Paiement sécurisé'}
+                                {paymentStep === 'processing' && 'Traitement en cours...'}
+                                {paymentStep === 'success' && 'Paiement réussi !'}
+                                {paymentStep === 'error' && 'Erreur de paiement'}
+                            </h3>
+                            <button onClick={() => { setShowPaymentModal(false); setPaymentStep('form'); setError(''); }} className="p-2 rounded-full hover:bg-gray-100 transition">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {paymentStep === 'form' && (
+                                <div className="space-y-6">
+                                    <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
+                                        <p className="text-sm text-gray-600">Montant à payer</p>
+                                        <p className="text-3xl font-bold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-3">Méthode de paiement</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button type="button" onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                <Smartphone className={`w-6 h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                                                <span className="text-sm font-medium">Mobile Money</span>
+                                            </button>
+                                            <button type="button" onClick={() => { setPaymentMethod('card'); setError(''); }} className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                                                <span className="text-sm font-medium">Carte bancaire</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {paymentMethod === 'mobile_money' && (
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
+                                                        <button key={provider} type="button" onClick={() => { setMobileProvider(provider); setError(''); }} className={`py-3 rounded-xl border-2 transition-all font-medium ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                            {provider}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
+                                                <input type="tel" value={mobileMoneyNumber} onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} placeholder="97 00 00 00" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" />
+                                                <p className="text-xs text-gray-400 mt-1">Vous recevrez une demande de paiement sur ce numéro</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {paymentMethod === 'card' && (
+                                        <div className="space-y-4">
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label><input type="text" value={cardNumber} onChange={handleCardNumberChange} placeholder="1234 5678 9012 3456" maxLength={19} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" /></div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label><input type="text" value={cardExpiry} onChange={handleExpiryChange} placeholder="MM/AA" maxLength={5} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" /></div>
+                                                <div><label className="block text-sm font-medium text-gray-700 mb-2">CVV</label><div className="relative"><input type={showCvv ? 'text' : 'password'} value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} placeholder="123" maxLength={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent pr-10" /><button type="button" onClick={() => setShowCvv(!showCvv)} className="absolute right-3 top-1/2 -translate-y-1/2">{showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}</button></div></div>
+                                            </div>
+                                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label><input type="text" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} placeholder="JEAN DUPONT" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent uppercase" /></div>
+                                        </div>
+                                    )}
+
+                                    {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2"><AlertCircle className="w-5 h-5 text-red-500" /><p className="text-sm text-red-600">{error}</p></div>}
+                                </div>
+                            )}
+
+                            {paymentStep === 'processing' && (
+                                <div className="text-center py-8"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div><p className="text-gray-600">Traitement du paiement en cours...</p><p className="text-sm text-gray-400 mt-2">Veuillez ne pas fermer cette fenêtre</p></div>
+                            )}
+                            {paymentStep === 'success' && (
+                                <div className="text-center py-8"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8 text-green-500" /></div><h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4><p className="text-gray-500">Votre réservation est en cours de confirmation</p><p className="text-sm text-gray-400 mt-4">Redirection en cours...</p></div>
+                            )}
+                            {paymentStep === 'error' && (
+                                <div className="text-center py-8"><div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-red-500" /></div><h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4><p className="text-gray-500 mb-4">{error || 'Une erreur est survenue. Veuillez réessayer.'}</p><button type="button" onClick={() => { setPaymentStep('form'); setError(''); setIsProcessing(false); }} className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl">Réessayer</button></div>
+                            )}
+                        </div>
+
+                        {paymentStep === 'form' && (
+                            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
+                                <button type="button" onClick={handlePaymentSubmit} disabled={isProcessing} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50">
+                                    {isProcessing ? 'Traitement...' : `Payer ${paymentAmount.toLocaleString()} FCFA`}
+                                </button>
+                                <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3"><div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div><div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Données chiffrées</span></div></div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </>
     );
 }
-
 // Styles d'animation
 const style = document.createElement('style');
 style.textContent = `
@@ -4941,20 +4502,22 @@ export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => voi
       </div>
 
       {/* Modal de détail */}
-      {selectedProperty && (
-        <PropertyDetailModal
-          property={selectedProperty}
-          onClose={() => setSelectedProperty(null)}
-          onReserve={({ checkIn, checkOut, guests, nights }) => 
-            onNavigate?.({ 
-              name: 'booking', 
-              id: selectedProperty.id.toString(), 
-              search: `?check_in=${encodeURIComponent(checkIn)}&check_out=${encodeURIComponent(checkOut)}&guests=${guests}&nights=${nights}` 
-            })
-          }
-          onChat={(hostId) => onNavigate?.({ name: 'messages', id: 'inquiry', search: `?property=${selectedProperty.id}` })}
-        />
-      )}
+     // Dans PopularPage
+{selectedProperty && (
+  <PropertyDetailModal
+    property={selectedProperty}
+    onClose={() => setSelectedProperty(null)}
+    onNavigate={onNavigate}  // ✅ Passer onNavigate
+    onReserve={({ checkIn, checkOut, guests, nights }) => 
+      onNavigate?.({ 
+        name: 'booking', 
+        id: selectedProperty.id.toString(), 
+        search: `?check_in=${encodeURIComponent(checkIn)}&check_out=${encodeURIComponent(checkOut)}&guests=${guests}&nights=${nights}` 
+      })
+    }
+    onChat={(hostId) => onNavigate?.({ name: 'messages', id: 'inquiry', search: `?property=${selectedProperty.id}` })}
+  />
+)}
     </div>
   );
 }
@@ -4970,6 +4533,9 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
   const [selectedCheckOut, setSelectedCheckOut] = useState<string>('');
   const [selectedGuests, setSelectedGuests] = useState<number>(1);
   const [selectedNights, setSelectedNights] = useState<number>(0);
+  
+  // ❌ SUPPRIMER selectedProperty - on n'en a pas besoin ici
+  // Le composant PropertyDetailModal est directement rendu sans state intermédiaire
 
   console.log("=== ListingPage (option 2) ===");
   console.log("ID reçu:", id);
@@ -5040,157 +4606,84 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
   }
 
   // ✅ Fonction de réservation
- const handleReserve = (bookingData: PropertyDetailModalBookingParams) => {
-  console.log('🔍 Réservation complète:', bookingData);
-  
-  setSelectedCheckIn(bookingData.checkIn);
-  setSelectedCheckOut(bookingData.checkOut);
-  setSelectedGuests(bookingData.guests);
-  setSelectedNights(bookingData.nights);
-  
-  // Stocker toutes les données du formulaire dans le state ou localStorage
-  const bookingFormData = {
-    check_in: bookingData.checkIn,
-    check_out: bookingData.checkOut,
-    guests: bookingData.guests,
-    nights: bookingData.nights,
-    guest_details: {
-      full_name: bookingData.fullName,
-      email: bookingData.email,
-      phone: bookingData.phone,
-      address: bookingData.address,
-      nationality: bookingData.nationality,
-      id_type: bookingData.idType,
-      id_number: bookingData.idNumber
-    },
-    payment_option: bookingData.paymentOption,
-    total_amount: bookingData.totalAmount,
-    payment_amount: bookingData.paymentAmount
-  };
-  
-  // Sauvegarder dans sessionStorage pour les récupérer sur la page de paiement
-  sessionStorage.setItem('bookingFormData', JSON.stringify(bookingFormData));
-  
-  const searchParams = new URLSearchParams({
-    check_in: bookingData.checkIn,
-    check_out: bookingData.checkOut,
-    guests: bookingData.guests.toString(),
-    nights: bookingData.nights.toString()
-  });
-  
-  if (onNavigate) {
-    onNavigate({ 
-      name: 'booking', 
-      id: rawProperty.id.toString(),
-      search: searchParams.toString()
+  const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
+    console.log('🔍 Réservation déclenchée avec:', dates);
+    
+    setSelectedCheckIn(dates.checkIn);
+    setSelectedCheckOut(dates.checkOut);
+    setSelectedGuests(dates.guests);
+    setSelectedNights(dates.nights);
+    
+    const searchParams = new URLSearchParams({
+        check_in: dates.checkIn,
+        check_out: dates.checkOut,
+        guests: dates.guests.toString(),
+        nights: dates.nights.toString()
     });
-  }
-};
+    
+    const url = `/booking/${rawProperty.id}?${searchParams.toString()}`;
+    console.log('🔍 Navigation vers:', url);
+    
+    if (onNavigate) {
+        onNavigate({ 
+            name: 'booking', 
+            id: rawProperty.id.toString(),
+            search: searchParams.toString()
+        });
+    } else {
+        window.location.href = url;
+    }
+  };
 
-  // ✅ Transformation des données - CORRECTION POUR L'HÔTE
-  // Dans ListingPage, vers ligne 5100
-const property = {
-  id: rawProperty.id,
-  title: rawProperty.title,
-  location: `${rawProperty.district}, ${rawProperty.city}`,
-  price: rawProperty.price_per_night,
-  priceNumber: parseFloat(rawProperty.price_per_night),
-  priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
-  rating: parseFloat(rawProperty.average_rating) || 0,
-  reviews: rawProperty.reviews_count || 0,
-  
-  // ✅ CORRECTION POUR LES IMAGES
-  image: (() => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    
-    const normalizeUrl = (url: string): string => {
-      if (!url) return '';
-      if (url.startsWith('http')) return url;
-      if (url.startsWith('/')) return `${API_URL}${url}`;
-      return `${API_URL}/${url}`;
-    };
-    
-    // Vérifier cover_photo
-    if (rawProperty.cover_photo) {
-      if (typeof rawProperty.cover_photo === 'object') {
-        const url = rawProperty.cover_photo.photo_url || rawProperty.cover_photo.url || rawProperty.cover_photo.path;
-        if (url) return normalizeUrl(url);
-      } else if (typeof rawProperty.cover_photo === 'string') {
-        return normalizeUrl(rawProperty.cover_photo);
-      }
-    }
-    
-    // Vérifier photos
-    if (rawProperty.photos && Array.isArray(rawProperty.photos) && rawProperty.photos.length > 0) {
-      const firstPhoto = rawProperty.photos[0];
-      if (typeof firstPhoto === 'string') {
-        return normalizeUrl(firstPhoto);
-      }
-      if (firstPhoto && typeof firstPhoto === 'object') {
-        const url = firstPhoto.photo_url || firstPhoto.url || firstPhoto.path || firstPhoto.file?.url;
-        if (url) return normalizeUrl(url);
-      }
-    }
-    
-    return '/placeholder.jpg';
-  })(),
-  
-  images: (() => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    const images: string[] = [];
-    
-    const normalizeUrl = (url: string): string => {
-      if (!url) return '';
-      if (url.startsWith('http')) return url;
-      if (url.startsWith('/')) return `${API_URL}${url}`;
-      return `${API_URL}/${url}`;
-    };
-    
-    // Ajouter cover_photo
-    if (rawProperty.cover_photo) {
-      if (typeof rawProperty.cover_photo === 'object') {
-        const url = rawProperty.cover_photo.photo_url || rawProperty.cover_photo.url || rawProperty.cover_photo.path;
-        if (url) images.push(normalizeUrl(url));
-      } else if (typeof rawProperty.cover_photo === 'string') {
-        images.push(normalizeUrl(rawProperty.cover_photo));
-      }
-    }
-    
-    // Ajouter les photos
-    if (rawProperty.photos && Array.isArray(rawProperty.photos)) {
-      for (const photo of rawProperty.photos) {
-        if (images.length >= 5) break;
-        if (typeof photo === 'string') {
-          images.push(normalizeUrl(photo));
-        } else if (photo && typeof photo === 'object') {
-          const url = photo.photo_url || photo.url || photo.path || photo.file?.url;
-          if (url) images.push(normalizeUrl(url));
-        }
-      }
-    }
-    
-    if (images.length === 0) images.push('/placeholder.jpg');
-    return images;
-  })(),
-  
-  beds: rawProperty.beds || 0,
-  baths: rawProperty.bathrooms || 0,
-  description: rawProperty.description,
-  longDescription: rawProperty.description,
-  amenities: [/* ... */],
-  host: (() => {
-    const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
-    const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
-    return rawProperty.user?.full_name
-      || userName
-      || rawProperty.host?.full_name
-      || hostName
-      || rawProperty.published_by?.full_name
-      || rawProperty.host_name
-      || 'Hôte vérifié';
-  })(),
-  hostImage: (() => {
-    const hostName = (() => {
+  // ✅ Transformation des données
+  const property = {
+    id: rawProperty.id,
+    title: rawProperty.title,
+    location: `${rawProperty.district}, ${rawProperty.city}`,
+    price: rawProperty.price_per_night,
+    priceNumber: parseFloat(rawProperty.price_per_night),
+    priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
+    rating: parseFloat(rawProperty.average_rating) || 0,
+    reviews: rawProperty.reviews_count || 0,
+    image: (() => {
+      const first = rawProperty.photos?.[0] || null;
+      const url = first?.photo_url || first?.url || first?.path || first?.file?.url || rawProperty.image || null;
+      if (!url) return '/placeholder.jpg';
+      return url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
+    })(),
+    images: (rawProperty.photos && Array.isArray(rawProperty.photos) ? rawProperty.photos.map((p: any) => {
+      const url = p?.photo_url || p?.url || p?.path || p?.file?.url || p;
+      if (!url) return null;
+      return (typeof url === 'string' && url.startsWith('http')) ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
+    }).filter(Boolean) : (rawProperty.images || [])),
+    beds: rawProperty.beds || 0,
+    baths: rawProperty.bathrooms || 0,
+    description: rawProperty.description,
+    longDescription: rawProperty.description,
+    amenities: [
+      rawProperty.has_wifi && 'Wi-Fi',
+      rawProperty.has_air_conditioning && 'Climatisation',
+      rawProperty.has_parking && 'Parking gratuit',
+      rawProperty.has_pool && 'Piscine',
+      rawProperty.has_kitchen && 'Cuisine équipée',
+      rawProperty.has_tv && 'Télévision',
+      rawProperty.has_breakfast && 'Petit-déjeuner',
+      rawProperty.has_generator && 'Générateur',
+      rawProperty.has_water_tank && 'Réservoir d\'eau',
+      rawProperty.has_gym && 'Salle de sport',
+      rawProperty.has_spa && 'Spa',
+      rawProperty.has_elevator && 'Ascenseur',
+      rawProperty.has_laundry && 'Lave-linge',
+      rawProperty.has_cctv && 'Caméras de surveillance',
+      rawProperty.has_electric_fence && 'Clôture électrique',
+      rawProperty.allows_pets && 'Animaux acceptés',
+      rawProperty.allows_children && 'Enfants acceptés',
+      rawProperty.airport_shuttle && 'Navette aéroport',
+      rawProperty.housekeeping && 'Ménage inclus',
+      rawProperty.room_service && 'Service en chambre',
+      rawProperty.wheelchair_accessible && 'Accessible fauteuil roulant',
+    ].filter(Boolean),
+    host: (() => {
       const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
       const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
       return rawProperty.user?.full_name
@@ -5200,21 +4693,47 @@ const property = {
         || rawProperty.published_by?.full_name
         || rawProperty.host_name
         || 'Hôte vérifié';
-    })();
-    return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
-  })(),
-  hostSince: (rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at)
-    ? new Date(rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at).getFullYear().toString()
-    : '2024',
-  hostId: rawProperty.user?.id || rawProperty.host?.id || rawProperty.published_by?.id || rawProperty.host_id || null,
-  superhost: rawProperty.superhost || false,
-  responseRate: 100,
-  responseTime: 'quelques heures',
-  property_type: rawProperty.property_type,
-  // ... autres champs
-};
+    })(),
+    hostImage: (() => {
+      const hostName = (() => {
+        const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
+        const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
+        return rawProperty.user?.full_name
+          || userName
+          || rawProperty.host?.full_name
+          || hostName
+          || rawProperty.published_by?.full_name
+          || rawProperty.host_name
+          || 'Hôte vérifié';
+      })();
+      return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
+    })(),
+    hostSince: (rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at)
+      ? new Date(rawProperty.user?.created_at || rawProperty.host?.created_at || rawProperty.published_by?.created_at).getFullYear().toString()
+      : '2024',
+    hostId: rawProperty.user?.id || rawProperty.host?.id || rawProperty.published_by?.id || rawProperty.host_id || null,
+    superhost: rawProperty.superhost || false,
+    responseRate: 100,
+    responseTime: 'quelques heures',
+    property_type: rawProperty.property_type,
+    bluefin_certified: rawProperty.bluefin_certified || false,
+    has_generator: rawProperty.has_generator || false,
+    has_wifi: rawProperty.has_wifi || false,
+    has_air_conditioning: rawProperty.has_air_conditioning || false,
+    has_water_tank: rawProperty.has_water_tank || false,
+    cancellation_policy: rawProperty.cancellation_policy || 'moderate',
+    instant_booking: rawProperty.instant_booking || false,
+    check_in_time: '15:00',
+    check_out_time: '11:00',
+    max_guests: rawProperty.max_guests || 1,
+    bedrooms: rawProperty.bedrooms || 0,
+    min_stay: rawProperty.min_stay || 1,
+    status: rawProperty.status,
+    status_label: rawProperty.status_label,
+    status_color: rawProperty.status_color,
+    rejection_reason: rawProperty.rejection_reason,
+  };
 
-  // ✅ Log pour vérifier l'hôte
   console.log('🔍 Property data:', {
     id: property.id,
     title: property.title,
@@ -5224,10 +4743,12 @@ const property = {
     rawHost: rawProperty.host,
   });
 
+  // ✅ Retour direct du modal sans état selectedProperty
   return (
     <PropertyDetailModal
       property={property}
       onClose={() => onNavigate({ name: 'home' })}
+      onNavigate={onNavigate}  // ✅ Passer onNavigate
       onReserve={handleReserve}
       onChat={() => onNavigate({ name: 'messages', id: 'inquiry', search: `?property=${property.id}` })}
     />
@@ -9066,25 +8587,176 @@ const getServiceContent = () => ({
   ]
 });
 
-  // Contenu original pour les voyageurs
-  const getTravelerContent = () => ({
-    title: "Aide pour les voyageurs",
-    description: "Trouvez des réponses à vos questions sur les réservations, les annulations, les paiements et plus encore.",
-    articles: [
-      { id: "annuler-reservation", title: "Annuler votre réservation de logement", description: "Vos projets ont changé ? Découvrez comment annuler." },
-      { id: "modes-paiement", title: "Modes de paiement acceptés", description: "Cartes, mobile money, FedaPay : tous les moyens de payer." },
-      { id: "modifier-date", title: "Modifier la date ou l'heure de votre réservation", description: "Reprogrammer un service ou une expérience." },
-      { id: "hote-annule", title: "Si votre hôte annule votre réservation", description: "Que faire et quels remboursements ?" },
-      { id: "quand-payer", title: "Quand vous payerez votre réservation", description: "Délais de paiement selon le type de séjour." },
-      { id: "comment-reserver", title: "Comment réserver un logement ?", description: "Guide pas à pas pour réserver." },
-    ],
-    quickLinks: [
-      { icon: CreditCard, label: "Paiements et remboursements" },
-      { icon: Calendar, label: "Gérer mes réservations" },
-      { icon: MessageCircle, label: "Contacter l'hôte" },
-      { icon: AlertCircle, label: "Signaler un problème" },
-    ]
-  });
+ // Contenu original pour les voyageurs
+const getTravelerContent = () => ({
+  title: "Aide pour les voyageurs",
+  description: "Trouvez des réponses à vos questions sur les réservations, les annulations, les paiements et plus encore.",
+  articles: [
+    { 
+      id: "paiement", 
+      title: "Paiement", 
+      description: "Comment payer votre réservation en toute sécurité.",
+      content: `
+        <div class="space-y-6">
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Comment puis-je payer ma réservation ?</h3>
+            <p>Les paiements sont traités via des prestataires de paiement sécurisés tiers. Bluefin Immo accepte les principaux moyens de paiement disponibles :</p>
+            <div class="grid grid-cols-2 gap-3 mt-3">
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Mobile Money (Wave, Orange Money, MTN)</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Carte bancaire (Visa, Mastercard)</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Virement bancaire</div>
+            </div>
+            <p class="mt-3 text-sm text-gray-600">Une fois votre paiement confirmé, vous recevez automatiquement un e-mail de confirmation.</p>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Est-ce que mes paiements sont sécurisés ?</h3>
+            <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+              <p class="text-green-800">Oui. Tous les paiements effectués sur Bluefin Immo transitent par des prestataires de paiement sécurisés certifiés. Vos coordonnées bancaires ne sont jamais stockées directement sur la plateforme.</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Puis-je obtenir un remboursement ?</h3>
+            <p>Toute demande de remboursement est traitée au cas par cas, dans le respect de notre politique d'annulation. Les conditions varient selon le délai entre votre demande et la date de check-in. Consultez notre politique d'annulation pour connaître les conditions applicables à votre réservation.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "annulation", 
+      title: " Annulation", 
+      description: "Comment annuler votre réservation et connaître les conditions de remboursement.",
+      content: `
+        <div class="space-y-6">
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Comment annuler ma réservation ?</h3>
+            <p>Toute annulation doit être effectuée directement depuis votre compte sur la plateforme, dans la rubrique <strong>"Mes réservations"</strong>.</p>
+            <div class="bg-blue-50 rounded-xl p-3 mt-3 flex items-center gap-2">
+              <Info className="w-4 h-4 text-blue-500" />
+              <p class="text-sm text-blue-700">Connectez-vous à votre espace personnel, accédez à vos réservations et cliquez sur "Annuler".</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Quel remboursement puis-je espérer si j'annule ?</h3>
+            <p>Les conditions dépendent du délai entre l'annulation et la date de check-in :</p>
+            <div class="space-y-3 mt-3">
+              <div class="bg-green-50 rounded-xl p-3 border-l-4 border-green-500">
+                <p class="font-semibold text-green-800">✓ Annulation dans les 24 heures suivant la réservation</p>
+                <p class="text-sm text-green-700">→ remboursement intégral</p>
+              </div>
+              <div class="bg-yellow-50 rounded-xl p-3 border-l-4 border-yellow-500">
+                <p class="font-semibold text-yellow-800"> Annulation 7 jours avant le check-in</p>
+                <p class="text-sm text-yellow-700">→ remboursement de 50% des nuits. Les frais de service ne sont pas remboursés.</p>
+              </div>
+              <div class="bg-red-50 rounded-xl p-3 border-l-4 border-red-500">
+                <p class="font-semibold text-red-800"> Annulation moins de 7 jours avant le check-in</p>
+                <p class="text-sm text-red-700">→ aucun remboursement, sans exception.</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Les frais de service sont-ils remboursables ?</h3>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p class="text-amber-800"><strong>Non.</strong> Quelle que soit la situation, les frais de service Bluefin Immo ne sont pas remboursés en cas d'annulation.</p>
+            </div>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "logement-qualite", 
+      title: " Logement et qualité", 
+      description: "Que faire si le logement ne correspond pas à l'annonce ?",
+      content: `
+        <div class="space-y-6">
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Que faire si mon logement ne correspond pas à l'annonce ?</h3>
+            <p>Si vous constatez une non-conformité à votre arrivée, vous disposez d'un délai de <strong>48 heures après le check-in</strong> pour soumettre une réclamation via votre espace personnel sur la plateforme. Passé ce délai, aucune réclamation ne pourra être prise en compte.</p>
+            <div class="bg-blue-50 rounded-xl p-3 mt-3 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-blue-500 mt-0.5" />
+              <p class="text-sm text-blue-700">Nous vous recommandons de documenter le problème avec des <strong>photos dès votre arrivée</strong>.</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Bluefin Immo garantit-il la qualité des logements ?</h3>
+            <p>Bluefin Immo vérifie chaque annonce avant sa publication. Cependant, cette validation constitue une vérification formelle et ne saurait être interprétée comme une garantie de qualité absolue.</p>
+            <p class="mt-2">Chaque propriétaire est personnellement responsable de la conformité de son bien avec les informations publiées. En cas de manquement avéré, l'annonce est automatiquement supprimée et le propriétaire peut être définitivement banni de la plateforme.</p>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Comment signaler un problème avec mon logement ?</h3>
+            <div class="bg-gray-50 rounded-xl p-4">
+              <p>Connectez-vous à votre espace personnel, accédez à votre réservation et utilisez le formulaire de réclamation. Notre équipe s'engage à traiter votre demande avec sérieux et à trouver une résolution amiable dans les meilleurs délais.</p>
+            </div>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "litiges", 
+      title: " Litiges", 
+      description: "Que faire en cas de litige avec un propriétaire ?",
+      content: `
+        <div class="space-y-6">
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Que faire en cas de litige avec un propriétaire ?</h3>
+            <p>En cas de différend, Bluefin Immo propose un service de médiation accessible depuis votre espace personnel.</p>
+            <div class="bg-gray-50 rounded-xl p-4 mt-3">
+              <p class="font-medium mb-2">Pour soumettre votre demande :</p>
+              <ul class="list-disc pl-5 space-y-1 text-sm">
+                <li>Délai : dans les <strong>48 heures suivant le check-in</strong></li>
+                <li>Précisez la nature du problème</li>
+                <li>Joignez des preuves (photos, messages)</li>
+                <li>Indiquez le montant du préjudice estimé</li>
+              </ul>
+            </div>
+            <p class="mt-3">Notre équipe traitera votre demande dans un délai de <strong>5 jours ouvrés</strong>.</p>
+          </div>
+
+          <div>
+            <h3 class="font-semibold text-lg mb-3">Quelle est l'issue possible d'une médiation ?</h3>
+            <p>Selon les circonstances, Bluefin Immo peut :</p>
+            <ul class="list-disc pl-5 space-y-2 mt-2">
+              <li>Procéder à un <strong>remboursement partiel ou total</strong></li>
+              <li>Maintenir le versement à l'hôte si sa bonne foi est établie</li>
+              <li>Suspendre voire bannir un utilisateur en cas de manquement avéré</li>
+            </ul>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-3">
+              <p class="text-sm text-amber-800"> La décision rendue est définitive. Vous restez libre de saisir les juridictions compétentes si vous le souhaitez.</p>
+            </div>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "comment-reserver", 
+      title: " Comment réserver un logement ?", 
+      description: "Guide pas à pas pour réserver votre séjour.",
+      content: `
+        <div class="space-y-4">
+          <p>Réserver un logement sur Bluefin Immo est simple et rapide :</p>
+          <div class="space-y-3">
+            <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">1</div><div><strong>Recherchez</strong> votre destination et vos dates</div></div>
+            <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">2</div><div><strong>Choisissez</strong> le logement qui vous plaît</div></div>
+            <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">3</div><div><strong>Remplissez</strong> vos informations personnelles</div></div>
+            <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">4</div><div><strong>Procédez au paiement</strong> sécurisé</div></div>
+            <div class="flex gap-3"><div class="w-6 h-6 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-xs font-bold">5</div><div><strong>Confirmez</strong> et recevez votre confirmation par email</div></div>
+          </div>
+        </div>
+      `
+    }
+  ],
+  quickLinks: [
+    { icon: CreditCard, label: "Paiements et remboursements", link: "#paiement" },
+    { icon: Calendar, label: "Gérer mes réservations", link: "#annulation" },
+    { icon: MessageCircle, label: "Contacter l'hôte", link: "#" },
+    { icon: AlertCircle, label: "Signaler un problème", link: "#logement-qualite" },
+  ]
+});
 
   // Contenu pour Hôte de logement
   const getHostContent = () => ({
@@ -10048,14 +9720,6 @@ export function CompanyInfoPage({ onNavigate }: PageProps) {
           ))}
         </div>
 
-        <div className="mt-8 bg-gray-50 rounded-xl p-6">
-          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
-          <p className="text-gray-600 text-sm">
-            Pour toute question relative à nos conditions générales, vous pouvez nous contacter à :<br />
-            📧 legal@bluefin-immo.com<br />
-            📞 +229 01 23 45 67
-          </p>
-        </div>
       </div>
     </Layout>
   );
@@ -10585,14 +10249,7 @@ export function TermsPage({ onNavigate }: PageProps) {
           ))}
         </div>
 
-        <div className="mt-8 bg-gray-50 rounded-xl p-6">
-          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
-          <p className="text-gray-600 text-sm">
-            Pour toute question relative à la confidentialité, vous pouvez nous contacter à :<br />
-            📧 dpo@bluefin-immo.com<br />
-            📞 +229 01 23 45 67
-          </p>
-        </div>
+      
       </div>
     </Layout>
   );
@@ -10603,7 +10260,7 @@ export function TermsPage({ onNavigate }: PageProps) {
 export function CguPage({ onNavigate }: PageProps) {
   const cguContent = {
     title: "Conditions Générales d'Utilisation",
-    lastUpdated: "mai 2025",
+    lastUpdated: "juin 2025",
     sections: [
       {
         title: "1. Acceptation des conditions",
@@ -10615,34 +10272,50 @@ export function CguPage({ onNavigate }: PageProps) {
       },
       {
         title: "3. Accès au service",
-        content: "La plateforme est accessible à deux types d'utilisateurs : Propriétaires : créez un compte et soumettez vos annonces. Chaque annonce est examinée par notre équipe et publiée après validation. Visiteurs : créez un compte pour parcourir les logements, expériences et services disponibles, effectuer une réservation et procéder au paiement en ligne."
+        content: "La plateforme est accessible à deux types d'utilisateurs :\n\nPropriétaires : créez un compte et soumettez vos annonces. Chaque annonce est examinée par notre équipe et publiée après validation.\nVisiteurs : créez un compte pour parcourir les logements, expériences et services disponibles, effectuer une réservation et procéder au paiement en ligne."
+      },
+      {
+        title: "3bis. Conditions d'éligibilité",
+        content: "3bis.1 – Majorité : L'accès et l'utilisation de la plateforme Bluefin Immo sont strictement réservés aux personnes physiques majeures, c'est-à-dire âgées d'au moins 18 ans. En créant un compte, vous déclarez avoir atteint l'âge légal requis dans votre pays de résidence. Bluefin Immo se réserve le droit de suspendre ou de supprimer tout compte dont le titulaire s'avérerait être mineur.\n\n3bis.2 – Vérification d'identité : Dans le cadre de la lutte contre la fraude et pour garantir la sécurité de tous les utilisateurs, Bluefin Immo peut exiger, à tout moment, la vérification de l'identité d'un propriétaire ou d'un visiteur. Cette vérification peut inclure la fourniture d'une pièce d'identité officielle en cours de validité, d'un justificatif de domicile ou de tout autre document jugé nécessaire. Tout refus de se soumettre à cette procédure peut entraîner la suspension ou la résiliation du compte concerné.\n\n3bis.3 – Compte unique : Chaque utilisateur ne peut détenir qu'un seul compte actif sur la plateforme. La création de comptes multiples à des fins frauduleuses ou pour contourner une suspension est strictement interdite et entraîne une exclusion définitive de la plateforme."
       },
       {
         title: "4. Paiement et remboursement",
         content: "Les tarifs des logements, expériences et services sont fixés par les propriétaires et affichés sur la plateforme. Les paiements sont traités via des prestataires de paiement sécurisés tiers. Une fois le paiement confirmé, un email de confirmation vous est automatiquement envoyé. Toute demande de remboursement est traitée au cas par cas, dans le respect de notre politique de remboursement."
       },
       {
+        title: "4bis. Frais de service et commissions",
+        content: "4bis.1 – Frais applicables aux hôtes : Pour chaque réservation confirmée, Bluefin Immo prélève des frais de service de 6% calculés sur le sous-total de la réservation, hors taxes. Ces frais sont automatiquement déduits du montant versé à l'hôte. Exemple : pour une réservation d'un montant de 50 000 FCFA, l'hôte perçoit 47 000 FCFA.\n\n4bis.2 – Frais applicables aux voyageurs : Des frais de service de 10% sont ajoutés au prix affiché par l'hôte et sont à la charge du voyageur au moment de la réservation. Ces frais sont clairement indiqués avant toute confirmation de paiement. Exemple : pour une nuit affichée à 50 000 FCFA, le voyageur règle 55 000 FCFA.\n\n4bis.3 – Affectation des frais : Les frais de service contribuent au fonctionnement de la plateforme et couvrent notamment : le traitement sécurisé des paiements, la promotion des annonces auprès des voyageurs, l'assistance aux hôtes et aux voyageurs, la maintenance et le développement de la plateforme.\n\n4bis.4 – Modification des frais : Bluefin Immo se réserve le droit de modifier le taux des frais de service à tout moment. Toute modification sera notifiée aux utilisateurs par e-mail au moins 30 jours avant son entrée en vigueur. Les réservations confirmées avant la date d'entrée en vigueur restent soumises aux frais applicables au moment de leur confirmation.\n\n4bis.5 – Taxes : Dans les territoires où la réglementation l'exige, Bluefin Immo peut être amené à collecter et reverser automatiquement les taxes locales applicables (taxe de séjour, TVA, etc.) au nom des hôtes. Le détail des taxes applicables est précisé lors du processus de réservation."
+      },
+      {
         title: "5. Politique d'annulation",
-        content: "Toute annulation doit être effectuée directement depuis votre compte sur la plateforme. Les conditions de remboursement applicables sont les suivantes :\n\n• Remboursement intégral : annulation effectuée dans les 24 heures suivant la réservation.\n• Remboursement partiel : annulation effectuée 7 jours avant la date de check-in — 50 % des nuits remboursées. Les frais de service ne sont pas remboursés.\n• Aucun remboursement : toute annulation effectuée moins de 7 jours avant la date de check-in, sans exception.\n\nBluefin Immo se réserve le droit de modifier cette politique à tout moment. Les conditions en vigueur au moment de la réservation s'appliquent."
+        content: "Toute annulation doit être effectuée directement depuis votre compte sur la plateforme. Les conditions de remboursement applicables sont les suivantes :\n\n• Remboursement intégral : annulation effectuée dans les 24 heures suivant la réservation.\n• Remboursement partiel : annulation effectuée 7 jours avant la date de check-in — 50% des nuits remboursées. Les frais de service ne sont pas remboursés.\n• Aucun remboursement : toute annulation effectuée moins de 7 jours avant la date de check-in, sans exception.\n\nBluefin Immo se réserve le droit de modifier cette politique à tout moment. Les conditions en vigueur au moment de la réservation s'appliquent."
       },
       {
-        title: "6. Limitation de responsabilité",
-        content: "Bluefin Immo agit exclusivement en tant que plateforme de mise en relation entre propriétaires et visiteurs. Notre responsabilité se limite à la fourniture de cet espace d'intermédiation et ne saurait être engagée dans les situations suivantes :\n\n• Qualité des biens et services : chaque propriétaire est seul responsable de la conformité de son bien, service ou expérience avec les informations publiées sur la plateforme. La validation d'une annonce par Bluefin Immo constitue une vérification formelle et ne saurait être interprétée comme une garantie de qualité. En cas de manquement avéré, l'annonce concernée sera automatiquement supprimée et le propriétaire pourra être définitivement banni.\n• Propreté et état du logement : il incombe au propriétaire de garantir un logement propre, entretenu et strictement conforme aux standards annoncés.\n• Qualité des expériences et services : les prestataires sont tenus de délivrer des prestations conformes à leur description.\n• Litiges entre parties : tout litige survenant entre un visiteur et un propriétaire relève de leur responsabilité respective.\n• Plafond de responsabilité : dans les cas où la responsabilité de Bluefin Immo serait engagée, celle-ci sera limitée au montant des frais de service perçus lors de la transaction concernée.\n• Cas de force majeure : Bluefin Immo ne peut être tenu responsable de tout manquement résultant d'événements imprévisibles.\n\nRéclamations et délais : Tout visiteur souhaitant signaler un problème dispose d'un délai de 48 heures après le check-in pour soumettre une réclamation. Passé ce délai, aucune réclamation ne pourra être prise en compte."
+        title: "6. Conditions de versement aux hôtes",
+        content: "6.1 – Délai de versement : Pour la plupart des séjours, le versement du montant dû à l'hôte est effectué dans un délai de 72 heures à compter de la date et de l'heure d'arrivée confirmée du voyageur, sous réserve que : le séjour soit en cours et non annulé, aucun litige n'ait été ouvert par le voyageur dans ce délai, les coordonnées bancaires ou de paiement mobile de l'hôte soient valides et à jour dans son profil.\n\n6.2 – Modes de versement : Le versement est effectué via le mode de paiement sélectionné par l'hôte dans son profil Bluefin Immo. Selon le mode choisi (virement bancaire, mobile money, etc.), des délais supplémentaires propres à l'établissement financier ou à l'opérateur peuvent s'appliquer.\n\n6.3 – Suspension du versement : Bluefin Immo se réserve le droit de suspendre ou de retarder un versement dans les cas suivants : ouverture d'un litige ou d'une réclamation par le voyageur, suspicion de fraude ou d'activité anormale, non-conformité de l'annonce avec les critères de la plateforme, coordonnées de paiement incorrectes ou non vérifiées.\n\n6.4 – Litiges et remboursements : En cas de litige initié avant l'expiration du délai de 72 heures, Bluefin Immo se réserve le droit de bloquer temporairement le versement jusqu'à résolution du différend, conformément à la politique de résolution des litiges de la plateforme.\n\n6.5 – Devise et frais : Les versements sont effectués dans la devise locale applicable. Tout frais de conversion de devises ou frais bancaires éventuels sont à la charge de l'hôte, sauf mention contraire."
       },
       {
-        title: "7. Propriété intellectuelle",
-        content: "L'ensemble des contenus présents sur la plateforme Bluefin Immo — notamment le nom, le logo, les textes, les visuels et l'architecture du site — sont la propriété exclusive de Bluefin Immo et sont protégés par les lois applicables en matière de propriété intellectuelle. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite. Les contenus publiés par les propriétaires, tels que les photos et descriptions d'annonces, restent leur propriété, mais ceux-ci accordent à Bluefin Immo une licence d'utilisation aux fins de diffusion sur la plateforme."
+        title: "7. Limitation de responsabilité",
+        content: "Bluefin Immo agit exclusivement en tant que plateforme de mise en relation entre propriétaires et visiteurs. Notre responsabilité se limite à la fourniture de cet espace d'intermédiation et ne saurait être engagée dans les situations suivantes :\n\n• Qualité des biens et services : chaque propriétaire est seul responsable de la conformité de son bien, service ou expérience avec les informations publiées sur la plateforme. La validation d'une annonce par Bluefin Immo constitue une vérification formelle et ne saurait être interprétée comme une garantie de qualité. En cas de manquement avéré, l'annonce concernée sera automatiquement supprimée et le propriétaire pourra être définitivement banni de la plateforme.\n\n• Propreté et état du logement : il incombe au propriétaire de garantir un logement propre, entretenu et strictement conforme aux standards annoncés.\n\n• Qualité des expériences et services : les prestataires sont tenus de délivrer des prestations conformes à leur description. Bluefin Immo ne saurait être responsable de toute prestation non conforme, incomplète ou annulée par le prestataire.\n\n• Litiges entre parties : tout litige survenant entre un visiteur et un propriétaire relève de leur responsabilité respective. Bluefin Immo peut intervenir en tant que médiateur sans toutefois y être contraint.\n\n• Plafond de responsabilité : dans les cas où la responsabilité de Bluefin Immo serait engagée, celle-ci sera limitée au montant des frais de service perçus lors de la transaction concernée.\n\n• Cas de force majeure : Bluefin Immo ne peut être tenu responsable de tout manquement résultant d'événements imprévisibles ou indépendants de sa volonté, tels que catastrophes naturelles, conflits, pannes techniques ou décisions gouvernementales.\n\nRéclamations et délais : Tout visiteur souhaitant signaler un problème dispose d'un délai de 48 heures après le check-in pour soumettre une réclamation via son espace personnel sur la plateforme. Passé ce délai, aucune réclamation ne pourra être prise en compte. Bluefin Immo s'engage à traiter chaque réclamation avec sérieux et à œuvrer pour une résolution amiable dans les meilleurs délais."
       },
       {
         title: "8. Protection des données personnelles",
-        content: "Bluefin Immo collecte et traite les données personnelles de ses utilisateurs dans le cadre strict de la fourniture de ses services. Ces données sont utilisées pour la gestion des comptes, le traitement des réservations et l'amélioration de la plateforme. Elles ne sont ni vendues ni transmises à des tiers sans votre consentement, sauf obligation légale. Conformément à la législation en vigueur, vous disposez d'un droit d'accès, de rectification et de suppression de vos données en contactant notre équipe via la plateforme."
+        content: "8.1 – Données collectées : Dans le cadre de la fourniture de ses services, Bluefin Immo collecte les données personnelles suivantes : données d'identification (nom, prénom, adresse e-mail, numéro de téléphone, pièce d'identité), données de connexion (adresse IP, historique de navigation sur la plateforme), données transactionnelles (historique des réservations, coordonnées de paiement), données de communication (messages échangés entre utilisateurs via la messagerie intégrée).\n\n8.2 – Finalités du traitement : Les données collectées sont utilisées aux fins suivantes : gestion et sécurisation des comptes utilisateurs, traitement et suivi des réservations, prévention de la fraude et vérification d'identité, amélioration de la plateforme et personnalisation de l'expérience utilisateur, envoi de communications relatives au service (confirmations, notifications, assistance).\n\n8.3 – Durée de conservation : Les données personnelles sont conservées pendant la durée nécessaire à l'accomplissement des finalités pour lesquelles elles ont été collectées, et au maximum : données de compte (pendant toute la durée d'activité du compte, puis 3 ans après sa clôture), données transactionnelles (5 ans à compter de la dernière transaction, conformément aux obligations légales comptables), données de connexion (12 mois à compter de leur collecte).\n\n8.4 – Partage des données : Les données personnelles des utilisateurs ne sont ni vendues ni louées à des tiers. Elles peuvent être partagées uniquement dans les cas suivants : avec les prestataires de paiement tiers pour le traitement des transactions, avec les autorités compétentes en cas d'obligation légale, avec les hôtes dans la stricte limite des informations nécessaires à la réalisation d'une réservation.\n\n8.5 – Droits des utilisateurs : Conformément à la législation en vigueur au Bénin, notamment les dispositions de l'Autorité de Protection des Données Personnelles (APDP), chaque utilisateur dispose des droits suivants : droit d'accès à ses données personnelles, droit de rectification en cas d'inexactitude, droit de suppression sous réserve des obligations légales de conservation, droit d'opposition au traitement de ses données à des fins de prospection commerciale. Pour exercer ces droits, l'utilisateur peut contacter Bluefin Immo via la messagerie de la plateforme ou à l'adresse e-mail dédiée à la protection des données."
       },
       {
-        title: "9. Modifications du service",
+        title: "9. Propriété intellectuelle",
+        content: "L'ensemble des contenus présents sur la plateforme Bluefin Immo — notamment le nom, le logo, les textes, les visuels et l'architecture du site — sont la propriété exclusive de Bluefin Immo et sont protégés par les lois applicables en matière de propriété intellectuelle. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite. Les contenus publiés par les propriétaires, tels que les photos et descriptions d'annonces, restent leur propriété, mais ceux-ci accordent à Bluefin Immo une licence d'utilisation aux fins de diffusion sur la plateforme."
+      },
+      {
+        title: "10. Modifications du service",
         content: "Bluefin Immo se réserve le droit de modifier, suspendre ou interrompre tout ou partie du service à tout moment, avec ou sans préavis. Nous ne saurions être tenus responsables envers vous ou tout tiers de toute modification, suspension ou interruption du service."
       },
       {
-        title: "10. Droit applicable",
+        title: "11. Médiation et résolution des litiges",
+        content: "11.1 – Engagement de médiation : En cas de litige entre un visiteur et un propriétaire, Bluefin Immo propose un service de médiation accessible depuis l'espace personnel de chaque utilisateur. Bluefin Immo s'engage à traiter chaque demande avec sérieux et impartialité, dans un délai de 5 jours ouvrés suivant la réception de la demande.\n\n11.2 – Procédure de médiation : Toute demande de médiation doit être soumise dans un délai de 48 heures suivant le check-in, accompagnée des éléments suivants : description précise du problème constaté, preuves photographiques ou documentaires le cas échéant, montant du préjudice estimé.\n\n11.3 – Issue de la médiation : À l'issue de la procédure de médiation, Bluefin Immo peut, selon les circonstances : procéder à un remboursement partiel ou total au voyageur, maintenir le versement à l'hôte si sa bonne foi est établie, suspendre ou bannir un utilisateur en cas de manquement avéré. La décision rendue par Bluefin Immo dans le cadre de la médiation est définitive et ne peut faire l'objet d'un recours auprès de la plateforme. Les parties restent libres de saisir les juridictions compétentes."
+      },
+      {
+        title: "12. Droit applicable",
         content: "Ces conditions d'utilisation sont régies par les lois du Bénin. Tout litige découlant de ces conditions sera soumis à la juridiction exclusive des tribunaux compétents du Bénin."
       }
     ]
@@ -10675,19 +10348,11 @@ export function CguPage({ onNavigate }: PageProps) {
           ))}
         </div>
 
-        <div className="mt-8 bg-gray-50 rounded-xl p-6">
-          <h3 className="font-semibold text-[#0F2940] mb-3">Contact</h3>
-          <p className="text-gray-600 text-sm">
-            Pour toute question relative à nos conditions générales, vous pouvez nous contacter à :<br />
-            📧 legal@bluefin-immo.com<br />
-            📞 +229 01 23 45 67
-          </p>
-        </div>
+       
       </div>
     </div>
   );
 }
-
 // ==================== NOT FOUND PAGE ====================
 export function NotFoundPage({ onNavigate }: PageProps) {
   return (
@@ -11593,10 +11258,11 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 
 export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
   const { login, register, loginWithOTP, verifyOTP } = useAuth();
+  const location = useLocation();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'traveler' | 'visitor'>('traveler'); // Changé: retiré 'host'
+  const [selectedRole, setSelectedRole] = useState<'traveler' | 'visitor'>('traveler');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -11604,14 +11270,16 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     firstName: '',
     lastName: '',
     phone: '',
-    property_address: '',
-    property_type: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+
+  // ✅ Récupérer le paramètre de redirection depuis l'URL
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get('redirect') || 'profile';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -11639,6 +11307,52 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
+  // ✅ Fonction de redirection après authentification réussie
+  const handleSuccessfulAuth = (userData: any) => {
+    console.log('✅ Authentification réussie, redirection vers:', redirectTo);
+    
+    // Récupérer les données temporaires de réservation
+    const tempBookingData = localStorage.getItem('temp_booking_data');
+    
+    if (redirectTo === 'booking' && tempBookingData) {
+      try {
+        const bookingData = JSON.parse(tempBookingData);
+        console.log('📦 Données de réservation trouvées, redirection vers la page de paiement');
+        
+        // Rediriger vers la page de paiement avec les paramètres
+        const params = new URLSearchParams({
+          check_in: bookingData.checkIn,
+          check_out: bookingData.checkOut,
+          guests: bookingData.guests.toString(),
+          nights: bookingData.nights.toString()
+        });
+        
+        onNavigate?.({ 
+          name: 'booking', 
+          id: bookingData.propertyId.toString(),
+          search: params.toString()
+        });
+        return;
+      } catch (e) {
+        console.error('Erreur lors de la récupération des données de réservation:', e);
+      }
+    }
+    
+    // Redirection par défaut
+    if (onAuthSuccess) {
+      onAuthSuccess(userData);
+    } else {
+      const userType = userData?.user_type;
+      if (userType === 'hote') {
+        onNavigate?.({ name: 'host-dashboard' });
+      } else if (userType === 'admin') {
+        onNavigate?.({ name: 'admin-dashboard' });
+      } else {
+        onNavigate?.({ name: 'profile' });
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -11656,38 +11370,25 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const payload: any = {
+        const payload = {
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
-          user_type: 'voyageur', // Toujours voyageur, plus hôte
+          user_type: 'voyageur',
         };
-        // Retiré les champs spécifiques hôte
         const response = await register(payload);
         setSuccessMessage('Inscription réussie ! Redirection...');
-        // Après inscription, rediriger vers profil
         setTimeout(() => {
-          if (onAuthSuccess) {
-            onAuthSuccess(response?.user);
-          } else {
-            onNavigate?.({ name: 'profile' });
-          }
+          handleSuccessfulAuth(response?.user);
         }, 1500);
       } else if (mode === 'login') {
         const response = await login(formData.email, formData.password);
-        const userType = response?.user?.user_type;
         setSuccessMessage('Connexion réussie !');
         setTimeout(() => {
-          if (onAuthSuccess) {
-            onAuthSuccess(response?.user);
-          } else if (userType === 'hote') {
-            onNavigate?.({ name: 'host-dashboard' });
-          } else {
-            onNavigate?.({ name: 'profile' });
-          }
+          handleSuccessfulAuth(response?.user);
         }, 1500);
       } else if (mode === 'forgot') {
         await loginWithOTP(formData.phone || formData.email);
@@ -11695,7 +11396,25 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
         setSuccessMessage('Code OTP envoyé par SMS/WhatsApp');
       }
     } catch (err: any) {
-      setErrors({ general: err.response?.data?.message || 'Erreur, veuillez réessayer' });
+      console.error('Erreur:', err);
+      
+      // Gérer les erreurs de validation
+      if (err.response?.data?.errors) {
+        const apiErrors = err.response.data.errors;
+        const errorMessages: string[] = [];
+        Object.values(apiErrors).forEach((msgs: any) => {
+          if (Array.isArray(msgs)) {
+            errorMessages.push(...msgs);
+          } else {
+            errorMessages.push(msgs);
+          }
+        });
+        setErrors({ general: errorMessages.join(', ') });
+      } else if (err.response?.data?.message) {
+        setErrors({ general: err.response.data.message });
+      } else {
+        setErrors({ general: err.message || 'Erreur, veuillez réessayer' });
+      }
     } finally {
       setLoading(false);
     }
@@ -11705,14 +11424,9 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     setLoading(true);
     try {
       const response = await verifyOTP(formData.phone || formData.email, otpCode);
-      const userType = response?.user?.user_type;
       setSuccessMessage('Authentification réussie');
       setTimeout(() => {
-        if (userType === 'hote') {
-          onNavigate?.({ name: 'host-dashboard' });
-        } else {
-          onNavigate?.({ name: 'profile' });
-        }
+        handleSuccessfulAuth(response?.user);
       }, 1500);
     } catch (err: any) {
       setErrors({ otp: err.response?.data?.message || 'Code invalide' });
@@ -11721,7 +11435,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     }
   };
 
-  // Roles modifiés: seulement Voyageur et Visiteur
   const roles = [
     { id: 'traveler' as const, name: 'Voyageur', icon: Compass },
     { id: 'visitor' as const, name: 'Visiteur', icon: Briefcase },
@@ -11764,7 +11477,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
               ) : (
                 <>
                   <div className="text-center mb-6">
-                    {/* Logo */}
                     <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg bg-white">
                       <img 
                         src={LogoUrl} 
@@ -11790,6 +11502,15 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                       {mode === 'signup' && 'Créez votre compte en quelques secondes'}
                       {mode === 'forgot' && 'Entrez votre email pour recevoir un code'}
                     </p>
+                    
+                    {/* ✅ Affichage du contexte de redirection */}
+                    {redirectTo === 'booking' && (
+                      <div className="mt-3 p-2 bg-amber-50 rounded-lg">
+                        <p className="text-xs text-amber-700">
+                          🔄 Après connexion, vous serez redirigé vers le paiement de votre réservation
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {successMessage && (
@@ -11798,13 +11519,17 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                       <p className="text-sm text-green-700">{successMessage}</p>
                     </div>
                   )}
-                  {errors.general && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-xl text-sm">{errors.general}</div>}
+                  {errors.general && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{errors.general}</p>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {mode === 'signup' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
-                        <div className="grid grid-cols-2 gap-2"> {/* Changé: grid-cols-2 au lieu de 3 */}
+                        <div className="grid grid-cols-2 gap-2">
                           {roles.map(role => {
                             const Icon = role.icon;
                             return (
@@ -11888,8 +11613,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                         </div>
                       </div>
                     )}
-
-                    {/* Section des champs hôte complètement supprimée */}
 
                     {mode !== 'forgot' && (
                       <div>

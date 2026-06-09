@@ -30,6 +30,7 @@ import {
   AboutPage,
   BlogPage,
   TermsPage,
+  CguPage,
   NotFoundPage,
   AllPropertiesPage,
   HotelsPage,
@@ -73,7 +74,6 @@ function AppContent() {
   const { user, isAuthenticated, loading } = useAuth();
 
   const navigate = (to: Route | string) => {
-    // Gérer le cas où to est une string (ex: 'auth', 'home')
     let routeObject: Route;
     
     if (typeof to === 'string') {
@@ -84,7 +84,6 @@ function AppContent() {
     
     console.log('🔍 Navigation appelée avec:', routeObject);
     
-    // Vérifier si la route est valide
     if (!routeObject.name) {
       console.error('❌ Route invalide:', routeObject);
       routeObject = { name: 'home' };
@@ -114,13 +113,12 @@ function AppContent() {
     setMobileNavActive(tabFromPage(route.name));
   }, [route.name]);
 
-  // Écouter les changements d'authentification
+  // ✅ Écouter les changements d'authentification
   useEffect(() => {
     const handleAuthChange = () => {
       console.log('🔄 Changement d\'authentification détecté');
       const currentRoute = parseRoute(window.location.pathname + window.location.search);
       
-      // Si on est sur une page admin et qu'on n'est plus admin, rediriger
       if (currentRoute.name.startsWith('admin-') && currentRoute.name !== 'admin-login') {
         if (!isAuthenticated || user?.user_type !== 'admin') {
           console.log('🚫 Accès admin non autorisé, redirection vers home');
@@ -131,16 +129,44 @@ function AppContent() {
     
     window.addEventListener('authChange', handleAuthChange);
     return () => window.removeEventListener('authChange', handleAuthChange);
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user]);
+
+  // ✅ Écouter les données de réservation temporaire (CORRIGÉ - useEffect indépendant)
+  useEffect(() => {
+    const handleBookingData = (event: CustomEvent) => {
+      const data = event.detail;
+      console.log('📦 Événement booking-data-available reçu:', data);
+      
+      if (data && data.propertyId) {
+        // Rediriger vers la page de paiement
+        const params = new URLSearchParams({
+          check_in: data.checkIn,
+          check_out: data.checkOut,
+          guests: data.guests.toString(),
+          nights: data.nights.toString()
+        });
+        
+        navigate({ 
+          name: 'booking', 
+          id: data.propertyId.toString(),
+          search: params.toString()
+        });
+      }
+    };
+    
+    window.addEventListener('booking-data-available', handleBookingData as EventListener);
+    
+    return () => {
+      window.removeEventListener('booking-data-available', handleBookingData as EventListener);
+    };
+  }, [navigate]);
 
   const handleMobileNavigate = (tab: Tab | { name: string; id?: string }) => {
-    // Si c'est un objet Route
     if (typeof tab === 'object') {
       navigate(tab);
       return;
     }
     
-    // Si c'est un Tab (string)
     const routeObj = routeFromTab(tab);
     navigate(routeObj);
     if (tab !== 'auth') setMobileNavActive(tab);
@@ -167,7 +193,7 @@ function AppContent() {
     return true;
   };
 
-  // ⭐ AFFICHER UN ÉCRAN DE CHARGEMENT PENDANT L'AUTHENTIFICATION ⭐
+  // Écran de chargement
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
@@ -179,7 +205,7 @@ function AppContent() {
     );
   }
 
-  // Vérifier si la route est autorisée APRÈS le chargement
+  // Vérifier si la route est autorisée
   if (!isRouteAllowed(route)) {
     console.log('🚫 Route non autorisée, redirection vers home');
     navigate({ name: 'home' });
@@ -257,6 +283,7 @@ function AppContent() {
       {route.name === 'about' && <AboutPage onNavigate={navigate} />}
       {route.name === 'blog' && <BlogPage onNavigate={navigate} />}
       {route.name === 'terms' && <TermsPage type={route.type} onNavigate={navigate} />}
+      {route.name === 'cgu' && <CguPage onNavigate={navigate} />}
       {route.name === 'popular' && <AllPropertiesPage onNavigate={navigate} />}
       {route.name === 'hotels' && <HotelsPage onNavigate={navigate} />}
       {route.name === 'city' && <CityPage city={route.city!} onNavigate={navigate} />}

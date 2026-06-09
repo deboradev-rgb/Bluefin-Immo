@@ -27,20 +27,35 @@ export interface BookingData {
 }
 
 class BookingService {
-    // Créer une réservation avec toutes les informations
+    // ✅ Créer une réservation - ENDPOINT CORRIGÉ selon les routes Laravel
     async create(data: BookingData) {
-        // S'assurer que guests_count est défini
         const payload = {
-            ...data,
-            guests_count: data.guests_count || data.guests || 1
+            property_id: data.property_id,
+            check_in: data.check_in,
+            check_out: data.check_out,
+            guests_count: data.guests_count || data.guests || 1,
+            payment_method: data.payment_method,
+            mobile_money_provider: data.mobile_money_provider,
+            mobile_money_number: data.mobile_money_number,
+            guest_details: data.guest_details,
+            payment_option: data.payment_option,
+            total_amount: data.total_amount,
+            payment_amount: data.payment_amount,
+            nights: data.nights,
+            special_requests: data.special_requests
         };
         
+        console.log('📤 Envoi de la réservation à:', '/bookings');
+        console.log('📦 Payload:', payload);
+        
+        // ✅ Utiliser le bon endpoint: POST /v1/bookings (sans traveler)
         const response = await v1Api.post('/bookings', payload);
         return response.data;
     }
 
     // Récupérer mes réservations (voyageur)
     async getMyBookings(status?: string) {
+        // GET /v1/traveler/bookings existe dans vos routes
         const url = status ? `/traveler/bookings?status=${status}` : '/traveler/bookings';
         const response = await v1Api.get(url);
         return response.data;
@@ -48,31 +63,28 @@ class BookingService {
 
     // Récupérer une réservation par ID
     async getById(id: number) {
-        const response = await v1Api.get(`/traveler/bookings/${id}`);
+        // GET /v1/bookings/{id} existe dans vos routes
+        const response = await v1Api.get(`/bookings/${id}`);
         return response.data;
     }
 
     // Annuler une réservation
     async cancel(id: number, reason?: string) {
-        const response = await v1Api.post(`/traveler/bookings/${id}/cancel`, { reason });
+        // POST /v1/bookings/{id}/cancel existe dans vos routes
+        const response = await v1Api.post(`/bookings/${id}/cancel`, { reason });
         return response.data;
     }
 
     // Confirmer le paiement
     async confirmPayment(id: number) {
-        const response = await v1Api.post(`/bookings/${id}/confirm-payment`);
+        // POST /v1/bookings/{id}/confirm-payment existe dans vos routes
+        const response = await v1Api.post(`/bookings/${id}/confirm-payment`, {});
         return response.data;
     }
 
     // Mettre à jour les informations de la réservation
     async update(id: number, data: Partial<BookingData>) {
-        const response = await v1Api.put(`/traveler/bookings/${id}`, data);
-        return response.data;
-    }
-
-    // Ajouter une demande spéciale
-    async addSpecialRequest(id: number, request: string) {
-        const response = await v1Api.post(`/traveler/bookings/${id}/special-request`, { request });
+        const response = await v1Api.put(`/bookings/${id}`, data);
         return response.data;
     }
 
