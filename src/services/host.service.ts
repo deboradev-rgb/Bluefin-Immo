@@ -127,32 +127,32 @@ class HostService {
     }
 
     // ==================== CALENDRIER ====================
-    async getCalendar(propertyId: number, year?: number, month?: number) {
-        const params = new URLSearchParams();
-        if (year) params.append('year', year.toString());
-        if (month) params.append('month', month.toString());
-        const response = await v1Api.get(`/host/calendar/${propertyId}?${params.toString()}`);
-        return response.data;
-    }
+    // async getCalendar(propertyId: number, year?: number, month?: number) {
+    //     const params = new URLSearchParams();
+    //     if (year) params.append('year', year.toString());
+    //     if (month) params.append('month', month.toString());
+    //     const response = await v1Api.get(`/host/calendar/${propertyId}?${params.toString()}`);
+    //     return response.data;
+    // }
 
-    async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number) {
-        const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
-            start_date: startDate,
-            end_date: endDate,
-            status,
-            special_price: specialPrice
-        });
-        return response.data;
-    }
+    // async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number) {
+    //     const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
+    //         start_date: startDate,
+    //         end_date: endDate,
+    //         status,
+    //         special_price: specialPrice
+    //     });
+    //     return response.data;
+    // }
 
-    async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
-        const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
-            start_date: startDate,
-            end_date: endDate,
-            price
-        });
-        return response.data;
-    }
+    // async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
+    //     const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
+    //         start_date: startDate,
+    //         end_date: endDate,
+    //         price
+    //     });
+    //     return response.data;
+    // }
 
     // ==================== RÉSERVATIONS HÔTE ====================
     async getHostBookings() {
@@ -280,6 +280,56 @@ class HostService {
         const response = await v1Api.post(`/host/messages/conversation/${bookingId}/read`);
         return response.data;
     }
+
+
+    
+  async getCalendar(propertyId: number, year: number, month: number) {
+    const response = await v1Api.get(`/host/calendar/${propertyId}`, {
+      params: { year, month }
+    });
+    return response.data;
+  }
+
+  /**
+   * Mettre à jour les disponibilités (bloquer/débloquer une plage de dates)
+   */
+  async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number | null, reason?: string) {
+    const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
+      start_date: startDate,
+      end_date: endDate,
+      status: status, // 'available' ou 'blocked'
+      special_price: specialPrice,
+      reason: reason
+    });
+    return response.data;
+  }
+
+  /**
+   * Définir un prix spécial pour une plage de dates
+   */
+  async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
+    const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
+      start_date: startDate,
+      end_date: endDate,
+      price: price
+    });
+    return response.data;
+  }
+
+  /**
+   * Bloquer des dates (alias)
+   */
+  async blockDates(propertyId: number, startDate: string, endDate: string, reason?: string) {
+    return this.updateAvailability(propertyId, startDate, endDate, 'blocked', null, reason);
+  }
+
+  /**
+   * Débloquer des dates (alias)
+   */
+  async unblockDates(propertyId: number, startDate: string, endDate: string) {
+    return this.updateAvailability(propertyId, startDate, endDate, 'available', null);
+  }
+
 
     async getHostUnreadCount() {
         const response = await v1Api.get('/host/messages/unread/count');

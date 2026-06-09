@@ -60,14 +60,35 @@ class PropertyService {
         return response.data;
     }
 
-    async checkAvailability(propertyId: number, checkIn: string, checkOut: string, guests: number = 1) {
+   // services/property.service.ts
+async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
+    try {
         const response = await v1Api.post(`/properties/${propertyId}/availability`, {
             check_in: checkIn,
-            check_out: checkOut,
-            guests
+            check_out: checkOut
         });
-        return response.data;
+        
+        // ✅ Normaliser la réponse pour avoir toujours la structure attendue
+        return {
+            data: {
+                available: response.data?.available ?? response.data?.data?.available ?? false,
+                message: response.data?.message || response.data?.data?.message || '',
+                price: response.data?.price || response.data?.data?.price || null
+            }
+        };
+    } catch (error: any) {
+        console.error('Erreur checkAvailability:', error);
+        
+        // ✅ En cas d'erreur, retourner un objet par défaut
+        return {
+            data: {
+                available: false,
+                message: error.response?.data?.message || 'Impossible de vérifier la disponibilité',
+                price: null
+            }
+        };
     }
+}
 
     async advancedSearch(filters: PropertyFilters) {
         const response = await v1Api.post('/search/advanced', filters);

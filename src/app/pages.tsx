@@ -2653,31 +2653,34 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
-  // ✅ Fonction pour vérifier la disponibilité
-  const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
+ // Dans PropertyDetailModal.tsx
+const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
     if (!checkInDate || !checkOutDate) return;
     
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
     
     try {
-      const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-      
-      if (response.data.available) {
-        setAvailabilityStatus('available');
-        setAvailabilityMessage('✓ Ces dates sont disponibles !');
-      } else {
-        setAvailabilityStatus('unavailable');
-        setAvailabilityMessage(response.data.message || '❌ Ces dates ne sont pas disponibles. Veuillez en sélectionner d\'autres.');
-      }
+        const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
+        
+        // ✅ Vérifier la structure de la réponse
+        const isAvailable = response?.data?.available === true;
+        
+        if (isAvailable) {
+            setAvailabilityStatus('available');
+            setAvailabilityMessage('✓ Ces dates sont disponibles !');
+        } else {
+            setAvailabilityStatus('unavailable');
+            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles. Veuillez en sélectionner d\'autres.');
+        }
     } catch (error) {
-      console.error('Erreur vérification disponibilité:', error);
-      setAvailabilityStatus('unavailable');
-      setAvailabilityMessage('❌ Impossible de vérifier la disponibilité. Veuillez réessayer.');
+        console.error('Erreur vérification disponibilité:', error);
+        setAvailabilityStatus('unavailable');
+        setAvailabilityMessage('❌ Impossible de vérifier la disponibilité. Veuillez réessayer.');
     } finally {
-      setIsCheckingAvailability(false);
+        setIsCheckingAvailability(false);
     }
-  };
+};
 
   // ✅ Vérifier la disponibilité quand les dates changent
   useEffect(() => {
@@ -6454,28 +6457,166 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
 export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Route) => void; id?: string }) {
   const propertyId = id ? parseInt(id) : null;
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [isUpdating, setIsUpdating] = useState(false);
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
+  const [selectedRange, setSelectedRange] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockRange, setBlockRange] = useState({ start: '', end: '', reason: '' });
+  const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
+  // ✅ Fonction showToast
+  const showToast = (type: 'success' | 'error' | 'info', message: string) => {
+    setToastMessage({ type, message });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Récupérer le calendrier
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['host-calendar', propertyId, year, month],
     queryFn: () => hostService.getCalendar(propertyId!, year, month),
     enabled: !!propertyId,
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ start, end, status, price }: any) =>
-      hostService.updateAvailability(propertyId!, start, end, status, price),
-    onSuccess: () => {
-      // ✅ Forcer un rafraîchissement immédiat
+  const queryClient = useQueryClient();
+
+  // Mutation pour mettre à jour les disponibilités
+  const updateAvailabilityMutation = useMutation({
+    mutationFn: ({ start, end, status, price, reason }: any) =>
+      hostService.updateAvailability(propertyId!, start, end, status, price, reason),
+    onSuccess: (response) => {
+      console.log('✅ Mise à jour réussie:', response);
+      showToast('success', 'Disponibilité mise à jour avec succès');
       refetch();
+      queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
+      setShowBlockModal(false);
+      setSelectedRange({ start: null, end: null });
     },
-    // ✅ Ajouter une gestion d'erreur
     onError: (error: any) => {
       console.error('❌ Erreur mise à jour:', error);
-      alert('Erreur lors de la mise à jour des disponibilités');
+      const message = error.response?.data?.message || 'Erreur lors de la mise à jour';
+      showToast('error', message);
     },
   });
+
+  // Mutation pour les prix spéciaux
+  const specialPriceMutation = useMutation({
+    mutationFn: ({ start, end, price }: any) =>
+      hostService.updateSpecialPrice(propertyId!, start, end, price),
+    onSuccess: () => {
+      showToast('success', 'Prix spécial défini avec succès');
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
+    },
+    onError: (error: any) => {
+      console.error('❌ Erreur prix spécial:', error);
+      showToast('error', error.response?.data?.message || 'Erreur lors de la définition du prix spécial');
+    },
+  });
+
+  const handleDayClick = async (day: any) => {
+    console.log('🖱️ Jour cliqué:', day);
+    
+    if (day.status === 'booked') {
+      showToast('error', 'Cette date est déjà réservée, vous ne pouvez pas la modifier');
+      return;
+    }
+    
+    // Si on est en mode sélection de plage
+    if (selectedRange.start === null) {
+      setSelectedRange({ start: day.date, end: null });
+      showToast('success', `Date de début sélectionnée: ${day.date}`);
+      return;
+    } 
+    
+    if (selectedRange.start && selectedRange.end === null) {
+      if (day.date < selectedRange.start) {
+        showToast('error', 'La date de fin doit être après la date de début');
+        setSelectedRange({ start: null, end: null });
+        return;
+      }
+      
+      const action = confirm(
+        `Voulez-vous bloquer du ${selectedRange.start} au ${day.date} ?\n\n` +
+        `Cela bloquera toutes les dates entre ces deux jours.`
+      );
+      
+      if (action) {
+        await updateAvailabilityMutation.mutateAsync({
+          start: selectedRange.start,
+          end: day.date,
+          status: 'blocked',
+          price: null,
+          reason: 'Bloqué par l\'hôte'
+        });
+      }
+      setSelectedRange({ start: null, end: null });
+      return;
+    }
+    
+    // Mode simple
+    setIsUpdating(true);
+    try {
+      if (day.status === 'blocked') {
+        if (confirm(`Voulez-vous débloquer le ${day.date} ?`)) {
+          await updateAvailabilityMutation.mutateAsync({
+            start: day.date,
+            end: day.date,
+            status: 'available',
+            price: null,
+            reason: null
+          });
+        }
+      } else if (day.status === 'available') {
+        const setSpecialPrice = confirm(`Voulez-vous définir un prix spécial pour le ${day.date} ?`);
+        let specialPrice = null;
+        
+        if (setSpecialPrice) {
+          const price = prompt('Entrez le prix spécial (en FCFA):', day.special_price?.toString() || '');
+          if (price && !isNaN(parseInt(price))) {
+            specialPrice = parseInt(price);
+            await specialPriceMutation.mutateAsync({
+              start: day.date,
+              end: day.date,
+              price: specialPrice
+            });
+          }
+        }
+        
+        if (confirm(`Voulez-vous bloquer le ${day.date} ?`)) {
+          await updateAvailabilityMutation.mutateAsync({
+            start: day.date,
+            end: day.date,
+            status: 'blocked',
+            price: specialPrice,
+            reason: 'Bloqué par l\'hôte'
+          });
+        }
+      }
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleBlockRangeSubmit = async () => {
+    if (!blockRange.start || !blockRange.end) {
+      showToast('error', 'Veuillez sélectionner une plage de dates');
+      return;
+    }
+    
+    await updateAvailabilityMutation.mutateAsync({
+      start: blockRange.start,
+      end: blockRange.end,
+      status: 'blocked',
+      price: null,
+      reason: blockRange.reason || 'Bloqué par l\'hôte'
+    });
+  };
+
+  const cancelRangeSelection = () => {
+    setSelectedRange({ start: null, end: null });
+    showToast('info', 'Sélection de plage annulée');
+  };
 
   if (!propertyId) {
     return (
@@ -6488,98 +6629,217 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     );
   }
 
-  if (isLoading) return <div className="text-center py-10">Chargement du calendrier...</div>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+        <p className="mt-4 text-gray-500">Chargement du calendrier...</p>
+      </div>
+    );
+  }
 
-  // ✅ Extraction correcte du calendrier
   const calendar = data?.data?.calendar || [];
-  const propertyTitle = data?.data?.property_title || data?.data?.property?.title || 'Propriété';
-
-  const handleBlockDates = async (start: string, end: string) => {
-    try {
-      await updateMutation.mutateAsync({ 
-        start, 
-        end, 
-        status: 'blocked', 
-        price: null 
-      });
-    } catch (error) {
-      console.error('Erreur lors du blocage:', error);
-    }
-  };
-
-  const handleMakeAvailable = async (start: string, end: string) => {
-    try {
-      await updateMutation.mutateAsync({ 
-        start, 
-        end, 
-        status: 'available', 
-        price: null 
-      });
-    } catch (error) {
-      console.error('Erreur lors du déblocage:', error);
-    }
-  };
+  const propertyTitle = data?.data?.property?.title || 'Propriété';
 
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Toast notification */}
+        {toastMessage && (
+          <div className={`fixed top-20 right-4 z-50 p-4 rounded-xl shadow-lg ${
+            toastMessage.type === 'success' ? 'bg-green-500 text-white' : 
+            toastMessage.type === 'error' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+          }`}>
+            {toastMessage.message}
+          </div>
+        )}
+
         <PageSection title={`Calendrier - ${propertyTitle}`} subtitle="Gérez vos disponibilités et tarifs spéciaux.">
+          
+          {/* Boutons d'action */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            {selectedRange.start !== null && selectedRange.end === null ? (
+              <button
+                onClick={cancelRangeSelection}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition"
+              >
+                ❌ Annuler la sélection
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowBlockModal(true)}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
+              >
+                📅 Bloquer une plage de dates
+              </button>
+            )}
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition"
+            >
+              🔄 Rafraîchir
+            </button>
+          </div>
+
+          {selectedRange.start !== null && selectedRange.end === null && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-center">
+              <p className="text-sm text-blue-700">
+                🔵 Date de début sélectionnée: <strong>{selectedRange.start}</strong>
+                <br />
+                Cliquez sur une date de fin pour bloquer la plage.
+              </p>
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl border p-6">
+            {/* Navigation mois */}
             <div className="flex justify-between items-center mb-6">
-              <button onClick={() => setCurrentDate(new Date(year, month - 2, 1))} className="p-2 rounded-full hover:bg-gray-100">
+              <button 
+                onClick={() => setCurrentDate(new Date(year, month - 2, 1))} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+                disabled={isUpdating}
+              >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <h2 className="text-xl font-semibold">{currentDate.toLocaleString('fr', { month: 'long', year: 'numeric' })}</h2>
-              <button onClick={() => setCurrentDate(new Date(year, month, 1))} className="p-2 rounded-full hover:bg-gray-100">
+              <button 
+                onClick={() => setCurrentDate(new Date(year, month, 1))} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+                disabled={isUpdating}
+              >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-7 gap-2 text-center font-semibold text-gray-500 mb-2">
-              {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d}>{d}</div>)}
+            {/* Jours de la semaine */}
+            <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-500 mb-2">
+              {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-2">{d}</div>)}
             </div>
-            <div className="grid grid-cols-7 gap-2">
-              {calendar.map((day: any, idx: number) => (
-                <div
-                  key={idx}
-                  className={`p-3 border rounded-xl text-center cursor-pointer transition ${
-                    day.status === 'booked' ? 'bg-red-100 text-red-700' :
-                    day.status === 'blocked' ? 'bg-orange-100 text-orange-700' :
-                    day.is_available ? 'bg-green-50 hover:bg-green-100' : 'bg-gray-100'
-                  }`}
-                  onClick={() => {
-                    if (day.status === 'available') {
-                      handleBlockDates(day.date, day.date);
-                    } else if (day.status === 'blocked') {
-                      handleMakeAvailable(day.date, day.date);
-                    }
-                  }}
-                >
-                  <div className="text-sm font-medium">{day.day}</div>
-                  {day.special_price && <div className="text-xs text-green-600">{day.special_price.toLocaleString()} FCFA</div>}
-                  {day.status === 'booked' && <div className="text-xs">📅 Réservé</div>}
-                </div>
-              ))}
+
+            {/* Calendrier */}
+            <div className="grid grid-cols-7 gap-1">
+              {calendar.map((day: any, idx: number) => {
+                const dayStatus = day.status || (day.is_available ? 'available' : 'blocked');
+                const isSelectedStart = selectedRange.start === day.date;
+                const isInRange = selectedRange.start && selectedRange.end === null && day.date > selectedRange.start;
+                
+                let bgColor = '';
+                if (dayStatus === 'booked') {
+                  bgColor = 'bg-red-100 text-red-700 cursor-not-allowed opacity-60';
+                } else if (dayStatus === 'blocked') {
+                  bgColor = 'bg-orange-100 text-orange-700 hover:bg-orange-200';
+                } else {
+                  bgColor = 'bg-green-50 hover:bg-green-100 hover:scale-105';
+                }
+                
+                if (isSelectedStart) {
+                  bgColor = 'ring-2 ring-[#00c9a7] shadow-lg bg-[#00c9a7]/10';
+                }
+                if (isInRange) {
+                  bgColor = 'bg-blue-100';
+                }
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`p-2 border rounded-xl text-center cursor-pointer transition-all duration-200 ${bgColor}`}
+                    onClick={() => !isUpdating && handleDayClick(day)}
+                  >
+                    <div className="text-sm font-medium">{day.day}</div>
+                    {day.special_price && (
+                      <div className="text-xs text-green-600 font-semibold mt-1">
+                        {day.special_price.toLocaleString()} FCFA
+                      </div>
+                    )}
+                    <div className="text-xs mt-1">
+                      {dayStatus === 'booked' && '📅 Réservé'}
+                      {dayStatus === 'blocked' && '🚫 Bloqué'}
+                      {dayStatus === 'available' && '✓ Dispo'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-6 flex gap-4 text-sm">
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border"></div> Disponible (cliquer pour bloquer)</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100"></div> Bloqué (cliquer pour débloquer)</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100"></div> Réservé (non modifiable)</div>
+
+            {/* Légende */}
+            <div className="mt-6 flex flex-wrap gap-4 text-sm">
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border border-gray-200 rounded"></div> Disponible</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div> Bloqué par l'hôte</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> Réservé</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-[#00c9a7] rounded"></div> Date sélectionnée</div>
             </div>
-            
-            {/* ✅ Indicateur de chargement pour la mutation */}
-            {updateMutation.isPending && (
+
+            {/* Indicateur de chargement */}
+            {(updateAvailabilityMutation.isPending || specialPriceMutation.isPending || isUpdating) && (
               <div className="mt-4 text-center text-sm text-gray-500">
-                Mise à jour en cours...
+                <div className="inline-flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                  Mise à jour en cours...
+                </div>
               </div>
             )}
           </div>
         </PageSection>
       </div>
+
+      {/* Modal pour bloquer une plage de dates */}
+      {showBlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Bloquer une plage de dates</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
+                <input
+                  type="date"
+                  value={blockRange.start}
+                  onChange={(e) => setBlockRange({ ...blockRange, start: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
+                <input
+                  type="date"
+                  value={blockRange.end}
+                  onChange={(e) => setBlockRange({ ...blockRange, end: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  min={blockRange.start || new Date().toISOString().split('T')[0]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Raison (optionnel)</label>
+                <input
+                  type="text"
+                  value={blockRange.reason}
+                  onChange={(e) => setBlockRange({ ...blockRange, reason: e.target.value })}
+                  placeholder="Travaux, indisponibilité, etc."
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowBlockModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleBlockRangeSubmit}
+                  disabled={updateAvailabilityMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition disabled:opacity-50"
+                >
+                  {updateAvailabilityMutation.isPending ? 'Blocage...' : 'Bloquer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 // ==================== HOST RESERVATIONS PAGE ====================
 
 
@@ -8758,24 +9018,227 @@ const getTravelerContent = () => ({
   ]
 });
 
-  // Contenu pour Hôte de logement
-  const getHostContent = () => ({
-    title: "Aide pour les hôtes de logement",
-    description: "Trouvez des réponses à vos questions sur la gestion de vos annonces, les réservations et plus encore.",
-    articles: [
-      { id: "devenir-hote", title: "Devenir hôte sur Bluefin-Immo", description: "Comment publier votre première annonce." },
-      { id: "gerer-reservations", title: "Gérer vos réservations", description: "Calendrier, messages, paiements." },
-      { id: "tarifs", title: "Fixer vos tarifs", description: "Conseils pour optimiser vos prix." },
-      { id: "assurance-hote", title: "Assurance et protection", description: "Protégez votre logement et vos biens." },
-      { id: "reglementation", title: "Règlementation locale", description: "Ce que vous devez savoir avant de louer." },
-    ],
-    quickLinks: [
-      { icon: Home, label: "Gérer mon annonce" },
-      { icon: Calendar, label: "Mon calendrier" },
-      { icon: MessageCircle, label: "Messages" },
-      { icon: CreditCard, label: "Paiements reçus" },
-    ]
-  });
+ // Contenu pour Hôte de logement
+const getHostContent = () => ({
+  title: "Aide pour les hôtes de logement",
+  description: "Trouvez des réponses à vos questions sur la gestion de vos annonces, les réservations et plus encore.",
+  articles: [
+    { 
+      id: "devenir-hote", 
+      title: " Devenir hôte sur Bluefin-Immo", 
+      description: "Comment lancer votre activité d'hôte en quelques étapes.",
+      content: `
+        <div class="space-y-6">
+          <p>Lancer votre activité d'hôte sur Bluefin Immo est simple et accessible à tous. Voici comment procéder :</p>
+          
+          <div class="space-y-4">
+            <div class="flex gap-3">
+              <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+              <div>
+                <h3 class="font-semibold text-[#0F2940]">Décrivez votre logement</h3>
+                <p class="text-sm text-gray-600">Présentez-vous et parlez-nous de votre bien : type de logement, superficie, équipements disponibles, localisation et tout ce qui le rend unique et attractif pour les voyageurs.</p>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+              <div>
+                <h3 class="font-semibold text-[#0F2940]">Ajoutez vos photos</h3>
+                <p class="text-sm text-gray-600">Des visuels de qualité font toute la différence. Prenez le temps de photographier chaque pièce sous son meilleur jour pour donner envie aux voyageurs de réserver.</p>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+              <div>
+                <h3 class="font-semibold text-[#0F2940]">Fixez vos tarifs</h3>
+                <p class="text-sm text-gray-600">Définissez vos prix à votre rythme, en fonction de vos disponibilités et de vos objectifs. Vous restez libre d'ajuster vos tarifs à tout moment.</p>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">4</div>
+              <div>
+                <h3 class="font-semibold text-[#0F2940]">Soumettez votre annonce</h3>
+                <p class="text-sm text-gray-600">Une fois votre annonce complète, envoyez-la à notre équipe pour vérification. Nous pourrions vous contacter pour vous suggérer quelques ajustements ou vous demander certains documents, comme un agrément ou une preuve d'assurance.</p>
+              </div>
+            </div>
+            
+            <div class="flex gap-3">
+              <div class="w-8 h-8 rounded-full bg-[#00c9a7] text-white flex items-center justify-center text-sm font-bold flex-shrink-0">5</div>
+              <div>
+                <h3 class="font-semibold text-[#0F2940]">Publiez et accueillez</h3>
+                <p class="text-sm text-gray-600">Dès que votre annonce est validée, publiez-la en un clic et commencez à recevoir vos premières demandes de réservation. Bienvenue dans la communauté des hôtes Bluefin Immo.</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 mt-4">
+            <p class="text-sm text-[#0F2940]"> <strong>Prêt à commencer ?</strong> Créez votre annonce dès maintenant et rejoignez notre communauté d'hôtes.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "preparer-logement", 
+      title: " Comment préparer mon logement pour accueillir des voyageurs ?", 
+      description: "Conseils pour offrir un séjour confortable et agréable.",
+      content: `
+        <div class="space-y-4">
+          <p>Avant l'arrivée de vos voyageurs, veillez à ce que votre logement soit :</p>
+          <ul class="list-disc pl-5 space-y-2 text-gray-600">
+            <li>Propre, bien rangé et en parfait état de fonctionnement</li>
+            <li>Prévoyez du <strong>linge de lit frais</strong> en quantité suffisante</li>
+            <li>Des <strong>articles de toilette</strong> (savon, shampoing, papier toilette)</li>
+            <li>Les équipements de base (cafetière, bouilloire, ustensiles de cuisine)</li>
+            <li>Une connexion Wi-Fi fonctionnelle</li>
+          </ul>
+          <div class="bg-blue-50 rounded-xl p-4">
+            <p class="text-sm text-blue-700"> <strong>Conseil :</strong> Pensez à laisser un petit mot de bienvenue ou des recommandations locales pour rendre le séjour de vos voyageurs encore plus agréable.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "frais-service", 
+      title: " Quels sont les frais appliqués par Bluefin Immo ?", 
+      description: "Détail des frais de service pour hôtes et voyageurs.",
+      content: `
+        <div class="space-y-6">
+          <p>La création d'annonce est entièrement <strong>gratuite</strong>. Bluefin Immo applique des frais de service sur chaque réservation confirmée, répartis entre l'hôte et le voyageur.</p>
+          
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-[#f4fffe] rounded-xl p-4 border border-[#e2f5f2]">
+              <h3 class="font-semibold text-[#0F2940] flex items-center gap-2"> Pour l'hôte</h3>
+              <p class="text-2xl font-bold text-[#00c9a7] mt-2">6%</p>
+              <p class="text-sm text-gray-600">Des frais de 6% sont déduits de votre sous-total pour calculer votre versement.</p>
+              <p class="text-sm text-gray-500 mt-2">Exemple : nuit à 50 000 FCFA → vous percevez <strong>47 000 FCFA</strong></p>
+            </div>
+            
+            <div class="bg-[#f4fffe] rounded-xl p-4 border border-[#e2f5f2]">
+              <h3 class="font-semibold text-[#0F2940] flex items-center gap-2">✈️ Pour le voyageur</h3>
+              <p class="text-2xl font-bold text-[#00c9a7] mt-2">10%</p>
+              <p class="text-sm text-gray-600">Des frais de 10% sont ajoutés au prix affiché lors de la réservation.</p>
+              <p class="text-sm text-gray-500 mt-2">Exemple : nuit à 50 000 FCFA → voyageur paie <strong>55 000 FCFA</strong></p>
+            </div>
+          </div>
+          
+          <div>
+            <h3 class="font-semibold text-lg mb-3">À quoi servent ces frais ?</h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex items-center gap-2 text-sm text-gray-600"><Shield className="w-4 h-4 text-[#00c9a7]" /> Paiements sécurisés</div>
+              <div class="flex items-center gap-2 text-sm text-gray-600"><TrendingUp className="w-4 h-4 text-[#00c9a7]" /> Promotion des annonces</div>
+              <div class="flex items-center gap-2 text-sm text-gray-600"><MessageCircle className="w-4 h-4 text-[#00c9a7]" /> Assistance hôtes et voyageurs</div>
+              <div class="flex items-center gap-2 text-sm text-gray-600"><Settings className="w-4 h-4 text-[#00c9a7]" /> Maintenance et développement</div>
+            </div>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "gestion-calendrier", 
+      title: "Comment gérer mon calendrier ?", 
+      description: "Calendrier, disponibilités, blocages et réservations.",
+      content: `
+        <div class="space-y-6">
+          <p>Votre calendrier est votre outil de disponibilité en temps réel. Mettez-le à jour régulièrement pour éviter les réservations indésirables ou les conflits de dates.</p>
+          
+          <div class="space-y-4">
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h3 class="font-semibold text-[#0F2940] flex items-center gap-2"><Calendar className="w-5 h-5 text-[#00c9a7]" /> Puis-je bloquer des dates ?</h3>
+              <p class="text-sm text-gray-600 mt-1">Oui, à tout moment et sans justification. Rendez-vous dans votre espace hôte, sélectionnez les dates concernées et marquez-les comme indisponibles.</p>
+            </div>
+            
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h3 class="font-semibold text-[#0F2940] flex items-center gap-2"><Clock className="w-5 h-5 text-[#00c9a7]" /> Puis-je définir une durée minimale de séjour ?</h3>
+              <p class="text-sm text-gray-600 mt-1">Oui. Vous pouvez fixer une durée minimale (exemple : 2 nuits minimum) pour optimiser votre taux d'occupation.</p>
+            </div>
+            
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h3 class="font-semibold text-[#0F2940] flex items-center gap-2"><Bell className="w-5 h-5 text-[#00c9a7]" /> Comment éviter les réservations de dernière minute ?</h3>
+              <p class="text-sm text-gray-600 mt-1">Dans vos paramètres de calendrier, vous pouvez définir un délai de préavis minimum (ex: interdire les réservations moins de 24h avant l'arrivée).</p>
+            </div>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "paiements-hote", 
+      title: "Comment sont traités les paiements ?", 
+      description: "Paiements, modes de paiement et versements.",
+      content: `
+        <div class="space-y-6">
+          <div class="bg-[#f4fffe] rounded-xl p-4">
+            <h3 class="font-semibold text-[#0F2940]">Comment sont traités les paiements ?</h3>
+            <p class="text-sm text-gray-600 mt-1">Bluefin Immo centralise tous les paiements pour sécuriser les transactions. Le voyageur règle intégralement sa réservation au moment de la confirmation.</p>
+          </div>
+          
+          <div>
+            <h3 class="font-semibold text-[#0F2940] mb-3">Quels modes de paiement sont acceptés ?</h3>
+            <div class="flex flex-wrap gap-3">
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">📱 Mobile Money (Wave, Orange Money, MTN)</div>
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">💳 Carte bancaire (Visa, Mastercard)</div>
+            </div>
+          </div>
+          
+          <div class="bg-green-50 rounded-xl p-4 border-l-4 border-green-500">
+            <h3 class="font-semibold text-green-800">Quand vais-je recevoir mon versement ?</h3>
+            <p class="text-sm text-green-700 mt-1">Pour la plupart des séjours, votre versement est effectué dans un délai de <strong>72 heures</strong> suivant la date d'arrivée confirmée du voyageur, sous réserve qu'aucun litige ne soit en cours.</p>
+          </div>
+          
+          <div class="bg-amber-50 rounded-xl p-4">
+            <h3 class="font-semibold text-amber-800">Comment mettre à jour mes coordonnées de paiement ?</h3>
+            <p class="text-sm text-amber-700 mt-1">Rendez-vous dans votre profil, section Paiements et versements, et renseignez ou modifiez vos coordonnées bancaires ou mobile money.</p>
+          </div>
+        </div>
+      `
+    },
+    { 
+      id: "reservations-hote", 
+      title: "Comment fonctionne le système de réservation ?", 
+      description: "Demandes, réservations instantanées et annulations.",
+      content: `
+        <div class="space-y-6">
+          <div class="bg-gray-50 rounded-xl p-4">
+            <h3 class="font-semibold text-[#0F2940]">Comment fonctionne le système de réservation ?</h3>
+            <p class="text-sm text-gray-600 mt-1">Lorsqu'un voyageur soumet une demande, vous recevez une notification par e-mail et sur l'application. Vous disposez d'un délai de <strong>24 heures</strong> pour accepter ou décliner la demande.</p>
+          </div>
+          
+          <div class="bg-[#f4fffe] rounded-xl p-4">
+            <h3 class="font-semibold text-[#0F2940] flex items-center gap-2"><Zap className="w-5 h-5 text-[#00c9a7]" /> Puis-je activer la réservation instantanée ?</h3>
+            <p class="text-sm text-gray-600 mt-1">Oui. La réservation instantanée permet aux voyageurs de réserver directement sans attendre votre validation. C'est un excellent moyen d'augmenter votre taux de réservation.</p>
+          </div>
+          
+          <div class="bg-yellow-50 rounded-xl p-4">
+            <h3 class="font-semibold text-yellow-800">Puis-je refuser une réservation ?</h3>
+            <p class="text-sm text-yellow-700 mt-1">Oui, vous êtes libre d'accepter ou de refuser toute demande. Cependant, un taux de refus élevé peut affecter la visibilité de votre annonce.</p>
+          </div>
+          
+          <div class="bg-red-50 rounded-xl p-4">
+            <h3 class="font-semibold text-red-800">Comment annuler une réservation confirmée ?</h3>
+            <p class="text-sm text-red-700 mt-1">En cas de force majeure, rendez-vous dans votre espace hôte, sélectionnez la réservation concernée et suivez la procédure d'annulation. Des pénalités peuvent s'appliquer.</p>
+          </div>
+          
+          <div class="bg-blue-50 rounded-xl p-4">
+            <h3 class="font-semibold text-blue-800">Comment communiquer avec mon voyageur ?</h3>
+            <p class="text-sm text-blue-700 mt-1">Bluefin Immo met à votre disposition une messagerie intégrée sécurisée. Privilégiez ce canal pour toutes vos communications.</p>
+          </div>
+          
+          <div class="bg-[#0f2940] text-white rounded-xl p-4">
+            <h3 class="font-semibold flex items-center gap-2">Que faire en cas de problème avec un voyageur ?</h3>
+            <p class="text-sm text-white/80 mt-1">Contactez immédiatement notre service d'assistance via la messagerie ou par e-mail. Notre équipe est disponible pour vous accompagner.</p>
+          </div>
+        </div>
+      `
+    }
+  ],
+  quickLinks: [
+    { icon: Home, label: "Gérer mon annonce", link: "#" },
+    { icon: Calendar, label: "Mon calendrier", link: "#" },
+    { icon: MessageCircle, label: "Messages", link: "#" },
+    { icon: CreditCard, label: "Paiements reçus", link: "#" },
+  ]
+});
 
 
 
@@ -13960,11 +14423,23 @@ const formatDateTime = (date: string) => {
   });
 };
 
+// src/app/pages/admin/AdminReportsPage.tsx
+
+
 export function AdminReportsPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<'monthly' | 'annual' | 'custom'>('monthly');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'financial' | 'users' | 'properties'>('overview');
+  
+  // États pour les modales
+  const [showPropertiesModal, setShowPropertiesModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showBookingsModal, setShowBookingsModal] = useState(false);
+  const [modalData, setModalData] = useState<any[]>([]);
+  const [modalTitle, setModalTitle] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-reports-summary', selectedPeriod, customStartDate, customEndDate],
@@ -13974,81 +14449,137 @@ export function AdminReportsPage() {
       end_date: customEndDate,
     }),
   });
+  
+  // Requête pour les propriétés détaillées
+  const { data: propertiesData, refetch: refetchProperties } = useQuery({
+    queryKey: ['admin-reports-properties', selectedPeriod, customStartDate, customEndDate],
+    queryFn: () => adminService.getPropertiesReport({
+      period: selectedPeriod,
+      start_date: customStartDate,
+      end_date: customEndDate,
+    }),
+    enabled: false,
+  });
+  
+  // Requête pour les utilisateurs détaillés
+  const { data: usersData, refetch: refetchUsers } = useQuery({
+    queryKey: ['admin-reports-users', selectedPeriod, customStartDate, customEndDate],
+    queryFn: () => adminService.getUsersReport({
+      period: selectedPeriod,
+      start_date: customStartDate,
+      end_date: customEndDate,
+    }),
+    enabled: false,
+  });
+  
+  // Requête pour les réservations détaillées
+  const { data: bookingsData, refetch: refetchBookings } = useQuery({
+    queryKey: ['admin-reports-bookings', selectedPeriod, customStartDate, customEndDate],
+    queryFn: () => adminService.getBookingsReport({
+      period: selectedPeriod,
+      start_date: customStartDate,
+      end_date: customEndDate,
+    }),
+    enabled: false,
+  });
 
   if (isLoading) return <LoadingSkeleton />;
   
   const report = data?.data || {};
-  const chartData = report.chart_data || { labels: [], revenue: [], users: [], bookings: [] };
   
-  const revenueChartData = chartData.labels.map((label: string, idx: number) => ({
+  // Données pour les graphiques
+  const chartData = report.chart_data?.labels?.map((label: string, idx: number) => ({
     name: label,
-    revenue: chartData.revenue?.[idx] || 0,
-    users: chartData.users?.[idx] || 0,
-    bookings: chartData.bookings?.[idx] || 0,
-  }));
+    revenue: report.chart_data?.revenue?.[idx] || 0,
+    users: report.chart_data?.users?.[idx] || 0,
+    bookings: report.chart_data?.bookings?.[idx] || 0,
+  })) || [
+    { name: 'Lun', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Mar', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Mer', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Jeu', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Ven', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Sam', revenue: 0, users: 0, bookings: 0 },
+    { name: 'Dim', revenue: 0, users: 0, bookings: 0 },
+  ];
 
-  // Statistiques de croissance
-  const growthRates = {
-    users: report.users_growth || 12.5,
-    properties: report.properties_growth || 8.3,
-    bookings: report.bookings_growth || 15.7,
-    revenue: report.revenue_growth || 22.4,
+  // ✅ Fonctions pour ouvrir les modales
+  const openPropertiesModal = async () => {
+    console.log('🔍 Ouverture modal propriétés');
+    setModalTitle('Liste des propriétés');
+    setShowPropertiesModal(true);
+    try {
+      const result = await refetchProperties();
+      console.log('📊 Données propriétés:', result.data);
+      setModalData(result.data?.data || []);
+    } catch (error) {
+      console.error('❌ Erreur chargement propriétés:', error);
+      setModalData([]);
+    }
   };
 
-  // Répartition des propriétés par type
-  const propertyTypes = [
-    { name: 'Appartements', value: report.appartements_count || 45, color: '#00c9a7' },
-    { name: 'Villas', value: report.villas_count || 25, color: '#0f2940' },
-    { name: 'Studios', value: report.studios_count || 15, color: '#ff6b6b' },
-    { name: 'Maisons', value: report.maisons_count || 10, color: '#f5a623' },
-  ];
+  const openUsersModal = async () => {
+    console.log('🔍 Ouverture modal utilisateurs');
+    setModalTitle('Liste des utilisateurs');
+    setShowUsersModal(true);
+    try {
+      const result = await refetchUsers();
+      console.log('📊 Données utilisateurs:', result.data);
+      setModalData(result.data?.data || []);
+    } catch (error) {
+      console.error('❌ Erreur chargement utilisateurs:', error);
+      setModalData([]);
+    }
+  };
 
-  // Méthodes de paiement
-  const paymentMethods = [
-    { name: 'Mobile Money', value: report.mobile_money_percentage || 65, color: '#00c9a7' },
-    { name: 'Carte bancaire', value: report.card_percentage || 25, color: '#0f2940' },
-    { name: 'Autres', value: report.other_percentage || 10, color: '#ff6b6b' },
-  ];
+  const openBookingsModal = async () => {
+    console.log('🔍 Ouverture modal réservations');
+    setModalTitle('Liste des réservations');
+    setShowBookingsModal(true);
+    try {
+      const result = await refetchBookings();
+      console.log('📊 Données réservations:', result.data);
+      setModalData(result.data?.data || []);
+    } catch (error) {
+      console.error('❌ Erreur chargement réservations:', error);
+      setModalData([]);
+    }
+  };
 
   const exportReport = async (format: 'csv' | 'pdf' | 'excel' | 'json') => {
     try {
-      const blob = await adminService.exportReport(selectedPeriod, format, {
-        start_date: customStartDate,
-        end_date: customEndDate,
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `rapport_${selectedPeriod}_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : format}`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success(`Export ${format.toUpperCase()} lancé avec succès`);
+      toast.success(`Export ${format.toUpperCase()} en cours de développement`);
     } catch {
       toast.error('Erreur lors de l\'export');
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
+  const handlePrint = () => window.print();
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'Rapport Bluefin-Immo',
-          text: `Rapport ${selectedPeriod} - ${report.total_revenue?.toLocaleString()} FCFA de CA`,
+          text: `Rapport ${selectedPeriod}`,
           url: window.location.href,
         });
         toast.success('Partagé avec succès');
-      } catch {
-        toast.error('Partage annulé');
-      }
+      } catch { toast.error('Partage annulé'); }
     } else {
       navigator.clipboard.writeText(window.location.href);
       toast.success('Lien copié dans le presse-papier');
     }
   };
+
+  const filteredModalData = modalData.filter(item => {
+    const matchesSearch = searchTerm === '' || 
+      JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || 
+      item.status === statusFilter || 
+      (statusFilter === 'published' && item.is_published === 1) ||
+      (statusFilter === 'pending' && (item.status === 'pending' || item.is_published === 0));
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -14062,25 +14593,13 @@ export function AdminReportsPage() {
         </div>
         
         <div className="flex gap-2">
-          <button
-            onClick={handlePrint}
-            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-            title="Imprimer"
-          >
+          <button onClick={handlePrint} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Imprimer">
             <Printer className="w-4 h-4" />
           </button>
-          <button
-            onClick={handleShare}
-            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-            title="Partager"
-          >
+          <button onClick={handleShare} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Partager">
             <Share2 className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => refetch()}
-            className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-            title="Rafraîchir"
-          >
+          <button onClick={() => refetch()} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Rafraîchir">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -14090,38 +14609,15 @@ export function AdminReportsPage() {
       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex flex-wrap gap-2">
-            <PeriodButton
-              active={selectedPeriod === 'monthly'}
-              onClick={() => setSelectedPeriod('monthly')}
-              label="Mensuel"
-            />
-            <PeriodButton
-              active={selectedPeriod === 'annual'}
-              onClick={() => setSelectedPeriod('annual')}
-              label="Annuel"
-            />
-            <PeriodButton
-              active={selectedPeriod === 'custom'}
-              onClick={() => setSelectedPeriod('custom')}
-              label="Personnalisé"
-            />
+            <PeriodButton active={selectedPeriod === 'monthly'} onClick={() => setSelectedPeriod('monthly')} label="Mensuel" />
+            <PeriodButton active={selectedPeriod === 'annual'} onClick={() => setSelectedPeriod('annual')} label="Annuel" />
+            <PeriodButton active={selectedPeriod === 'custom'} onClick={() => setSelectedPeriod('custom')} label="Personnalisé" />
           </div>
-          
           {selectedPeriod === 'custom' && (
             <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-              />
+              <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
               <span className="text-gray-400 self-center hidden sm:inline">→</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-              />
+              <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
             </div>
           )}
         </div>
@@ -14137,20 +14633,17 @@ export function AdminReportsPage() {
 
       {/* Contenu des onglets */}
       {activeTab === 'overview' && (
-        <OverviewTab report={report} growthRates={growthRates} chartData={revenueChartData} />
+        <OverviewTab 
+          report={report} 
+          chartData={chartData} 
+          onViewUsers={openUsersModal}
+          onViewBookings={openBookingsModal}
+          onViewProperties={openPropertiesModal}
+        />
       )}
-      
-      {activeTab === 'financial' && (
-        <FinancialTab report={report} paymentMethods={paymentMethods} chartData={revenueChartData} />
-      )}
-      
-      {activeTab === 'users' && (
-        <UsersTab report={report} growthRates={growthRates} />
-      )}
-      
-      {activeTab === 'properties' && (
-        <PropertiesTab report={report} propertyTypes={propertyTypes} growthRates={growthRates} />
-      )}
+      {activeTab === 'financial' && <FinancialTab report={report} chartData={chartData} />}
+      {activeTab === 'users' && <UsersTab report={report} onViewAll={openUsersModal} />}
+      {activeTab === 'properties' && <PropertiesTab report={report} onViewAll={openPropertiesModal} />}
 
       {/* Section export */}
       <div className="mt-6 bg-white rounded-xl sm:rounded-2xl p-5 shadow-sm">
@@ -14159,52 +14652,225 @@ export function AdminReportsPage() {
           Exporter le rapport
         </h3>
         <div className="flex flex-wrap gap-3">
-          <ExportButton onClick={() => exportReport('csv')} icon={<FileSpreadsheet className="w-4 h-4" />} label="CSV" color="green" />
-          <ExportButton onClick={() => exportReport('excel')} icon={<FileSpreadsheet className="w-4 h-4" />} label="Excel" color="blue" />
+          <ExportButton onClick={() => exportReport('csv')} icon={<FileText className="w-4 h-4" />} label="CSV" color="green" />
+          <ExportButton onClick={() => exportReport('excel')} icon={<FileText className="w-4 h-4" />} label="Excel" color="blue" />
           <ExportButton onClick={() => exportReport('pdf')} icon={<FileText className="w-4 h-4" />} label="PDF" color="red" />
-          <ExportButton onClick={() => exportReport('json')} icon={<FileJson className="w-4 h-4" />} label="JSON" color="purple" />
         </div>
       </div>
+
+      {/* Modal Propriétés */}
+      {showPropertiesModal && (
+        <DataModal
+          title={modalTitle}
+          data={filteredModalData}
+          onClose={() => setShowPropertiesModal(false)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          type="property"
+        />
+      )}
+
+      {/* Modal Utilisateurs */}
+      {showUsersModal && (
+        <DataModal
+          title={modalTitle}
+          data={filteredModalData}
+          onClose={() => setShowUsersModal(false)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          type="user"
+        />
+      )}
+
+      {/* Modal Réservations */}
+      {showBookingsModal && (
+        <DataModal
+          title={modalTitle}
+          data={filteredModalData}
+          onClose={() => setShowBookingsModal(false)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          type="booking"
+        />
+      )}
     </div>
   );
 }
 
+// Composant DataModal
+const DataModal = ({ title, data, onClose, searchTerm, setSearchTerm, statusFilter, setStatusFilter, type }: any) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col">
+      <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center">
+        <h3 className="text-xl font-semibold text-[#0F2940]">{title}</h3>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+        >
+          <option value="all">Tous les statuts</option>
+          <option value="active">Actif</option>
+          <option value="pending">En attente</option>
+          <option value="published">Publié</option>
+          <option value="confirmed">Confirmé</option>
+        </select>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-4">
+        {data.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">Aucune donnée disponible</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                {type === 'property' && (
+                  <>
+                    <th className="p-3 text-left">ID</th>
+                    <th className="p-3 text-left">Titre</th>
+                    <th className="p-3 text-left">Hôte</th>
+                    <th className="p-3 text-left">Ville</th>
+                    <th className="p-3 text-left">Prix/nuit</th>
+                    <th className="p-3 text-left">Statut</th>
+                    <th className="p-3 text-left">Publié</th>
+                  </>
+                )}
+                {type === 'user' && (
+                  <>
+                    <th className="p-3 text-left">ID</th>
+                    <th className="p-3 text-left">Nom</th>
+                    <th className="p-3 text-left">Email</th>
+                    <th className="p-3 text-left">Type</th>
+                    <th className="p-3 text-left">Date inscription</th>
+                    <th className="p-3 text-left">Statut</th>
+                  </>
+                )}
+                {type === 'booking' && (
+                  <>
+                    <th className="p-3 text-left">ID</th>
+                    <th className="p-3 text-left">Voyageur</th>
+                    <th className="p-3 text-left">Propriété</th>
+                    <th className="p-3 text-left">Dates</th>
+                    <th className="p-3 text-left">Montant</th>
+                    <th className="p-3 text-left">Statut</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((item: any, idx: number) => (
+                <tr key={idx} className="border-b hover:bg-gray-50">
+                  {type === 'property' && (
+                    <>
+                      <td className="p-3 font-mono text-xs">#{item.id}</td>
+                      <td className="p-3 font-medium">{item.title}</td>
+                      <td className="p-3">{item.host_name}</td>
+                      <td className="p-3">{item.city}</td>
+                      <td className="p-3">{item.price_per_night?.toLocaleString()} FCFA</td>
+                      <td className="p-3"><StatusBadge status={item.status} /></td>
+                      <td className="p-3">
+                        {item.is_published ? 
+                          <span className="text-green-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Publié</span> : 
+                          <span className="text-yellow-600 flex items-center gap-1"><Clock className="w-4 h-4" /> En attente</span>
+                        }
+                      </td>
+                    </>
+                  )}
+                  {type === 'user' && (
+                    <>
+                      <td className="p-3 font-mono text-xs">#{item.id}</td>
+                      <td className="p-3 font-medium">{item.first_name} {item.last_name}</td>
+                      <td className="p-3">{item.email}</td>
+                      <td className="p-3"><UserTypeBadge type={item.user_type} /></td>
+                      <td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td>
+                      <td className="p-3">
+                        {item.is_active ? 
+                          <span className="text-green-600">Actif</span> : 
+                          <span className="text-red-600">Inactif</span>
+                        }
+                      </td>
+                    </>
+                  )}
+                  {type === 'booking' && (
+                    <>
+                      <td className="p-3 font-mono text-xs">#{item.id}</td>
+                      <td className="p-3">{item.guest_name}</td>
+                      <td className="p-3">{item.property_title}</td>
+                      <td className="p-3">{item.check_in} → {item.check_out}</td>
+                      <td className="p-3 font-semibold text-[#00c9a7]">{item.total_amount?.toLocaleString()} FCFA</td>
+                      <td className="p-3"><StatusBadge status={item.status} /></td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+const StatusBadge = ({ status }: any) => {
+  const config: any = {
+    active: { color: 'bg-green-100 text-green-700', label: 'Actif' },
+    published: { color: 'bg-green-100 text-green-700', label: 'Publié' },
+    pending: { color: 'bg-yellow-100 text-yellow-700', label: 'En attente' },
+    cancelled: { color: 'bg-red-100 text-red-700', label: 'Annulé' },
+    confirmed: { color: 'bg-green-100 text-green-700', label: 'Confirmé' },
+    completed: { color: 'bg-blue-100 text-blue-700', label: 'Terminé' },
+  };
+  const current = config[status] || config.pending;
+  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${current.color}`}>{current.label}</span>;
+};
+
+const UserTypeBadge = ({ type }: any) => {
+  const config: any = {
+    voyageur: { color: 'bg-blue-100 text-blue-700', label: 'Voyageur' },
+    hote: { color: 'bg-green-100 text-green-700', label: 'Hôte' },
+    admin: { color: 'bg-purple-100 text-purple-700', label: 'Admin' },
+  };
+  const current = config[type] || config.voyageur;
+  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${current.color}`}>{current.label}</span>;
+};
+
 // Onglet Vue d'ensemble
-const OverviewTab = ({ report, growthRates, chartData }: any) => (
+const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewProperties }: any) => (
   <div className="space-y-6">
-    {/* Cartes KPI */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <KPICard
-        title="Chiffre d'affaires"
-        value={`${(report.total_revenue || 0).toLocaleString()} FCFA`}
-        growth={growthRates.revenue}
-        icon={<DollarSign className="w-5 h-5" />}
-        color="green"
-      />
-      <KPICard
-        title="Utilisateurs"
-        value={(report.total_users || 0).toLocaleString()}
-        growth={growthRates.users}
-        icon={<Users className="w-5 h-5" />}
-        color="blue"
-      />
-      <KPICard
-        title="Réservations"
-        value={(report.total_bookings || 0).toLocaleString()}
-        growth={growthRates.bookings}
-        icon={<Calendar className="w-5 h-5" />}
-        color="purple"
-      />
-      <KPICard
-        title="Propriétés"
-        value={(report.total_properties || 0).toLocaleString()}
-        growth={growthRates.properties}
-        icon={<Home className="w-5 h-5" />}
-        color="orange"
-      />
+      <KPICard title="Chiffre d'affaires" value={`${(report.total_revenue || 0).toLocaleString()} FCFA`} icon={<DollarSign className="w-5 h-5" />} color="green" />
+      <button onClick={() => onViewUsers?.()} className="text-left w-full">
+        <KPICard title="Utilisateurs" value={(report.total_users || 0).toLocaleString()} icon={<Users className="w-5 h-5" />} color="blue" />
+      </button>
+      <button onClick={() => onViewBookings?.()} className="text-left w-full">
+        <KPICard title="Réservations" value={(report.total_bookings || 0).toLocaleString()} icon={<Calendar className="w-5 h-5" />} color="purple" />
+      </button>
+      <button onClick={() => onViewProperties?.()} className="text-left w-full">
+        <KPICard title="Propriétés" value={(report.total_properties || 0).toLocaleString()} icon={<Home className="w-5 h-5" />} color="orange" />
+      </button>
     </div>
 
-    {/* Graphique d'évolution */}
     <div className="bg-white rounded-xl p-5 shadow-sm">
       <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
         <TrendingUp className="w-5 h-5 text-[#00c9a7]" />
@@ -14227,56 +14893,72 @@ const OverviewTab = ({ report, growthRates, chartData }: any) => (
       </ResponsiveContainer>
     </div>
 
-    {/* Résumé des périodes */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">📈 Période actuelle</h4>
+        <h4 className="font-semibold text-sm mb-3">📈 Aujourd'hui</h4>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">Nouveaux utilisateurs</span>
-            <span className="font-semibold">{report.new_users || 0}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Nouvelles propriétés</span>
-            <span className="font-semibold">{report.new_properties || 0}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Réservations</span>
-            <span className="font-semibold">{report.bookings_count || 0}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Chiffre d'affaires</span>
-            <span className="font-semibold text-[#00c9a7]">{(report.revenue || 0).toLocaleString()} FCFA</span>
-          </div>
+          <div className="flex justify-between"><span className="text-gray-500">Nouveaux utilisateurs</span><span className="font-semibold">{report.new_users || 0}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Nouvelles propriétés</span><span className="font-semibold">{report.new_properties || 0}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Réservations</span><span className="font-semibold">{report.bookings_count || 0}</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Chiffre d'affaires</span><span className="font-semibold text-[#00c9a7]">{(report.revenue || 0).toLocaleString()} FCFA</span></div>
         </div>
       </div>
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">🏆 Performances</h4>
+        <h4 className="font-semibold text-sm mb-3">🏆 Total général</h4>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-500">Panier moyen</span>
-            <span className="font-semibold">{((report.total_revenue || 0) / (report.total_bookings || 1)).toLocaleString()} FCFA</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Taux de conversion</span>
-            <span className="font-semibold text-green-600">{report.conversion_rate || 0}%</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Satisfaction</span>
-            <span className="font-semibold">{report.satisfaction_rate || 4.8}/5</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-500">Taux d'occupation</span>
-            <span className="font-semibold">{report.occupancy_rate || 68}%</span>
-          </div>
+          <button onClick={() => onViewUsers?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
+            <span className="text-gray-500">Total utilisateurs</span><span className="font-semibold">{report.total_users || 0}</span>
+          </button>
+          <button onClick={() => onViewProperties?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
+            <span className="text-gray-500">Total propriétés</span><span className="font-semibold">{report.total_properties || 0}</span>
+          </button>
+          <button onClick={() => onViewBookings?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
+            <span className="text-gray-500">Total réservations</span><span className="font-semibold">{report.total_bookings || 0}</span>
+          </button>
+          <div className="flex justify-between"><span className="text-gray-500">CA total</span><span className="font-semibold text-[#00c9a7]">{(report.total_revenue || 0).toLocaleString()} FCFA</span></div>
         </div>
       </div>
     </div>
   </div>
 );
 
+// Onglet Propriétés
+const PropertiesTab = ({ report, onViewAll }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <button onClick={onViewAll} className="text-left w-full">
+        <PropertyStatCard title="Total propriétés" value={report.total_properties || 0} icon={<Home className="w-5 h-5" />} color="green" />
+      </button>
+      <PropertyStatCard title="Actives" value={report.active_properties || 0} icon={<CheckCircle className="w-5 h-5" />} color="blue" />
+      <PropertyStatCard title="En attente" value={report.pending_properties || 0} icon={<Clock className="w-5 h-5" />} color="yellow" />
+      <PropertyStatCard title="Publiées" value={report.published_properties || 0} icon={<Zap className="w-5 h-5" />} color="purple" />
+    </div>
+    
+    <button onClick={onViewAll} className="w-full bg-white rounded-xl p-4 shadow-sm text-[#00c9a7] hover:bg-gray-50 transition flex items-center justify-center gap-2">
+      <Eye className="w-4 h-4" /> Voir toutes les propriétés
+    </button>
+  </div>
+);
+
+// Onglet Utilisateurs
+const UsersTab = ({ report, onViewAll }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <button onClick={onViewAll} className="text-left w-full">
+        <UserStatCard title="Total utilisateurs" value={report.total_users || 0} icon={<Users className="w-5 h-5" />} color="blue" />
+      </button>
+      <UserStatCard title="Hôtes" value={report.total_hosts || 0} icon={<Home className="w-5 h-5" />} color="green" />
+      <UserStatCard title="Voyageurs" value={report.total_travelers || 0} icon={<Users className="w-5 h-5" />} color="purple" />
+      <UserStatCard title="Nouveaux aujourd'hui" value={report.new_users || 0} icon={<Users className="w-5 h-5" />} color="orange" />
+    </div>
+    <button onClick={onViewAll} className="w-full bg-white rounded-xl p-4 shadow-sm text-[#00c9a7] hover:bg-gray-50 transition flex items-center justify-center gap-2">
+      <Eye className="w-4 h-4" /> Voir tous les utilisateurs
+    </button>
+  </div>
+);
+
 // Onglet Financier
-const FinancialTab = ({ report, paymentMethods, chartData }: any) => (
+const FinancialTab = ({ report, chartData }: any) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
@@ -14285,248 +14967,53 @@ const FinancialTab = ({ report, paymentMethods, chartData }: any) => (
         <p className="text-white/60 text-xs mt-2">Depuis la création</p>
       </div>
       <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-        <p className="text-white/80 text-sm">Transactions</p>
-        <p className="text-2xl font-bold mt-1">{report.total_transactions || 0}</p>
-        <p className="text-white/60 text-xs mt-2">+{report.new_transactions || 0} cette période</p>
+        <p className="text-white/80 text-sm">Réservations</p>
+        <p className="text-2xl font-bold mt-1">{report.total_bookings || 0}</p>
       </div>
       <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-        <p className="text-white/80 text-sm">Commission moyenne</p>
-        <p className="text-2xl font-bold mt-1">{report.average_commission || 12}%</p>
-        <p className="text-white/60 text-xs mt-2">par transaction</p>
+        <p className="text-white/80 text-sm">CA aujourd'hui</p>
+        <p className="text-2xl font-bold mt-1">{(report.revenue || 0).toLocaleString()} FCFA</p>
       </div>
     </div>
-
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl p-5 shadow-sm">
-        <h3 className="font-semibold text-base mb-4">📊 Méthodes de paiement</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <RePieChart>
-            <Pie
-              data={paymentMethods}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={5}
-              dataKey="value"
-            >
-              {paymentMethods.map((entry: any, index: number) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </RePieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="bg-white rounded-xl p-5 shadow-sm">
-        <h3 className="font-semibold text-base mb-4">📈 Revenus par période</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
-            <Bar dataKey="revenue" fill="#00c9a7" name="CA" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  </div>
-);
-
-// Onglet Utilisateurs
-const UsersTab = ({ report, growthRates }: any) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <UserStatCard
-        title="Total utilisateurs"
-        value={report.total_users || 0}
-        growth={growthRates.users}
-        icon={<Users className="w-5 h-5" />}
-        color="blue"
-      />
-      <UserStatCard
-        title="Hôtes"
-        value={report.total_hosts || 0}
-        growth={report.hosts_growth || 8}
-        icon={<Home className="w-5 h-5" />}
-        color="green"
-      />
-      <UserStatCard
-        title="Voyageurs"
-        value={report.total_travelers || 0}
-        growth={report.travelers_growth || 15}
-        icon={<Users className="w-5 h-5" />}
-        color="purple"
-      />
-      <UserStatCard
-        title="Actifs"
-        value={report.active_users || 0}
-        growth={report.active_users_growth || 10}
-        icon={<Activity className="w-5 h-5" />}
-        color="orange"
-      />
-    </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">🆕 Nouveaux inscrits</h4>
-        <p className="text-2xl font-bold text-[#00c9a7]">{report.new_users || 0}</p>
-        <p className="text-sm text-gray-500 mt-1">Cette période</p>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">🎯 Taux de rétention</h4>
-        <p className="text-2xl font-bold text-[#00c9a7]">{report.retention_rate || 78}%</p>
-        <p className="text-sm text-gray-500 mt-1">Utilisateurs revenant</p>
-      </div>
-    </div>
-  </div>
-);
-
-// Onglet Propriétés
-const PropertiesTab = ({ report, propertyTypes, growthRates }: any) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <PropertyStatCard
-        title="Total propriétés"
-        value={report.total_properties || 0}
-        growth={growthRates.properties}
-        icon={<Home className="w-5 h-5" />}
-        color="green"
-      />
-      <PropertyStatCard
-        title="Actives"
-        value={report.active_properties || 0}
-        growth={report.active_properties_growth || 12}
-        icon={<Award className="w-5 h-5" />}
-        color="blue"
-      />
-      <PropertyStatCard
-        title="En attente"
-        value={report.pending_properties || 0}
-        growth={-5}
-        icon={<Clock className="w-5 h-5" />}
-        color="yellow"
-      />
-      <PropertyStatCard
-        title="Publiées"
-        value={report.published_properties || 0}
-        growth={report.published_growth || 15}
-        icon={<Zap className="w-5 h-5" />}
-        color="purple"
-      />
-    </div>
-
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl p-5 shadow-sm">
-        <h3 className="font-semibold text-base mb-4">🏠 Répartition par type</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <RePieChart>
-            <Pie
-              data={propertyTypes}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={5}
-              dataKey="value"
-            >
-              {propertyTypes.map((entry: any, index: number) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </RePieChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="bg-white rounded-xl p-5 shadow-sm">
-        <h3 className="font-semibold text-base mb-4">📍 Top destinations</h3>
-        <div className="space-y-3">
-          {report.top_cities?.map((city: any, idx: number) => (
-            <div key={idx} className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
-                  {idx + 1}
-                </span>
-                <span>{city.name}</span>
-              </div>
-              <div className="flex gap-4">
-                <span className="text-sm text-gray-500">{city.count} propriétés</span>
-                <span className="font-semibold text-[#00c9a7]">{city.revenue?.toLocaleString()} FCFA</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="bg-white rounded-xl p-5 shadow-sm">
+      <h3 className="font-semibold text-base mb-4">📈 Évolution quotidienne</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={chartData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+          <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+          <Bar dataKey="revenue" fill="#00c9a7" name="CA" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   </div>
 );
 
 // Composants auxiliaires
 const PeriodButton = ({ active, onClick, label }: any) => (
-  <button
-    onClick={onClick}
-    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-      active ? 'bg-[#00c9a7] text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-    }`}
-  >
+  <button onClick={onClick} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${active ? 'bg-[#00c9a7] text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
     {label}
   </button>
 );
 
 const TabButton = ({ active, onClick, label }: any) => (
-  <button
-    onClick={onClick}
-    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-      active ? 'bg-[#00c9a7] text-white' : 'text-gray-600 hover:bg-gray-100'
-    }`}
-  >
+  <button onClick={onClick} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${active ? 'bg-[#00c9a7] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
     {label}
   </button>
 );
 
 const ExportButton = ({ onClick, icon, label, color }: any) => {
-  const colors = {
-    green: 'bg-green-50 text-green-600 hover:bg-green-100',
-    blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100',
-    red: 'bg-red-50 text-red-600 hover:bg-red-100',
-    purple: 'bg-purple-50 text-purple-600 hover:bg-purple-100',
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${colors[color]}`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
+  const colors = { green: 'bg-green-50 text-green-600 hover:bg-green-100', blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100', red: 'bg-red-50 text-red-600 hover:bg-red-100' };
+  return <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${colors[color]}`}>{icon}{label}</button>;
 };
 
-const KPICard = ({ title, value, growth, icon, color }: any) => {
-  const isPositive = growth >= 0;
-  const colors = {
-    green: 'from-green-500 to-green-600',
-    blue: 'from-blue-500 to-blue-600',
-    purple: 'from-purple-500 to-purple-600',
-    orange: 'from-orange-500 to-orange-600',
-  };
-
+const KPICard = ({ title, value, icon, color }: any) => {
+  const colors = { green: 'from-green-500 to-green-600', blue: 'from-blue-500 to-blue-600', purple: 'from-purple-500 to-purple-600', orange: 'from-orange-500 to-orange-600' };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white transform hover:scale-105 transition-all duration-300`}>
       <div className="flex justify-between items-start">
-        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
-        </div>
-        <div className={`flex items-center gap-1 text-xs ${isPositive ? 'text-green-200' : 'text-red-200'}`}>
-          {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(growth)}%
-        </div>
+        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div>
       </div>
       <p className="text-white/80 text-xs mt-3">{title}</p>
       <p className="text-xl font-bold mt-0.5">{value}</p>
@@ -14534,67 +15021,37 @@ const KPICard = ({ title, value, growth, icon, color }: any) => {
   );
 };
 
-const UserStatCard = ({ title, value, growth, icon, color }: any) => {
-  const colors = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    purple: 'from-purple-500 to-purple-600',
-    orange: 'from-orange-500 to-orange-600',
-  };
-
+const UserStatCard = ({ title, value, icon, color }: any) => {
+  const colors = { blue: 'from-blue-500 to-blue-600', green: 'from-green-500 to-green-600', purple: 'from-purple-500 to-purple-600', orange: 'from-orange-500 to-orange-600' };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
-      <div className="flex justify-between items-center">
-        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
-        </div>
-        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">↑ {growth}%</span>
-      </div>
+      <div className="flex justify-between items-center"><div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div></div>
       <p className="text-white/80 text-xs mt-2">{title}</p>
       <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
     </div>
   );
 };
 
-const PropertyStatCard = ({ title, value, growth, icon, color }: any) => {
-  const isPositive = growth >= 0;
-  const colors = {
-    green: 'from-green-500 to-green-600',
-    blue: 'from-blue-500 to-blue-600',
-    yellow: 'from-yellow-500 to-yellow-600',
-    purple: 'from-purple-500 to-purple-600',
-  };
-
+const PropertyStatCard = ({ title, value, icon, color }: any) => {
+  const colors = { green: 'from-green-500 to-green-600', blue: 'from-blue-500 to-blue-600', yellow: 'from-yellow-500 to-yellow-600', purple: 'from-purple-500 to-purple-600' };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
-      <div className="flex justify-between items-center">
-        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
-        </div>
-        <span className={`text-xs ${isPositive ? 'text-green-200' : 'text-red-200'}`}>
-          {isPositive ? '↑' : '↓'} {Math.abs(growth)}%
-        </span>
-      </div>
+      <div className="flex justify-between items-center"><div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div></div>
       <p className="text-white/80 text-xs mt-2">{title}</p>
       <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
     </div>
   );
 };
 
-// Skeleton de chargement
 const LoadingSkeleton = () => (
   <div className="p-3 sm:p-4 md:p-6">
     <div className="animate-pulse">
       <div className="h-6 sm:h-8 bg-gray-200 rounded w-48 mb-4"></div>
       <div className="bg-gray-200 rounded-xl h-16 mb-6"></div>
       <div className="grid grid-cols-4 gap-4 mb-6">
-        {[1, 2, 3, 4].map(i => <div key={i} className="bg-gray-200 rounded-xl h-28"></div>)}
+        {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-200 rounded-xl h-28"></div>)}
       </div>
       <div className="bg-gray-200 rounded-xl h-80 mb-6"></div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-200 rounded-xl h-40"></div>
-        <div className="bg-gray-200 rounded-xl h-40"></div>
-      </div>
     </div>
   </div>
 );

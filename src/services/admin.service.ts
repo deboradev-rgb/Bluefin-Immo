@@ -260,18 +260,7 @@ async getPendingProperties() {
   }
 
   // ==================== RAPPORTS ====================
-  async getSummaryReport() {
-    const response = await v1Api.get('/admin/reports/summary');
-    return response.data;
-  }
 
-  async exportReport(type: string, format: 'csv' | 'pdf' = 'csv', startDate?: string, endDate?: string) {
-    let url = `/admin/reports/export/${type}?format=${format}`;
-    if (startDate) url += `&start_date=${startDate}`;
-    if (endDate) url += `&end_date=${endDate}`;
-    const response = await v1Api.get(url, { responseType: 'blob' });
-    return response.data;
-  }
 
   // ==================== PARAMÈTRES ====================
   async getSettings() {
@@ -283,6 +272,44 @@ async getPendingProperties() {
     const response = await v1Api.put('/admin/settings', settings);
     return response.data;
   }
+
+
+    async getSummaryReport(params: { period: string; start_date?: string; end_date?: string }) {
+        const response = await v1Api.get('/admin/reports/summary', { params });
+        return response.data;
+    }
+
+    async getBookingsReport(params: { period: string; start_date?: string; end_date?: string }) {
+        // Pour l'instant, on retourne des données mockées en attendant l'implémentation backend
+        return {
+            success: true,
+            data: []
+        };
+    }
+
+    async getPropertiesReport(params: { period: string; start_date?: string; end_date?: string }) {
+        return {
+            success: true,
+            data: []
+        };
+    }
+
+    async getUsersReport(params: { period: string; start_date?: string; end_date?: string }) {
+        return {
+            success: true,
+            data: []
+        };
+    }
+
+    async exportReport(period: string, format: string, dates?: { start_date?: string; end_date?: string }) {
+        const response = await v1Api.post(`/admin/reports/export/${format}`, {
+            period,
+            ...dates
+        }, { responseType: 'blob' });
+        return response.data;
+    }
 }
+
+
 
 export default new AdminService();
