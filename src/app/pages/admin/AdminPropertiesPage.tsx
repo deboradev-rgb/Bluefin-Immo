@@ -1,21 +1,25 @@
 // src/app/pages/admin/AdminPropertiesPage.tsx
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Home, User, MapPin, Calendar, 
   CheckCircle, XCircle, Eye, 
-  Wifi, Wind, Zap, Droplet, Shield, Users, Search,
-  ExternalLink, X
+  Wifi, Wind, Zap, Droplet, Users, Search,
+  X, Star
 } from 'lucide-react';
 import adminService from '../../../services/admin.service';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 
-// ✅ UNE SEULE FONCTION getImageUrl (pas de doublon)
+// ✅ Fonctions utilitaires
 const getImageUrl = (photo: any, propertyId?: number): string => {
   if (!photo) return '/placeholder.jpg';
   
-  // ✅ NOUVELLE LOGIQUE : Utiliser le chemin direct du serveur de fichiers
-  // Extraire le nom du fichier depuis photo_path ou photo_url
+  if (typeof photo === 'string') {
+    if (photo.startsWith('http')) return photo;
+    return '/placeholder.jpg';
+  }
+  
   let filename = '';
   let propId = propertyId || photo.property_id;
   
@@ -23,37 +27,29 @@ const getImageUrl = (photo: any, propertyId?: number): string => {
     filename = photo.photo_path.split('/').pop() || '';
   } else if (photo.photo_url) {
     filename = photo.photo_url.split('/').pop() || '';
+  } else if (photo.url) {
+    filename = photo.url.split('/').pop() || '';
   }
   
-  // Si on a un ID de propriété et un nom de fichier, construire l'URL correcte
   if (propId && filename) {
-    const correctUrl = `https://srv2197-files.hstgr.io/28a0f068e12622a7/files/public_html/api/public/storage/properties/${propId}/${filename}`;
-    console.log('✅ URL construite:', correctUrl);
-    return correctUrl;
+    return `https://api.bluefin-immo.com/api/property-image/${propId}/${filename}`;
   }
   
-  // Fallback: utiliser full_url si disponible
-  if (photo.full_url) {
-    console.log('⚠️ Fallback full_url:', photo.full_url);
+  if (photo.full_url && photo.full_url.startsWith('http')) {
     return photo.full_url;
   }
   
-  // Dernier fallback
-  if (photo.photo_url) {
-    console.log('⚠️ Fallback photo_url:', photo.photo_url);
+  if (photo.photo_url && photo.photo_url.startsWith('http')) {
     return photo.photo_url;
   }
   
-  console.log('❌ Aucune image trouvée');
   return '/placeholder.jpg';
 };
-// ✅ UNE SEULE FONCTION getPropertyImage
 
 const getPropertyImage = (property: any): string => {
   if (!property) return '/placeholder.jpg';
   
   if (property.photos && property.photos.length > 0) {
-    // ✅ Passer l'ID de la propriété à getImageUrl
     return getImageUrl(property.photos[0], property.id);
   }
   
@@ -61,60 +57,26 @@ const getPropertyImage = (property: any): string => {
     return getImageUrl(property.cover_photo, property.id);
   }
   
-  if (property.image_url) {
-    return getImageUrl(property.image_url, property.id);
-  }
-  
   return '/placeholder.jpg';
 };
 
-// Modal d'aperçu d'image simple
-const ImagePreviewModal = ({ images, currentIndex, onClose }: { images: string[]; currentIndex: number; onClose: () => void }) => {
-  const [index, setIndex] = useState(currentIndex);
-
-  const prevImage = () => setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-  const nextImage = () => setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-
-  if (!images.length) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={onClose}>
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition"
-      >
-        <X className="w-6 h-6" />
-      </button>
-      {images.length > 1 && (
-        <>
-          <button
-            onClick={(e) => { e.stopPropagation(); prevImage(); }}
-            className="absolute left-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition"
-          >
-            ◀
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); nextImage(); }}
-            className="absolute right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition"
-          >
-            ▶
-          </button>
-        </>
-      )}
-      <img
-        src={images[index]}
-        alt={`Image ${index + 1}`}
-        className="max-w-[90vw] max-h-[90vh] object-contain"
-        onClick={(e) => e.stopPropagation()}
-        onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
-      />
-      <div className="absolute bottom-4 left-0 right-0 text-center text-white text-sm">
-        {index + 1} / {images.length}
-      </div>
-    </div>
-  );
+const getAllPropertyImages = (property: any): string[] => {
+  const images: string[] = [];
+  if (!property) return images;
+  
+  if (property.photos && Array.isArray(property.photos)) {
+    for (const photo of property.photos) {
+      const url = getImageUrl(photo, property.id);
+      if (url && url !== '/placeholder.jpg') {
+        images.push(url);
+      }
+    }
+  }
+  
+  return images;
 };
 
+// ✅ Composant principal
 export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
@@ -128,43 +90,25 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
   });
   const queryClient = useQueryClient();
 
-  // ✅ Extraction des propriétés
-  const getProperties = () => {
-    if (!data) return [];
-    if (data?.data?.data && Array.isArray(data.data.data)) return data.data.data;
-    if (data?.data && Array.isArray(data.data)) return data.data;
-    if (Array.isArray(data)) return data;
-    console.warn('Structure inattendue:', data);
-    return [];
-  };
-  
-  const getStats = () => data?.stats || { total_pending: 0, pending_today: 0 };
-  
-  const properties = getProperties();
-  const stats = getStats();
+  const properties = data?.data?.data || data?.data || [];
+  const stats = data?.stats || { total_pending: 0, pending_today: 0 };
 
-  // ✅ Debug logs - APRÈS la déclaration de properties
-  console.log('🔍 Données de la première propriété:', properties[0]);
-  console.log('🔍 Photos de la première propriété:', properties[0]?.photos);
-  console.log('🔍 Photo URL brute:', properties[0]?.photos?.[0]?.photo_url);
-  console.log('🔍 Photo path brute:', properties[0]?.photos?.[0]?.photo_path);
-
-  console.log('🔍 Image de la première propriété:', getPropertyImage(properties[0]));
-
-  
-
+  // ✅ Mutation pour approuver
   const approveMutation = useMutation({
-    mutationFn: ({ id, notes, featured }: { id: number; notes?: string; featured?: boolean }) =>
-      adminService.approveProperty(id, notes, featured),
+    mutationFn: ({ id, notes, featured, isHotelPromoted }: { id: number; notes?: string; featured?: boolean; isHotelPromoted?: boolean }) =>
+      adminService.approveProperty(id, notes, featured, isHotelPromoted),
     onSuccess: () => {
       toast.success('Propriété approuvée avec succès');
       queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
       setSelectedProperty(null);
       refetch();
     },
-    onError: () => toast.error('Erreur lors de l’approbation'),
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de l’approbation');
+    },
   });
 
+  // ✅ Mutation pour rejeter
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) =>
       adminService.rejectProperty(id, reason),
@@ -174,21 +118,36 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
       setSelectedProperty(null);
       refetch();
     },
-    onError: () => toast.error('Erreur lors du rejet'),
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors du rejet');
+    },
   });
 
-  if (isLoading) return <LoadingSkeleton />;
-  
-  const filteredProperties = properties.filter((property: any) => {
-    return searchTerm === '' || 
-      property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      property.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      property.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+  // ✅ Mutation pour promouvoir en hôtel
+  const promoteToHotelMutation = useMutation({
+    mutationFn: ({ id, isHotelPromoted }: { id: number; isHotelPromoted: boolean }) =>
+      adminService.toggleHotelPromotion(id, isHotelPromoted),
+    onSuccess: (_, variables) => {
+      toast.success(variables.isHotelPromoted ? '⭐ Propriété promue en hôtel' : '🏨 Propriété retirée des hôtels');
+      queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
+      refetch();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la promotion');
+    },
   });
 
+  // ✅ Handlers
   const handleApprove = (property: any) => {
     const notes = prompt("Ajouter une note (optionnelle) :");
-    approveMutation.mutate({ id: property.id, notes: notes || undefined, featured: false });
+    const featured = confirm("Mettre cette propriété à la une ?");
+    const isHotelPromoted = confirm("Mettre cette propriété dans la section hôtels ?");
+    approveMutation.mutate({ 
+      id: property.id, 
+      notes: notes || undefined, 
+      featured,
+      isHotelPromoted 
+    });
   };
 
   const handleReject = (property: any) => {
@@ -200,10 +159,28 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
     }
   };
 
+  const handlePromoteToHotel = (property: any) => {
+    console.log('🔍 Promotion en cours pour:', property.id, property.title);
+    const newStatus = !property.is_hotel_promoted;
+    promoteToHotelMutation.mutate({ 
+      id: property.id, 
+      isHotelPromoted: newStatus 
+    });
+  };
+
   const openImagePreview = (images: string[], index: number) => {
     setPreviewImages(images);
     setPreviewIndex(index);
   };
+
+  if (isLoading) return <LoadingSkeleton />;
+  
+  const filteredProperties = properties.filter((property: any) => {
+    return searchTerm === '' || 
+      property.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -248,7 +225,7 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
               onView={() => setSelectedProperty(property)}
               onApprove={() => handleApprove(property)}
               onReject={() => handleReject(property)}
-              onNavigate={onNavigate}
+              onPromoteToHotel={() => handlePromoteToHotel(property)}
               onOpenImagePreview={openImagePreview}
             />
           ))
@@ -261,7 +238,6 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
           onClose={() => setSelectedProperty(null)}
           onApprove={() => handleApprove(selectedProperty)}
           onReject={() => handleReject(selectedProperty)}
-          onNavigate={onNavigate}
           onOpenImagePreview={openImagePreview}
         />
       )}
@@ -277,11 +253,12 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
   );
 }
 
-// Composant de carte propriété
-const PropertyCard = ({ property, onView, onApprove, onReject, onOpenImagePreview }: any) => {
+// ✅ Composant PropertyCard
+const PropertyCard = ({ property, onView, onApprove, onReject, onPromoteToHotel, onOpenImagePreview }: any) => {
   const [expanded, setExpanded] = useState(false);
   const mainImage = getPropertyImage(property);
-  const imageUrls = property.photos?.map((p: any) => getImageUrl(p)) || [];
+  const imageUrls = getAllPropertyImages(property);
+  const isHotelPromoted = property.is_hotel_promoted || false;
 
   return (
     <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden">
@@ -299,7 +276,7 @@ const PropertyCard = ({ property, onView, onApprove, onReject, onOpenImagePrevie
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap justify-between items-start gap-2">
               <div>
-                <h3 className="font-semibold text-base sm:text-lg">{property.title}</h3>
+                <h3 className="font-semibold text-base sm:text-lg text-[#0F2940]">{property.title}</h3>
                 <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
                   <MapPin className="w-3 h-3" />
                   <span>{property.district}, {property.city}</span>
@@ -310,24 +287,50 @@ const PropertyCard = ({ property, onView, onApprove, onReject, onOpenImagePrevie
                 <p className="text-xs text-gray-400">/ nuit</p>
               </div>
             </div>
+            
+            {isHotelPromoted && (
+              <div className="mt-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#00c9a7]/10 text-[#00c9a7] text-xs rounded-full">
+                  <Star className="w-3 h-3" /> Promu en hôtel
+                </span>
+              </div>
+            )}
+            
             <p className={`text-sm text-gray-600 mt-2 ${expanded ? '' : 'line-clamp-2'}`}>{property.description}</p>
             {property.description?.length > 100 && (
               <button onClick={() => setExpanded(!expanded)} className="text-xs text-[#00c9a7] mt-1 hover:underline">
                 {expanded ? 'Voir moins' : 'Voir plus'}
               </button>
             )}
-            <div className="flex items-center gap-2 mt-3 text-xs text-gray-500">
-              <User className="w-3 h-3" />
-              <span>{property.user?.full_name || property.user?.email}</span>
+            
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-500">
+              <div className="flex items-center gap-1"><User className="w-3 h-3" /><span>{property.user?.full_name || property.user?.email}</span></div>
+              <div className="flex items-center gap-1"><Users className="w-3 h-3" /><span>{property.max_guests} personnes</span></div>
+              <div className="flex items-center gap-1"><Home className="w-3 h-3" /><span>{property.bedrooms} chambres</span></div>
             </div>
           </div>
+          
           <div className="flex lg:flex-col gap-2 justify-end shrink-0">
             <button onClick={onView} className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition">
               <Eye className="w-4 h-4" />
             </button>
+            
+            {!isHotelPromoted && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPromoteToHotel();
+                }} 
+                className="px-3 py-2 bg-[#00c9a7]/10 text-[#00c9a7] rounded-lg text-sm hover:bg-[#00c9a7]/20 transition"
+              >
+                <Star className="w-4 h-4" />
+              </button>
+            )}
+            
             <button onClick={onApprove} className="px-3 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 transition">
               <CheckCircle className="w-4 h-4" />
             </button>
+            
             <button onClick={onReject} className="px-3 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition">
               <XCircle className="w-4 h-4" />
             </button>
@@ -338,55 +341,68 @@ const PropertyCard = ({ property, onView, onApprove, onReject, onOpenImagePrevie
   );
 };
 
-// Modal de détail
+// ✅ ImagePreviewModal
+const ImagePreviewModal = ({ images, currentIndex, onClose }: { images: string[]; currentIndex: number; onClose: () => void }) => {
+  const [index, setIndex] = useState(currentIndex);
+  const prevImage = () => setIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
+  const nextImage = () => setIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
+
+  if (!images.length) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70 transition"><X className="w-6 h-6" /></button>
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); prevImage(); }} className="absolute left-4 text-white bg-black/50 rounded-full p-2">◀</button>
+          <button onClick={(e) => { e.stopPropagation(); nextImage(); }} className="absolute right-4 text-white bg-black/50 rounded-full p-2">▶</button>
+        </>
+      )}
+      <img src={images[index]} alt="Preview" className="max-w-[90vw] max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
+      <div className="absolute bottom-4 left-0 right-0 text-center text-white text-sm">{index + 1} / {images.length}</div>
+    </div>
+  );
+};
+
+// ✅ PropertyDetailModal
 const PropertyDetailModal = ({ property, onClose, onApprove, onReject, onOpenImagePreview }: any) => {
-  const imageUrls = property.photos?.map((p: any) => getImageUrl(p)) || [];
+  const imageUrls = getAllPropertyImages(property);
 
   return (
     <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-          <h3 className="font-bold text-lg">Détails de la propriété</h3>
+          <h3 className="font-bold text-lg">Détails</h3>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">✕</button>
         </div>
         <div className="p-5 space-y-5">
           {imageUrls.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {imageUrls.slice(0, 4).map((url: string, idx: number) => (
-                <img
-                  key={idx}
-                  src={url}
-                  className="w-full h-32 object-cover rounded-lg cursor-pointer"
-                  onClick={() => onOpenImagePreview(imageUrls, idx)}
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
-                />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {imageUrls.slice(0, 4).map((url, idx) => (
+                <img key={idx} src={url} className="w-full h-32 object-cover rounded-lg cursor-pointer" onClick={() => onOpenImagePreview(imageUrls, idx)} onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
               ))}
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
             <div><p className="text-gray-500 text-xs">Titre</p><p className="font-semibold">{property.title}</p></div>
-            <div><p className="text-gray-500 text-xs">Prix / nuit</p><p className="font-semibold text-[#00c9a7]">{property.price_per_night?.toLocaleString()} FCFA</p></div>
+            <div><p className="text-gray-500 text-xs">Prix</p><p className="font-semibold text-[#00c9a7]">{property.price_per_night?.toLocaleString()} FCFA</p></div>
             <div><p className="text-gray-500 text-xs">Localisation</p><p>{property.district}, {property.city}</p></div>
-            <div><p className="text-gray-500 text-xs">Capacité</p><p>{property.max_guests} voyageurs</p></div>
+            <div><p className="text-gray-500 text-xs">Capacité</p><p>{property.max_guests} pers.</p></div>
           </div>
           <div><p className="text-gray-500 text-xs">Description</p><p className="text-sm">{property.description}</p></div>
         </div>
         <div className="sticky bottom-0 bg-white p-4 border-t flex gap-3">
-          <button onClick={onApprove} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold hover:bg-green-600 transition">
-            <CheckCircle className="w-5 h-5 inline mr-2" /> Approuver
-          </button>
-          <button onClick={onReject} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-semibold hover:bg-red-600 transition">
-            <XCircle className="w-5 h-5 inline mr-2" /> Rejeter
-          </button>
+          <button onClick={onApprove} className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold">✓ Approuver</button>
+          <button onClick={onReject} className="flex-1 bg-red-500 text-white py-3 rounded-xl font-semibold">✗ Rejeter</button>
         </div>
       </div>
     </div>
   );
 };
 
-// StatCard
+// ✅ StatCard
 const StatCard = ({ icon, label, value, color }: any) => {
-  const colors: Record<string, string> = { yellow: 'from-yellow-500 to-yellow-600', blue: 'from-blue-500 to-blue-600', green: 'from-green-500 to-green-600', purple: 'from-purple-500 to-purple-600' };
+  const colors = { yellow: 'from-yellow-500 to-yellow-600', blue: 'from-blue-500 to-blue-600', green: 'from-green-500 to-green-600', purple: 'from-purple-500 to-purple-600' };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-3 text-white`}>
       <div className="flex justify-between items-center">
@@ -398,7 +414,7 @@ const StatCard = ({ icon, label, value, color }: any) => {
   );
 };
 
-// LoadingSkeleton
+// ✅ LoadingSkeleton
 const LoadingSkeleton = () => (
   <div className="p-3 sm:p-4 md:p-6">
     <div className="animate-pulse">

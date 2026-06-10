@@ -23,6 +23,8 @@ export interface PendingProperty {
   price_per_night: number;
   user: { full_name: string; phone: string };
   created_at: string;
+  photos?: any[];
+  cover_photo?: any;
 }
 
 export interface User {
@@ -79,7 +81,6 @@ export interface SummaryReport {
 
 class AdminService {
   // ==================== AUTHENTIFICATION ====================
-  // ✅ CORRECTION : Utiliser publicApi (sans /v1) pour le login
   async login(email: string, password: string) {
     const response = await publicApi.post('/admin/login', { email, password });
     return response.data;
@@ -112,36 +113,70 @@ class AdminService {
   }
 
   // ==================== MODÉRATION DES PROPRIÉTÉS ====================
-  // admin.service.ts
-async getPendingProperties() {
-  console.log('🔍 Appel API: /admin/properties/pending');
-  
-  const response = await v1Api.get('/admin/properties/pending');
-  
-  // ✅ LOG POUR VOIR LA STRUCTURE COMPLÈTE
-  console.log('✅ Réponse API complète:', response.data);
-  console.log('✅ Propriétés:', response.data?.data?.data || response.data?.data);
-  console.log('✅ Première propriété:', (response.data?.data?.data || response.data?.data)?.[0]);
-  console.log('✅ Photos de la première:', (response.data?.data?.data || response.data?.data)?.[0]?.photos);
-  
-  const payload = response.data;
-  const properties = Array.isArray(payload)
-    ? payload
-    : payload?.data ?? payload?.data?.data ?? [];
-  const stats = payload?.stats ?? payload?.data?.stats ?? { total_pending: 0, pending_today: 0 };
-  
-  return { data: properties, stats };
-}
+  async getPendingProperties() {
+    console.log('🔍 Appel API: /admin/properties/pending');
+    
+    try {
+      const response = await v1Api.get('/admin/properties/pending');
+      
+      console.log('✅ Réponse API complète:', response.data);
+      
+      // ✅ Extraction robuste des données
+      let properties: any[] = [];
+      let stats = { total_pending: 0, pending_today: 0 };
+      
+      if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        properties = response.data.data.data;
+        stats = response.data.stats || response.data.data?.stats || { total_pending: 0, pending_today: 0 };
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        properties = response.data.data;
+        stats = response.data.stats || { total_pending: 0, pending_today: 0 };
+      } else if (Array.isArray(response.data)) {
+        properties = response.data;
+      } else if (response.data?.data && typeof response.data.data === 'object') {
+        // Si data est un objet (comme une pagination)
+        if (response.data.data.data && Array.isArray(response.data.data.data)) {
+          properties = response.data.data.data;
+        }
+        stats = response.data.stats || response.data.data?.stats || { total_pending: 0, pending_today: 0 };
+      }
+      
+      console.log('✅ Propriétés extraites:', properties.length);
+      console.log('✅ Première propriété:', properties[0]);
+      console.log('✅ Photos de la première:', properties[0]?.photos);
+      
+      return { data: properties, stats };
+      
+    } catch (error) {
+      console.error('❌ Erreur getPendingProperties:', error);
+      return { data: [], stats: { total_pending: 0, pending_today: 0 } };
+    }
+  }
 
   async getPropertyForModeration(id: number) {
     const response = await v1Api.get(`/admin/properties/${id}/moderate`);
     return response.data;
   }
 
-  async approveProperty(id: number, notes?: string, featured?: boolean) {
-    const response = await v1Api.post(`/admin/properties/${id}/approve`, { notes, featured });
+// Met à jour la méthode approve pour inclure is_hotel_promoted
+async approveProperty(id: number, notes?: string, featured?: boolean, isHotelPromoted?: boolean) {
+    const response = await v1Api.post(`/admin/properties/${id}/approve`, { 
+        notes, 
+        featured,
+        is_hotel_promoted: isHotelPromoted 
+    });
     return response.data;
-  }
+}
+// services/admin.service.ts
+
+async toggleHotelPromotion(id: number, isHotelPromoted: boolean) {
+    const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
+        is_hotel_promoted: isHotelPromoted 
+    });
+    return response.data;
+}
+
+
 
   async rejectProperty(id: number, reason: string, notes?: string) {
     const response = await v1Api.post(`/admin/properties/${id}/reject`, { reason, notes });
@@ -260,7 +295,46 @@ async getPendingProperties() {
   }
 
   // ==================== RAPPORTS ====================
+  async getSummaryReport(params: { period: string; start_date?: string; end_date?: string }) {
+    console.log('📤 getSummaryReport - Paramètres:', params);
+    try {
+      const response = await v1Api.get('/admin/reports/summary', { params });
+      console.log('📥 getSummaryReport - Réponse:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getSummaryReport - Erreur:', error);
+      throw error;
+    }
+  }
 
+  async getPropertiesReport(params: { period: string; start_date?: string; end_date?: string }) {
+    console.log('📤 Appel API properties report');
+    const response = await v1Api.get('/admin/reports/properties', { params });
+    console.log('📥 Réponse properties:', response.data);
+    return response.data;
+  }
+
+  async getUsersReport(params: { period: string; start_date?: string; end_date?: string }) {
+    console.log('📤 Appel API users report');
+    const response = await v1Api.get('/admin/reports/users', { params });
+    console.log('📥 Réponse users:', response.data);
+    return response.data;
+  }
+
+  async getBookingsReport(params: { period: string; start_date?: string; end_date?: string }) {
+    console.log('📤 Appel API bookings report');
+    const response = await v1Api.get('/admin/reports/bookings', { params });
+    console.log('📥 Réponse bookings:', response.data);
+    return response.data;
+  }
+
+  async exportReport(period: string, format: string, dates?: { start_date?: string; end_date?: string }) {
+    const response = await v1Api.post(`/admin/reports/export/${format}`, {
+      period,
+      ...dates
+    }, { responseType: 'blob' });
+    return response.data;
+  }
 
   // ==================== PARAMÈTRES ====================
   async getSettings() {
@@ -273,43 +347,16 @@ async getPendingProperties() {
     return response.data;
   }
 
+  // services/admin.service.ts
 
-    async getSummaryReport(params: { period: string; start_date?: string; end_date?: string }) {
-        const response = await v1Api.get('/admin/reports/summary', { params });
-        return response.data;
-    }
-
-    async getBookingsReport(params: { period: string; start_date?: string; end_date?: string }) {
-        // Pour l'instant, on retourne des données mockées en attendant l'implémentation backend
-        return {
-            success: true,
-            data: []
-        };
-    }
-
-    async getPropertiesReport(params: { period: string; start_date?: string; end_date?: string }) {
-        return {
-            success: true,
-            data: []
-        };
-    }
-
-    async getUsersReport(params: { period: string; start_date?: string; end_date?: string }) {
-        return {
-            success: true,
-            data: []
-        };
-    }
-
-    async exportReport(period: string, format: string, dates?: { start_date?: string; end_date?: string }) {
-        const response = await v1Api.post(`/admin/reports/export/${format}`, {
-            period,
-            ...dates
-        }, { responseType: 'blob' });
-        return response.data;
-    }
+async updatePropertyPromotion(id: number, isHotelPromoted: boolean) {
+  const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
+    is_hotel_promoted: isHotelPromoted 
+  });
+  return response.data;
 }
 
 
+}
 
 export default new AdminService();

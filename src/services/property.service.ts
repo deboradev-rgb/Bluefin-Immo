@@ -17,6 +17,9 @@ export interface PropertyFilters {
     sort_by?: string;
     page?: number;
     per_page?: number;
+    search?: string;
+    city?: string;
+    district?: string;
 }
 
 export interface PropertyData {
@@ -45,7 +48,6 @@ class PropertyService {
                 params.append(key, value.toString());
             }
         });
-       // Request images (if API supports include parameter)
         if (!params.has('include')) {
             params.append('include', 'photos,cover_photo,photo_urls,images,media');
         }
@@ -54,41 +56,97 @@ class PropertyService {
     }
 
     async getById(id: number) {
-        // Ask API to include related image fields when possible
         const url = `/properties/${id}?include=photos,cover_photo,photo_urls,images,media`;
         const response = await v1Api.get(url);
         return response.data;
     }
 
-   // services/property.service.ts
-async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
-    try {
-        const response = await v1Api.post(`/properties/${propertyId}/availability`, {
-            check_in: checkIn,
-            check_out: checkOut
-        });
-        
-        // ✅ Normaliser la réponse pour avoir toujours la structure attendue
-        return {
-            data: {
-                available: response.data?.available ?? response.data?.data?.available ?? false,
-                message: response.data?.message || response.data?.data?.message || '',
-                price: response.data?.price || response.data?.data?.price || null
-            }
-        };
-    } catch (error: any) {
-        console.error('Erreur checkAvailability:', error);
-        
-        // ✅ En cas d'erreur, retourner un objet par défaut
-        return {
-            data: {
-                available: false,
-                message: error.response?.data?.message || 'Impossible de vérifier la disponibilité',
-                price: null
-            }
-        };
+    async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
+        try {
+            const response = await v1Api.post(`/properties/${propertyId}/availability`, {
+                check_in: checkIn,
+                check_out: checkOut
+            });
+            
+            return {
+                data: {
+                    available: response.data?.available ?? response.data?.data?.available ?? false,
+                    message: response.data?.message || response.data?.data?.message || '',
+                    price: response.data?.price || response.data?.data?.price || null
+                }
+            };
+        } catch (error: any) {
+            console.error('Erreur checkAvailability:', error);
+            return {
+                data: {
+                    available: false,
+                    message: error.response?.data?.message || 'Impossible de vérifier la disponibilité',
+                    price: null
+                }
+            };
+        }
     }
-}
+
+    // ✅ RECHERCHE AVANCÉE COMPLÈTE
+    async searchWithFilters(filters: {
+        destination?: string;
+        check_in?: string;
+        check_out?: string;
+        guests?: number;
+        min_price?: number;
+        max_price?: number;
+        property_type?: string;
+        bedrooms?: number;
+        min_rating?: number;
+        has_wifi?: boolean;
+        has_air_conditioning?: boolean;
+        has_generator?: boolean;
+        city?: string;
+        district?: string;
+    }) {
+        const params = new URLSearchParams();
+        
+        // Destination : ville ou quartier
+        if (filters.destination) {
+            params.append('search', filters.destination);
+            params.append('city', filters.destination);
+        }
+        if (filters.city) params.append('city', filters.city);
+        if (filters.district) params.append('district', filters.district);
+        
+        // Dates
+        if (filters.check_in) params.append('check_in', filters.check_in);
+        if (filters.check_out) params.append('check_out', filters.check_out);
+        
+        // Capacité
+        if (filters.guests) params.append('max_guests', filters.guests.toString());
+        if (filters.bedrooms) params.append('bedrooms', filters.bedrooms.toString());
+        
+        // Prix
+        if (filters.min_price) params.append('min_price', filters.min_price.toString());
+        if (filters.max_price) params.append('max_price', filters.max_price.toString());
+        
+        // Type et qualité
+        if (filters.property_type) params.append('property_type', filters.property_type);
+        if (filters.min_rating) params.append('min_rating', filters.min_rating.toString());
+        
+        // Équipements
+        if (filters.has_wifi) params.append('has_wifi', 'true');
+        if (filters.has_air_conditioning) params.append('has_air_conditioning', 'true');
+        if (filters.has_generator) params.append('has_generator', 'true');
+        
+        // Pagination et images
+        params.append('per_page', '50');
+        params.append('include', 'photos,cover_photo,photo_urls,images,media');
+        
+        try {
+            const response = await v1Api.get(`/properties/search?${params.toString()}`);
+            return response.data;
+        } catch (error) {
+            console.error('Erreur recherche avancée:', error);
+            return this.getAll(filters);
+        }
+    }
 
     async advancedSearch(filters: PropertyFilters) {
         const response = await v1Api.post('/search/advanced', filters);
@@ -143,7 +201,6 @@ async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
             let propertyId = null;
             let responseData = response.data;
             
-            // Nettoyage des commentaires PHP
             if (typeof responseData === 'string') {
                 const cleanedData = responseData.replace(/^\/\/.*\n/, '');
                 try {
@@ -153,7 +210,6 @@ async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
                 }
             }
             
-            // Extraction de l'ID
             propertyId = responseData.id || 
                         responseData.property?.id || 
                         responseData.data?.id || 

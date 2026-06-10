@@ -77,10 +77,10 @@ class HostService {
         return response.data;
     }
 
-    async getProperty(id: number) {
-        const response = await v1Api.get(`/host/properties/${id}`);
-        return response.data;
-    }
+   async getProperty(id: number) {
+    const response = await v1Api.get(`/host/properties/${id}`);
+    return response.data;
+}
 
     async updateProperty(id: number, data: Partial<HostPropertyData>) {
         const response = await v1Api.put(`/host/properties/${id}`, data);
@@ -153,6 +153,9 @@ class HostService {
     //     });
     //     return response.data;
     // }
+
+     // Dans host.service.ts - La méthode existe déjà (getProperty à la ligne 64)
+
 
     // ==================== RÉSERVATIONS HÔTE ====================
     async getHostBookings() {

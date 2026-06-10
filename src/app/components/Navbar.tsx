@@ -9,18 +9,34 @@ const destinationsList = [
   "Haie Vive", "Ganhi", "Akpakpa", "Menontin", "Cadjèhoun", "Jéricho", "Saint-Michel"
 ];
 
+interface Logement {
+  id: number;
+  title: string;
+  city: string;
+  price: number;
+  images: string[];
+}
+
 interface NavbarProps {
   onGoHome: () => void;
   onNavigate?: (route: Route) => void;
   currentPage?: string;
   onSearch?: (searchParams: { destination: string; checkIn: string; checkOut: string; guests: number }) => void;
+  onRealTimeSearch?: (city: string) => void;
+  allLogements?: Logement[];
 }
 
-export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarProps) {
+export function Navbar({ 
+  onGoHome, 
+  onNavigate, 
+  currentPage, 
+  onSearch, 
+  onRealTimeSearch,
+  allLogements = [] 
+}: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   
-  // États pour la barre de recherche
   const [destination, setDestination] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
@@ -31,11 +47,13 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
   const [activeTab, setActiveTab] = useState<"destination" | "dates" | "guests" | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   
   const searchRef = useRef<HTMLDivElement>(null);
   const destinationPopupRef = useRef<HTMLDivElement>(null);
   const datesPopupRef = useRef<HTMLDivElement>(null);
   const guestsPopupRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const navItems = [
     { name: 'Logement', icon: Home, route: { name: 'home' } as Route },
@@ -50,7 +68,46 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
     return false;
   };
 
-  // Fermer les popups au clic en dehors
+  // Recherche en temps réel
+  const handleRealTimeSearch = (searchTerm: string) => {
+    setDestination(searchTerm);
+    
+    if (searchTerm.trim() === "") {
+      setSearchSuggestions([]);
+      if (onRealTimeSearch) {
+        onRealTimeSearch("");
+      }
+      return;
+    }
+    
+    const matches = destinationsList.filter(city => 
+      city.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setSearchSuggestions(matches.slice(0, 5));
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      if (onRealTimeSearch && searchTerm.trim() !== "") {
+        onRealTimeSearch(searchTerm);
+      } else if (onRealTimeSearch && searchTerm.trim() === "") {
+        onRealTimeSearch("");
+      }
+    }, 300);
+  };
+
+  const selectSuggestion = (city: string) => {
+    setDestination(city);
+    setSearchSuggestions([]);
+    setActiveTab(null);
+    
+    if (onRealTimeSearch) {
+      onRealTimeSearch(city);
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (activeTab === "destination" && destinationPopupRef.current && !destinationPopupRef.current.contains(event.target as Node)) {
@@ -66,6 +123,14 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeTab]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const guestLabel = () => {
     const totalGuests = adults + children;
@@ -95,7 +160,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
     return "Quand ?";
   };
 
-  // Fonctions calendrier
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -163,7 +227,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
 
   const days = getDaysInMonth(currentMonth);
 
-  // Fonction de recherche
+  // ✅ RECHERCHE COMPLÈTE AVEC DATES
   const handleSearch = () => {
     if (isSearching) return;
     
@@ -178,10 +242,14 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
       guests: totalGuests > 0 ? totalGuests : 1
     };
     
-    console.log('🔍 Recherche en cours:', searchParams);
+    console.log('🔍 Recherche complète:', searchParams);
     
     if (onSearch) {
       onSearch(searchParams);
+    }
+    
+    if (onRealTimeSearch && destination) {
+      onRealTimeSearch(destination);
     }
     
     setActiveTab(null);
@@ -210,6 +278,10 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
       onSearch(searchParams);
     }
     
+    if (onRealTimeSearch && destination) {
+      onRealTimeSearch(destination);
+    }
+    
     setMobileSearchActive(false);
     
     setTimeout(() => {
@@ -223,7 +295,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
         
         {/* Première ligne - Logo et navigation */}
         <div className="flex items-center justify-between gap-4">
-          {/* Logo */}
           <button onClick={onGoHome} className="flex items-center gap-3 flex-shrink-0 group">
             <img src={Logo} alt="Logo" className="w-10 h-10 lg:w-12 lg:h-12 object-contain rounded-xl shadow-md group-hover:shadow-lg transition-all" />
             <div className="hidden sm:block">
@@ -300,29 +371,52 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                           <X className="w-4 h-4" />
                         </button>
                       </div>
-                      <input
-                        type="text"
-                        placeholder="Rechercher une destination au Bénin"
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                        value={destination}
-                        onChange={(e) => setDestination(e.target.value)}
-                        autoFocus
-                      />
-                      <div className="mt-4 space-y-1 max-h-64 overflow-y-auto">
-                        <div className="text-xs font-semibold text-gray-500 mb-2">Destinations populaires</div>
-                        {destinationsList
-                          .filter(place => place.toLowerCase().includes(destination.toLowerCase()))
-                          .slice(0, 10)
-                          .map((place) => (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Rechercher une destination au Bénin"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                          value={destination}
+                          onChange={(e) => handleRealTimeSearch(e.target.value)}
+                          autoFocus
+                        />
+                        {destination && searchSuggestions.length === 0 && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="animate-pulse text-xs text-gray-400">Recherche...</div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {searchSuggestions.length > 0 && (
+                        <div className="mt-4 space-y-1 max-h-64 overflow-y-auto">
+                          <div className="text-xs font-semibold text-gray-500 mb-2">Villes trouvées</div>
+                          {searchSuggestions.map((place) => (
                             <button
                               key={place}
-                              onClick={() => { setDestination(place); setActiveTab(null); }}
+                              onClick={() => selectSuggestion(place)}
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+                            >
+                              <MapPin className="w-4 h-4 text-[#00c9a7]" />
+                              <span>{place}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {!destination && (
+                        <div className="mt-4 space-y-1 max-h-64 overflow-y-auto">
+                          <div className="text-xs font-semibold text-gray-500 mb-2">Destinations populaires</div>
+                          {destinationsList.slice(0, 10).map((place) => (
+                            <button
+                              key={place}
+                              onClick={() => selectSuggestion(place)}
                               className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm"
                             >
                               {place}
                             </button>
                           ))}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -343,7 +437,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                   </div>
                 </button>
                 
-                {/* Popup Dates - Calendrier */}
                 {activeTab === "dates" && (
                   <div ref={datesPopupRef} className="absolute top-full left-0 mt-2 w-[640px] bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
                     <div className="p-5">
@@ -354,7 +447,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                         </button>
                       </div>
                       
-                      {/* Navigation mois */}
                       <div className="flex items-center justify-between mb-4">
                         <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100">
                           <ChevronLeft className="w-5 h-5" />
@@ -367,14 +459,12 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                         </button>
                       </div>
                       
-                      {/* Jours de la semaine */}
                       <div className="grid grid-cols-7 gap-1 mb-2">
                         {weekDays.map(day => (
                           <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">{day}</div>
                         ))}
                       </div>
                       
-                      {/* Jours du mois */}
                       <div className="grid grid-cols-7 gap-1">
                         {days.map((day, index) => {
                           const isSelected = isDateSelected(day.date);
@@ -401,7 +491,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                         })}
                       </div>
                       
-                      {/* Boutons d'action */}
                       <div className="mt-5 pt-4 border-t border-gray-100 flex justify-between">
                         <button 
                           onClick={() => { setCheckIn(""); setCheckOut(""); }}
@@ -423,7 +512,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
 
               <div className="w-px h-8 bg-gray-200"></div>
 
-              {/* Bouton Voyageurs - Version complète avec bébés et animaux */}
+              {/* Bouton Voyageurs */}
               <div className="relative flex-1">
                 <button
                   onClick={() => setActiveTab(activeTab === "guests" ? null : "guests")}
@@ -436,7 +525,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                   </div>
                 </button>
                 
-                {/* Popup Voyageurs - Version complète */}
                 {activeTab === "guests" && (
                   <div ref={guestsPopupRef} className="absolute top-full right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 z-50">
                     <div className="p-5">
@@ -448,53 +536,38 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                       </div>
                       
                       <div className="space-y-5">
-                        {/* Adultes */}
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-sm">Adultes</p>
                             <p className="text-xs text-gray-500">13 ans et plus</p>
                           </div>
                           <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setAdults(Math.max(1, adults - 1))} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setAdults(Math.max(1, adults - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="w-8 text-center text-base font-medium">{adults}</span>
-                            <button 
-                              onClick={() => setAdults(adults + 1)} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setAdults(adults + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
                         
-                        {/* Enfants */}
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-sm">Enfants</p>
                             <p className="text-xs text-gray-500">De 2 à 12 ans</p>
                           </div>
                           <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setChildren(Math.max(0, children - 1))} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setChildren(Math.max(0, children - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="w-8 text-center text-base font-medium">{children}</span>
-                            <button 
-                              onClick={() => setChildren(children + 1)} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setChildren(children + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
                         
-                        {/* Bébés */}
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-sm flex items-center gap-2">
@@ -504,23 +577,16 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                             <p className="text-xs text-gray-500">Moins de 2 ans</p>
                           </div>
                           <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setBabies(Math.max(0, babies - 1))} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setBabies(Math.max(0, babies - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="w-8 text-center text-base font-medium">{babies}</span>
-                            <button 
-                              onClick={() => setBabies(babies + 1)} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setBabies(babies + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
                         
-                        {/* Animaux domestiques */}
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-sm flex items-center gap-2">
@@ -530,24 +596,17 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                             <p className="text-xs text-gray-500">Vous voyagez avec un animal ?</p>
                           </div>
                           <div className="flex items-center gap-4">
-                            <button 
-                              onClick={() => setPets(Math.max(0, pets - 1))} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setPets(Math.max(0, pets - 1))} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="w-8 text-center text-base font-medium">{pets}</span>
-                            <button 
-                              onClick={() => setPets(pets + 1)} 
-                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition"
-                            >
+                            <button onClick={() => setPets(pets + 1)} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] hover:bg-[#00c9a7]/5 transition">
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
                       </div>
                       
-                      {/* Note informative */}
                       <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-start gap-2">
                         <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
                         <p className="text-xs text-blue-700">
@@ -556,10 +615,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                       </div>
                       
                       <div className="mt-4 pt-3 border-t border-gray-100">
-                        <button 
-                          onClick={() => setActiveTab(null)} 
-                          className="w-full bg-[#00c9a7] text-white py-2.5 rounded-lg font-medium hover:bg-[#00b396] transition"
-                        >
+                        <button onClick={() => setActiveTab(null)} className="w-full bg-[#00c9a7] text-white py-2.5 rounded-lg font-medium hover:bg-[#00b396] transition">
                           Valider
                         </button>
                       </div>
@@ -582,7 +638,7 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
         </div>
       </div>
 
-      {/* Mobile Search Modal - Version complète */}
+      {/* Mobile Search Modal */}
       {mobileSearchActive && (
         <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
           <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center justify-between">
@@ -594,7 +650,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
           </div>
           
           <div className="p-4 space-y-5 pb-20">
-            {/* Destination */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Destination</label>
               <div className="relative">
@@ -602,31 +657,44 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
                 <input
                   type="text"
                   value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                  onChange={(e) => handleRealTimeSearch(e.target.value)}
                   placeholder="Où allez-vous ?"
                   className="w-full pl-9 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7]"
                   autoFocus
                 />
               </div>
-              {destination && (
+              
+              {searchSuggestions.length > 0 && (
                 <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
-                  {destinationsList
-                    .filter(place => place.toLowerCase().includes(destination.toLowerCase()))
-                    .slice(0, 8)
-                    .map((place) => (
-                      <button
-                        key={place}
-                        onClick={() => setDestination(place)}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm"
-                      >
-                        {place}
-                      </button>
-                    ))}
+                  {searchSuggestions.map((place) => (
+                    <button
+                      key={place}
+                      onClick={() => selectSuggestion(place)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm flex items-center gap-2"
+                    >
+                      <MapPin className="w-4 h-4 text-[#00c9a7]" />
+                      <span>{place}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {!destination && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-xs text-gray-500 mt-2">Destinations populaires</p>
+                  {destinationsList.slice(0, 5).map((place) => (
+                    <button
+                      key={place}
+                      onClick={() => selectSuggestion(place)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 text-sm"
+                    >
+                      {place}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Dates */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Dates</label>
               <div className="grid grid-cols-2 gap-3">
@@ -655,7 +723,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
               </div>
             </div>
 
-            {/* Voyageurs - Version complète sur mobile */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Voyageurs</label>
               <div className="space-y-4 bg-gray-50 rounded-xl p-4">
@@ -712,7 +779,6 @@ export function Navbar({ onGoHome, onNavigate, currentPage, onSearch }: NavbarPr
               </div>
             </div>
 
-            {/* Bouton Rechercher */}
             <button onClick={handleMobileSearch} disabled={isSearching} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3.5 rounded-xl font-semibold shadow-lg disabled:opacity-50">
               {isSearching ? 'Recherche...' : 'Rechercher'}
             </button>

@@ -131,14 +131,13 @@ function AppContent() {
     return () => window.removeEventListener('authChange', handleAuthChange);
   }, [isAuthenticated, user]);
 
-  // ✅ Écouter les données de réservation temporaire (CORRIGÉ - useEffect indépendant)
+  // ✅ Écouter les données de réservation temporaire
   useEffect(() => {
     const handleBookingData = (event: CustomEvent) => {
       const data = event.detail;
       console.log('📦 Événement booking-data-available reçu:', data);
       
       if (data && data.propertyId) {
-        // Rediriger vers la page de paiement
         const params = new URLSearchParams({
           check_in: data.checkIn,
           check_out: data.checkOut,
@@ -244,14 +243,21 @@ function AppContent() {
   }
 
   // Routes publiques et protégées classiques
+  // ✅ LE NAVBAR N'EST PLUS AFFICHÉ POUR LA PAGE HOME
+  // Sur la page home, le Navbar est déjà inclus dans HomePage
+  const showNavbar = route.name !== 'home';
+
   return (
     <div className="min-h-screen bg-white">
-      <Navbar
-        onOpenSearch={() => navigate({ name: 'search-logements' })}
-        onGoHome={() => navigate({ name: 'home' })}
-        onNavigate={navigate}
-        currentPage={route.name}
-      />
+      {/* ✅ Navbar affiché seulement sur les pages autres que home */}
+      {showNavbar && (
+        <Navbar
+          onOpenSearch={() => navigate({ name: 'search-logements' })}
+          onGoHome={() => navigate({ name: 'home' })}
+          onNavigate={navigate}
+          currentPage={route.name}
+        />
+      )}
 
       <WhatsAppButton />
 

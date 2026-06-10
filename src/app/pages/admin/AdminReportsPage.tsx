@@ -100,43 +100,43 @@ export function AdminReportsPage() {
 
   // ✅ Fonctions pour ouvrir les modales
   const openPropertiesModal = async () => {
-    console.log('🔍 Ouverture modal propriétés');
+    console.log(' Ouverture modal propriétés');
     setModalTitle('Liste des propriétés');
     setShowPropertiesModal(true);
     try {
       const result = await refetchProperties();
-      console.log('📊 Données propriétés:', result.data);
+      console.log(' Données propriétés:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement propriétés:', error);
+      console.error(' Erreur chargement propriétés:', error);
       setModalData([]);
     }
   };
 
   const openUsersModal = async () => {
-    console.log('🔍 Ouverture modal utilisateurs');
+    console.log(' Ouverture modal utilisateurs');
     setModalTitle('Liste des utilisateurs');
     setShowUsersModal(true);
     try {
       const result = await refetchUsers();
-      console.log('📊 Données utilisateurs:', result.data);
+      console.log('Données utilisateurs:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement utilisateurs:', error);
+      console.error(' Erreur chargement utilisateurs:', error);
       setModalData([]);
     }
   };
 
   const openBookingsModal = async () => {
-    console.log('🔍 Ouverture modal réservations');
+    console.log(' Ouverture modal réservations');
     setModalTitle('Liste des réservations');
     setShowBookingsModal(true);
     try {
       const result = await refetchBookings();
-      console.log('📊 Données réservations:', result.data);
+      console.log(' Données réservations:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement réservations:', error);
+      console.error(' Erreur chargement réservations:', error);
       setModalData([]);
     }
   };
@@ -490,7 +490,7 @@ const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewPro
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">📈 Aujourd'hui</h4>
+        <h4 className="font-semibold text-sm mb-3"> Aujourd'hui</h4>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between"><span className="text-gray-500">Nouveaux utilisateurs</span><span className="font-semibold">{report.new_users || 0}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Nouvelles propriétés</span><span className="font-semibold">{report.new_properties || 0}</span></div>
@@ -499,7 +499,7 @@ const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewPro
         </div>
       </div>
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">🏆 Total général</h4>
+        <h4 className="font-semibold text-sm mb-3"> Total général</h4>
         <div className="space-y-2 text-sm">
           <button onClick={() => onViewUsers?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
             <span className="text-gray-500">Total utilisateurs</span><span className="font-semibold">{report.total_users || 0}</span>
@@ -571,7 +571,7 @@ const FinancialTab = ({ report, chartData }: any) => (
       </div>
     </div>
     <div className="bg-white rounded-xl p-5 shadow-sm">
-      <h3 className="font-semibold text-base mb-4">📈 Évolution quotidienne</h3>
+      <h3 className="font-semibold text-base mb-4">Évolution quotidienne</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />

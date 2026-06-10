@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo   } from 'react';
+import React, { useState, useEffect, useRef, useMemo ,useCallback   } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation  } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { FeatureCard } from './components/FeatureCard';
 import { Hero } from './components/Hero';
 import { ListingCard } from './components/ListingCard';
 import { ListingDetail } from './components/ListingDetail';
+import { Navbar } from './components/Navbar';
 import { useFavorites } from './hooks/useFavorites';
 import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
 // import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
@@ -40,7 +41,7 @@ import {
   DollarSign,ArrowUp ,Activity ,Wallet ,Ban ,
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
   Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,
-  Settings,  Calendar as CalendarIcon, 
+  Settings,  Calendar as CalendarIcon, Plus,
   Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
   AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
   X as CloseIcon, ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
@@ -2323,125 +2324,71 @@ const filters = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés', 
 const filtersList = ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'];
 
 // Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
-// Helper pour mapper une propriété de l'API vers le format attendu par PropertyCard
+
+
+// Cache pour stocker les résultats de mapProperty
+const mappedPropertiesCache = new Map();
+
+// pages.tsx - Version corrigée de mapProperty
+
 const mapProperty = (p: any) => {
-  console.log('Données brutes de la propriété:', p);
-  
-  // ✅ FONCTION AMÉLIORÉE POUR RÉCUPÉRER LA PREMIÈRE PHOTO
-  const getFirstImage = () => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-    
-    const normalizeUrl = (url: string): string => {
-      if (!url) return '';
-      if (url.startsWith('http')) return url;
-      if (url.startsWith('/')) return `${API_URL}${url}`;
-      return `${API_URL}/${url}`;
-    };
-    
-    // 1. Vérifier cover_photo (si c'est un objet)
-    if (p.cover_photo && typeof p.cover_photo === 'object') {
-      const url = p.cover_photo.photo_url || p.cover_photo.url || p.cover_photo.path;
-      if (url) return normalizeUrl(url);
-    }
-    
-    // 2. Vérifier cover_photo (si c'est une string)
-    if (p.cover_photo && typeof p.cover_photo === 'string') {
-      return normalizeUrl(p.cover_photo);
-    }
-    
-    // 3. Vérifier photos array
-    if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
-      const firstPhoto = p.photos[0];
-      if (typeof firstPhoto === 'string') {
-        return normalizeUrl(firstPhoto);
-      }
-      if (firstPhoto && typeof firstPhoto === 'object') {
-        const url = firstPhoto.photo_url || firstPhoto.url || firstPhoto.path || firstPhoto.file?.url;
-        if (url) return normalizeUrl(url);
-      }
-    }
-    
-    // 4. Vérifier photo_urls array
-    if (p.photo_urls && Array.isArray(p.photo_urls) && p.photo_urls.length > 0) {
-      return normalizeUrl(p.photo_urls[0]);
-    }
-    
-    // 5. Vérifier images array
-    if (p.images && Array.isArray(p.images) && p.images.length > 0) {
-      return normalizeUrl(p.images[0]);
-    }
-    
-    // 6. Vérifier les champs individuels
-    const singularFields = ['photo_url', 'image_url', 'image', 'image_path', 'photo_path'];
-    for (const field of singularFields) {
-      if (p[field]) {
-        return normalizeUrl(p[field]);
-      }
-    }
-    
-    console.warn('⚠️ Aucune image trouvée pour la propriété:', p.id, p.title);
-    return '/placeholder.jpg';
-  };
-  
-  // ✅ FONCTION POUR RÉCUPÉRER TOUTES LES IMAGES
   const getAllImages = (): string[] => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     const images: string[] = [];
     
-    const normalizeUrl = (url: string): string => {
-      if (!url) return '';
-      if (url.startsWith('http')) return url;
-      if (url.startsWith('/')) return `${API_URL}${url}`;
-      return `${API_URL}/${url}`;
-    };
-    
     const addImage = (url: string) => {
-      const normalized = normalizeUrl(url);
-      if (normalized && !images.includes(normalized) && images.length < 5) {
-        images.push(normalized);
+      if (!url) return;
+      
+      let cleanUrl = url;
+      
+      if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
+        const filename = cleanUrl.split('/').pop();
+        if (filename && p.id) {
+          cleanUrl = `https://api.bluefin-immo.com/api/property-image/${p.id}/${filename}`;
+        }
+      } else if (cleanUrl.startsWith('/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      } else if (cleanUrl.startsWith('/api/public/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      }
+      
+      if (!images.includes(cleanUrl) && !cleanUrl.includes('undefined')) {
+        images.push(cleanUrl);
       }
     };
     
-    // 1. Cover photo
-    if (p.cover_photo) {
-      if (typeof p.cover_photo === 'object') {
-        addImage(p.cover_photo.photo_url || p.cover_photo.url || p.cover_photo.path);
-      } else if (typeof p.cover_photo === 'string') {
-        addImage(p.cover_photo);
-      }
-    }
-    
-    // 2. Photos array
-    if (p.photos && Array.isArray(p.photos)) {
+    // Vérifier les photos
+    if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
       for (const photo of p.photos) {
-        if (images.length >= 5) break;
-        if (typeof photo === 'string') {
-          addImage(photo);
-        } else if (photo && typeof photo === 'object') {
-          addImage(photo.photo_url || photo.url || photo.path || photo.file?.url);
+        if (photo.photo_url) {
+          addImage(photo.photo_url);
+        } else if (photo.full_url) {
+          addImage(photo.full_url);
+        } else if (photo.photo_path) {
+          const filename = photo.photo_path.split('/').pop();
+          if (filename) {
+            addImage(`https://api.bluefin-immo.com/api/property-image/${p.id}/${filename}`);
+          }
         }
       }
     }
     
-    // 3. Photo URLs array
-    if (p.photo_urls && Array.isArray(p.photo_urls)) {
-      for (const url of p.photo_urls) {
-        if (images.length >= 5) break;
-        addImage(url);
+    // Vérifier cover_photo
+    if (p.cover_photo && typeof p.cover_photo === 'object') {
+      if (p.cover_photo.photo_url) {
+        addImage(p.cover_photo.photo_url);
+      } else if (p.cover_photo.full_url) {
+        addImage(p.cover_photo.full_url);
+      } else if (p.cover_photo.photo_path) {
+        const filename = p.cover_photo.photo_path.split('/').pop();
+        if (filename) {
+          addImage(`https://api.bluefin-immo.com/api/property-image/${p.id}/${filename}`);
+        }
       }
     }
     
-    // 4. Images array
-    if (p.images && Array.isArray(p.images)) {
-      for (const img of p.images) {
-        if (images.length >= 5) break;
-        addImage(img);
-      }
-    }
-    
-    // 5. Fallback
+    // Fallback
     if (images.length === 0) {
-      images.push('/placeholder.jpg');
+      images.push(`https://picsum.photos/seed/${p.id}/400/300`);
     }
     
     return images;
@@ -2450,109 +2397,248 @@ const mapProperty = (p: any) => {
   const allImages = getAllImages();
   const firstImage = allImages[0];
   
-  const rawPrice = p.price_per_night ?? p.price ?? 0;
-  const priceValue = Number(rawPrice) || 0;
-  const isAdminProperty = Boolean(
-    p.added_by_admin || p.is_admin || p.source === 'admin' || 
-    p.created_by === 'admin' || p.user?.user_type === 'admin' || 
-    p.host?.user_type === 'admin'
-  );
+  // ✅ Conversion des prix en FCFA et Euros
+  const XAF_TO_EUR = 0.0015; // 1 FCFA = 0.0015 EUR (environ 667 FCFA = 1 EUR)
+  
+  const priceFCFA = Number(p.price_per_night ?? p.price ?? 0);
+  const priceEuro = priceFCFA * XAF_TO_EUR;
   
   return {
     id: p.id,
-    title: p.title,
-    location: `${p.district || ''}, ${p.city || ''}`.replace(/^,\s/, ''),
-    price: priceValue,
-    priceNumber: priceValue,
-    priceDisplay: priceValue ? `${priceValue.toLocaleString()} FCFA` : '0 FCFA',
-    rating: isAdminProperty ? (p.average_rating || 0) : 0,
-    reviews: isAdminProperty ? (p.reviews_count || 0) : 0,
+    title: p.title || 'Logement sans titre',
+    description: p.description || '',
+    location: `${p.district || ''}${p.district && p.city ? ', ' : ''}${p.city || ''}`.replace(/^,\s/, '') || 'Bénin',
+    city: p.city || '',
+    district: p.district || '',
+    // ✅ Prix en FCFA
+    price: priceFCFA,
+    priceFCFA: priceFCFA,
+    priceDisplay: `${priceFCFA.toLocaleString()} FCFA`,
+    // ✅ Prix en Euros
+    priceEuro: priceEuro,
+    priceEuroDisplay: `≈ ${priceEuro.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`,
+    // ✅ Pour compatibilité avec l'ancien code
+    priceNumber: priceFCFA,
+    // ✅ Autres propriétés
+    rating: p.average_rating || p.rating || 4.5,
+    reviews: p.reviews_count || 0,
     images: allImages,
     image: firstImage,
-    beds: p.beds || 0,
-    baths: p.bathrooms || 0,
-    description: p.description,
-    type: p.property_type,
-    city: p.city,
-    district: p.district,
-    isAdminProperty,
-    host: p.user?.full_name || p.host?.full_name || `${p.user?.first_name || ''} ${p.user?.last_name || ''}`.trim() || 'Hôte vérifié',
-    hostImage: p.user?.avatar_url || p.host?.avatar_url || null,
-    hostId: p.user?.id || p.host?.id || null,
-    superhost: p.superhost || false,
-    property_type: p.property_type,
-    max_guests: p.max_guests || p.beds || 1,
+    bedrooms: p.bedrooms || 1,
+    beds: p.beds || 1,
+    bathrooms: p.bathrooms || 1,
+    maxGuests: p.max_guests || p.beds || 2,
+    property_type: p.property_type || 'appartement',
+    isVisible: p.status === 'active',
+    status: p.status,
+    has_wifi: p.has_wifi || false,
+    has_air_conditioning: p.has_air_conditioning || false,
+    has_generator: p.has_generator || false,
+    bluefin_certified: p.bluefin_certified || false,
   };
 };
-
 // Composant PropertyCard interne (identique à l'original mais utilisant les données mappées)
-const PropertyCard = ({ property, showDescription = false, onNavigate, isFavorite, toggleFavorite }: any) => {
-  const favHook = useFavorites();
-  const isFavFn = isFavorite || favHook.isFavorite;
-  const toggleFavFn = toggleFavorite || favHook.toggleFavorite;
+
+interface PropertyCardProps {
+  property: any;
+  showDescription?: boolean;
+  compact?: boolean;
+  onNavigate?: (route: any) => void;
+  isFavorite?: (id: number) => boolean;
+  toggleFavorite?: (property: any) => void;
+}
+
+export function PropertyCard({ 
+  property, 
+  showDescription = false, 
+  compact = false,
+  onNavigate,
+  isFavorite: propIsFavorite,
+  toggleFavorite: propToggleFavorite
+}: PropertyCardProps) {
+  const favoritesHook = useFavorites();
+  const isFavoriteFn = propIsFavorite || favoritesHook.isFavorite;
+  const toggleFavoriteFn = propToggleFavorite || favoritesHook.toggleFavorite;
+  const [imgError, setImgError] = useState(false);
+
+  if (!property) return null;
+
+  // ✅ Récupération de l'image - utilise les données qui fonctionnent
+  const imageUrl = !imgError && property.images?.[0] 
+    ? property.images[0] 
+    : property.image || `https://picsum.photos/seed/${property.id}/400/300`;
+
+  const handleCardClick = () => {
+    if (onNavigate && property.id) {
+      onNavigate({ name: 'listing', id: property.id.toString() });
+    }
+  };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleFavFn(property);
+    toggleFavoriteFn(property);
   };
 
+  const priceDisplay = property.priceDisplay || `${(property.price_per_night || property.price || 0).toLocaleString()} FCFA`;
+  const location = property.location || (property.district && property.city ? `${property.district}, ${property.city}` : (property.city || property.district || 'Bénin'));
+  const rating = property.rating || property.average_rating || 0;
+  const reviewCount = property.reviews || property.reviews_count || 0;
+  const bedCount = property.beds || property.bedrooms || 1;
+
   return (
-    <div className="group cursor-pointer" onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}>
-      <div className="relative overflow-hidden rounded-2xl">
+    <div 
+      className="group cursor-pointer bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300"
+      onClick={handleCardClick}
+    >
+      {/* Image container */}
+      <div className="relative overflow-hidden bg-gray-100 aspect-[4/3]">
         <img
-          src={property.images?.[0] || property.image || '/placeholder.jpg'}
-          alt={property.title}
-          className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+          src={imageUrl}
+          alt={property.title || 'Logement'}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          loading="lazy"
+          onError={() => setImgError(true)}
         />
+        
+        {/* Badge Bluefin Certifié */}
+        {property.bluefin_certified && (
+          <div className="absolute top-3 left-3 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium z-10">
+            ✓ Bluefin Certifié
+          </div>
+        )}
+        
+        {/* Bouton favori */}
         <button
           onClick={handleFavoriteClick}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/80 hover:bg-white transition-colors z-10 backdrop-blur-sm shadow-md"
+          className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-all duration-200 z-10 backdrop-blur-sm shadow-md hover:scale-110"
+          aria-label="Ajouter aux favoris"
         >
-          <Heart
+          <Heart 
             className={`w-5 h-5 transition-all duration-200 ${
-              isFavFn(property.id)
-                ? 'fill-red-500 text-red-500 scale-110'
-                : 'text-gray-700 hover:text-red-500'
-            }`}
+              isFavoriteFn(property.id) 
+                ? 'fill-red-500 text-red-500' 
+                : 'text-gray-600 hover:text-red-500'
+            }`} 
           />
         </button>
       </div>
-      <div className="mt-3">
+
+      {/* Contenu */}
+      <div className="p-4">
+        {/* Titre et localisation */}
         <div className="flex justify-between items-start gap-4">
-          <div>
-            <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
-            <p className="text-sm text-gray-500 mt-1">{property.location}</p>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-[#0F2940] text-base line-clamp-1 hover:text-blue-600 transition-colors">
+              {property.title || 'Logement sans titre'}
+            </h3>
+            <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
+              <MapPin className="w-3 h-3 flex-shrink-0" />
+              <span className="truncate">{location}</span>
+            </p>
           </div>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
-            <Star className="w-4 h-4 text-[#00c9a7] fill-current" />
-            <span className="font-medium text-[#0F2940]">{property.rating}</span>
-            <span>({property.reviews})</span>
-          </div>
+          
+          {/* Note */}
+          {rating > 0 && (
+            <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg flex-shrink-0">
+              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+              <span className="font-semibold text-sm">{rating.toFixed(1)}</span>
+              {reviewCount > 0 && (
+                <span className="text-xs text-gray-400">({reviewCount})</span>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Description (optionnel) */}
         {showDescription && property.description && (
-          <p className="text-sm text-gray-600 mt-2 line-clamp-2">{property.description}</p>
+          <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+            {property.description}
+          </p>
         )}
+
+        {/* Équipements clés */}
         <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
-          {property.beds > 0 && (
+          {bedCount > 0 && (
             <div className="flex items-center gap-1">
               <Bed className="w-4 h-4" />
-              <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+              <span>{bedCount} lit{bedCount > 1 ? 's' : ''}</span>
             </div>
           )}
-          {property.baths > 0 && (
+          {property.bathrooms > 0 && (
             <div className="flex items-center gap-1">
               <Bath className="w-4 h-4" />
-              <span>{property.baths} sdb</span>
+              <span>{property.bathrooms} sdb</span>
+            </div>
+          )}
+          {property.max_guests > 0 && (
+            <div className="flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              <span>{property.max_guests} pers.</span>
             </div>
           )}
         </div>
-        <p className="mt-3 font-semibold text-[#0F2940]">{property.priceDisplay}</p>
+
+        {/* Équipements spécifiques */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {property.has_wifi && (
+            <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+              <Wifi className="w-3 h-3" /> Wi-Fi
+            </span>
+          )}
+          {property.has_air_conditioning && (
+            <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+              <Wind className="w-3 h-3" /> Clim
+            </span>
+          )}
+          {property.has_generator && (
+            <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+              <Zap className="w-3 h-3" /> Groupe
+            </span>
+          )}
+        </div>
+
+      
+
+{/* Prix avec conversion Euro - Couleurs du site */}
+<div className="mt-3 pt-2 border-t border-gray-100">
+  <div className="flex items-baseline justify-between">
+    <div>
+      <span className="text-xl font-bold text-[#00c9a7]">{property.priceDisplay}</span>
+      <span className="text-sm text-gray-400"> / nuit</span>
+      {property.priceEuroDisplay && (
+        <div className="text-xs text-gray-400 mt-0.5">
+          {property.priceEuroDisplay}
+        </div>
+      )}
+    </div>
+    <button 
+      className="text-sm text-[#00c9a7] hover:text-[#0F2940] font-medium transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleCardClick();
+      }}
+    >
+      Voir détails →
+    </button>
+  </div>
+</div>
       </div>
     </div>
   );
-};
+}
 
+export default PropertyCard;
+
+
+// PropertyDetailModal.tsx
+
+interface PropertyDetailModalProps {
+  property: any;
+  onClose: () => void;
+  onReserve: (params: any) => void;
+  onChat?: (hostId: number) => void;
+  onNavigate?: (route: any) => void;
+}
 
 interface PropertyDetailModalBookingParams {
   checkIn: string;
@@ -2563,22 +2649,20 @@ interface PropertyDetailModalBookingParams {
   email: string;
   phone: string;
   address: string;
-  nationality: string;
-  idType: string;
-  idNumber: string;
   paymentOption: '50' | '100';
   totalAmount: number;
   paymentAmount: number;
 }
 
-
-interface PropertyDetailModalProps {
-  property: HotelProperty;
-  onClose: () => void;
-  onReserve: (bookingParams: PropertyDetailModalBookingParams) => void;
-  onChat?: (hostId: any) => void;
-  onNavigate?: (route: any) => void;
-}
+// Helper pour le formatage des prix en FCFA et EUR
+const formatCurrency = (amountFCFA: number) => {
+  const EUR_RATE = 0.0015;
+  const euro = amountFCFA * EUR_RATE;
+  return {
+    fCFA: amountFCFA.toLocaleString() + ' FCFA',
+    euro: '≈ ' + euro.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €'
+  };
+};
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
@@ -2592,17 +2676,19 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const { isAuthenticated, user } = useAuth();
   
-  // ✅ États pour la vérification de disponibilité
+  // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
   const [availabilityMessage, setAvailabilityMessage] = useState('');
   
-  // ✅ Récupérer les dates depuis l'URL
+  // États pour les modales
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
+  
+  // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlCheckIn = urlParams.get('check_in');
     if (urlCheckIn) return urlCheckIn;
-    
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   });
@@ -2611,13 +2697,12 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     const urlParams = new URLSearchParams(window.location.search);
     const urlCheckOut = urlParams.get('check_out');
     if (urlCheckOut) return urlCheckOut;
-    
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   });
   
-  // ✅ Types de voyageurs
+  // Types de voyageurs
   const [adults, setAdults] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const guests = urlParams.get('guests');
@@ -2636,15 +2721,11 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [nationality, setNationality] = useState('');
-  const [idType, setIdType] = useState('');
-  const [idNumber, setIdNumber] = useState('');
   const [paymentOption, setPaymentOption] = useState<'50' | '100'>('50');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const maxGuests = property.max_guests || 10;
 
-  // Calcul du nombre total de voyageurs
   const totalGuests = adults + children;
 
   const formatDisplayFromIso = (isoDate: string) => {
@@ -2653,808 +2734,412 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
- // Dans PropertyDetailModal.tsx
-const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
-    if (!checkInDate || !checkOutDate) return;
+  // ✅ Calcul des constantes AVANT le useEffect qui les utilise
+  const host = property.host || 'Hôte vérifié';
+  const hostId = property.hostId ?? property.id;
+  const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
+  const hostSince = property.hostSince || "1 an";
+  const superhost = property.superhost ?? true;
+  const responseRate = property.responseRate || 95;
+
+  // ✅ Fonction pour gérer la redirection si non connecté
+  const handleAuthenticatedAction = (action: () => void, intent: string) => {
+    if (!isAuthenticated) {
+      localStorage.setItem('redirect_intent', intent);
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      localStorage.setItem('redirect_property_title', property.title);
+      localStorage.setItem('redirect_property_location', property.location);
+      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: `redirect=${intent}&property=${property.id}` });
+      } else {
+        window.location.href = `/auth?redirect=${intent}&property=${property.id}`;
+      }
+    } else {
+      action();
+    }
+  };
+
+  // ✅ Vérifier si l'utilisateur vient d'être redirigé après connexion
+  useEffect(() => {
+    const redirectIntent = localStorage.getItem('redirect_intent');
+    const propertyId = localStorage.getItem('redirect_property_id');
     
+    if (isAuthenticated && redirectIntent === 'chat' && propertyId === property.id.toString()) {
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('redirect_property_title');
+      localStorage.removeItem('redirect_property_location');
+      localStorage.removeItem('redirect_property_price');
+      localStorage.removeItem('redirect_property_image');
+      
+      if (onChat && hostId) {
+        onNavigate?.({
+          name: 'messages',
+          id: 'inquiry',
+          search: `?property=${property.id}&host=${hostId}&auto=true`
+        });
+        onChat(hostId);
+      }
+    }
+  }, [isAuthenticated, property.id, hostId, onChat, onNavigate]);
+
+  const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
+    if (!checkInDate || !checkOutDate) return;
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
-    
     try {
         const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-        
-        // ✅ Vérifier la structure de la réponse
         const isAvailable = response?.data?.available === true;
-        
         if (isAvailable) {
             setAvailabilityStatus('available');
             setAvailabilityMessage('✓ Ces dates sont disponibles !');
         } else {
             setAvailabilityStatus('unavailable');
-            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles. Veuillez en sélectionner d\'autres.');
+            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles.');
         }
     } catch (error) {
-        console.error('Erreur vérification disponibilité:', error);
+        console.error('Erreur vérification:', error);
         setAvailabilityStatus('unavailable');
-        setAvailabilityMessage('❌ Impossible de vérifier la disponibilité. Veuillez réessayer.');
+        setAvailabilityMessage('❌ Impossible de vérifier la disponibilité.');
     } finally {
         setIsCheckingAvailability(false);
     }
-};
+  };
 
-  // ✅ Vérifier la disponibilité quand les dates changent
   useEffect(() => {
     if (checkIn && checkOut) {
-      const debounceTimer = setTimeout(() => {
-        checkAvailability(checkIn, checkOut);
-      }, 800);
-      
+      const debounceTimer = setTimeout(() => checkAvailability(checkIn, checkOut), 800);
       return () => clearTimeout(debounceTimer);
     }
   }, [checkIn, checkOut]);
 
-  const getPropertyImages = (property: HotelProperty): string[] => {
-    if (property.images && Array.isArray(property.images) && property.images.length > 0) {
-      return property.images;
-    }
-    
-    const baseImage = property.image;
-    const imageVariants = [
-      baseImage,
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80',
-      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80',
+  const getCancellationRules = () => {
+    return [
+      { label: 'Remboursement intégral', percentage: 100, color: 'green', icon: '✅', description: 'Annulez dans les 24h suivant votre réservation pour un remboursement complet.', deadlineText: 'dans les 24h suivant la réservation' },
+      { label: 'Remboursement partiel', percentage: 50, color: 'orange', icon: '⚠️', description: 'Annulez au moins 7 jours avant votre arrivée pour recevoir 50% du montant. Frais de service non remboursés.', deadlineText: 'au moins 7 jours avant l\'arrivée' },
+      { label: 'Aucun remboursement', percentage: 0, color: 'red', icon: '❌', description: 'Annulation moins de 7 jours avant l\'arrivée : aucun remboursement.', deadlineText: 'moins de 7 jours avant l\'arrivée' }
     ];
-    
+  };
+
+  const getPropertyImages = (property: any): string[] => {
+    if (property.images && Array.isArray(property.images) && property.images.length > 0) return property.images;
+    const baseImage = property.image;
+    const imageVariants = [baseImage, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80', 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80'];
     const uniqueImages = [...new Set(imageVariants)];
-    while (uniqueImages.length < 5) {
-      uniqueImages.push(baseImage);
-    }
+    while (uniqueImages.length < 5) uniqueImages.push(baseImage);
     return uniqueImages.slice(0, 5);
   };
 
   const images = getPropertyImages(property);
   const nightlyPrice = property.priceNumber || property.price || 0;
   
-  const host = property.host || 'Hôte vérifié';
-  const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
-  const hostSince = property.hostSince || "1 an";
-  const superhost = property.superhost ?? true;
-  const hostId = property.hostId ?? property.id;
-  const responseRate = property.responseRate || 95;
-  const responseTime = property.responseTime || "dans l'heure";
   const longDescription = property.longDescription || property.description;
-  const amenities = property.amenities || ["Wifi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
+  const amenities = property.amenities || ["Wi-Fi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
   const testimonials = [
     { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
     { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
-  const effectiveCheckInDate = new Date(checkIn);
-  const effectiveCheckOutDate = new Date(checkOut);
-  const nights = Math.max(1, Math.ceil((effectiveCheckOutDate.getTime() - effectiveCheckInDate.getTime()) / (1000 * 60 * 60 * 24)));
-
+  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
   const subtotal = nightlyPrice * nights;
-  const cleaningFee = 15000;
-  const serviceFee = 12000;
-  const total = subtotal + cleaningFee + serviceFee;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
   
-  const getPaymentAmount = () => {
-    if (paymentOption === '50') return Math.floor(total * 0.5);
-    return total;
-  };
+  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
+  const subtotalFormatted = formatCurrency(subtotal);
+  const serviceFeeFormatted = formatCurrency(serviceFee);
+  const totalFormatted = formatCurrency(total);
+  const payment50Formatted = formatCurrency(Math.floor(total * 0.5));
+  
+  const getPaymentAmount = () => paymentOption === '50' ? Math.floor(total * 0.5) : total;
 
   const validateStep = (step: number) => {
     const errors: Record<string, string> = {};
-    
     if (step === 1) {
       if (!fullName.trim()) errors.fullName = 'Nom complet requis';
       if (!email.trim()) errors.email = 'Email requis';
       else if (!/\S+@\S+\.\S+/.test(email)) errors.email = 'Email invalide';
       if (!phone.trim()) errors.phone = 'Téléphone requis';
-      if (!nationality) errors.nationality = 'Nationalité requise';
-      if (!idType) errors.idType = 'Type de pièce requis';
-      if (!idNumber.trim()) errors.idNumber = 'Numéro de pièce requis';
     }
-    
     if (step === 2) {
       if (!adults || adults < 1) errors.adults = 'Au moins 1 adulte requis';
       if (totalGuests > maxGuests) errors.guests = `Maximum ${maxGuests} voyageur${maxGuests > 1 ? 's' : ''}`;
     }
-    
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleNextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(currentStep + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handlePrevStep = () => {
-    setCurrentStep(currentStep - 1);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-   
-  const handleReserveClick = () => {
-    console.log('🖱️ Clic sur Réserver - Ouverture du formulaire');
-    setShowBookingForm(true);
-    setCurrentStep(1);
+  const handleNextStep = () => { if (validateStep(currentStep)) { setCurrentStep(currentStep + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  const handlePrevStep = () => { setCurrentStep(currentStep - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const handleReserveClick = () => { 
+    handleAuthenticatedAction(() => {
+      setShowBookingForm(true); 
+      setCurrentStep(1);
+    }, 'booking');
   };
   
   const handleConfirmReservation = () => {
     if (!validateStep(2)) return;
-    
-    // ✅ Re-vérifier la disponibilité avant confirmation
-    if (availabilityStatus !== 'available') {
-      setFormErrors({ general: 'Ce logement n\'est pas disponible pour les dates sélectionnées.' });
-      return;
-    }
-    
+    if (availabilityStatus !== 'available') { setFormErrors({ general: 'Ce logement n\'est pas disponible pour les dates sélectionnées.' }); return; }
     setIsSubmitting(true);
-    
-    const bookingParams: PropertyDetailModalBookingParams = {
-      checkIn,
-      checkOut,
-      guests: totalGuests,
-      nights,
-      fullName: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      nationality,
-      idType,
-      idNumber: idNumber.trim(),
-      paymentOption,
-      totalAmount: total,
-      paymentAmount: getPaymentAmount()
+    const bookingParams = { 
+      checkIn, 
+      checkOut, 
+      guests: totalGuests, 
+      nights, 
+      fullName: fullName.trim(), 
+      email: email.trim(), 
+      phone: phone.trim(), 
+      address: address.trim(), 
+      paymentOption, 
+      totalAmount: total, 
+      paymentAmount: getPaymentAmount() 
     };
-    
     if (!isAuthenticated) {
-      const tempData = {
-        propertyId: property.id,
-        checkIn,
-        checkOut,
-        guests: totalGuests,
-        nights,
-        bookingFormData: {
-          fullName: fullName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          address: address.trim(),
-          nationality,
-          idType,
-          idNumber: idNumber.trim(),
-          paymentOption,
-          totalAmount: total,
-          paymentAmount: getPaymentAmount()
-        }
-      };
-      
-      localStorage.setItem('temp_booking_data', JSON.stringify(tempData));
-      console.log('💾 Données sauvegardées temporairement:', tempData);
-      
-      if (onNavigate) {
-        onNavigate({ name: 'auth', search: 'redirect=booking' });
-      } else {
-        window.location.href = '/auth?redirect=booking';
-      }
+      localStorage.setItem('temp_booking_data', JSON.stringify({ propertyId: property.id, checkIn, checkOut, guests: totalGuests, nights, bookingFormData: bookingParams }));
+      onNavigate ? onNavigate({ name: 'auth', search: 'redirect=booking' }) : window.location.href = '/auth?redirect=booking';
       setIsSubmitting(false);
       return;
     }
-    
     onReserve(bookingParams);
     setIsSubmitting(false);
   };
 
-  const handleBackToDetails = () => {
-    setShowBookingForm(false);
-  };
+  const handleBackToDetails = () => setShowBookingForm(false);
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
-    const interval = setInterval(() => {
-      setAnimate(true);
-      setTimeout(() => {
-        setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-        setAnimate(false);
-      }, 300);
-    }, 5000);
+    const interval = setInterval(() => { setAnimate(true); setTimeout(() => { setCurrentTestimonial((prev) => (prev + 1) % testimonials.length); setAnimate(false); }, 300); }, 5000);
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  const formattedCheckIn = formatDisplayFromIso(checkIn);
-  const formattedCheckOut = formatDisplayFromIso(checkOut);
+  const cancellationRules = getCancellationRules();
+
+  // Modal Politique d'annulation
+  const CancellationModal = () => (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
+      <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" /><h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2></div>
+          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /></button>
+        </div>
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3"><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /><span className="font-medium">Vos dates</span></div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Départ</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Nuits</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p></div>
+            </div>
+          </div>
+          <div className="space-y-2 sm:space-y-3">
+            <p className="text-xs sm:text-sm font-medium text-gray-700 px-1">📋 Conditions d'annulation</p>
+            {cancellationRules.map((rule, index) => (
+              <div key={index} className={`rounded-xl p-3 sm:p-4 border-l-4 transition-all hover:shadow-md ${rule.color === 'green' ? 'bg-green-50 border-green-500' : rule.color === 'orange' ? 'bg-orange-50 border-orange-500' : 'bg-red-50 border-red-500'}`}>
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="text-lg sm:text-xl">{rule.icon}</span>
+                  <div className="flex-1">
+                    <h3 className={`font-semibold text-sm sm:text-base ${rule.color === 'green' ? 'text-green-700' : rule.color === 'orange' ? 'text-orange-700' : 'text-red-700'}`}>{rule.label}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">{rule.description}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-1 sm:mt-2">{rule.percentage === 100 ? `✓ Annulation ${rule.deadlineText}` : rule.percentage === 50 ? `⚠️ Annulation ${rule.deadlineText}` : `❌ ${rule.deadlineText}`}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
+            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
+          </div>
+        </div>
+        <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">Fermer</button>
+        </div>
+      </div>
+    </div>
+  );
 
   // Vue du formulaire de réservation
   if (showBookingForm) {
     return (
-      <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-32">
-          <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp z-[201]">
-            
-            {/* Header avec progression */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-5 z-20">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <button onClick={handleBackToDetails} className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-all">
-                    <ArrowLeft className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <div>
-                    <h2 className="text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">
-                      Réserver votre séjour
-                    </h2>
-                    <p className="text-sm text-gray-500">Remplissez vos informations en toute sécurité</p>
+      <>
+        {showCancellationModal && <CancellationModal />}
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
+            <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp">
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"><ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" /></button>
+                    <div><h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">Réserver</h2><p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p></div>
                   </div>
-                </div>
-                
-                {/* Stepper */}
-                <div className="flex items-center gap-2">
-                  {[1, 2].map((step) => (
-                    <div key={step} className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                        currentStep >= step 
-                          ? 'bg-[#00c9a7] text-white shadow-lg shadow-[#00c9a7]/30' 
-                          : 'bg-gray-100 text-gray-400'
-                      }`}>
-                        {currentStep > step ? <Check className="w-4 h-4" /> : step}
+                  <div className="flex items-center gap-2">
+                    {[1, 2].map((step) => (
+                      <div key={step} className="flex items-center gap-1 sm:gap-2">
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>{currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}</div>
+                        {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
                       </div>
-                      {step < 2 && (
-                        <div className={`w-12 h-0.5 rounded-full transition-all duration-300 ${
-                          currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'
-                        }`} />
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Contenu scrollable */}
-            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
-              
-              {/* Étape 1 - Informations personnelles */}
-              {currentStep === 1 && (
-                <div className="space-y-6 animate-fadeIn">
-                  <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-2xl p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden">
-                        <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{property.title}</h3>
-                        <p className="text-sm text-gray-500">{property.location}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
-                          <span className="text-sm font-medium">{property.rating}</span>
-                          <span className="text-xs text-gray-400">· {property.reviews} commentaires</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Colonne gauche */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <User className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Vos informations
-                      </h3>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet <span className="text-red-500">*</span></label>
-                        <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="Jean Dupont" />
-                        {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
-                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="jean.dupont@email.com" />
-                        {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone <span className="text-red-500">*</span></label>
-                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="+229 97 00 00 00" />
-                        {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                        <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" placeholder="Votre adresse complète" />
-                      </div>
-                    </div>
-
-                    {/* Colonne droite */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <Shield className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Pièce d'identité
-                      </h3>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nationalité <span className="text-red-500">*</span></label>
-                        <select value={nationality} onChange={(e) => setNationality(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]">
-                          <option value="">Sélectionnez...</option>
-                          <option value="beninoise">Béninoise</option>
-                          <option value="francaise">Française</option>
-                          <option value="canadienne">Canadienne</option>
-                          <option value="americaine">Américaine</option>
-                          <option value="autre">Autre</option>
-                        </select>
-                        {formErrors.nationality && <p className="text-red-500 text-xs mt-1">{formErrors.nationality}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Type de pièce <span className="text-red-500">*</span></label>
-                        <select value={idType} onChange={(e) => setIdType(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]">
-                          <option value="">Sélectionnez...</option>
-                          <option value="cni">Carte Nationale d'Identité</option>
-                          <option value="passeport">Passeport</option>
-                          <option value="permis">Permis de conduire</option>
-                        </select>
-                        {formErrors.idType && <p className="text-red-500 text-xs mt-1">{formErrors.idType}</p>}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de pièce <span className="text-red-500">*</span></label>
-                        <input type="text" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7]" placeholder="Numéro du document" />
-                        {formErrors.idNumber && <p className="text-red-500 text-xs mt-1">{formErrors.idNumber}</p>}
-                      </div>
-
-                      <div className="bg-[#00c9a7]/5 rounded-xl p-3 flex items-center gap-3">
-                        <Fingerprint className="w-5 h-5 text-[#00c9a7]" />
-                        <div>
-                          <p className="text-xs font-medium text-gray-700">Données sécurisées</p>
-                          <p className="text-xs text-gray-500">Vos informations sont chiffrées</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Étape 2 - Paiement */}
-              {currentStep === 2 && (
-                <div className="space-y-6 animate-fadeIn">
-                  {/* ✅ Indicateur de disponibilité */}
-                  {availabilityStatus === 'checking' && (
-                    <div className="bg-blue-50 rounded-xl p-3 flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                      <span className="text-sm text-blue-600">Vérification des disponibilités...</span>
-                    </div>
-                  )}
-                  
-                  {availabilityStatus === 'available' && (
-                    <div className="bg-green-50 rounded-xl p-3 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-600">✓ Logement disponible pour ces dates !</span>
-                    </div>
-                  )}
-                  
-                  {availabilityStatus === 'unavailable' && (
-                    <div className="bg-red-50 rounded-xl p-3 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-red-600" />
-                      <span className="text-sm text-red-600">{availabilityMessage}</span>
-                    </div>
-                  )}
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    
-                    {/* Options de paiement */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <CreditCard className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Options de paiement
-                      </h3>
-
-                      <div className="space-y-3">
-                        <div className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${paymentOption === '50' ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' : 'border-gray-200'}`} onClick={() => setPaymentOption('50')}>
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-semibold text-gray-900 flex items-center gap-2">
-                                <Wallet className="w-5 h-5 text-[#00c9a7]" />
-                                Payer 50% maintenant
-                              </div>
-                              <div className="text-sm text-gray-500">Solde à payer à l'arrivée</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold text-xl text-[#00c9a7]">{Math.floor(total * 0.5).toLocaleString()} FCFA</div>
-                              <div className="text-xs text-gray-400">Total: {total.toLocaleString()} FCFA</div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className={`border-2 rounded-xl p-4 cursor-pointer transition-all ${paymentOption === '100' ? 'border-[#00c9a7] bg-[#00c9a7]/5 shadow-md' : 'border-gray-200'}`} onClick={() => setPaymentOption('100')}>
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <div className="font-semibold text-gray-900 flex items-center gap-2">
-                                <Lock className="w-5 h-5 text-[#00c9a7]" />
-                                Payer 100% maintenant
-                              </div>
-                              <div className="text-sm text-gray-500">Paiement complet sécurisé</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="font-bold text-xl text-[#00c9a7]">{total.toLocaleString()} FCFA</div>
-                              <div className="text-xs text-gray-400">Paiement unique</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <p className="text-sm font-medium text-gray-700 mb-3">Moyens de paiement acceptés</p>
-                        <div className="flex items-center gap-3">
-                          <div className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium">💳 Visa</div>
-                          <div className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium">💳 Mastercard</div>
-                          <div className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium">📱 Mobile Money</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Résumé */}
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <Receipt className="w-4 h-4 text-[#00c9a7]" />
-                        </div>
-                        Résumé de votre réservation
-                      </h3>
-
-                      <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-2xl p-5 text-white">
-                        <div className="space-y-3">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                            <span>{subtotal.toLocaleString()} FCFA</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-white/70">Frais de ménage</span>
-                            <span>{cleaningFee.toLocaleString()} FCFA</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-white/70">Frais de service</span>
-                            <span>{serviceFee.toLocaleString()} FCFA</span>
-                          </div>
-                          <div className="border-t border-white/20 pt-3 mt-2">
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold">Total</span>
-                              <span className="text-2xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                          <Shield className="w-5 h-5 text-[#00c9a7]" />
-                          <span>Paiement 100% sécurisé</span>
-                        </div>
-                        <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
-                          <Clock className="w-5 h-5 text-[#00c9a7]" />
-                          <span>Confirmation immédiate</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer avec boutons */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4" style={{ zIndex: 9999, position: 'sticky', bottom: 0, backgroundColor: 'white', boxShadow: '0 -4px 20px rgba(0,0,0,0.08)', marginTop: 'auto' }}>
-              <div className="flex justify-between gap-3">
+              <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
                 {currentStep === 1 && (
-                  <button onClick={handleNextStep} className="flex-1 px-8 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all">
-                    Continuer
-                  </button>
+                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+                    <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden"><img src={images[0]} alt={property.title} className="w-full h-full object-cover" /></div>
+                        <div><h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3><p className="text-xs text-gray-500">{property.location}</p><div className="flex items-center gap-1 mt-1"><Star className="w-3 h-3 fill-current text-[#00c9a7]" /><span className="text-xs font-medium">{property.rating}</span></div></div>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2"><div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center"><User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /></div>Vos informations</h3>
+                      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />{formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}</div>
+                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />{formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}</div>
+                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />{formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}</div>
+                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" /></div>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                
                 {currentStep === 2 && (
-                  <>
-                    <button onClick={handlePrevStep} className="flex-1 px-6 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all">
-                      Retour
-                    </button>
-                    <button 
-                      onClick={handleConfirmReservation} 
-                      disabled={isSubmitting || availabilityStatus !== 'available'} 
-                      className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                        availabilityStatus === 'available' && !isSubmitting
-                          ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {isSubmitting ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          <span>Traitement...</span>
+                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+                    <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-[#00c9a7]" />Options de paiement</h3>
+                        <div className={`border-2 rounded-xl p-3 sm:p-4 cursor-pointer transition-all ${paymentOption === '50' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`} onClick={() => setPaymentOption('50')}>
+                          <div className="flex justify-between items-center flex-wrap gap-2">
+                            <div><div className="font-semibold text-gray-900">Payer 50% maintenant</div><div className="text-xs text-gray-500">Solde à payer à l'arrivée</div></div>
+                            <div className="text-right"><div className="font-bold text-[#00c9a7]">{Math.floor(total * 0.5).toLocaleString()} FCFA</div><div className="text-xs text-gray-500">{payment50Formatted.euro}</div></div>
+                          </div>
                         </div>
-                      ) : (
-                        "Confirmer la réservation"
-                      )}
-                    </button>
-                  </>
+                        <div className={`border-2 rounded-xl p-3 sm:p-4 cursor-pointer transition-all ${paymentOption === '100' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`} onClick={() => setPaymentOption('100')}>
+                          <div className="flex justify-between items-center flex-wrap gap-2">
+                            <div><div className="font-semibold text-gray-900">Payer 100% maintenant</div><div className="text-xs text-gray-500">Paiement complet sécurisé</div></div>
+                            <div className="text-right"><div className="font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Receipt className="w-4 h-4 text-[#00c9a7]" />Résumé de votre réservation</h3>
+                        <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between"><span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-white/50">{subtotalFormatted.euro}</div></div></div>
+                            <div className="flex justify-between"><span className="text-white/70">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div></div></div>
+                            <div className="border-t border-white/20 pt-2 mt-2"><div className="flex justify-between items-center"><span className="font-semibold">Total</span><div className="text-right"><div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-white/50">{totalFormatted.euro}</div></div></div></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
+              </div>
+              <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+                <div className="flex gap-3">
+                  {currentStep === 1 && <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">Continuer</button>}
+                  {currentStep === 2 && (<><button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">Retour</button><button onClick={handleConfirmReservation} disabled={isSubmitting || availabilityStatus !== 'available'} className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>{isSubmitting ? <div className="flex justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Chargement</div> : "Confirmer"}</button></>)}
+                </div>
               </div>
             </div>
           </div>
         </div>
-
-        <style>{`
-          @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-fadeInUp { animation: fadeInUp 0.4s ease-out; }
-          .animate-fadeIn { animation: fadeInUp 0.3s ease-out; }
-        `}</style>
-      </div>
+      </>
     );
   }
 
-  // Vue détaillée de l'appartement
+  // Vue détaillée
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <div className="min-h-screen">
-        <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex justify-between items-center">
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-            <ArrowLeft className="w-5 h-5"/>
-          </button>
-          <div className="flex gap-2">
-            <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-              <Share2 className="w-5 h-5"/>
-            </button>
-            <button className="p-2 rounded-full hover:bg-gray-100 transition-all hover:scale-110">
-              <Heart className="w-5 h-5"/>
-            </button>
+    <>
+      {showCancellationModal && <CancellationModal />}
+      
+      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+        <div className="min-h-screen pb-20">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all"><ArrowLeft className="w-5 h-5" /></button>
+            <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5" /></button></div>
           </div>
-        </div>
-        
-        <div className="max-w-6xl mx-auto px-4 py-6 pb-24">
-          {/* Galerie d'images */}
-          <div className="relative grid grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-6 group">
-            <div className="col-span-2 row-span-2 overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(0)}>
-              <img src={images[0]} alt={property.title} className="w-full h-full object-cover min-h-[300px] transition-transform duration-700 group-hover:scale-105" />
-            </div>
-            {images.slice(1, 5).map((img, i) => (
-              <div key={i} className="overflow-hidden cursor-pointer" onClick={() => setSelectedImageIndex(i + 1)}>
-                <img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-36 object-cover transition-transform duration-700 group-hover:scale-105" />
-              </div>
-            ))}
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Colonne de gauche */}
-            <div className="lg:col-span-2 space-y-8">
-              <div className="border-b pb-4">
-                <div className="text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres · {property.beds} lits · {property.baths} sdb</div>
-                <h1 className="text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                <div className="flex items-center gap-2 mt-2">
-                  <Star className="w-5 h-5 fill-current text-[#00c9a7]" />
-                  <span className="font-medium">{property.rating}</span>
-                  <span className="text-gray-500">· {property.reviews} commentaires</span>
-                  {superhost && <span className="text-[#00c9a7] font-medium">· Superhôte</span>}
-                </div>
-              </div>
-
-              {property.rating >= 4.8 && (
-                <div className="bg-[#00c9a7]/10 rounded-xl p-5 flex gap-4 items-center">
-                  <Crown className="w-10 h-10 text-[#00c9a7]" />
-                  <div><div className="font-semibold text-lg text-[#0F2940]">Coup de cœur · voyageurs</div><div className="text-gray-600">Un des logements préférés des voyageurs au Bénin</div></div>
-                </div>
-              )}
-
-              <div className="flex gap-5 items-start">
-                <img src={hostAvatarUrl} alt={host} className="w-16 h-16 rounded-full object-cover border-2 border-[#00c9a7] shadow-lg" />
-                <div>
-                  <div className="font-semibold text-xl text-[#0F2940]">Hôte : {host}</div>
-                  {superhost && <div className="flex items-center gap-1 text-[#00c9a7]"><Award className="w-4 h-4"/>Superhôte · {hostSince}</div>}
-                  <div className="text-sm text-gray-600">Taux de réponse {responseRate}% · Répond {responseTime}</div>
-                </div>
-              </div>
-
-              <div><p className="text-gray-700 leading-relaxed">{property.description}</p>{longDescription && <p className="text-gray-700 mt-3 leading-relaxed">{longDescription}</p>}</div>
-
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-xl text-[#0F2940]">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div>
-                <div className="grid grid-cols-2 gap-4">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-3 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]"/>{a}</div>))}</div>
-              </div>
-
-              <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-2xl p-6">
-                <h3 className="font-semibold text-xl text-[#0F2940] mb-4 flex items-center gap-2"><Sparkles className="w-6 h-6 text-[#00c9a7]" />Ce que nos clients disent</h3>
-                <div className={`transition-all duration-300 transform ${animate ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
-                  <div className="flex flex-col md:flex-row gap-6 items-start">
-                    <div className="relative"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} alt={testimonials[currentTestimonial]?.name || "Client"} className="w-20 h-20 rounded-full object-cover border-4 border-[#00c9a7] shadow-xl" /></div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center flex-wrap gap-2"><span className="font-bold text-lg text-[#0F2940]">{testimonials[currentTestimonial]?.name || "Client"}</span><span className="text-sm text-gray-500">{testimonials[currentTestimonial]?.date || "récemment"}</span></div>
-                      <div className="flex items-center gap-1 mt-1">{[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < Math.floor(testimonials[currentTestimonial]?.rating || 5) ? 'fill-current text-[#00c9a7]' : 'text-gray-300'}`} />))}</div>
-                      <p className="text-gray-700 mt-3 leading-relaxed">"{testimonials[currentTestimonial]?.text || "Excellent séjour !"}"</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
+              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>
+              {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>))}
             </div>
 
-            {/* Colonne droite - Carte de réservation avec vérification disponibilité */}
-            <div className="lg:col-span-1 pb-20">
-              <div className="sticky top-24 border rounded-2xl p-6 shadow-xl bg-white">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <span className="text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
-                    <span className="text-gray-500"> / nuit</span>
-                  </div>
-                  <div className="flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full">
-                    <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>{property.rating}
-                  </div>
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              <div className="flex-1 space-y-6 sm:space-y-8">
+                <div className="border-b pb-4">
+                  <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="font-medium text-sm">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}</div>
                 </div>
+                {property.rating >= 4.8 && (<div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center"><Crown className="w-8 h-8 text-[#00c9a7]" /><div><div className="font-semibold">Coup de cœur</div><div className="text-sm text-gray-600">Logement préféré des voyageurs</div></div></div>)}
+                <div className="flex gap-4 items-start"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
+                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
+                <div className="border-t pt-4"><div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-lg">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm text-gray-700"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
+                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5"><h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#00c9a7]" />Ce que nos clients disent</h3><div className="flex flex-col sm:flex-row gap-4 items-start"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" /><div><div className="font-semibold">{testimonials[currentTestimonial]?.name}</div><p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p></div></div></div>
+              </div>
 
-                {/* Sélecteurs de dates et voyageurs */}
-                <div className="border rounded-xl mb-5 overflow-hidden">
-                  {/* Dates */}
-                  <div className="flex border-b border-gray-100">
-                    <div className="flex-1 p-3">
-                      <div className="text-xs font-bold text-gray-500 uppercase mb-1">Arrivée</div>
-                      <input
-                        type="date"
-                        value={checkIn}
-                        onChange={(e) => {
-                          setCheckIn(e.target.value);
-                          if (checkOut && e.target.value > checkOut) {
-                            const nextDay = new Date(e.target.value);
-                            nextDay.setDate(nextDay.getDate() + 1);
-                            setCheckOut(nextDay.toISOString().split('T')[0]);
-                          }
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full text-sm font-medium text-gray-900 border-0 focus:ring-0 p-0"
-                      />
+              <div className="lg:w-96 xl:w-[400px]">
+                <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <div className="flex items-baseline gap-2"><span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div>
+                      <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
                     </div>
-                    <div className="flex-1 p-3 border-l border-gray-100">
-                      <div className="text-xs font-bold text-gray-500 uppercase mb-1">Départ</div>
-                      <input
-                        type="date"
-                        value={checkOut}
-                        onChange={(e) => setCheckOut(e.target.value)}
-                        min={checkIn || new Date().toISOString().split('T')[0]}
-                        className="w-full text-sm font-medium text-gray-900 border-0 focus:ring-0 p-0"
-                      />
+                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div>
+                  </div>
+
+                  <div className="border rounded-xl mb-4 overflow-hidden">
+                    <div className="grid grid-cols-2 border-b">
+                      <div className="p-3"><div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                      <div className="p-3 border-l"><div className="text-xs font-bold text-gray-500 uppercase">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                    </div>
+                    {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
+                    {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
+                    <div className="p-3">
+                      <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
+                      <div className="flex justify-between items-center py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
                     </div>
                   </div>
 
-                  {/* ✅ Indicateur de disponibilité */}
-                  {availabilityStatus === 'checking' && (
-                    <div className="p-2 bg-blue-50 border-t border-blue-100">
-                      <div className="flex items-center justify-center gap-2 text-xs text-blue-600">
-                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        <span>Vérification...</span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-gray-400">{subtotalFormatted.euro}</div></div></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div></div></div>
+                    <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><div className="text-right"><div className="text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div></div>
+                  </div>
+
+                  <button onClick={() => setShowCancellationModal(true)} className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline">Voir la politique d'annulation</button>
                   
-                  {availabilityStatus === 'available' && (
-                    <div className="p-2 bg-green-50 border-t border-green-100">
-                      <div className="flex items-center justify-center gap-2 text-xs text-green-600">
-                        <CheckCircle className="w-3 h-3" />
-                        <span>Disponible</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {availabilityStatus === 'unavailable' && (
-                    <div className="p-2 bg-red-50 border-t border-red-100">
-                      <div className="flex items-center justify-center gap-2 text-xs text-red-600">
-                        <AlertCircle className="w-3 h-3" />
-                        <span>Non disponible</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Voyageurs */}
-                  <div className="p-3">
-                    <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
-                    
-                    {/* Adultes */}
-                    <div className="flex items-center justify-between py-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">Adultes</p>
-                        <p className="text-xs text-gray-400">13 ans et plus</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setAdults(Math.max(1, adults - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                        <span className="font-medium w-6 text-center text-sm">{adults}</span>
-                        <button onClick={() => setAdults(adults + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                      </div>
-                    </div>
-
-                    {/* Enfants */}
-                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                      <div><p className="text-sm font-medium text-gray-700">Enfants</p><p className="text-xs text-gray-400">De 2 à 12 ans</p></div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setChildren(Math.max(0, children - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                        <span className="font-medium w-6 text-center text-sm">{children}</span>
-                        <button onClick={() => setChildren(children + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                      </div>
-                    </div>
-
-                    {/* Bébés */}
-                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                      <div><p className="text-sm font-medium text-gray-700 flex items-center gap-1"><Baby className="w-4 h-4 text-[#00c9a7]" />Bébés</p><p className="text-xs text-gray-400">Moins de 2 ans</p></div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setBabies(Math.max(0, babies - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                        <span className="font-medium w-6 text-center text-sm">{babies}</span>
-                        <button onClick={() => setBabies(babies + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                      </div>
-                    </div>
-
-                    {/* Animaux */}
-                    <div className="flex items-center justify-between py-2 border-t border-gray-100">
-                      <div><p className="text-sm font-medium text-gray-700 flex items-center gap-1"><Dog className="w-4 h-4 text-[#00c9a7]" />Animaux domestiques</p><p className="text-xs text-gray-400">Vous voyagez avec un animal ?</p></div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setPets(Math.max(0, pets - 1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                        <span className="font-medium w-6 text-center text-sm">{pets}</span>
-                        <button onClick={() => setPets(pets + 1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-gray-100">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-500">Total voyageurs</span>
-                        <span className="font-medium text-[#0F2940]">{adults + children} personne{(adults + children) > 1 ? 's' : ''}</span>
-                      </div>
-                      {babies > 0 && <div className="flex justify-between text-xs mt-1"><span className="text-gray-500">Bébés</span><span className="font-medium text-[#0F2940]">{babies}</span></div>}
-                      {pets > 0 && <div className="flex justify-between text-xs mt-1"><span className="text-gray-500">Animaux</span><span className="font-medium text-[#0F2940]">{pets}</span></div>}
-                    </div>
-
-                    <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                      <p className="text-xs text-blue-600 flex items-center gap-1"><Info className="w-3 h-3" /> Les bébés et animaux n'affectent pas le nombre total de voyageurs</p>
-                    </div>
-
-                    <p className="text-xs text-gray-400 mt-2">Capacité maximum : {maxGuests} voyageur{maxGuests > 1 ? 's' : ''}</p>
-                  </div>
-                </div>
-
-                {/* Détail des prix */}
-                <div className="space-y-2 mb-5">
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotal.toLocaleString()} FCFA</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de ménage</span><span>{cleaningFee.toLocaleString()} FCFA</span></div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service</span><span>{serviceFee.toLocaleString()} FCFA</span></div>
-                  <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><span className="text-[#00c9a7]">{total.toLocaleString()} FCFA</span></div>
-                </div>
-
-                {/* Bouton Réserver - désactivé si non disponible */}
-                <button 
-                  onClick={handleReserveClick}
-                  disabled={availabilityStatus !== 'available'}
-                  className={`w-full py-3 rounded-xl font-bold text-lg transition-all transform ${
-                    availabilityStatus === 'available'
-                      ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  {availabilityStatus === 'available' 
-                    ? 'Réserver' 
-                    : availabilityStatus === 'checking' 
-                      ? 'Vérification...' 
-                      : 'Non disponible'}
-                </button>
-
-                {onChat && hostId && (
-                  <button onClick={() => onChat(hostId)} className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-lg hover:bg-[#0d6ad0] transition-all shadow-md">
-                    Discuter avec l'hôte
+                  <button onClick={handleReserveClick} disabled={availabilityStatus !== 'available'} className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                    {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
                   </button>
-                )}
-                <p className="text-center text-xs text-gray-500 mt-3">Aucun débit pour le moment</p>
+                  
+                  {onChat && hostId && (
+                    <button onClick={() => handleAuthenticatedAction(() => {
+                      onNavigate?.({
+                        name: 'messages',
+                        id: 'inquiry',
+                        search: `?property=${property.id}&host=${hostId}&auto=true`
+                      });
+                      onChat(hostId);
+                    }, 'chat')} className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-sm sm:text-base hover:bg-[#0d6ad0] transition-all shadow-md hover:shadow-lg transform hover:scale-[1.02]">
+                      💬 Discuter avec l'hôte
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -3465,178 +3150,243 @@ const Receipt = ({ className }: { className?: string }) => (
   </svg>
 );
 
+
+// pages.tsx - Version complète de HomePage
+
+
+// HomePage.tsx - Version finale avec les couleurs du site et prix en euros
+
+
 export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [searchDestination, setSearchDestination] = useState('');
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchingAPI, setIsSearchingAPI] = useState(false);
 
-  const { data: popularData, isLoading: popularLoading } = useQuery({
-    queryKey: ['popular-properties'],
-    queryFn: () => propertyService.getAll({ sort_by: 'popular', per_page: 20 }),
+  const { data: allPropertiesData, isLoading: allPropertiesLoading } = useQuery({
+    queryKey: ['all-properties'],
+    queryFn: () => propertyService.getAll({ per_page: 50, sort_by: 'popular' }),
   });
 
-  // Requête pour les hôtels
   const { data: hotelsData, isLoading: hotelsLoading } = useQuery({
-    queryKey: ['hotels'],
-    queryFn: () => propertyService.getAll({ property_type: 'hotel', per_page: 20 }),
+    queryKey: ['hotels-promoted'],
+    queryFn: () => propertyService.getAll({ 
+      is_hotel_promoted: true,
+      per_page: 20 
+    }),
   });
 
-  // Requêtes pour chaque ville
-  const cities = [
-    { key: 'portonovo', title: 'Porto-Novo', filter: { city: 'Porto-Novo' } },
-    { key: 'abomeycalavi', title: 'Abomey-Calavi', filter: { city: 'Abomey-Calavi' } },
-    { key: 'akpakpa', title: 'Akpakpa', filter: { district: 'Akpakpa' } },
-    { key: 'menontin', title: 'Menontin', filter: { district: 'Menontin' } },
-    { key: 'fidjrosse', title: 'Fidjrossè', filter: { district: 'Fidjrossè' } },
-    { key: 'abomey', title: 'Abomey', filter: { city: 'Abomey' } },
-    { key: 'parakou', title: 'Parakou', filter: { city: 'Parakou' } },
-    { key: 'dassa', title: 'Dassa-Zoumè', filter: { city: 'Dassa-Zoumè' } },
-    { key: 'ouidah', title: 'Ouidah', filter: { city: 'Ouidah' } },
-    { key: 'grandpopo', title: 'Grand-Popo', filter: { city: 'Grand-Popo' } },
-  ];
+  const rawAllProperties = allPropertiesData?.data?.data || allPropertiesData?.data || [];
+  const rawHotels = hotelsData?.data?.data || hotelsData?.data || [];
+  
+  const allProperties = useMemo(() => {
+    return rawAllProperties.map(mapProperty).filter((p: any) => p.isVisible);
+  }, [rawAllProperties]);
 
-  const cityQueries = cities.map(city => ({
-    ...city,
-    query: useQuery({
-      queryKey: ['properties', city.key],
-      queryFn: () => propertyService.getAll({ ...city.filter, per_page: 8 }),
-    }),
-  }));
+  const hotelsProperties = useMemo(() => {
+    return rawHotels.map(mapProperty).filter((p: any) => p.isVisible);
+  }, [rawHotels]);
 
-  // Fonctions de filtrage local (destination, prix, note)
-  const filterByDestination = (properties: any[]) => {
-    if (!searchDestination) return properties;
-    const lowerDest = searchDestination.toLowerCase();
-    return properties.filter(
-      prop => prop.location.toLowerCase().includes(lowerDest) || prop.city.toLowerCase().includes(lowerDest)
-    );
+  const [enrichedProperties, setEnrichedProperties] = useState<any[]>(allProperties);
+  const [enrichedHotels, setEnrichedHotels] = useState<any[]>(hotelsProperties);
+
+  useEffect(() => {
+    setEnrichedProperties(allProperties);
+  }, [allProperties]);
+
+  useEffect(() => {
+    setEnrichedHotels(hotelsProperties);
+  }, [hotelsProperties]);
+
+  const searchProperties = useCallback(async (searchParams: {
+    destination?: string;
+    check_in?: string;
+    check_out?: string;
+    guests?: number;
+  }) => {
+    setIsSearchingAPI(true);
+    setShowSearchResults(true);
+    setSearchDestination(searchParams.destination || '');
+    
+    try {
+      const filters: any = { per_page: 50 };
+      
+      if (searchParams.check_in && searchParams.check_out) {
+        filters.check_in = searchParams.check_in;
+        filters.check_out = searchParams.check_out;
+      }
+      
+      if (searchParams.guests && searchParams.guests > 0) {
+        filters.max_guests = searchParams.guests;
+      }
+      
+      const response = await propertyService.getAll(filters);
+      let allResults = response?.data?.data || response?.data || [];
+      
+      const destination = searchParams.destination?.toLowerCase().trim();
+      let filteredResults = allResults;
+      
+      if (destination) {
+        filteredResults = allResults.filter((prop: any) => {
+          const city = (prop.city || '').toLowerCase();
+          const district = (prop.district || '').toLowerCase();
+          return city === destination || city.includes(destination) ||
+                 district === destination || district.includes(destination);
+        });
+      }
+      
+      const mappedResults = filteredResults.map(mapProperty).filter((p: any) => p.isVisible);
+      setSearchResults(mappedResults);
+      
+      if (mappedResults.length === 0 && destination) {
+        toast.error(`Aucun logement trouvé à ${searchParams.destination}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur recherche:', error);
+      setSearchResults([]);
+      toast.error('Erreur lors de la recherche');
+    } finally {
+      setIsSearchingAPI(false);
+    }
+  }, []);
+
+  const handleRealTimeSearch = (destination: string) => {
+    setSearchDestination(destination);
+    
+    if (!destination.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    const allProps = [...allProperties, ...hotelsProperties];
+    const lowerDest = destination.toLowerCase().trim();
+    
+    const filtered = allProps.filter(prop => {
+      const cityMatch = prop.city?.toLowerCase() === lowerDest ||
+                       prop.city?.toLowerCase().includes(lowerDest);
+      const districtMatch = prop.district?.toLowerCase() === lowerDest ||
+                           prop.district?.toLowerCase().includes(lowerDest);
+      const locationMatch = prop.location?.toLowerCase().includes(lowerDest);
+      
+      return cityMatch || districtMatch || locationMatch;
+    });
+    
+    setSearchResults(filtered);
+    setShowSearchResults(true);
+    setIsSearching(false);
+  };
+
+  const clearSearch = () => {
+    setSearchDestination('');
+    setShowSearchResults(false);
+    setSearchResults([]);
   };
 
   const applyFilters = (properties: any[]) => {
-    let filtered = filterByDestination([...properties]);
+    let filtered = [...properties];
     switch (selectedFilter) {
       case 'Prix croissant':
-        return filtered.sort((a, b) => a.price - b.price);
+        return filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
       case 'Prix décroissant':
-        return filtered.sort((a, b) => b.price - a.price);
+        return filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
       case 'Mieux notés':
-        return filtered.sort((a, b) => b.rating - a.rating);
+        return filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
       default:
         return filtered;
     }
   };
 
-  // Données brutes depuis l'API
-  const rawPopular = popularData?.data?.data || [];
-  const rawHotels = hotelsData?.data?.data || [];
+  const displayProperties = showSearchResults ? searchResults : enrichedProperties;
+  const filteredProperties = applyFilters(displayProperties);
 
-  const popularProperties = rawPopular.map(mapProperty);
-  const hotelsProperties = rawHotels.map(mapProperty);
+  const handleFullSearch = (searchParams: any) => {
+    searchProperties({
+      destination: searchParams.destination,
+      check_in: searchParams.checkIn,
+      check_out: searchParams.checkOut,
+      guests: searchParams.guests
+    });
+  };
 
-  // Enrichir les propriétés listées en récupérant les détails pour celles sans image
-  const [enrichedPopular, setEnrichedPopular] = useState<any[]>(popularProperties);
-  const [enrichedHotels, setEnrichedHotels] = useState<any[]>(hotelsProperties);
+  const isLoading = allPropertiesLoading || hotelsLoading;
 
-  useEffect(() => {
-    setEnrichedPopular(popularProperties);
-    const missingIds = popularProperties.filter(p => {
-      const img = p.images?.[0] || p.image || '';
-      return !img || img.includes('placeholder');
-    }).map(p => p.id);
-
-    if (missingIds.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const results = await Promise.all(missingIds.map((id) => propertyService.getById(id).catch(() => null)));
-        const mapped = results.map(r => {
-          if (!r) return null;
-          const raw = (r as any).data || r;
-          return raw ? mapProperty(raw) : null;
-        });
-        if (cancelled) return;
-        setEnrichedPopular(prev => prev.map(p => {
-          const idx = missingIds.indexOf(p.id);
-          if (idx === -1) return p;
-          const m = mapped[idx];
-          return m ? { ...p, images: m.images, image: m.image } : p;
-        }));
-      } catch (e) {
-        console.warn('Enrich popular images failed', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [popularData]);
-
-  useEffect(() => {
-    setEnrichedHotels(hotelsProperties);
-    const missingIds = hotelsProperties.filter(p => {
-      const img = p.images?.[0] || p.image || '';
-      return !img || img.includes('placeholder');
-    }).map(p => p.id);
-    if (missingIds.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const results = await Promise.all(missingIds.map((id) => propertyService.getById(id).catch(() => null)));
-        const mapped = results.map(r => {
-          if (!r) return null;
-          const raw = (r as any).data || r;
-          return raw ? mapProperty(raw) : null;
-        });
-        if (cancelled) return;
-        setEnrichedHotels(prev => prev.map(p => {
-          const idx = missingIds.indexOf(p.id);
-          if (idx === -1) return p;
-          const m = mapped[idx];
-          return m ? { ...p, images: m.images, image: m.image } : p;
-        }));
-      } catch (e) {
-        console.warn('Enrich hotels images failed', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [hotelsData]);
-
-  const cityCategories = cityQueries
-    .map(city => ({
-      title: city.title,
-      key: city.key,
-      properties: (city.query.data?.data?.data || []).map(mapProperty).filter((p: any) => p.isAdminProperty),
-    }))
-    .filter(cat => cat.properties.length > 0);
-
-  const popularFiltered = applyFilters(enrichedPopular);
-  const hotelsFiltered = applyFilters(enrichedHotels);
-
-  if (popularLoading || hotelsLoading) {
-    return <div className="flex justify-center items-center h-64">Chargement...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#00c9a7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement des logements...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="bg-white">
-      {/* COMPTEUR DE FAVORIS TEMPORAIRE POUR TEST */}
-      {/* Compteur de favoris */}
-
-      <Hero 
-        onSearch={(query) => onNavigate?.({ name: 'search-logements' })} 
-        onNavigate={(path, params) => onNavigate?.({ name: 'search-logements' })} 
+      <Navbar
+        onGoHome={() => window.location.reload()}
+        onNavigate={onNavigate}
+        currentPage="home"
+        onSearch={handleFullSearch}
+        onRealTimeSearch={handleRealTimeSearch}
+        allLogements={enrichedProperties}
       />
 
-      {/* Section Filtres */}
-      {/* Barre de filtres */}
+      <Hero 
+        onSearch={(query) => {
+          setSearchDestination(query);
+          handleRealTimeSearch(query);
+        }} 
+        onNavigate={(path, params) => {
+          if (path === 'search-logements') {
+            if (params?.destination) {
+              setSearchDestination(params.destination);
+              handleRealTimeSearch(params.destination);
+            }
+          } else {
+            onNavigate?.({ name: path, ...params });
+          }
+        }} 
+      />
+
+      {showSearchResults && (
+        <div className="bg-[#f4fffe] border-b border-gray-200 px-4 py-3">
+          <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="bg-[#00c9a7]/10 rounded-full p-1.5">
+                <Search className="w-4 h-4 text-[#00c9a7]" />
+              </div>
+              <span className="text-sm text-gray-600">
+                {isSearchingAPI || isSearching ? 'Recherche en cours...' :
+                 `${searchResults.length} résultat${searchResults.length > 1 ? 's' : ''} trouvé${searchResults.length > 1 ? 's' : ''} pour "${searchDestination}"`}
+              </span>
+            </div>
+            <button onClick={clearSearch} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
+              <X className="w-3 h-3" />
+              Effacer la recherche
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filtres */}
       <div className="border-b border-gray-200 sticky top-0 bg-white z-30 w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-        
           <div className="max-w-[1440px] mx-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 overflow-x-auto pb-2">
                 <div className="relative">
                   <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors">
-                    <Filter className="w-4 h-4" />
-                    <span className="text-sm">Filtres</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${showFilterDropdown ? 'rotate-180' : ''}`} />
+                    <Filter className="w-4 h-4 text-[#00c9a7]" />
+                    <span className="text-sm text-[#0F2940]">Trier par</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
                   </button>
                   {showFilterDropdown && (
                     <>
@@ -3649,7 +3399,7 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
                               setSelectedFilter(filter);
                               setShowFilterDropdown(false);
                             }}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f4fffe] ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
                           >
                             {filter}
                           </button>
@@ -3658,60 +3408,83 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
                     </>
                   )}
                 </div>
-                <div className="text-sm text-gray-600">{popularProperties.length} logements disponibles</div>
+                
+                <div className="text-sm text-[#0F2940]">
+                  {!isLoading ? (
+                    `${filteredProperties.length} logement${filteredProperties.length > 1 ? 's' : ''} disponible${filteredProperties.length > 1 ? 's' : ''}`
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
+                      <span>Chargement...</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Main Content */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-[1440px] mx-auto">
-          {/* Logements populaires */}
-       
+          
+          {filteredProperties.length > 0 ? (
+            <>
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-[#0F2940]">
+                  {showSearchResults ? 'Résultats de recherche' : 'Tous les logements au Bénin'}
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  {showSearchResults 
+                    ? `Voici les logements correspondant à "${searchDestination}"`
+                    : 'Découvrez notre sélection de logements à travers le Bénin'}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredProperties.map(property => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    showDescription
+                    onNavigate={onNavigate}
+                    isFavorite={isFavorite}
+                    toggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </div>
+            </>
+          ) : showSearchResults ? (
+            <div className="text-center py-16">
+              <div className="w-20 h-20 bg-[#f4fffe] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-10 h-10 text-[#00c9a7]" />
+              </div>
+              <h3 className="text-xl font-semibold text-[#0F2940] mb-2">Aucun résultat</h3>
+              <p className="text-gray-500">
+                Aucun logement ne correspond à votre recherche "{searchDestination}".
+              </p>
+              <button onClick={clearSearch} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full font-medium hover:bg-[#00b396] transition">
+                Voir tous les logements
+              </button>
+            </div>
+          ) : null}
 
-{popularFiltered.length > 0 && (
-  <div className="mb-12">
-    <div className="flex items-center justify-between mb-6">
-      <div>
-        <button 
-          onClick={() => onNavigate?.({ name: 'popular' })} 
-          className="flex items-center gap-2 text-2xl font-semibold text-[#0F2940] hover:text-[#00c9a7] transition-colors group"
-        >
-          Logements populaires · Bénin
-          <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-        </button>
-        <p className="text-gray-600 mt-1">Les plus réservés par nos voyageurs</p>
-      </div>
-    </div>
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {popularFiltered.slice(0, 8).map(property => (
-        <PropertyCard
-          key={property.id}
-          property={property}
-          showDescription
-          onNavigate={onNavigate}
-          isFavorite={isFavorite}
-          toggleFavorite={toggleFavorite}
-        />
-      ))}
-    </div>
-  </div>
-)}
-          {/* Hôtels */}
-          {hotelsFiltered.length > 0 && (
-            <div className="mb-12">
+          {/* Section Hôtels */}
+          {!showSearchResults && hotelsProperties.length > 0 && (
+            <div className="mt-12 mb-12">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <button onClick={() => onNavigate?.({ name: 'hotels' })} className="flex items-center gap-2 text-2xl font-semibold text-[#0F2940] hover:text-[#00c9a7] transition-colors group">
                     De superbes hôtels pour votre prochain voyage
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform text-[#00c9a7]" />
                   </button>
-                  <p className="text-gray-600 mt-1">Hôtels de qualité supérieure</p>
+                  <p className="text-gray-500 mt-1">Hôtels de qualité supérieure, sélectionnés pour vous</p>
                 </div>
               </div>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {hotelsFiltered.slice(0, 8).map(property => (
+              
+              <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+                {hotelsProperties.slice(0, 8).map(property => (
                   <PropertyCard
                     key={property.id}
                     property={property}
@@ -3724,38 +3497,11 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
               </div>
             </div>
           )}
-
-          {/* Catégories par ville */}
-          {cityCategories.map(category => (
-            <div key={category.key} className="mb-12">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <button onClick={() => onNavigate?.({ name: 'city', city: category.key })} className="flex items-center gap-2 text-2xl font-semibold text-[#0F2940] hover:text-[#00c9a7] transition-colors group">
-                    Logements {category.title}
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                  <p className="text-gray-600 mt-1">Découvrez les meilleurs logements à {category.title}</p>
-                </div>
-              </div>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {category.properties.slice(0, 4).map((property: any) => (
-                  <PropertyCard
-                    key={property.id}
-                    property={property}
-                    onNavigate={onNavigate}
-                    isFavorite={isFavorite}
-                    toggleFavorite={toggleFavorite}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       </main>
     </div>
   );
 }
-
 
 // pages/BookingPage.tsx
 
@@ -4369,9 +4115,6 @@ export function SearchPage({ mode, onNavigate }: { mode: 'logements' | 'hotels';
 
 
 // ==================== PAGE POPULAR (VERSION COMPLÈTE AVEC CARTE) ====================
-
-// ==================== PAGE POPULAR (VERSION COMPLÈTE AVEC CARTE) ====================
-
 export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -4384,6 +4127,8 @@ export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => voi
   });
 
   const rawProperties = data?.data?.data || [];
+  
+  // ✅ Utiliser mapProperty qui a la bonne logique d'images
   const properties = rawProperties.map(mapProperty);
 
   const filterProperties = (props: any[]) => {
@@ -4395,6 +4140,17 @@ export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => voi
   };
 
   const displayedProperties = filterProperties(properties);
+
+  // ✅ Fonction pour obtenir l'image avec fallback
+  const getImageUrl = (property: any) => {
+    if (property.images && property.images.length > 0 && property.images[0]) {
+      return property.images[0];
+    }
+    if (property.image && property.image !== 'undefined') {
+      return property.image;
+    }
+    return `https://picsum.photos/seed/${property.id}/400/300`;
+  };
 
   if (isLoading) {
     return (
@@ -4447,80 +4203,89 @@ export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => voi
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {displayedProperties.map(property => (
-              <div 
-                key={property.id} 
-                className="group cursor-pointer border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white"
-                onClick={() => setSelectedProperty(property)}
-              >
-                <div className="relative">
-                  <img
-                    src={property.images?.[0] || property.image || '/placeholder.jpg'}
-                    alt={property.title}
-                    className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
-                  />
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }} 
-                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-all z-10"
-                  >
-                    <Heart className={`w-5 h-5 transition-all ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
-                  </button>
-                  {property.rating >= 4.8 && (
-                    <div className="absolute bottom-3 left-3 bg-[#00c9a7] text-white text-xs px-2 py-1 rounded-full">
-                      Coup de cœur
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
-                      <span className="font-medium">{property.rating}</span>
-                      <span className="text-gray-500">({property.reviews})</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-                  <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-                    {property.beds > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Bed className="w-4 h-4" />
-                        <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
-                      </div>
-                    )}
-                    {property.baths > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Bath className="w-4 h-4" />
-                        <span>{property.baths} sdb</span>
+            {displayedProperties.map(property => {
+              const imageUrl = getImageUrl(property);
+              console.log(`🖼️ PopularPage - ID ${property.id}:`, imageUrl.substring(0, 80));
+              
+              return (
+                <div 
+                  key={property.id} 
+                  className="group cursor-pointer border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white"
+                  onClick={() => setSelectedProperty(property)}
+                >
+                  <div className="relative aspect-[4/3] bg-gray-100">
+                    <img
+                      src={imageUrl}
+                      alt={property.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => {
+                        console.error(`❌ Erreur chargement image ID ${property.id}:`, imageUrl);
+                        (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${property.id}/400/300`;
+                      }}
+                      onLoad={() => console.log(`✅ Image chargée ID ${property.id}`)}
+                    />
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(property); }} 
+                      className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition-all z-10 backdrop-blur-sm shadow-md"
+                    >
+                      <Heart className={`w-5 h-5 transition-all ${isFavorite(property.id) ? 'fill-red-500 text-red-500' : 'text-gray-700'}`} />
+                    </button>
+                    {property.rating >= 4.8 && (
+                      <div className="absolute bottom-3 left-3 bg-[#00c9a7] text-white text-xs px-2 py-1 rounded-full font-medium shadow-md">
+                        Coup de cœur
                       </div>
                     )}
                   </div>
-                  <p className="font-bold mt-2 text-[#0F2940]">{property.priceDisplay}</p>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start gap-2">
+                      <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
+                      <div className="flex items-center gap-1 text-sm flex-shrink-0">
+                        <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
+                        <span className="font-medium">{property.rating}</span>
+                        <span className="text-gray-500">({property.reviews})</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1 line-clamp-1">{property.location}</p>
+                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
+                      {property.beds > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Bed className="w-4 h-4" />
+                          <span>{property.beds} lit{property.beds > 1 ? 's' : ''}</span>
+                        </div>
+                      )}
+                      {property.bathrooms > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Bath className="w-4 h-4" />
+                          <span>{property.bathrooms} sdb</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="font-bold mt-2 text-[#0F2940]">{property.priceDisplay}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Modal de détail */}
-     // Dans PopularPage
-{selectedProperty && (
-  <PropertyDetailModal
-    property={selectedProperty}
-    onClose={() => setSelectedProperty(null)}
-    onNavigate={onNavigate}  // ✅ Passer onNavigate
-    onReserve={({ checkIn, checkOut, guests, nights }) => 
-      onNavigate?.({ 
-        name: 'booking', 
-        id: selectedProperty.id.toString(), 
-        search: `?check_in=${encodeURIComponent(checkIn)}&check_out=${encodeURIComponent(checkOut)}&guests=${guests}&nights=${nights}` 
-      })
-    }
-    onChat={(hostId) => onNavigate?.({ name: 'messages', id: 'inquiry', search: `?property=${selectedProperty.id}` })}
-  />
-)}
+      {selectedProperty && (
+        <PropertyDetailModal
+          property={selectedProperty}
+          onClose={() => setSelectedProperty(null)}
+          onNavigate={onNavigate}
+          onReserve={({ checkIn, checkOut, guests, nights }) => 
+            onNavigate?.({ 
+              name: 'booking', 
+              id: selectedProperty.id.toString(), 
+              search: `?check_in=${encodeURIComponent(checkIn)}&check_out=${encodeURIComponent(checkOut)}&guests=${guests}&nights=${nights}` 
+            })
+          }
+          onChat={() => onNavigate?.({ name: 'messages', id: 'inquiry', search: `?property=${selectedProperty.id}` })}
+        />
+      )}
     </div>
   );
 }
@@ -4536,9 +4301,6 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
   const [selectedCheckOut, setSelectedCheckOut] = useState<string>('');
   const [selectedGuests, setSelectedGuests] = useState<number>(1);
   const [selectedNights, setSelectedNights] = useState<number>(0);
-  
-  // ❌ SUPPRIMER selectedProperty - on n'en a pas besoin ici
-  // Le composant PropertyDetailModal est directement rendu sans state intermédiaire
 
   console.log("=== ListingPage (option 2) ===");
   console.log("ID reçu:", id);
@@ -4608,6 +4370,72 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     );
   }
 
+  // ✅ Fonction pour récupérer les images (identique à mapProperty)
+  const getPropertyImages = (property: any): string[] => {
+    const images: string[] = [];
+    
+    const addImage = (url: string) => {
+      if (!url) return;
+      
+      let cleanUrl = url;
+      
+      // Utiliser l'API Laravel comme proxy
+      if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
+        const filename = cleanUrl.split('/').pop();
+        if (filename && property.id) {
+          cleanUrl = `https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`;
+        }
+      } else if (cleanUrl.startsWith('/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      } else if (cleanUrl.startsWith('/api/public/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      } else if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://api.bluefin-immo.com/storage/${cleanUrl}`;
+      }
+      
+      if (!images.includes(cleanUrl) && !cleanUrl.includes('undefined')) {
+        images.push(cleanUrl);
+      }
+    };
+    
+    // Vérifier les photos
+    if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
+      for (const photo of property.photos) {
+        if (photo.photo_url) {
+          addImage(photo.photo_url);
+        } else if (photo.full_url) {
+          addImage(photo.full_url);
+        } else if (photo.photo_path) {
+          const filename = photo.photo_path.split('/').pop();
+          if (filename) {
+            addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+          }
+        }
+      }
+    }
+    
+    // Vérifier cover_photo
+    if (property.cover_photo && typeof property.cover_photo === 'object') {
+      if (property.cover_photo.photo_url) {
+        addImage(property.cover_photo.photo_url);
+      } else if (property.cover_photo.full_url) {
+        addImage(property.cover_photo.full_url);
+      } else if (property.cover_photo.photo_path) {
+        const filename = property.cover_photo.photo_path.split('/').pop();
+        if (filename) {
+          addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+        }
+      }
+    }
+    
+    // Fallback
+    if (images.length === 0) {
+      images.push(`https://picsum.photos/seed/${property.id}/400/300`);
+    }
+    
+    return images;
+  };
+
   // ✅ Fonction de réservation
   const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
     console.log('🔍 Réservation déclenchée avec:', dates);
@@ -4638,7 +4466,11 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     }
   };
 
-  // ✅ Transformation des données
+  // ✅ Récupérer toutes les images
+  const propertyImages = getPropertyImages(rawProperty);
+  const firstImage = propertyImages[0] || '/placeholder.jpg';
+
+  // ✅ Transformation des données avec les images corrigées
   const property = {
     id: rawProperty.id,
     title: rawProperty.title,
@@ -4648,17 +4480,8 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
     rating: parseFloat(rawProperty.average_rating) || 0,
     reviews: rawProperty.reviews_count || 0,
-    image: (() => {
-      const first = rawProperty.photos?.[0] || null;
-      const url = first?.photo_url || first?.url || first?.path || first?.file?.url || rawProperty.image || null;
-      if (!url) return '/placeholder.jpg';
-      return url.startsWith('http') ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
-    })(),
-    images: (rawProperty.photos && Array.isArray(rawProperty.photos) ? rawProperty.photos.map((p: any) => {
-      const url = p?.photo_url || p?.url || p?.path || p?.file?.url || p;
-      if (!url) return null;
-      return (typeof url === 'string' && url.startsWith('http')) ? url : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${url}`;
-    }).filter(Boolean) : (rawProperty.images || [])),
+    image: firstImage,
+    images: propertyImages,
     beds: rawProperty.beds || 0,
     baths: rawProperty.bathrooms || 0,
     description: rawProperty.description,
@@ -4740,24 +4563,279 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
   console.log('🔍 Property data:', {
     id: property.id,
     title: property.title,
+    imagesCount: property.images.length,
+    firstImage: property.image,
     host: property.host,
     hostId: property.hostId,
-    rawUser: rawProperty.user,
-    rawHost: rawProperty.host,
   });
 
-  // ✅ Retour direct du modal sans état selectedProperty
+  // ✅ Retour direct du modal
   return (
     <PropertyDetailModal
       property={property}
       onClose={() => onNavigate({ name: 'home' })}
-      onNavigate={onNavigate}  // ✅ Passer onNavigate
+      onNavigate={onNavigate}
       onReserve={handleReserve}
       onChat={() => onNavigate({ name: 'messages', id: 'inquiry', search: `?property=${property.id}` })}
     />
   );
 }
 
+
+// components/CancellationPolicy.tsx
+interface CancellationPolicyProps {
+  checkInDate?: string;
+  checkOutDate?: string;
+  bookingDate?: Date; // Date de réservation (maintenant par défaut)
+  cancellationPolicy?: 'flexible' | 'moderate' | 'strict';
+}
+
+interface PolicyRule {
+  deadline: Date;
+  refundPercentage: number;
+  label: string;
+  description: string;
+  icon: JSX.Element;
+}
+
+export function CancellationPolicy({ 
+  checkInDate, 
+  checkOutDate, 
+  bookingDate = new Date(),
+  cancellationPolicy = 'moderate'
+}: CancellationPolicyProps) {
+  const [policyRules, setPolicyRules] = useState<PolicyRule[]>([]);
+  const [currentRule, setCurrentRule] = useState<PolicyRule | null>(null);
+
+  // Calculer les différentes deadlines selon la politique
+  useEffect(() => {
+    if (!checkInDate) return;
+
+    const checkIn = new Date(checkInDate);
+    const bookingTime = new Date(bookingDate);
+    
+    const rules: PolicyRule[] = [];
+
+    if (cancellationPolicy === 'flexible') {
+      // Politique flexible
+      const fullRefundDeadline = new Date(checkIn);
+      fullRefundDeadline.setDate(checkIn.getDate() - 1);
+      fullRefundDeadline.setHours(23, 59, 59);
+      
+      rules.push({
+        deadline: fullRefundDeadline,
+        refundPercentage: 100,
+        label: 'Remboursement intégral',
+        description: `Annulez avant le ${fullRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} pour un remboursement complet.`,
+        icon: <CheckCircle className="w-5 h-5 text-green-500" />
+      });
+      
+      const partialRefundDeadline = new Date(checkIn);
+      partialRefundDeadline.setDate(checkIn.getDate() - 7);
+      partialRefundDeadline.setHours(15, 0, 0);
+      
+      if (partialRefundDeadline > bookingTime) {
+        rules.push({
+          deadline: partialRefundDeadline,
+          refundPercentage: 50,
+          label: 'Remboursement partiel',
+          description: `Annulez avant le ${partialRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} pour un remboursement de 50%. Les frais de service ne sont pas remboursés.`,
+          icon: <Clock className="w-5 h-5 text-orange-500" />
+        });
+      }
+      
+      rules.push({
+        deadline: checkIn,
+        refundPercentage: 0,
+        label: 'Aucun remboursement',
+        description: `Annulation moins de 7 jours avant le check-in (à partir du ${partialRefundDeadline.toLocaleDateString('fr-FR')} à 15h00) : aucun remboursement, sans exception.`,
+        icon: <XCircle className="w-5 h-5 text-red-500" />
+      });
+      
+    } else if (cancellationPolicy === 'strict') {
+      // Politique stricte
+      const fullRefundDeadline = new Date(checkIn);
+      fullRefundDeadline.setDate(checkIn.getDate() - 14);
+      fullRefundDeadline.setHours(23, 59, 59);
+      
+      rules.push({
+        deadline: fullRefundDeadline,
+        refundPercentage: 100,
+        label: 'Remboursement intégral',
+        description: `Annulez avant le ${fullRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} pour un remboursement complet.`,
+        icon: <CheckCircle className="w-5 h-5 text-green-500" />
+      });
+      
+      const partialRefundDeadline = new Date(checkIn);
+      partialRefundDeadline.setDate(checkIn.getDate() - 7);
+      partialRefundDeadline.setHours(15, 0, 0);
+      
+      if (partialRefundDeadline > fullRefundDeadline) {
+        rules.push({
+          deadline: partialRefundDeadline,
+          refundPercentage: 50,
+          label: 'Remboursement partiel',
+          description: `Annulez avant le ${partialRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} pour un remboursement de 50%. Les frais de service ne sont pas remboursés.`,
+          icon: <Clock className="w-5 h-5 text-orange-500" />
+        });
+      }
+      
+      rules.push({
+        deadline: checkIn,
+        refundPercentage: 0,
+        label: 'Aucun remboursement',
+        description: `Annulation moins de 7 jours avant le check-in : aucun remboursement, sans exception.`,
+        icon: <XCircle className="w-5 h-5 text-red-500" />
+      });
+      
+    } else {
+      // Politique modérée (par défaut)
+      // Deadline pour remboursement intégral (24h après réservation)
+      const fullRefundDeadline = new Date(bookingTime);
+      fullRefundDeadline.setHours(bookingTime.getHours() + 24);
+      
+      rules.push({
+        deadline: fullRefundDeadline,
+        refundPercentage: 100,
+        label: 'Remboursement intégral',
+        description: `Annulez dans les 24h suivant votre réservation (avant le ${fullRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}) pour un remboursement complet.`,
+        icon: <CheckCircle className="w-5 h-5 text-green-500" />
+      });
+      
+      // Deadline pour remboursement partiel (7 jours avant check-in)
+      const partialRefundDeadline = new Date(checkIn);
+      partialRefundDeadline.setDate(checkIn.getDate() - 7);
+      partialRefundDeadline.setHours(15, 0, 0);
+      
+      if (partialRefundDeadline > fullRefundDeadline) {
+        rules.push({
+          deadline: partialRefundDeadline,
+          refundPercentage: 50,
+          label: 'Remboursement partiel',
+          description: `Annulez avant le ${partialRefundDeadline.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} pour un remboursement de 50%. Les frais de service ne sont pas remboursés.`,
+          icon: <Clock className="w-5 h-5 text-orange-500" />
+        });
+      }
+      
+      // Aucun remboursement
+      rules.push({
+        deadline: checkIn,
+        refundPercentage: 0,
+        label: 'Aucun remboursement',
+        description: `Annulation moins de 7 jours avant le check-in (après le ${partialRefundDeadline.toLocaleDateString('fr-FR')} à 15h00) : aucun remboursement, sans exception.`,
+        icon: <XCircle className="w-5 h-5 text-red-500" />
+      });
+    }
+    
+    setPolicyRules(rules);
+    
+    // Déterminer la règle actuelle
+    const now = new Date();
+    let activeRule = rules[rules.length - 1]; // Dernière règle par défaut
+    
+    for (const rule of rules) {
+      if (now < rule.deadline) {
+        activeRule = rule;
+        break;
+      }
+    }
+    
+    setCurrentRule(activeRule);
+    
+  }, [checkInDate, bookingDate, cancellationPolicy]);
+
+  if (!checkInDate) {
+    return (
+      <div className="bg-gray-50 rounded-xl p-4 text-center">
+        <p className="text-gray-500 text-sm">
+          Sélectionnez vos dates pour voir la politique d'annulation
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      {/* En-tête */}
+      <div className="bg-gradient-to-r from-[#0F2940] to-[#1a3a52] px-5 py-4">
+        <div className="flex items-center gap-3">
+          <Calendar className="w-5 h-5 text-[#00c9a7]" />
+          <h3 className="font-semibold text-white">Politique d'annulation</h3>
+        </div>
+      </div>
+      
+      {/* Règle active */}
+      {currentRule && (
+        <div className={`p-5 border-b ${
+          currentRule.refundPercentage === 100 ? 'bg-green-50 border-green-200' :
+          currentRule.refundPercentage === 50 ? 'bg-orange-50 border-orange-200' :
+          'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              {currentRule.icon}
+            </div>
+            <div>
+              <h4 className={`font-semibold ${
+                currentRule.refundPercentage === 100 ? 'text-green-700' :
+                currentRule.refundPercentage === 50 ? 'text-orange-700' :
+                'text-red-700'
+              }`}>
+                {currentRule.label}
+              </h4>
+              <p className="text-sm text-gray-600 mt-1">
+                {currentRule.description}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Liste des règles */}
+      <div className="p-5 space-y-4">
+        <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          L'heure indiquée est basée sur l'emplacement du logement
+        </p>
+        
+        {policyRules.map((rule, index) => (
+          <div 
+            key={index} 
+            className={`pb-3 ${index < policyRules.length - 1 ? 'border-b border-gray-100' : ''}`}
+          >
+            <div className="flex items-start gap-2">
+              <div className="flex-shrink-0 mt-0.5">
+                {rule.refundPercentage === 100 ? (
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                ) : rule.refundPercentage === 50 ? (
+                  <Clock className="w-4 h-4 text-orange-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-red-400" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  {rule.label}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {rule.description.split('.')[0]}.
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Note supplémentaire */}
+      <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
+        <p className="text-xs text-gray-500 flex items-center gap-1">
+          <AlertCircle className="w-3 h-3" />
+          Les frais de service (10%) ne sont pas remboursés en cas d'annulation partielle.
+        </p>
+      </div>
+    </div>
+  );
+}
 // ==================== ALL PROPERTIES PAGE ====================
 
 export function AllPropertiesPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
@@ -5938,6 +6016,7 @@ export function AccountReservationsPage({ onNavigate }: PageProps) {
 
 // ==================== HOST DASHBOARD PAGE ====================
 
+
 interface Route {
   name: string;
   id?: string;
@@ -5947,10 +6026,53 @@ interface HostDashboardPageProps {
   onNavigate?: (route: Route) => void;
 }
 
+// ✅ Fonction sécurisée pour l'URL des images
+const getSafeImageUrl = (photo: any, propertyId: number): string => {
+  if (!photo) return '';
+  
+  let imageUrl = '';
+  
+  try {
+    if (typeof photo === 'object' && photo !== null) {
+      if (typeof photo.photo_url === 'string' && photo.photo_url) {
+        imageUrl = photo.photo_url;
+      } else if (typeof photo.full_url === 'string' && photo.full_url) {
+        imageUrl = photo.full_url;
+      } else if (typeof photo.url === 'string' && photo.url) {
+        imageUrl = photo.url;
+      }
+    } else if (typeof photo === 'string') {
+      imageUrl = photo;
+    }
+    
+    if (!imageUrl && photo?.photo_path && typeof photo.photo_path === 'string') {
+      const filename = photo.photo_path.split('/').pop();
+      if (filename && propertyId) {
+        imageUrl = `https://api.bluefin-immo.com/api/property-image/${propertyId}/${filename}`;
+      }
+    }
+    
+    if (imageUrl && typeof imageUrl === 'string') {
+      if (imageUrl.includes('hstgr.io') || imageUrl.includes('srv2197-files')) {
+        const filename = imageUrl.split('/').pop();
+        if (filename && propertyId) {
+          imageUrl = `https://api.bluefin-immo.com/api/property-image/${propertyId}/${filename}`;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Erreur lors du traitement de l\'image:', e);
+    return '/placeholder.jpg';
+  }
+  
+  return (imageUrl && typeof imageUrl === 'string') ? imageUrl : '/placeholder.jpg';
+};
+
 export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['host-dashboard'],
     queryFn: () => hostService.getDashboard(),
+    retry: 2,
   });
 
   if (isLoading) {
@@ -5964,12 +6086,12 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
   if (error) {
     return (
       <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center">
-        <div className="text-red-500 text-center">
+        <div className="text-red-500 text-center max-w-md">
           <p className="text-lg font-semibold">Erreur de chargement</p>
           <p className="text-sm mt-2">Impossible de charger votre tableau de bord</p>
           <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 bg-[#00c9a7] text-white px-4 py-2 rounded-full"
+            onClick={() => refetch()} 
+            className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
           >
             Réessayer
           </button>
@@ -5978,22 +6100,32 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
     );
   }
 
-  const stats = data?.data?.stats || {};
-  const today = data?.data?.today || { checkins: [], checkouts: [] };
-  const upcoming = data?.data?.upcoming_bookings || [];
+  const properties = data?.data?.data || data?.data || [];
+  const paginationStats = data?.stats || { total: 0, active: 0, pending: 0, draft: 0, rejected: 0 };
+  
+  const activeProperties = properties.filter((p: any) => p.status === 'active');
+  const pendingProperties = properties.filter((p: any) => p.status === 'pending');
+  const draftProperties = properties.filter((p: any) => p.status === 'draft');
+  
+  const totalUpcomingBookings = properties.reduce((sum: number, prop: any) => {
+    return sum + (prop.stats?.pending_bookings || 0);
+  }, 0);
+  
+  const monthlyRevenue = activeProperties.reduce((sum: number, prop: any) => {
+    return sum + (parseFloat(prop.price_per_night) * 30);
+  }, 0);
 
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* En-tête avec le bouton Nouvelle annonce */}
+        {/* En-tête */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-[#0f2940]">Tableau de bord hôte</h1>
             <p className="text-gray-500 mt-1">Gérez vos annonces, revenus et réservations</p>
           </div>
           
-          {/* ✅ BOUTON NOUVELLE ANNONCE */}
           <button
             onClick={() => onNavigate?.({ name: 'publish' })}
             className="group bg-[#00c9a7] hover:bg-[#00b396] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
@@ -6005,203 +6137,167 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
 
         {/* Cartes statistiques */}
         <div className="grid gap-6 lg:grid-cols-4 mb-8">
-          {/* Carte revenus */}
           <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-[#6b7280]">Revenus du mois</div>
+              <div className="text-sm text-[#6b7280]">Revenus estimés du mois</div>
               <DollarSign className="w-5 h-5 text-[#00c9a7]" />
             </div>
             <div className="text-2xl font-bold text-[#0f2940] mt-3">
-              {stats.revenue?.monthly ? `${stats.revenue.monthly.toLocaleString()} FCFA` : '0 FCFA'}
+              {monthlyRevenue.toLocaleString()} FCFA
             </div>
-            {stats.revenue?.growth && (
-              <div className="flex items-center gap-1 text-xs text-green-600 mt-2">
-                <TrendingUp className="w-3 h-3" />
-                <span>+{stats.revenue.growth}% vs mois dernier</span>
-              </div>
-            )}
+            <div className="text-xs text-gray-500 mt-2">
+              Basé sur {activeProperties.length} propriété{activeProperties.length > 1 ? 's' : ''} active{activeProperties.length > 1 ? 's' : ''}
+            </div>
           </div>
 
-          {/* Carte propriétés */}
           <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="text-sm text-[#6b7280]">Propriétés</div>
               <Home className="w-5 h-5 text-[#00c9a7]" />
             </div>
             <div className="text-2xl font-bold text-[#0f2940] mt-3">
-              {stats.properties_count || 0}
+              {paginationStats.total || properties.length}
             </div>
-            <div className="text-xs text-gray-500 mt-2">
-              {stats.active_properties || 0} actives
+            <div className="flex gap-3 mt-2 text-xs">
+              <span className="text-green-600">{activeProperties.length} active{activeProperties.length > 1 ? 's' : ''}</span>
+              <span className="text-orange-500">{pendingProperties.length} en attente</span>
+              <span className="text-gray-400">{draftProperties.length} brouillon{draftProperties.length > 1 ? 's' : ''}</span>
             </div>
           </div>
 
-          {/* Carte arrivées */}
           <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-[#6b7280]">Arrivées aujourd'hui</div>
+              <div className="text-sm text-[#6b7280]">Réservations à venir</div>
               <Users className="w-5 h-5 text-[#00c9a7]" />
             </div>
-            <div className="text-2xl font-bold text-[#0f2940] mt-3">{today.checkins?.length || 0}</div>
-            {today.checkins?.length > 0 && (
-              <div className="text-xs text-gray-500 mt-2">
-                {today.checkins.map((c: any) => c.guest_name).join(', ')}
-              </div>
-            )}
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{totalUpcomingBookings}</div>
+            <div className="text-xs text-gray-500 mt-2">Demandes en attente</div>
           </div>
 
-          {/* Carte messages */}
           <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div className="text-sm text-[#6b7280]">Messages non lus</div>
               <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
             </div>
-            <div className="text-2xl font-bold text-[#0f2940] mt-3">{stats.unread_messages || 0}</div>
-            <button 
-              onClick={() => onNavigate?.({ name: 'host-messages' })}
-              className="text-xs text-[#00c9a7] mt-2 hover:underline"
-            >
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">0</div>
+            <button onClick={() => onNavigate?.({ name: 'host-messages' })} className="text-xs text-[#00c9a7] mt-2 hover:underline">
               Voir les messages
             </button>
           </div>
         </div>
 
-        {/* Réservations à venir et activités récentes */}
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
-          {/* Réservations à venir */}
-          <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-lg">🗓️ Réservations à venir</h3>
-              <button 
-                onClick={() => onNavigate?.({ name: 'host-reservations' })}
-                className="text-xs text-[#00c9a7] hover:underline"
-              >
-                Voir tout
-              </button>
-            </div>
-            {upcoming.length === 0 ? (
-              <div className="text-center py-8">
-                <CalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">Aucune réservation future</p>
-                <p className="text-sm text-gray-400 mt-1">Les réservations apparaîtront ici</p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                {upcoming.map((booking: any) => (
-                  <div 
-                    key={booking.id} 
-                    className="flex justify-between items-center border-b border-[#e2f5f2] pb-3 hover:bg-[#f4fffe] p-2 rounded-lg transition cursor-pointer"
-                    onClick={() => onNavigate?.({ name: 'host-reservation-detail', id: booking.id.toString() })}
-                  >
-                    <div>
-                      <p className="font-medium text-[#0f2940]">{booking.property?.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <p className="text-xs text-gray-500">
-                          {booking.check_in} → {booking.check_out}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-[#00c9a7]">{booking.total?.toLocaleString()} FCFA</p>
-                      <p className="text-xs text-gray-500 mt-1">{booking.guest_name}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Arrivées et départs */}
-          <div className="space-y-6">
-            {/* Arrivées aujourd'hui */}
-            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <h3 className="font-semibold text-lg">📥 Arrivées aujourd'hui</h3>
-              </div>
-              {today.checkins?.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Aucune arrivée prévue</p>
-              ) : (
-                <ul className="space-y-2">
-                  {today.checkins.map((c: any) => (
-                    <li key={c.id} className="flex justify-between items-center border-b pb-2">
-                      <div>
-                        <span className="font-medium">{c.guest_name}</span>
-                        <p className="text-xs text-gray-500">{c.property}</p>
-                      </div>
-                      <button 
-                        onClick={() => onNavigate?.({ name: 'host-reservation-detail', id: c.id.toString() })}
-                        className="text-xs bg-[#00c9a7]/10 text-[#00c9a7] px-3 py-1 rounded-full"
-                      >
-                        Voir
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Départs aujourd'hui */}
-            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
-              <h3 className="font-semibold text-lg mb-4">📤 Départs aujourd'hui</h3>
-              {today.checkouts?.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">Aucun départ prévu</p>
-              ) : (
-                <ul className="space-y-2">
-                  {today.checkouts.map((c: any) => (
-                    <li key={c.id} className="flex justify-between items-center border-b pb-2">
-                      <div>
-                        <span className="font-medium">{c.guest_name}</span>
-                        <p className="text-xs text-gray-500">{c.property}</p>
-                      </div>
-                      <span className="text-xs text-gray-400">Check-out</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Section étoiles - Évaluations */}
+        {/* Liste des propriétés */}
         <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-              <h3 className="font-semibold text-lg">Évaluations récentes</h3>
-            </div>
-            <button 
-              onClick={() => onNavigate?.({ name: 'host-reviews' })}
-              className="text-xs text-[#00c9a7] hover:underline"
-            >
+            <h3 className="font-semibold text-lg">🏠 Mes propriétés</h3>
+            <button onClick={() => onNavigate?.({ name: 'host-annonces' })} className="text-xs text-[#00c9a7] hover:underline">
               Voir toutes
             </button>
           </div>
           
-          {stats.reviews_count === 0 ? (
+          {properties.length === 0 ? (
+            <div className="text-center py-8">
+              <Home className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">Aucune propriété</p>
+              <button onClick={() => onNavigate?.({ name: 'publish' })} className="mt-3 text-[#00c9a7] text-sm hover:underline">
+                Créer ma première annonce
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {properties.map((property: any) => {
+                const firstPhoto = property.photos?.[0] || property.cover_photo;
+                const imageUrl = getSafeImageUrl(firstPhoto, property.id);
+                
+                return (
+                  <div 
+                    key={property.id} 
+                    className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#e2f5f2] pb-3 hover:bg-[#f4fffe] p-3 rounded-lg transition cursor-pointer"
+                    // ✅ CORRECTION: Utiliser 'listing' au lieu de 'host-annonce-detail'
+                    onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                        {imageUrl && imageUrl !== '/placeholder.jpg' ? (
+                          <img 
+                            src={imageUrl} 
+                            alt={property.title} 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder.jpg';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Home className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#0f2940]">{property.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            property.status === 'active' ? 'bg-green-100 text-green-700' :
+                            property.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                            'bg-gray-100 text-gray-500'
+                          }`}>
+                            {property.status_label || property.status}
+                          </span>
+                          <span className="text-xs text-gray-400">{property.city}, {property.district}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold text-[#00c9a7]">{property.price_formatted || property.price_per_night?.toLocaleString()} FCFA</p>
+                        <p className="text-xs text-gray-400">/ nuit</p>
+                        <p className="text-xs text-gray-400">
+                          ≈ {(property.price_per_night * 0.0015).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{property.stats?.bookings_count || 0} réservations</p>
+                        {property.stats?.pending_bookings > 0 && (
+                          <p className="text-xs text-orange-500">{property.stats.pending_bookings} en attente</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Section évaluations */}
+        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            <h3 className="font-semibold text-lg">Évaluations</h3>
+          </div>
+          
+          {properties.every((p: any) => parseFloat(p.average_rating) === 0) ? (
             <div className="text-center py-8">
               <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">Aucune évaluation pour le moment</p>
               <p className="text-sm text-gray-400 mt-1">Les évaluations apparaîtront après les séjours</p>
             </div>
           ) : (
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-[#0f2940]">{stats.average_rating || 0}</div>
-                <div className="flex items-center gap-1 mt-1">
-                  {[1,2,3,4,5].map(star => (
-                    <Star key={star} className={`w-4 h-4 ${star <= (stats.average_rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                  ))}
+            <div className="space-y-4">
+              {properties.filter((p: any) => parseFloat(p.average_rating) > 0).map((property: any) => (
+                <div key={property.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">{property.title}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      {[1,2,3,4,5].map(star => (
+                        <Star key={star} className={`w-4 h-4 ${star <= Math.round(parseFloat(property.average_rating)) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                      ))}
+                      <span className="text-xs text-gray-500 ml-2">({property.reviews_count} avis)</span>
+                    </div>
+                  </div>
+                  <span className="text-lg font-bold text-[#0f2940]">{parseFloat(property.average_rating).toFixed(1)}</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">({stats.reviews_count} avis)</p>
-              </div>
-              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-yellow-400 rounded-full"
-                  style={{ width: `${((stats.average_rating || 0) / 5) * 100}%` }}
-                />
-              </div>
+              ))}
             </div>
           )}
         </div>
@@ -6210,30 +6306,21 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
         <div>
           <h3 className="font-semibold text-lg mb-4">Accès rapides</h3>
           <div className="grid gap-4 lg:grid-cols-3">
-            <button
-              onClick={() => onNavigate?.({ name: 'host-annonces' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
-            >
+            <button onClick={() => onNavigate?.({ name: 'host-annonces' })} className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group">
               <div className="flex items-center gap-3 mb-3">
                 <Home className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Mes annonces</h3>
               </div>
               <p className="text-sm text-[#6b7280]">Gérez les offres publiées et leurs performances.</p>
             </button>
-            <button
-              onClick={() => onNavigate?.({ name: 'host-calendrier' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
-            >
+            <button onClick={() => onNavigate?.({ name: 'host-calendrier', id: undefined })} className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group">
               <div className="flex items-center gap-3 mb-3">
                 <CalendarDays className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Calendrier</h3>
               </div>
               <p className="text-sm text-[#6b7280]">Bloquez des dates et gérez les disponibilités.</p>
             </button>
-            <button
-              onClick={() => onNavigate?.({ name: 'host-reservations' })}
-              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
-            >
+            <button onClick={() => onNavigate?.({ name: 'host-reservations' })} className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group">
               <div className="flex items-center gap-3 mb-3">
                 <MessageCircle className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
                 <h3 className="text-lg font-semibold text-[#0f2940]">Réservations</h3>
@@ -6249,115 +6336,369 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
 
 // ==================== HOST LISTINGS PAGE ====================
 
+interface Route {
+  name: string;
+  id?: string;
+  showConfirmation?: boolean;
+  propertyId?: string;
+}
+
+// HostListingsPage.tsx
+
+
+
+// HostListingsPage.tsx - Version complète avec gestion des images
+
+
+
+interface Route {
+  name: string;
+  id?: string;
+  showConfirmation?: boolean;
+  propertyId?: string;
+}
+
 export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useQuery({
+  
+  // État pour la modale de modification
+  const [editingProperty, setEditingProperty] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    property_type: '',
+    city: '',
+    district: '',
+    address: '',
+    bedrooms: 0,
+    beds: 0,
+    bathrooms: 0,
+    max_guests: 0,
+    price_per_night: 0,
+    min_stay: 1,
+  });
+  
+  // États pour les images
+  const [newPhotos, setNewPhotos] = useState<File[]>([]);
+  const [newPhotoPreviews, setNewPhotoPreviews] = useState<string[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  
+  // État pour l'image en cours de suppression
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['host-properties'],
     queryFn: () => hostService.getProperties(),
   });
 
+  // Mutation pour supprimer une propriété
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => propertyService.delete(id),
+    mutationFn: (id: number) => hostService.deleteProperty(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['host-properties'] });
+      toast.success('Logement supprimé avec succès');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression');
     },
   });
 
-  // État pour la modale de confirmation
-  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
-  const [submittedPropertyId, setSubmittedPropertyId] = useState<number | null>(null);
+  // Mutation pour modifier une propriété
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => hostService.updateProperty(id, data),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ['host-properties'] });
+      toast.success(response?.message || 'Logement modifié avec succès');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || error?.response?.data?.errors || 'Erreur lors de la modification';
+      if (typeof message === 'object') {
+        const errors = Object.values(message).flat().join(', ');
+        toast.error(errors);
+      } else {
+        toast.error(message);
+      }
+    },
+  });
 
-  // Fonction à appeler après une soumission réussie
-  const handleSubmissionSuccess = (propertyId: number) => {
-    setSubmittedPropertyId(propertyId);
-    setShowConfirmationModal(true);
+  // Mutation pour ajouter des photos
+  const addPhotosMutation = useMutation({
+    mutationFn: ({ propertyId, photos }: { propertyId: number; photos: File[] }) => 
+      hostService.addPhotos(propertyId, photos),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['host-properties'] });
+      toast.success('Photos ajoutées avec succès');
+      // Recharger la propriété pour afficher les nouvelles photos
+      refetch();
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de l\'ajout des photos');
+    },
+  });
+
+  // Mutation pour supprimer une photo
+  const deletePhotoMutation = useMutation({
+    mutationFn: ({ propertyId, photoId }: { propertyId: number; photoId: number }) => 
+      hostService.deletePhoto(propertyId, photoId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['host-properties'] });
+      toast.success('Photo supprimée avec succès');
+      setDeletingPhotoId(null);
+      // Mettre à jour editingProperty localement
+      if (editingProperty) {
+        const updatedPhotos = editingProperty.photos?.filter((p: any) => p.id !== deletingPhotoId);
+        setEditingProperty((prev: any) => ({ ...prev, photos: updatedPhotos }));
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression de la photo');
+      setDeletingPhotoId(null);
+    },
+  });
+
+  // État pour la modale de confirmation de suppression
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    propertyId: number | null;
+    propertyTitle: string;
+  }>({
+    show: false,
+    propertyId: null,
+    propertyTitle: '',
+  });
+
+  // État pour la modale de confirmation de suppression de photo
+  const [photoDeleteConfirmation, setPhotoDeleteConfirmation] = useState<{
+    show: boolean;
+    propertyId: number | null;
+    photoId: number | null;
+    photoUrl: string;
+  }>({
+    show: false,
+    propertyId: null,
+    photoId: null,
+    photoUrl: '',
+  });
+
+  // État pour la modale de confirmation de soumission
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  useEffect(() => {
+    const shouldShow = localStorage.getItem('showConfirmation');
+    const propertyId = localStorage.getItem('submittedPropertyId');
+    if (shouldShow === 'true') {
+      setShowSuccessModal(true);
+      localStorage.removeItem('showConfirmation');
+      localStorage.removeItem('submittedPropertyId');
+    }
+  }, []);
+
+  const confirmDelete = (propertyId: number, propertyTitle: string) => {
+    setDeleteConfirmation({
+      show: true,
+      propertyId,
+      propertyTitle,
+    });
   };
 
-  // Fonction pour continuer après la modale
-  const handleContinue = () => {
-    setShowConfirmationModal(false);
-    // Optionnel : rediriger vers une autre page
-    // onNavigate?.({ name: 'host-confirmation' });
-  };
-
-  if (isLoading) return <div className="text-center py-10">Chargement...</div>;
-  if (error) return <div className="text-center py-10 text-red-500">Erreur de chargement</div>;
-
-  const properties = data?.data?.data || [];
-  const handleSubmit = async (formData: any) => {
-    setIsSubmitting(true);
-    try {
-      const response = await propertyService.create(formData);
-      
-      // ✅ Appelez la fonction pour afficher la modale
-      // Option 1: Naviguer vers HostListingsPage avec un paramètre
-      onNavigate?.({ 
-        name: 'host-annonces', 
-        showConfirmation: true,  // Ajoutez un paramètre
-        propertyId: response.data.id 
-      });
-      
-      // Option 2: Stocker dans localStorage
-      localStorage.setItem('showConfirmation', 'true');
-      localStorage.setItem('submittedPropertyId', response.data.id);
-      onNavigate?.({ name: 'host-annonces' });
-      
-    } catch (error) {
-      console.error('Erreur:', error);
-    } finally {
-      setIsSubmitting(false);
+  const handleDelete = () => {
+    if (deleteConfirmation.propertyId) {
+      deleteMutation.mutate(deleteConfirmation.propertyId);
+      setDeleteConfirmation({ show: false, propertyId: null, propertyTitle: '' });
     }
   };
 
+  const confirmDeletePhoto = (propertyId: number, photoId: number, photoUrl: string) => {
+    setPhotoDeleteConfirmation({
+      show: true,
+      propertyId,
+      photoId,
+      photoUrl,
+    });
+  };
+
+  const handleDeletePhoto = () => {
+    if (photoDeleteConfirmation.propertyId && photoDeleteConfirmation.photoId) {
+      setDeletingPhotoId(photoDeleteConfirmation.photoId);
+      deletePhotoMutation.mutate({
+        propertyId: photoDeleteConfirmation.propertyId,
+        photoId: photoDeleteConfirmation.photoId,
+      });
+      setPhotoDeleteConfirmation({ show: false, propertyId: null, photoId: null, photoUrl: '' });
+    }
+  };
+
+  const formatPrice = (price: number) => {
+    if (!price && price !== 0) return '0';
+    return price.toLocaleString('fr-FR');
+  };
+
+  const convertToEuro = (priceFCFA: number) => {
+    const XAF_TO_EUR = 0.0015;
+    return priceFCFA * XAF_TO_EUR;
+  };
+
+  // Ouvrir la modale de modification
+  const handleEdit = (property: any) => {
+    setEditingProperty(property);
+    setEditFormData({
+      title: property.title || '',
+      description: property.description || '',
+      property_type: property.property_type || '',
+      city: property.city || '',
+      district: property.district || '',
+      address: property.address || '',
+      bedrooms: property.bedrooms || 0,
+      beds: property.beds || 0,
+      bathrooms: property.bathrooms || 0,
+      max_guests: property.max_guests || 0,
+      price_per_night: property.price_per_night || 0,
+      min_stay: property.min_stay || 1,
+    });
+    setNewPhotos([]);
+    setNewPhotoPreviews([]);
+    setShowEditModal(true);
+  };
+
+  // Gérer l'ajout de nouvelles photos
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+    
+    const newFiles = Array.from(files);
+    setNewPhotos((prev) => [...prev, ...newFiles]);
+    
+    newFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewPhotoPreviews(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Supprimer une nouvelle photo (non encore uploadée)
+  const handleRemoveNewPhoto = (index: number) => {
+    setNewPhotos(prev => prev.filter((_, i) => i !== index));
+    setNewPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Sauvegarder les modifications (seulement les nouvelles photos)
+  const handleSaveEdit = async () => {
+    if (editingProperty) {
+      setUploadingPhotos(true);
+      
+      try {
+        // 1. Mettre à jour les informations de base
+        const updateData = {
+          title: editFormData.title,
+          description: editFormData.description,
+          property_type: editFormData.property_type,
+          city: editFormData.city,
+          district: editFormData.district,
+          address: editFormData.address,
+          bedrooms: editFormData.bedrooms,
+          beds: editFormData.beds,
+          bathrooms: editFormData.bathrooms,
+          max_guests: editFormData.max_guests,
+          price_per_night: editFormData.price_per_night,
+          min_stay: editFormData.min_stay,
+        };
+        
+        await updateMutation.mutateAsync({
+          id: editingProperty.id,
+          data: updateData,
+        });
+        
+        // 2. Ajouter les nouvelles photos (si des photos ont été sélectionnées)
+        if (newPhotos.length > 0) {
+          await addPhotosMutation.mutateAsync({
+            propertyId: editingProperty.id,
+            photos: newPhotos,
+          });
+        }
+        
+        toast.success('Toutes les modifications ont été enregistrées');
+        setShowEditModal(false);
+        setEditingProperty(null);
+        
+      } catch (error) {
+        console.error('Erreur lors de l\'enregistrement:', error);
+        toast.error('Erreur lors de l\'enregistrement des modifications');
+      } finally {
+        setUploadingPhotos(false);
+      }
+    }
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-10 text-red-500">
+        <p>Erreur de chargement des annonces</p>
+        <button onClick={() => refetch()} className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b892] transition">Réessayer</button>
+      </div>
+    );
+  }
+
+  const properties = data?.data?.data || data?.data || [];
+
   return (
     <>
-      <div className="bg-white min-h-screen py-10">
+      <div className="bg-white min-h-screen py-10 pb-32">
         <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
           <PageSection title="Mes annonces hôte" subtitle="Gestion de vos annonces publiées et de leur visibilité.">
             <div className="space-y-4">
               {properties.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500">Vous n'avez pas encore d'annonce.</p>
-                  <button
-                    onClick={() => {
-                      onNavigate?.({ name: 'publish' });
-                    }}
-                    className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full"
-                  >
-                    Créer ma première annonce
-                  </button>
+                  <button onClick={() => onNavigate?.({ name: 'publish' })} className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b892] transition">Créer ma première annonce</button>
                 </div>
               ) : (
                 properties.map((property: any) => (
-                  <div key={property.id} className="rounded-3xl border border-[#e2f5f2] p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
+                  <div key={property.id} className="rounded-3xl border border-[#e2f5f2] p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between hover:shadow-lg transition-shadow">
+                    <div className="flex-1">
                       <h3 className="text-xl font-semibold text-[#0f2940]">{property.title}</h3>
-                      <p className="text-sm text-[#6b7280]">
-                        Statut : {property.status_label} · {property.stats?.bookings_count || 0} réservations
+                      <p className="text-sm text-[#6b7280] mt-1">
+                        Statut :{' '}
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${
+                          property.status === 'active' ? 'bg-green-100 text-green-700' :
+                          property.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                          property.status === 'draft' ? 'bg-gray-100 text-gray-600' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {property.status_label || property.status}
+                        </span>
                       </p>
-                      <div className="flex gap-4 mt-2 text-sm">
-                        <span>👁️ {property.stats?.views_this_month || 0} vues ce mois</span>
-                        <span>⭐ {property.average_rating || 0} étoiles</span>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                        <span className="flex items-center gap-1"><Eye className="w-4 h-4" />{property.stats?.views_this_month || property.views_count || 0} vues</span>
+                        <span className="flex items-center gap-1"><Star className="w-4 h-4 text-yellow-400" />{property.average_rating || 0} / 5</span>
+                        <span className="flex items-center gap-1"><CalendarDays className="w-4 h-4" />{property.stats?.bookings_count || property.bookings_count || 0} réservations</span>
+                        <span className="flex items-center gap-1"><DollarSign className="w-4 h-4 text-[#00c9a7]" />{formatPrice(property.price_per_night)} FCFA / nuit</span>
                       </div>
+                      <div className="text-xs text-gray-400 mt-2">📍 {property.city}, {property.district}</div>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
-                        className="border border-[#e2f5f2] rounded-full px-5 py-3 text-sm hover:bg-[#f4fffe] transition-colors"
-                      >
-                        Voir
+                      <button onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })} className="border border-[#e2f5f2] rounded-full px-5 py-2.5 text-sm hover:bg-[#f4fffe] transition-colors">Voir</button>
+                      <button onClick={() => onNavigate?.({ name: 'host-calendrier', id: property.id.toString() })} className="border border-[#00c9a7] text-[#00c9a7] rounded-full px-5 py-2.5 text-sm hover:bg-[#00c9a7]/10 transition-colors">Calendrier</button>
+                      <button onClick={() => handleEdit(property)} disabled={property.status === 'pending'} className={`border rounded-full px-5 py-2.5 text-sm transition-colors ${property.status === 'pending' ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-blue-200 text-blue-600 hover:bg-blue-50'}`}>
+                        <Edit2 className="w-4 h-4 inline mr-1" />Modifier
                       </button>
-                      <button
-                        onClick={() => onNavigate?.({ name: 'host-calendrier', id: property.id.toString() })}
-                        className="border border-[#00c9a7] text-[#00c9a7] rounded-full px-5 py-3 text-sm hover:bg-[#00c9a7]/10 transition-colors"
-                      >
-                        Calendrier
-                      </button>
-                      <button
-                        onClick={() => deleteMutation.mutate(property.id)}
-                        className="border border-red-200 text-red-500 rounded-full px-5 py-3 text-sm hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 inline mr-1" /> Supprimer
+                      <button onClick={() => confirmDelete(property.id, property.title)} disabled={deleteMutation.isPending} className="border border-red-200 text-red-500 rounded-full px-5 py-2.5 text-sm hover:bg-red-50 transition-colors disabled:opacity-50">
+                        <Trash2 className="w-4 h-4 inline mr-1" />
+                        {deleteMutation.isPending && deleteConfirmation.propertyId === property.id ? 'Suppression...' : 'Supprimer'}
                       </button>
                     </div>
                   </div>
@@ -6368,82 +6709,189 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
         </div>
       </div>
 
-      {/* MODALE DE CONFIRMATION */}
-      {showConfirmationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative">
-            {/* Bouton fermeture */}
-            <button
-              onClick={() => setShowConfirmationModal(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            {/* En-tête avec icône de succès */}
-            <div className="p-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-[rgba(0,201,167,0.09)] border-2 border-[rgba(0,201,167,0.22)] flex items-center justify-center mx-auto mb-5">
-                <CheckCircle className="w-10 h-10 text-[#00C9A7]" strokeWidth={2.5} />
-              </div>
-              
-              <h2 className="font-serif text-3xl text-[#0F2940] mb-2">
-                Votre bien est<br />entre de <span className="text-[#00C9A7] italic">bonnes mains.</span>
-              </h2>
-              <p className="text-gray-500 text-sm mt-3">
-                Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
-              </p>
+      {/* MODALE DE MODIFICATION */}
+      {showEditModal && editingProperty && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeInUp">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-semibold text-[#0F2940]">Modifier l'annonce</h3>
+              <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-gray-100 transition"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
 
-            {/* Délai */}
-            <div className="flex items-center justify-center gap-2 bg-[rgba(0,201,167,0.09)] border border-[rgba(0,201,167,0.22)] rounded-full py-2 px-5 mx-6 mb-5">
-              <Clock className="w-4 h-4 text-[#00C9A7]" />
-              <span className="text-sm font-medium text-[#0F2940]">Notre équipe vous contacte sous 24h</span>
-            </div>
+            <div className="p-6 space-y-6">
+              {/* Photos existantes - AVEC BOUTON SUPPRIMER VISIBLE */}
+              {editingProperty.photos && editingProperty.photos.length > 0 && (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-medium text-gray-700">Photos actuelles</label>
+                    <p className="text-xs text-gray-400">Cliquez sur la poubelle pour supprimer une photo</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {editingProperty.photos.map((photo: any) => {
+                      const imageUrl = getImageUrl(photo.photo_url || photo.photo_path);
+                      const isDeleting = deletingPhotoId === photo.id;
+                      
+                      return (
+                        <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                          <img src={imageUrl} alt="Photo" className="w-full h-28 object-cover" />
+                          <button
+                            onClick={() => confirmDeletePhoto(editingProperty.id, photo.id, imageUrl)}
+                            disabled={isDeleting}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md disabled:opacity-50"
+                            title="Supprimer cette photo"
+                          >
+                            {isDeleting ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                          </button>
+                          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
+                            Photo
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-            {/* Étapes suivantes */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5 mx-6 mb-5 shadow-sm">
-              <h3 className="text-xs font-semibold tracking-wider uppercase text-[#00C9A7] mb-4">Ce qui se passe maintenant</h3>
-              <div className="space-y-4">
-                {[
-                  { num: 1, title: "Étude de votre dossier", desc: "Notre équipe examine votre bien et vérifie qu'il correspond à nos critères de qualité." },
-                  { num: 2, title: "Prise de contact", desc: "Un membre de l'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails." },
-                  { num: 3, title: "Mise en ligne de votre annonce", desc: "Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs." },
-                  { num: 4, title: "Vos premières réservations arrivent", desc: "Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus." }
-                ].map((step, idx) => (
-                  <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
-                    <div className="w-7 h-7 rounded-full bg-[#0F2940] text-white text-xs font-semibold flex items-center justify-center flex-shrink-0 mt-0.5">
-                      {step.num}
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-[#0F2940] text-sm">{step.title}</h4>
-                      <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+              {/* Ajout de nouvelles photos */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">Ajouter des photos</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotoChange}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00c9a7] file:text-white hover:file:bg-[#00b892] transition"
+                />
+                
+                {newPhotoPreviews.length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-xs font-medium text-gray-500 mb-2">Nouvelles photos à ajouter ({newPhotoPreviews.length})</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {newPhotoPreviews.map((preview, index) => (
+                        <div key={index} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                          <img src={preview} alt={`Nouvelle photo ${index + 1}`} className="w-full h-28 object-cover" />
+                          <button
+                            onClick={() => handleRemoveNewPhoto(index)}
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                          <div className="absolute bottom-2 left-2 bg-[#00c9a7] text-white text-xs px-2 py-0.5 rounded-full">
+                            Nouvelle
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+                <p className="text-xs text-gray-400 mt-2">Format acceptés : JPG, PNG. Taille max : 5MB par photo.</p>
+              </div>
+
+              {/* Informations de base */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label><input type="text" value={editFormData.title} onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété *</label><select value={editFormData.property_type} onChange={(e) => setEditFormData(prev => ({ ...prev, property_type: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]">
+                  <option value="appartement">Appartement</option>
+                  <option value="chambre_habitant">Chambre chez l'habitant</option>
+                  <option value="villa">Villa</option>
+                  <option value="hotel">Hôtel</option>
+                  <option value="motel">Motel</option>
+                  <option value="auberge">Auberge</option>
+                  <option value="maison_hotes">Maison d'hôtes</option>
+                  <option value="ecolodge">Ecolodge</option>
+                  <option value="residence_hoteliere">Résidence hôtelière</option>
+                  <option value="immeuble_entier">Immeuble entier</option>
+                </select></div>
+              </div>
+
+              <div><label className="block text-sm font-medium text-gray-700 mb-1">Description *</label><textarea value={editFormData.description} onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))} rows={4} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" /></div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label><input type="text" value={editFormData.city} onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Quartier *</label><input type="text" value={editFormData.district} onChange={(e) => setEditFormData(prev => ({ ...prev, district: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label><input type="text" value={editFormData.address} onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label><input type="number" min={0} value={editFormData.bedrooms} onChange={(e) => setEditFormData(prev => ({ ...prev, bedrooms: parseInt(e.target.value) || 0 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Lits</label><input type="number" min={1} value={editFormData.beds} onChange={(e) => setEditFormData(prev => ({ ...prev, beds: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label><input type="number" min={1} value={editFormData.bathrooms} onChange={(e) => setEditFormData(prev => ({ ...prev, bathrooms: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Capacité max</label><input type="number" min={1} value={editFormData.max_guests} onChange={(e) => setEditFormData(prev => ({ ...prev, max_guests: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
+                  <input type="number" min={0} value={editFormData.price_per_night} onChange={(e) => setEditFormData(prev => ({ ...prev, price_per_night: parseInt(e.target.value) || 0 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" />
+                  <p className="text-xs text-gray-500 mt-1">≈ {convertToEuro(editFormData.price_per_night).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</p>
+                </div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Séjour minimum (nuits)</label><input type="number" min={1} value={editFormData.min_stay} onChange={(e) => setEditFormData(prev => ({ ...prev, min_stay: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="p-6 pt-0 space-y-3">
-              <button
-                onClick={handleContinue}
-                className="w-full bg-[#0F2940] text-white py-3.5 rounded-xl font-medium hover:bg-[#1a3a5c] transition-all duration-300 flex items-center justify-center gap-2 group"
-              >
-                OK, j'ai compris
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+            <div className="sticky bottom-0 bg-white border-t px-6 py-4 flex justify-end gap-3">
+              <button onClick={() => setShowEditModal(false)} className="px-6 py-2 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition">Annuler</button>
+              <button onClick={handleSaveEdit} disabled={updateMutation.isPending || uploadingPhotos} className="px-6 py-2 rounded-xl bg-[#00c9a7] text-white font-medium hover:bg-[#00b892] transition disabled:opacity-50">
+                {uploadingPhotos || updateMutation.isPending ? 'Enregistrement...' : 'Enregistrer'}
               </button>
-              
-              <a
-                href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20bien"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-[#25D366] text-white py-3.5 rounded-xl font-medium hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Nous contacter sur WhatsApp
-              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DE CONFIRMATION SUPPRESSION PHOTO */}
+      {photoDeleteConfirmation.show && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-fadeInUp">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-red-600" /></div>
+              <h3 className="text-xl font-semibold text-[#0F2940] mb-2">Supprimer cette photo ?</h3>
+              <p className="text-gray-500 text-sm">Cette action est irréversible.</p>
+              <div className="mt-3 rounded-lg overflow-hidden border border-gray-200">
+                <img src={photoDeleteConfirmation.photoUrl} alt="Photo à supprimer" className="w-full h-32 object-cover" />
+              </div>
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button onClick={() => setPhotoDeleteConfirmation({ show: false, propertyId: null, photoId: null, photoUrl: '' })} className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-50 transition-colors">Annuler</button>
+              <button onClick={handleDeletePhoto} className="flex-1 py-3 text-red-600 font-medium border-l border-gray-100 hover:bg-red-50 transition-colors">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DE CONFIRMATION DE SUPPRESSION DE PROPRIÉTÉ */}
+      {deleteConfirmation.show && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-fadeInUp">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-red-600" /></div>
+              <h3 className="text-xl font-semibold text-[#0F2940] mb-2">Confirmer la suppression</h3>
+              <p className="text-gray-500 text-sm">Êtes-vous sûr de vouloir supprimer le logement <br /><span className="font-semibold text-[#0F2940]">"{deleteConfirmation.propertyTitle}"</span> ?</p>
+              <p className="text-xs text-red-500 mt-2">Cette action est irréversible.</p>
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button onClick={() => setDeleteConfirmation({ show: false, propertyId: null, propertyTitle: '' })} className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-50 transition-colors">Annuler</button>
+              <button onClick={handleDelete} className="flex-1 py-3 text-red-600 font-medium border-l border-gray-100 hover:bg-red-50 transition-colors">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DE SUCCÈS */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2]">
+              <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
+                <button onClick={handleSuccessClose} className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition"><X className="w-4 h-4" /></button>
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]"><CheckCircle className="w-7 h-7 text-[#00C9A7]" /></div>
+                <h2 className="text-lg font-semibold text-[#0F2940]">Votre bien est entre de bonnes mains.</h2>
+                <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">Merci pour votre confiance. Nous avons bien reçu votre demande.</p>
+              </div>
+              <div className="px-5 pb-5">
+                <div className="mb-4 flex items-center justify-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2"><Clock className="w-3.5 h-3.5 text-[#00C9A7]" /><span className="text-xs font-medium text-[#0F2940]">Notre équipe vous contacte sous 24h</span></div>
+                <button onClick={handleSuccessClose} className="w-full bg-[#0F2940] text-white py-3 rounded-xl font-medium hover:bg-[#1a3a5c] transition">OK, j'ai compris</button>
+              </div>
             </div>
           </div>
         </div>
@@ -6485,7 +6933,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     mutationFn: ({ start, end, status, price, reason }: any) =>
       hostService.updateAvailability(propertyId!, start, end, status, price, reason),
     onSuccess: (response) => {
-      console.log('✅ Mise à jour réussie:', response);
+      console.log(' Mise à jour réussie:', response);
       showToast('success', 'Disponibilité mise à jour avec succès');
       refetch();
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
@@ -6493,7 +6941,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       setSelectedRange({ start: null, end: null });
     },
     onError: (error: any) => {
-      console.error('❌ Erreur mise à jour:', error);
+      console.error(' Erreur mise à jour:', error);
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour';
       showToast('error', message);
     },
@@ -6509,13 +6957,13 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
     },
     onError: (error: any) => {
-      console.error('❌ Erreur prix spécial:', error);
+      console.error(' Erreur prix spécial:', error);
       showToast('error', error.response?.data?.message || 'Erreur lors de la définition du prix spécial');
     },
   });
 
   const handleDayClick = async (day: any) => {
-    console.log('🖱️ Jour cliqué:', day);
+    console.log(' Jour cliqué:', day);
     
     if (day.status === 'booked') {
       showToast('error', 'Cette date est déjà réservée, vous ne pouvez pas la modifier');
@@ -6663,28 +7111,28 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                 onClick={cancelRangeSelection}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition"
               >
-                ❌ Annuler la sélection
+                 Annuler la sélection
               </button>
             ) : (
               <button
                 onClick={() => setShowBlockModal(true)}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
               >
-                📅 Bloquer une plage de dates
+                 Bloquer une plage de dates
               </button>
             )}
             <button
               onClick={() => refetch()}
               className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition"
             >
-              🔄 Rafraîchir
+              Rafraîchir
             </button>
           </div>
 
           {selectedRange.start !== null && selectedRange.end === null && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-center">
               <p className="text-sm text-blue-700">
-                🔵 Date de début sélectionnée: <strong>{selectedRange.start}</strong>
+                 Date de début sélectionnée: <strong>{selectedRange.start}</strong>
                 <br />
                 Cliquez sur une date de fin pour bloquer la plage.
               </p>
@@ -7368,7 +7816,7 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
     const [selectedPropertyId, setSelectedPropertyId] = useState<number | null>(null);
 
     // Récupérer les favoris groupés par propriété
-    const { data: groupedData, isLoading: groupedLoading } = useQuery({
+    const { data: groupedData, isLoading: groupedLoading, refetch } = useQuery({
         queryKey: ['host-favorites-grouped'],
         queryFn: () => hostService.getHostFavoritesGroupedByProperty(),
     });
@@ -7382,29 +7830,75 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
     const properties = groupedData?.data || [];
     const stats = statsData?.data || {};
 
-    // ✅ Fonction pour obtenir l'URL de l'image correctement
-    const getImageUrl = (property: any) => {
-        // Essayer différents formats possibles
-        if (property.cover_photo) {
+    // ✅ Fonction pour obtenir l'URL de l'image avec le bon format
+    const getImageUrl = (property: any): string => {
+        // Vérifier cover_photo (objet)
+        if (property.cover_photo && typeof property.cover_photo === 'object') {
+            if (property.cover_photo.photo_url) {
+                return property.cover_photo.photo_url;
+            }
+            if (property.cover_photo.full_url) {
+                return property.cover_photo.full_url;
+            }
+        }
+        
+        // Vérifier cover_photo (string)
+        if (property.cover_photo && typeof property.cover_photo === 'string') {
             return property.cover_photo;
         }
+        
+        // Vérifier cover_photo_url
         if (property.cover_photo_url) {
             return property.cover_photo_url;
         }
-        if (property.photo) {
-            return property.photo;
+        
+        // Vérifier photos
+        if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
+            const firstPhoto = property.photos[0];
+            if (firstPhoto.photo_url) {
+                return firstPhoto.photo_url;
+            }
+            if (firstPhoto.full_url) {
+                return firstPhoto.full_url;
+            }
+            if (firstPhoto.url) {
+                return firstPhoto.url;
+            }
         }
+        
+        // Vérifier photo_url
         if (property.photo_url) {
             return property.photo_url;
         }
-        if (property.coverPhoto?.photo_url) {
-            return property.coverPhoto.photo_url;
+        
+        // Vérifier image
+        if (property.image) {
+            return property.image;
         }
-        if (property.photos && property.photos.length > 0) {
-            const firstPhoto = property.photos[0];
-            return firstPhoto.photo_url || firstPhoto.url || firstPhoto.path;
+        
+        // Fallback
+        return '/placeholder.jpg';
+    };
+
+    // ✅ Fonction pour obtenir l'URL de l'avatar d'un utilisateur
+    const getUserAvatar = (user: any): string => {
+        if (user?.avatar_url) {
+            return user.avatar_url;
         }
-        return null;
+        if (user?.photo) {
+            return user.photo;
+        }
+        return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(user?.name || 'User')}&bold=true&size=80`;
+    };
+
+    // ✅ Formater la date
+    const formatDate = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
     };
 
     const handleExport = async () => {
@@ -7418,6 +7912,7 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+            console.log('✅ Export réussi');
         } catch (error) {
             console.error('Erreur lors de l\'export:', error);
         }
@@ -7429,6 +7924,7 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
                 <div className="max-w-[1200px] mx-auto px-4">
                     <div className="text-center py-20">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+                        <p className="text-gray-500 mt-4">Chargement des favoris...</p>
                     </div>
                 </div>
             </div>
@@ -7457,28 +7953,28 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
 
                 {/* Statistiques */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2] shadow-sm">
                         <div className="flex items-center justify-between">
                             <Heart className="w-5 h-5 text-[#00c9a7]" />
                             <span className="text-2xl font-bold text-[#0f2940]">{stats.total_favorites || 0}</span>
                         </div>
                         <p className="text-sm text-gray-500 mt-1">Total favoris</p>
                     </div>
-                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2] shadow-sm">
                         <div className="flex items-center justify-between">
                             <Users className="w-5 h-5 text-[#00c9a7]" />
                             <span className="text-2xl font-bold text-[#0f2940]">{stats.unique_travelers || 0}</span>
                         </div>
                         <p className="text-sm text-gray-500 mt-1">Voyageurs uniques</p>
                     </div>
-                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2] shadow-sm">
                         <div className="flex items-center justify-between">
                             <Home className="w-5 h-5 text-[#00c9a7]" />
                             <span className="text-2xl font-bold text-[#0f2940]">{stats.total_properties_with_favorites || 0}</span>
                         </div>
                         <p className="text-sm text-gray-500 mt-1">Propriétés avec favoris</p>
                     </div>
-                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2]">
+                    <div className="bg-white rounded-2xl p-4 border border-[#e2f5f2] shadow-sm">
                         <div className="flex items-center justify-between">
                             <TrendingUp className="w-5 h-5 text-[#00c9a7]" />
                             <span className="text-2xl font-bold text-[#0f2940]">{stats.favorites_last_30_days || 0}</span>
@@ -7489,25 +7985,33 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
 
                 {/* Graphique tendance hebdomadaire */}
                 {stats.weekly_trend && stats.weekly_trend.length > 0 && (
-                    <div className="bg-white rounded-2xl p-6 border border-[#e2f5f2] mb-8">
+                    <div className="bg-white rounded-2xl p-6 border border-[#e2f5f2] mb-8 shadow-sm">
                         <h3 className="font-semibold mb-4 flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-[#00c9a7]" />
                             Tendance des favoris (7 derniers jours)
                         </h3>
                         <div className="flex items-end justify-between gap-2 h-32">
-                            {stats.weekly_trend.map((day: any, index: number) => (
-                                <div key={index} className="flex-1 flex flex-col items-center">
-                                    <div 
-                                        className="w-full bg-[#00c9a7]/20 rounded-t-lg transition-all hover:bg-[#00c9a7]/40"
-                                        style={{ height: `${(day.count / Math.max(...stats.weekly_trend.map((d: any) => d.count), 1)) * 100}%`, minHeight: '4px' }}
-                                    >
-                                        <div className="text-center text-xs font-medium text-[#00c9a7] -mt-5">
-                                            {day.count > 0 && day.count}
+                            {stats.weekly_trend.map((day: any, index: number) => {
+                                const maxCount = Math.max(...stats.weekly_trend.map((d: any) => d.count), 1);
+                                const height = (day.count / maxCount) * 100;
+                                return (
+                                    <div key={index} className="flex-1 flex flex-col items-center">
+                                        <div className="w-full relative">
+                                            <div 
+                                                className="w-full bg-[#00c9a7]/20 rounded-t-lg transition-all hover:bg-[#00c9a7]/40"
+                                                style={{ height: `${height}%`, minHeight: '4px' }}
+                                            >
+                                                {day.count > 0 && (
+                                                    <div className="text-center text-xs font-medium text-[#00c9a7] relative -top-5">
+                                                        {day.count}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
+                                        <span className="text-xs text-gray-500 mt-2">{day.day}</span>
                                     </div>
-                                    <span className="text-xs text-gray-500 mt-2">{day.day}</span>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -7515,7 +8019,7 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
                 {/* Liste des propriétés avec favoris */}
                 <div className="space-y-6">
                     {properties.length === 0 ? (
-                        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+                        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center shadow-sm">
                             <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-xl font-semibold text-[#0f2940] mb-2">
                                 Aucun favori pour le moment
@@ -7530,102 +8034,144 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
                             const isExpanded = selectedPropertyId === property.id;
                             
                             return (
-                                <div key={property.id} className="bg-white rounded-2xl border border-[#e2f5f2] overflow-hidden">
+                                <div key={property.id} className="bg-white rounded-2xl border border-[#e2f5f2] overflow-hidden shadow-sm">
                                     {/* En-tête propriété */}
                                     <div 
                                         className="p-4 bg-[#f4fffe] border-b border-[#e2f5f2] cursor-pointer hover:bg-[#e8f5f2] transition"
                                         onClick={() => setSelectedPropertyId(isExpanded ? null : property.id)}
                                     >
                                         <div className="flex items-center gap-4">
-                                            {/* Image de la propriété - ✅ CORRIGÉE */}
-                                            {imageUrl ? (
-                                                <img 
-                                                    src={imageUrl} 
-                                                    alt={property.title}
-                                                    className="w-16 h-16 rounded-lg object-cover"
-                                                    onError={(e) => {
-                                                        // Si l'image ne charge pas, afficher le fallback
-                                                        (e.target as HTMLImageElement).style.display = 'none';
-                                                        (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                                    }}
-                                                />
-                                            ) : null}
-                                            <div className={`w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center ${imageUrl ? 'hidden' : ''}`}>
-                                                <Home className="w-8 h-8 text-gray-400" />
+                                            {/* Image de la propriété */}
+                                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                {imageUrl && imageUrl !== '/placeholder.jpg' ? (
+                                                    <img 
+                                                        src={imageUrl} 
+                                                        alt={property.title}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = '/placeholder.jpg';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center">
+                                                        <Home className="w-8 h-8 text-gray-400" />
+                                                    </div>
+                                                )}
                                             </div>
                                             
                                             <div className="flex-1">
                                                 <h3 className="font-semibold text-[#0f2940]">{property.title}</h3>
                                                 <p className="text-sm text-gray-500">
-                                                    {property.district}, {property.city}
+                                                    📍 {property.district}, {property.city}
                                                 </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Heart className="w-4 h-4 text-[#00c9a7]" />
-                                                    <span className="text-sm font-medium text-[#00c9a7]">
-                                                        {property.favorites_count} favoris
-                                                    </span>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <div className="flex items-center gap-1">
+                                                        <Heart className="w-4 h-4 text-[#00c9a7]" />
+                                                        <span className="text-sm font-medium text-[#00c9a7]">
+                                                            {property.favorites_count} favoris
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onNavigate?.({ name: 'listing', id: property.id.toString() });
+                                                        }}
+                                                        className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1"
+                                                    >
+                                                        <Eye className="w-3 h-3" />
+                                                        Voir l'annonce
+                                                    </button>
                                                 </div>
                                             </div>
-                                            <div className="text-gray-400">
+                                            <div className="text-gray-400 text-lg">
                                                 {isExpanded ? '▲' : '▼'}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Liste des voyageurs qui ont favorisé */}
-                                    {isExpanded && property.favorites && (
+                                    {isExpanded && property.favorites && property.favorites.length > 0 && (
                                         <div className="divide-y divide-[#e2f5f2]">
                                             {property.favorites.map((favorite: any) => (
                                                 <div key={favorite.id} className="p-4 hover:bg-[#f4fffe] transition">
                                                     <div className="flex items-start gap-4">
                                                         {/* Avatar du voyageur */}
-                                                        {favorite.user_photo ? (
-                                                            <img 
-                                                                src={favorite.user_photo} 
-                                                                alt={favorite.user_name}
-                                                                className="w-10 h-10 rounded-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                                                <User className="w-5 h-5 text-gray-400" />
-                                                            </div>
-                                                        )}
+                                                        <div className="flex-shrink-0">
+                                                            {favorite.user_avatar || favorite.user?.avatar_url ? (
+                                                                <img 
+                                                                    src={favorite.user_avatar || favorite.user?.avatar_url}
+                                                                    alt={favorite.user_name || favorite.user?.name}
+                                                                    className="w-10 h-10 rounded-full object-cover"
+                                                                    onError={(e) => {
+                                                                        (e.target as HTMLImageElement).src = getUserAvatar(favorite.user);
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                                                    <User className="w-5 h-5 text-gray-400" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        
                                                         <div className="flex-1">
                                                             <div className="flex items-center justify-between flex-wrap gap-2">
                                                                 <h4 className="font-medium text-[#0f2940]">
-                                                                    {favorite.user_name || 'Voyageur'}
+                                                                    {favorite.user_name || favorite.user?.name || 'Voyageur'}
                                                                 </h4>
                                                                 <span className="text-xs text-gray-400">
-                                                                    Ajouté le {favorite.created_at}
+                                                                    Ajouté le {formatDate(favorite.created_at)}
                                                                 </span>
                                                             </div>
-                                                            <p className="text-sm text-gray-500 mt-1">
-                                                                📞 {favorite.user_phone || 'Téléphone non renseigné'}
-                                                            </p>
+                                                            
+                                                            {favorite.user_email && (
+                                                                <p className="text-sm text-gray-500 mt-1">
+                                                                    ✉️ {favorite.user_email}
+                                                                </p>
+                                                            )}
+                                                            
+                                                            {favorite.user_phone && (
+                                                                <p className="text-sm text-gray-500">
+                                                                    📞 {favorite.user_phone}
+                                                                </p>
+                                                            )}
+                                                            
                                                             {favorite.notes && (
                                                                 <p className="text-sm text-gray-600 mt-2 italic bg-gray-50 p-2 rounded-lg">
                                                                     "📝 {favorite.notes}"
                                                                 </p>
                                                             )}
+                                                            
                                                             <div className="flex gap-2 mt-3">
-                                                                <button
-                                                                    onClick={() => onNavigate?.({ name: 'profile', id: favorite.user_id?.toString() })}
-                                                                    className="text-xs border border-[#00c9a7] text-[#00c9a7] px-3 py-1 rounded-full hover:bg-[#00c9a7] hover:text-white transition"
-                                                                >
-                                                                    Voir profil
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => onNavigate?.({ name: 'host-messages', id: favorite.user_id?.toString() })}
-                                                                    className="text-xs border border-gray-300 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-100 transition flex items-center gap-1"
-                                                                >
-                                                                    <MessageCircle className="w-3 h-3" />
-                                                                    Envoyer message
-                                                                </button>
+                                                                {favorite.user_id && (
+                                                                    <button
+                                                                        onClick={() => onNavigate?.({ name: 'profile', id: favorite.user_id.toString() })}
+                                                                        className="text-xs border border-[#00c9a7] text-[#00c9a7] px-3 py-1 rounded-full hover:bg-[#00c9a7] hover:text-white transition"
+                                                                    >
+                                                                        Voir profil
+                                                                    </button>
+                                                                )}
+                                                                {favorite.user_id && (
+                                                                    <button
+                                                                        onClick={() => onNavigate?.({ name: 'host-messages', id: favorite.user_id.toString() })}
+                                                                        className="text-xs border border-gray-300 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-100 transition flex items-center gap-1"
+                                                                    >
+                                                                        <MessageCircle className="w-3 h-3" />
+                                                                        Envoyer message
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
+                                    )}
+                                    
+                                    {/* Message si aucun favori pour cette propriété */}
+                                    {isExpanded && (!property.favorites || property.favorites.length === 0) && (
+                                        <div className="p-8 text-center text-gray-500">
+                                            <Heart className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                                            <p>Aucun voyageur n'a encore ajouté cette propriété en favoris.</p>
                                         </div>
                                     )}
                                 </div>
@@ -8025,32 +8571,85 @@ export function FavoritesPage({ onNavigate }: PageProps) {
 }
 
 // ==================== PUBLISH LISTING PAGE ====================
-export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+
+export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
   const initialForm = {
-  title: '',
-  description: '',
-  property_type: 'appartement', // ← Changé de 'Appartement entier' à 'appartement'
-  city: '',
-  district: '',
-  address: '',
-  bedrooms: '1',
-  beds: '1',
-  bathrooms: '1',
-  max_guests: '1',
-  price_per_night: '0',
-  cleaning_fee: '0',
-  min_stay: '1',
-  has_wifi: true,
-  has_air_conditioning: false,
-  has_generator: false,
-  has_water_tank: false,
-  has_parking: false,
-  has_kitchen: false,
-  has_tv: false,
-};
+    title: '',
+    description: '',
+    property_type: 'appartement',
+    city: '',
+    district: '',
+    address: '',
+    bedrooms: '1',
+    beds: '1',
+    bathrooms: '1',
+    max_guests: '1',
+    price_per_night: '0',
+    min_stay: '1',
+    // Équipements existants
+    has_wifi: true,
+    has_air_conditioning: false,
+    has_generator: false,
+    has_water_tank: false,
+    has_parking: false,
+    has_kitchen: false,
+    has_tv: false,
+    // Salle de bain
+    has_towels: false,
+    has_toiletries: false,
+    has_hair_dryer: false,
+    has_hot_water: false,
+    has_bathtub: false,
+    has_shower: false,
+    // Chambre et linge
+    has_bed_linen: false,
+    has_pillows: false,
+    has_blankets: false,
+    has_hangers: false,
+    has_closet: false,
+    has_iron: false,
+    // Cuisine et équipements
+    has_basic_kitchen_equipment: false,
+    has_dishes_cutlery: false,
+    has_coffee_maker: false,
+    has_kettle: false,
+    has_oven: false,
+    has_microwave: false,
+    has_freezer: false,
+    has_refrigerator: false,
+    has_dining_table: false,
+    has_wine_glasses: false,
+    has_toaster: false,
+    has_blender: false,
+    // Divertissement
+    has_smart_tv: false,
+    has_streaming: false,
+    has_bluetooth_speaker: false,
+    has_books: false,
+    // Sécurité
+    has_smoke_detector: false,
+    has_first_aid_kit: false,
+    has_fire_extinguisher: false,
+    has_cctv: false,
+    has_electric_fence: false,
+    // Services
+    has_breakfast: false,
+    has_housekeeping: false,
+    has_ironing_service: false,
+    has_airport_shuttle: false,
+    has_free_parking: false,
+    has_luggage_storage: false,
+    // Extérieur
+    has_balcony: false,
+    has_garden: false,
+    has_bbq: false,
+    has_pool: false,
+    has_loungers: false,
+  };
 
   const [formData, setFormData] = useState(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
@@ -8061,7 +8660,24 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
   const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
-    setPhotos((prev) => [...prev, ...Array.from(files)]);
+    
+    const newFiles = Array.from(files);
+    setPhotos((prev) => [...prev, ...newFiles]);
+    
+    // Créer les aperçus des nouvelles images
+    newFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreviews(prev => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Fonction pour supprimer une photo
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -8073,21 +8689,22 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         throw new Error('Veuillez sélectionner au moins 3 photos pour l\'annonce.');
       }
 
-      const payload = {
-        title: formData.title,
-        description: formData.description,
-        property_type: formData.property_type,
-        city: formData.city,
-        district: formData.district,
-        address: formData.address,
-        bedrooms: parseInt(formData.bedrooms, 10),
-        beds: parseInt(formData.beds, 10),
-        bathrooms: parseInt(formData.bathrooms, 10),
-        max_guests: parseInt(formData.max_guests, 10),
-        price_per_night: parseFloat(formData.price_per_night),
-        cleaning_fee: parseFloat(formData.cleaning_fee),
-        min_stay: parseInt(formData.min_stay, 10),
-      };
+      // Dans handleSubmit, modifie le payload
+const payload = {
+  title: formData.title,
+  description: formData.description,
+  property_type: formData.property_type,
+  city: formData.city,
+  district: formData.district,
+  address: formData.address,
+  bedrooms: parseInt(formData.bedrooms, 10),
+  beds: parseInt(formData.beds, 10),
+  bathrooms: parseInt(formData.bathrooms, 10),
+  max_guests: parseInt(formData.max_guests, 10),
+  price_per_night: parseFloat(formData.price_per_night),
+  cleaning_fee: 0, // ✅ Ajouter cleaning_fee avec valeur 0
+  min_stay: parseInt(formData.min_stay, 10),
+};
 
       console.log('📤 1/4 - Création de la propriété...', payload);
       
@@ -8095,7 +8712,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
       
       console.log('📥 1/4 - Réponse création propriété:', propertyResponse);
       
-      // Nettoyer la réponse si elle contient un commentaire PHP
       let cleanResponse = propertyResponse;
       if (typeof cleanResponse === 'string') {
         const jsonStartIndex = cleanResponse.indexOf('{');
@@ -8109,7 +8725,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         }
       }
       
-      // Extraire l'ID
       let propertyId = cleanResponse?.data?.id || cleanResponse?.id || null;
       
       console.log('🔑 1/4 - ID récupéré:', propertyId);
@@ -8119,12 +8734,10 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         throw new Error('Impossible de récupérer l\'ID de la propriété. Contactez le support.');
       }
       
-      // Ajouter les photos
       console.log('📤 2/4 - Ajout des photos...', { propertyId, photoCount: photos.length });
       await hostService.addPhotos(propertyId, photos);
       console.log('✅ 2/4 - Photos ajoutées avec succès');
       
-      // Mettre à jour les équipements
       console.log('📤 3/4 - Mise à jour des équipements...');
       const amenities = {
         has_wifi: formData.has_wifi,
@@ -8134,11 +8747,54 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         has_parking: formData.has_parking,
         has_kitchen: formData.has_kitchen,
         has_tv: formData.has_tv,
+        has_towels: formData.has_towels,
+        has_toiletries: formData.has_toiletries,
+        has_hair_dryer: formData.has_hair_dryer,
+        has_hot_water: formData.has_hot_water,
+        has_bathtub: formData.has_bathtub,
+        has_shower: formData.has_shower,
+        has_bed_linen: formData.has_bed_linen,
+        has_pillows: formData.has_pillows,
+        has_blankets: formData.has_blankets,
+        has_hangers: formData.has_hangers,
+        has_closet: formData.has_closet,
+        has_iron: formData.has_iron,
+        has_basic_kitchen_equipment: formData.has_basic_kitchen_equipment,
+        has_dishes_cutlery: formData.has_dishes_cutlery,
+        has_coffee_maker: formData.has_coffee_maker,
+        has_kettle: formData.has_kettle,
+        has_oven: formData.has_oven,
+        has_microwave: formData.has_microwave,
+        has_freezer: formData.has_freezer,
+        has_refrigerator: formData.has_refrigerator,
+        has_dining_table: formData.has_dining_table,
+        has_wine_glasses: formData.has_wine_glasses,
+        has_toaster: formData.has_toaster,
+        has_blender: formData.has_blender,
+        has_smart_tv: formData.has_smart_tv,
+        has_streaming: formData.has_streaming,
+        has_bluetooth_speaker: formData.has_bluetooth_speaker,
+        has_books: formData.has_books,
+        has_smoke_detector: formData.has_smoke_detector,
+        has_first_aid_kit: formData.has_first_aid_kit,
+        has_fire_extinguisher: formData.has_fire_extinguisher,
+        has_cctv: formData.has_cctv,
+        has_electric_fence: formData.has_electric_fence,
+        has_breakfast: formData.has_breakfast,
+        has_housekeeping: formData.has_housekeeping,
+        has_ironing_service: formData.has_ironing_service,
+        has_airport_shuttle: formData.has_airport_shuttle,
+        has_free_parking: formData.has_free_parking,
+        has_luggage_storage: formData.has_luggage_storage,
+        has_balcony: formData.has_balcony,
+        has_garden: formData.has_garden,
+        has_bbq: formData.has_bbq,
+        has_pool: formData.has_pool,
+        has_loungers: formData.has_loungers,
       };
       await hostService.updateAmenities(propertyId, amenities);
       console.log('✅ 3/4 - Équipements mis à jour');
       
-      // Soumettre pour validation
       console.log('📤 4/4 - Soumission pour validation...');
       await hostService.submitForReview(propertyId);
       console.log('✅ 4/4 - Annonce soumise avec succès');
@@ -8146,6 +8802,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
       toast.success('Votre annonce a bien été soumise. Elle sera examinée par notre équipe.');
       setFormData(initialForm);
       setPhotos([]);
+      setPhotoPreviews([]);
       setShowSuccessModal(true);
       
     } catch (error: any) {
@@ -8179,7 +8836,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
-    onNavigate?.({ name: 'hote-annonces' });
+    onNavigate?.({ name: 'host-annonces' });
   };
 
   return (
@@ -8188,7 +8845,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         <PageSection title="Publier une annonce" subtitle="Remplissez les détails de votre logement puis soumettez-le à l’administration pour publication.">
           <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8 space-y-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* ... Le reste du formulaire ... */}
+              {/* Informations de base */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Titre</label>
@@ -8203,23 +8860,22 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 </div>
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Type de propriété</label>
-                 
-<select
-  value={formData.property_type}
-  onChange={(e) => handleInputChange('property_type', e.target.value)}
-  className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
->
-  <option value="appartement">Appartement</option>
-  <option value="chambre_habitant">Chambre chez l'habitant</option>
-  <option value="villa">Villa</option>
-  <option value="hotel">Hôtel</option>
-  <option value="motel">Motel</option>
-  <option value="auberge">Auberge</option>
-  <option value="maison_hotes">Maison d'hôtes</option>
-  <option value="ecolodge">Ecolodge</option>
-  <option value="residence_hoteliere">Résidence hôtelière</option>
-  <option value="immeuble_entier">Immeuble entier</option>
-</select>
+                  <select
+                    value={formData.property_type}
+                    onChange={(e) => handleInputChange('property_type', e.target.value)}
+                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                  >
+                    <option value="appartement">Appartement</option>
+                    <option value="chambre_habitant">Chambre chez l'habitant</option>
+                    <option value="villa">Villa</option>
+                    <option value="hotel">Hôtel</option>
+                    <option value="motel">Motel</option>
+                    <option value="auberge">Auberge</option>
+                    <option value="maison_hotes">Maison d'hôtes</option>
+                    <option value="ecolodge">Ecolodge</option>
+                    <option value="residence_hoteliere">Résidence hôtelière</option>
+                    <option value="immeuble_entier">Immeuble entier</option>
+                  </select>
                 </div>
                 <div className="space-y-3 lg:col-span-2">
                   <label className="text-sm font-medium text-[#0F2940]">Description</label>
@@ -8233,6 +8889,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 </div>
               </div>
 
+              {/* Localisation */}
               <div className="grid gap-6 lg:grid-cols-3">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Ville</label>
@@ -8268,12 +8925,13 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 </div>
               </div>
 
+              {/* Capacité */}
               <div className="grid gap-6 lg:grid-cols-4">
                 {[
                   { label: 'Chambres', key: 'bedrooms' },
                   { label: 'Lits', key: 'beds' },
                   { label: 'Salles de bain', key: 'bathrooms' },
-                  { label: 'Capacité', key: 'max_guests' },
+                  { label: 'Capacité (personnes)', key: 'max_guests' },
                 ].map((field) => (
                   <div key={field.key} className="space-y-3">
                     <label className="text-sm font-medium text-[#0F2940]">{field.label}</label>
@@ -8289,7 +8947,8 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 ))}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-3">
+              {/* Tarification */}
+              <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Prix par nuit (FCFA)</label>
                   <input
@@ -8300,16 +8959,9 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                     className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
                     required
                   />
-                </div>
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-[#0F2940]">Frais de ménage (FCFA)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={formData.cleaning_fee}
-                    onChange={(e) => handleInputChange('cleaning_fee', e.target.value)}
-                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                     Une commission de 10% sera appliquée sur chaque réservation
+                  </p>
                 </div>
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Séjour minimum (nuits)</label>
@@ -8324,7 +8976,9 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 </div>
               </div>
 
+              {/* Équipements */}
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5">
+                {/* Équipements de base */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {[
                     { label: 'Wi-Fi', key: 'has_wifi' },
@@ -8346,30 +9000,243 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                     </label>
                   ))}
                 </div>
+
+                {/* Section Salle de bain */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Salle de bain</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Serviettes', key: 'has_towels' },
+                      { label: 'Gel douche / Shampoing', key: 'has_toiletries' },
+                      { label: 'Sèche-cheveux', key: 'has_hair_dryer' },
+                      { label: 'Eau chaude', key: 'has_hot_water' },
+                      { label: 'Baignoire', key: 'has_bathtub' },
+                      { label: 'Douche', key: 'has_shower' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Chambre et linge */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Chambre et linge</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Draps', key: 'has_bed_linen' },
+                      { label: 'Oreillers', key: 'has_pillows' },
+                      { label: 'Couvertures', key: 'has_blankets' },
+                      { label: 'Cintres', key: 'has_hangers' },
+                      { label: 'Espace de rangement (placard)', key: 'has_closet' },
+                      { label: 'Fer à repasser', key: 'has_iron' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Cuisine et équipements */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Cuisine et équipements</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Équipement de cuisine de base', key: 'has_basic_kitchen_equipment' },
+                      { label: 'Vaisselle et couverts', key: 'has_dishes_cutlery' },
+                      { label: 'Cafetière', key: 'has_coffee_maker' },
+                      { label: 'Bouilloire', key: 'has_kettle' },
+                      { label: 'Four', key: 'has_oven' },
+                      { label: 'Four à micro-ondes', key: 'has_microwave' },
+                      { label: 'Congélateur', key: 'has_freezer' },
+                      { label: 'Réfrigérateur', key: 'has_refrigerator' },
+                      { label: 'Table à manger', key: 'has_dining_table' },
+                      { label: 'Verres à vin', key: 'has_wine_glasses' },
+                      { label: 'Grille-pain', key: 'has_toaster' },
+                      { label: 'Mixer / Blender', key: 'has_blender' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Divertissement */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Divertissement</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Smart TV', key: 'has_smart_tv' },
+                      { label: 'Netflix / Streaming', key: 'has_streaming' },
+                      { label: 'Enceinte Bluetooth', key: 'has_bluetooth_speaker' },
+                      { label: 'Livres / Magazines', key: 'has_books' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Sécurité */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Sécurité</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Détecteur de fumée', key: 'has_smoke_detector' },
+                      { label: 'Trousse de secours', key: 'has_first_aid_kit' },
+                      { label: 'Extincteur', key: 'has_fire_extinguisher' },
+                      { label: 'Caméras de surveillance', key: 'has_cctv' },
+                      { label: 'Clôture électrique', key: 'has_electric_fence' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Services */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Services</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Petit-déjeuner', key: 'has_breakfast' },
+                      { label: 'Ménage inclus', key: 'has_housekeeping' },
+                      { label: 'Service de repassage', key: 'has_ironing_service' },
+                      { label: 'Navette aéroport', key: 'has_airport_shuttle' },
+                      { label: 'Parking gratuit', key: 'has_free_parking' },
+                      { label: 'Local à bagages', key: 'has_luggage_storage' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Section Extérieur */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Extérieur</h4>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      { label: 'Balcon / Terrasse', key: 'has_balcony' },
+                      { label: 'Jardin', key: 'has_garden' },
+                      { label: 'Barbecue', key: 'has_bbq' },
+                      { label: 'Piscine', key: 'has_pool' },
+                      { label: 'Transats', key: 'has_loungers' },
+                    ].map((item) => (
+                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={(formData as any)[item.key]}
+                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
+                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
+                        />
+                        <span className="text-sm text-[#0F2940]">{item.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
 
+              {/* Photos avec aperçu et suppression */}
               <div>
-                <label className="text-sm font-medium text-[#0F2940]">Photos du logement</label>
+                <label className="text-sm font-medium text-[#0F2940]">Photos du logement (minimum 3)</label>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
                   onChange={handlePhotoChange}
-                  className="mt-2 block w-full text-sm text-[#0F2940] file:mr-4 file:rounded-full file:border-0 file:bg-[#00c9a7] file:px-4 file:py-2 file:text-white"
+                  className="mt-2 block w-full text-sm text-[#0F2940] file:mr-4 file:rounded-full file:border-0 file:bg-[#00c9a7] file:px-4 file:py-2 file:text-white hover:file:bg-[#00b892] transition"
                 />
-                {photos.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {photos.map((photo, index) => (
-                      <div key={index} className="rounded-3xl bg-[#effdfa] px-4 py-2 text-sm text-[#0f2940]">
-                        {photo.name}
+                
+                {/* Aperçu des photos */}
+                {photoPreviews.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {photoPreviews.map((preview, index) => (
+                      <div key={index} className="relative group rounded-xl overflow-hidden border border-[#e2f5f2] bg-white shadow-sm">
+                        <img 
+                          src={preview} 
+                          alt={`Aperçu ${index + 1}`} 
+                          className="w-full h-32 object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(index)}
+                            className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition transform hover:scale-110"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                          {index + 1}/{photos.length}
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
 
+                {/* Messages d'état */}
                 {photos.length < 3 && (
-                  <p className="text-sm text-red-600 mt-2">Veuillez sélectionner au moins 3 photos (actuellement {photos.length}).</p>
+                  <p className="text-sm text-red-600 mt-3 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    Veuillez sélectionner au moins 3 photos (actuellement {photos.length})
+                  </p>
                 )}
+                
+                {photos.length >= 3 && (
+                  <p className="text-sm text-green-600 mt-3 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    {photos.length} photo{photos.length > 1 ? 's' : ''} sélectionnée{photos.length > 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+
+              {/* Informations */}
+              <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
+                <p className="font-semibold text-[#0F2940] mb-2"> Frais de service</p>
+                <p>Une commission de 10% sera automatiquement appliquée sur chaque réservation. Aucun frais de ménage n'est facturé.</p>
               </div>
 
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
@@ -8377,6 +9244,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
                 <p>Après soumission, une équipe admin examinera votre annonce. Si tout est conforme, elle sera publiée sur la page d'accueil.</p>
               </div>
 
+              {/* Boutons d'action */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="submit"
@@ -8398,80 +9266,80 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: Route)
         </PageSection>
       </div>
 
-      {/* ✅ MODAL DE SUCCÈS - VERSION COMPACTE MAIS AVEC TOUT LE CONTENU INITIAL */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2]">
-            <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
-              <button
-                onClick={handleSuccessClose}
-                className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition"
-                aria-label="Fermer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+     {/* Modal de succès - Version corrigée avec padding-bottom */}
+{showSuccessModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+    <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2] my-8">
+      <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
+        <button
+          onClick={handleSuccessClose}
+          className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition"
+          aria-label="Fermer"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]">
-                <CheckCircle className="w-7 h-7 text-[#00C9A7]" />
-              </div>
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]">
+          <CheckCircle className="w-7 h-7 text-[#00C9A7]" />
+        </div>
 
-              <h2 className="text-lg font-semibold text-[#0F2940]">
-                Votre bien est entre de bonnes mains.
-              </h2>
-              <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">
-                Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
-              </p>
-            </div>
+        <h2 className="text-lg font-semibold text-[#0F2940]">
+          Votre bien est entre de bonnes mains.
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">
+          Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
+        </p>
+      </div>
 
-            <div className="px-5 pb-5">
-              <div className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2 text-xs font-medium text-[#0F2940] sm:flex-row sm:justify-center">
-                <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
-                <span>Notre équipe vous contacte sous 24h</span>
-              </div>
+      <div className="px-5 pb-5">
+        <div className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2 text-xs font-medium text-[#0F2940] sm:flex-row sm:justify-center">
+          <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
+          <span>Notre équipe vous contacte sous 24h</span>
+        </div>
 
-              <div className="rounded-xl border border-[#e8f6f2] bg-white p-3">
-                <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00C9A7] mb-2">Ce qui se passe maintenant</h3>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {[
-                    { num: 1, title: 'Étude de votre dossier', desc: 'Notre équipe examine votre bien et vérifie qu\'il correspond à nos critères de qualité.' },
-                    { num: 2, title: 'Prise de contact', desc: 'Un membre de l\'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails.' },
-                    { num: 3, title: 'Mise en ligne de votre annonce', desc: 'Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs.' },
-                    { num: 4, title: 'Vos premières réservations arrivent', desc: 'Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus.' },
-                  ].map((step) => (
-                    <div key={step.num} className="flex gap-2 rounded-xl border border-[#eef6f1] bg-[#f9fffb] p-2">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F2940] text-[10px] font-semibold text-white">
-                        {step.num}
-                      </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-[#0F2940] text-[11px]">{step.title}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5 leading-4">{step.desc}</p>
-                      </div>
-                    </div>
-                  ))}
+        <div className="rounded-xl border border-[#e8f6f2] bg-white p-3">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00C9A7] mb-2">Ce qui se passe maintenant</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              { num: 1, title: 'Étude de votre dossier', desc: 'Notre équipe examine votre bien et vérifie qu\'il correspond à nos critères de qualité.' },
+              { num: 2, title: 'Prise de contact', desc: 'Un membre de l\'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails.' },
+              { num: 3, title: 'Mise en ligne de votre annonce', desc: 'Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs.' },
+              { num: 4, title: 'Vos premières réservations arrivent', desc: 'Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus.' },
+            ].map((step) => (
+              <div key={step.num} className="flex gap-2 rounded-xl border border-[#eef6f1] bg-[#f9fffb] p-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F2940] text-[10px] font-semibold text-white">
+                  {step.num}
+                </div>
+                <div className="text-left">
+                  <p className="font-semibold text-[#0F2940] text-[11px]">{step.title}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5 leading-4">{step.desc}</p>
                 </div>
               </div>
-
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <a
-                  href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20annonce"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-3 py-2 text-white font-semibold text-sm shadow-sm hover:bg-[#1fbf55] transition"
-                >
-                  <MessageCircle className="w-4 h-4 mr-1.5" />
-                  WhatsApp
-                </a>
-                <button
-                  onClick={handleSuccessClose}
-                  className="inline-flex items-center justify-center rounded-full border border-[#00c9a7] px-3 py-2 text-[#0F2940] font-semibold text-sm hover:bg-[#f4fffe] transition"
-                >
-                  Voir mes annonces
-                </button>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-      )}
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <a
+            href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20annonce"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-3 py-2 text-white font-semibold text-sm shadow-sm hover:bg-[#1fbf55] transition"
+          >
+            <MessageCircle className="w-4 h-4 mr-1.5" />
+            WhatsApp
+          </a>
+          <button
+            onClick={handleSuccessClose}
+            className="inline-flex items-center justify-center rounded-full border border-[#00c9a7] px-3 py-2 text-[#0F2940] font-semibold text-sm hover:bg-[#f4fffe] transition"
+          >
+            Voir mes annonces
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
@@ -11770,51 +12638,100 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
-  // ✅ Fonction de redirection après authentification réussie
-  const handleSuccessfulAuth = (userData: any) => {
-    console.log('✅ Authentification réussie, redirection vers:', redirectTo);
+  // AuthPage.tsx - Modifie la fonction handleSuccessfulAuth
+
+const handleSuccessfulAuth = (userData: any) => {
+  console.log('✅ Authentification réussie, redirection vers:', redirectTo);
+  
+  // ✅ Vérifier si c'est une intention de chat (depuis localStorage)
+  const chatIntent = localStorage.getItem('redirect_intent');
+  const propertyId = localStorage.getItem('redirect_property_id');
+  const propertyTitle = localStorage.getItem('redirect_property_title');
+  const propertyLocation = localStorage.getItem('redirect_property_location');
+  const propertyPrice = localStorage.getItem('redirect_property_price');
+  const propertyImage = localStorage.getItem('redirect_property_image');
+  
+  // ✅ PRIORITÉ ABSOLUE : Vérifier l'intention de chat DANS LE localStorage
+  if (chatIntent === 'chat' && propertyId) {
+    console.log('💬 Intention de chat détectée, redirection vers le logement:', propertyId);
     
-    // Récupérer les données temporaires de réservation
-    const tempBookingData = localStorage.getItem('temp_booking_data');
+    // Nettoyer les données temporaires
+    localStorage.removeItem('redirect_intent');
+    localStorage.removeItem('redirect_property_id');
+    localStorage.removeItem('redirect_property_title');
+    localStorage.removeItem('redirect_property_location');
+    localStorage.removeItem('redirect_property_price');
+    localStorage.removeItem('redirect_property_image');
     
-    if (redirectTo === 'booking' && tempBookingData) {
-      try {
-        const bookingData = JSON.parse(tempBookingData);
-        console.log('📦 Données de réservation trouvées, redirection vers la page de paiement');
-        
-        // Rediriger vers la page de paiement avec les paramètres
-        const params = new URLSearchParams({
-          check_in: bookingData.checkIn,
-          check_out: bookingData.checkOut,
-          guests: bookingData.guests.toString(),
-          nights: bookingData.nights.toString()
-        });
-        
-        onNavigate?.({ 
+    // Rediriger vers la page du logement (le useEffect du modal ouvrira le chat)
+    if (onNavigate) {
+      onNavigate({ name: 'listing', id: propertyId });
+    } else {
+      window.location.href = `/property/${propertyId}`;
+    }
+    return;
+  }
+  
+  // ✅ Vérifier si c'est une intention de chat depuis l'URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const redirectIntent = urlParams.get('redirect');
+  const propertyIdFromUrl = urlParams.get('property');
+  
+  if (redirectIntent === 'chat' && propertyIdFromUrl) {
+    console.log('💬 Intention de chat depuis URL, redirection vers le logement:', propertyIdFromUrl);
+    
+    if (onNavigate) {
+      onNavigate({ name: 'listing', id: propertyIdFromUrl });
+    } else {
+      window.location.href = `/property/${propertyIdFromUrl}`;
+    }
+    return;
+  }
+  
+  // ✅ Vérifier les données de réservation
+  const tempBookingData = localStorage.getItem('temp_booking_data');
+  
+  if (redirectTo === 'booking' && tempBookingData) {
+    try {
+      const bookingData = JSON.parse(tempBookingData);
+      console.log('📦 Données de réservation trouvées, redirection vers la page de paiement');
+      
+      const params = new URLSearchParams({
+        check_in: bookingData.checkIn,
+        check_out: bookingData.checkOut,
+        guests: bookingData.guests.toString(),
+        nights: bookingData.nights.toString()
+      });
+      
+      if (onNavigate) {
+        onNavigate({ 
           name: 'booking', 
           id: bookingData.propertyId.toString(),
           search: params.toString()
         });
-        return;
-      } catch (e) {
-        console.error('Erreur lors de la récupération des données de réservation:', e);
-      }
-    }
-    
-    // Redirection par défaut
-    if (onAuthSuccess) {
-      onAuthSuccess(userData);
-    } else {
-      const userType = userData?.user_type;
-      if (userType === 'hote') {
-        onNavigate?.({ name: 'host-dashboard' });
-      } else if (userType === 'admin') {
-        onNavigate?.({ name: 'admin-dashboard' });
       } else {
-        onNavigate?.({ name: 'profile' });
+        window.location.href = `/booking/${bookingData.propertyId}?${params.toString()}`;
       }
+      return;
+    } catch (e) {
+      console.error('Erreur lors de la récupération des données de réservation:', e);
     }
-  };
+  }
+  
+  // Redirection par défaut
+  if (onAuthSuccess) {
+    onAuthSuccess(userData);
+  } else {
+    const userType = userData?.user_type;
+    if (userType === 'hote') {
+      onNavigate?.({ name: 'host-dashboard' });
+    } else if (userType === 'admin') {
+      onNavigate?.({ name: 'admin-dashboard' });
+    } else {
+      onNavigate?.({ name: 'profile' });
+    }
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14484,8 +15401,15 @@ export function AdminReportsPage() {
   });
 
   if (isLoading) return <LoadingSkeleton />;
-  
+
   const report = data?.data || {};
+console.log('📊 Report complet dans AdminReportsPage:', report);
+console.log('📊 total_properties:', report.total_properties);
+console.log('📊 total_users:', report.total_users);
+console.log('📊 total_bookings:', report.total_bookings);
+console.log('📊 total_revenue:', report.total_revenue);
+  
+
   
   // Données pour les graphiques
   const chartData = report.chart_data?.labels?.map((label: string, idx: number) => ({
@@ -14505,43 +15429,43 @@ export function AdminReportsPage() {
 
   // ✅ Fonctions pour ouvrir les modales
   const openPropertiesModal = async () => {
-    console.log('🔍 Ouverture modal propriétés');
+    console.log(' Ouverture modal propriétés');
     setModalTitle('Liste des propriétés');
     setShowPropertiesModal(true);
     try {
       const result = await refetchProperties();
-      console.log('📊 Données propriétés:', result.data);
+      console.log('Données propriétés:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement propriétés:', error);
+      console.error(' Erreur chargement propriétés:', error);
       setModalData([]);
     }
   };
 
   const openUsersModal = async () => {
-    console.log('🔍 Ouverture modal utilisateurs');
+    console.log(' Ouverture modal utilisateurs');
     setModalTitle('Liste des utilisateurs');
     setShowUsersModal(true);
     try {
       const result = await refetchUsers();
-      console.log('📊 Données utilisateurs:', result.data);
+      console.log(' Données utilisateurs:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement utilisateurs:', error);
+      console.error(' Erreur chargement utilisateurs:', error);
       setModalData([]);
     }
   };
 
   const openBookingsModal = async () => {
-    console.log('🔍 Ouverture modal réservations');
+    console.log(' Ouverture modal réservations');
     setModalTitle('Liste des réservations');
     setShowBookingsModal(true);
     try {
       const result = await refetchBookings();
-      console.log('📊 Données réservations:', result.data);
+      console.log(' Données réservations:', result.data);
       setModalData(result.data?.data || []);
     } catch (error) {
-      console.error('❌ Erreur chargement réservations:', error);
+      console.error(' Erreur chargement réservations:', error);
       setModalData([]);
     }
   };
@@ -14625,10 +15549,10 @@ export function AdminReportsPage() {
 
       {/* Onglets */}
       <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-3">
-        <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="📊 Vue d'ensemble" />
-        <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label="💰 Financier" />
+        <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label=" Vue d'ensemble" />
+        <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label=" Financier" />
         <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="👥 Utilisateurs" />
-        <TabButton active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} label="🏠 Propriétés" />
+        <TabButton active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} label=" Propriétés" />
       </div>
 
       {/* Contenu des onglets */}
@@ -14895,7 +15819,7 @@ const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewPro
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">📈 Aujourd'hui</h4>
+        <h4 className="font-semibold text-sm mb-3"> Aujourd'hui</h4>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between"><span className="text-gray-500">Nouveaux utilisateurs</span><span className="font-semibold">{report.new_users || 0}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Nouvelles propriétés</span><span className="font-semibold">{report.new_properties || 0}</span></div>
@@ -14904,7 +15828,7 @@ const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewPro
         </div>
       </div>
       <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3">🏆 Total général</h4>
+        <h4 className="font-semibold text-sm mb-3"> Total général</h4>
         <div className="space-y-2 text-sm">
           <button onClick={() => onViewUsers?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
             <span className="text-gray-500">Total utilisateurs</span><span className="font-semibold">{report.total_users || 0}</span>
@@ -14976,7 +15900,7 @@ const FinancialTab = ({ report, chartData }: any) => (
       </div>
     </div>
     <div className="bg-white rounded-xl p-5 shadow-sm">
-      <h3 className="font-semibold text-base mb-4">📈 Évolution quotidienne</h3>
+      <h3 className="font-semibold text-base mb-4"> Évolution quotidienne</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
