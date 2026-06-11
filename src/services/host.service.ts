@@ -82,6 +82,18 @@ class HostService {
     return response.data;
 }
 
+// ==================== VÉRIFICATION D'IDENTITÉ ====================
+
+
+async checkVerificationRequired(): Promise<boolean> {
+    try {
+        const status = await this.getVerificationStatus();
+        return status.verification_status !== 'verified';
+    } catch (error) {
+        return true; // En cas d'erreur, on suppose que la vérification est requise
+    }
+}
+
     async updateProperty(id: number, data: Partial<HostPropertyData>) {
         const response = await v1Api.put(`/host/properties/${id}`, data);
         return response.data;

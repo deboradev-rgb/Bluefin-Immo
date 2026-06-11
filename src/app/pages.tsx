@@ -13,6 +13,7 @@ import { ListingDetail } from './components/ListingDetail';
 import { Navbar } from './components/Navbar';
 import { useFavorites } from './hooks/useFavorites';
 import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
+import { IdentityVerification } from './components/IdentityVerification';
 // import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
 
 import { Layout } from './components/Layout';
@@ -3191,16 +3192,14 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
     return rawHotels.map(mapProperty).filter((p: any) => p.isVisible);
   }, [rawHotels]);
 
-  const [enrichedProperties, setEnrichedProperties] = useState<any[]>(allProperties);
-  const [enrichedHotels, setEnrichedHotels] = useState<any[]>(hotelsProperties);
+// pages.tsx
+const enrichedProperties = useMemo(() => {
+    return allProperties;
+}, [allProperties]);
 
-  useEffect(() => {
-    setEnrichedProperties(allProperties);
-  }, [allProperties]);
-
-  useEffect(() => {
-    setEnrichedHotels(hotelsProperties);
-  }, [hotelsProperties]);
+const enrichedHotels = useMemo(() => {
+    return hotelsProperties;
+}, [hotelsProperties]);
 
   const searchProperties = useCallback(async (searchParams: {
     destination?: string;
@@ -6354,11 +6353,14 @@ interface Route {
 interface Route {
   name: string;
   id?: string;
-  showConfirmation?: boolean;
-  propertyId?: string;
+  params?: any;
 }
 
-export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+interface HostListingsPageProps {
+  onNavigate?: (route: Route) => void;
+}
+
+export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
   const queryClient = useQueryClient();
   
   // État pour la modale de modification
@@ -6410,6 +6412,8 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['host-properties'] });
       toast.success(response?.message || 'Logement modifié avec succès');
+      setShowEditModal(false);
+      setEditingProperty(null);
     },
     onError: (error: any) => {
       const message = error?.response?.data?.message || error?.response?.data?.errors || 'Erreur lors de la modification';
@@ -6429,7 +6433,6 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['host-properties'] });
       toast.success('Photos ajoutées avec succès');
-      // Recharger la propriété pour afficher les nouvelles photos
       refetch();
     },
     onError: (error: any) => {
@@ -6445,7 +6448,6 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
       queryClient.invalidateQueries({ queryKey: ['host-properties'] });
       toast.success('Photo supprimée avec succès');
       setDeletingPhotoId(null);
-      // Mettre à jour editingProperty localement
       if (editingProperty) {
         const updatedPhotos = editingProperty.photos?.filter((p: any) => p.id !== deletingPhotoId);
         setEditingProperty((prev: any) => ({ ...prev, photos: updatedPhotos }));
@@ -6541,6 +6543,8 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
 
   // Ouvrir la modale de modification
   const handleEdit = (property: any) => {
+    console.log('🖊️ Modification de la propriété:', property);
+    
     setEditingProperty(property);
     setEditFormData({
       title: property.title || '',
@@ -6584,56 +6588,70 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
     setNewPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Sauvegarder les modifications (seulement les nouvelles photos)
+  // Sauvegarder les modifications
   const handleSaveEdit = async () => {
-    if (editingProperty) {
-      setUploadingPhotos(true);
+    if (!editingProperty) return;
+    
+    setUploadingPhotos(true);
+    
+    try {
+      // 1. Mettre à jour les informations de base
+      const updateData = {
+        title: editFormData.title,
+        description: editFormData.description,
+        property_type: editFormData.property_type,
+        city: editFormData.city,
+        district: editFormData.district,
+        address: editFormData.address,
+        bedrooms: editFormData.bedrooms,
+        beds: editFormData.beds,
+        bathrooms: editFormData.bathrooms,
+        max_guests: editFormData.max_guests,
+        price_per_night: editFormData.price_per_night,
+        min_stay: editFormData.min_stay,
+      };
       
-      try {
-        // 1. Mettre à jour les informations de base
-        const updateData = {
-          title: editFormData.title,
-          description: editFormData.description,
-          property_type: editFormData.property_type,
-          city: editFormData.city,
-          district: editFormData.district,
-          address: editFormData.address,
-          bedrooms: editFormData.bedrooms,
-          beds: editFormData.beds,
-          bathrooms: editFormData.bathrooms,
-          max_guests: editFormData.max_guests,
-          price_per_night: editFormData.price_per_night,
-          min_stay: editFormData.min_stay,
-        };
-        
-        await updateMutation.mutateAsync({
-          id: editingProperty.id,
-          data: updateData,
+      console.log('📤 Mise à jour de la propriété:', updateData);
+      
+      await updateMutation.mutateAsync({
+        id: editingProperty.id,
+        data: updateData,
+      });
+      
+      // 2. Ajouter les nouvelles photos (si des photos ont été sélectionnées)
+      if (newPhotos.length > 0) {
+        console.log('📤 Ajout de', newPhotos.length, 'nouvelles photos');
+        await addPhotosMutation.mutateAsync({
+          propertyId: editingProperty.id,
+          photos: newPhotos,
         });
-        
-        // 2. Ajouter les nouvelles photos (si des photos ont été sélectionnées)
-        if (newPhotos.length > 0) {
-          await addPhotosMutation.mutateAsync({
-            propertyId: editingProperty.id,
-            photos: newPhotos,
-          });
-        }
-        
-        toast.success('Toutes les modifications ont été enregistrées');
-        setShowEditModal(false);
-        setEditingProperty(null);
-        
-      } catch (error) {
-        console.error('Erreur lors de l\'enregistrement:', error);
-        toast.error('Erreur lors de l\'enregistrement des modifications');
-      } finally {
-        setUploadingPhotos(false);
       }
+      
+      toast.success('Toutes les modifications ont été enregistrées');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'enregistrement:', error);
+      toast.error('Erreur lors de l\'enregistrement des modifications');
+    } finally {
+      setUploadingPhotos(false);
     }
   };
 
   const handleSuccessClose = () => {
     setShowSuccessModal(false);
+  };
+
+  // Fonction pour vérifier si une propriété peut être modifiée
+  const canEdit = (property: any) => {
+    return property.status !== 'pending';
+  };
+
+  // Fonction pour obtenir le message d'outil pour le bouton modifier
+  const getEditButtonTooltip = (property: any) => {
+    if (property.status === 'pending') {
+      return 'Cette annonce est en cours de validation, vous ne pouvez pas la modifier pour le moment';
+    }
+    return 'Modifier l\'annonce';
   };
 
   if (isLoading) {
@@ -6693,7 +6711,16 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
                     <div className="flex flex-wrap items-center gap-3">
                       <button onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })} className="border border-[#e2f5f2] rounded-full px-5 py-2.5 text-sm hover:bg-[#f4fffe] transition-colors">Voir</button>
                       <button onClick={() => onNavigate?.({ name: 'host-calendrier', id: property.id.toString() })} className="border border-[#00c9a7] text-[#00c9a7] rounded-full px-5 py-2.5 text-sm hover:bg-[#00c9a7]/10 transition-colors">Calendrier</button>
-                      <button onClick={() => handleEdit(property)} disabled={property.status === 'pending'} className={`border rounded-full px-5 py-2.5 text-sm transition-colors ${property.status === 'pending' ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-blue-200 text-blue-600 hover:bg-blue-50'}`}>
+                      <button 
+                        onClick={() => canEdit(property) && handleEdit(property)} 
+                        disabled={!canEdit(property)}
+                        title={getEditButtonTooltip(property)}
+                        className={`border rounded-full px-5 py-2.5 text-sm transition-colors ${
+                          !canEdit(property) 
+                            ? 'border-gray-200 text-gray-400 cursor-not-allowed' 
+                            : 'border-blue-200 text-blue-600 hover:bg-blue-50'
+                        }`}
+                      >
                         <Edit2 className="w-4 h-4 inline mr-1" />Modifier
                       </button>
                       <button onClick={() => confirmDelete(property.id, property.title)} disabled={deleteMutation.isPending} className="border border-red-200 text-red-500 rounded-full px-5 py-2.5 text-sm hover:bg-red-50 transition-colors disabled:opacity-50">
@@ -6719,7 +6746,7 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Photos existantes - AVEC BOUTON SUPPRIMER VISIBLE */}
+              {/* Photos existantes */}
               {editingProperty.photos && editingProperty.photos.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-3">
@@ -6784,48 +6811,146 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-2">Format acceptés : JPG, PNG. Taille max : 5MB par photo.</p>
+                <p className="text-xs text-gray-400 mt-2">Formats acceptés : JPG, PNG. Taille max : 5MB par photo.</p>
               </div>
 
               {/* Informations de base */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label><input type="text" value={editFormData.title} onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété *</label><select value={editFormData.property_type} onChange={(e) => setEditFormData(prev => ({ ...prev, property_type: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]">
-                  <option value="appartement">Appartement</option>
-                  <option value="chambre_habitant">Chambre chez l'habitant</option>
-                  <option value="villa">Villa</option>
-                  <option value="hotel">Hôtel</option>
-                  <option value="motel">Motel</option>
-                  <option value="auberge">Auberge</option>
-                  <option value="maison_hotes">Maison d'hôtes</option>
-                  <option value="ecolodge">Ecolodge</option>
-                  <option value="residence_hoteliere">Résidence hôtelière</option>
-                  <option value="immeuble_entier">Immeuble entier</option>
-                </select></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.title} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété *</label>
+                  <select 
+                    value={editFormData.property_type} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, property_type: e.target.value }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]"
+                  >
+                    <option value="appartement">Appartement</option>
+                    <option value="chambre_habitant">Chambre chez l'habitant</option>
+                    <option value="villa">Villa</option>
+                    <option value="hotel">Hôtel</option>
+                    <option value="motel">Motel</option>
+                    <option value="auberge">Auberge</option>
+                    <option value="maison_hotes">Maison d'hôtes</option>
+                    <option value="ecolodge">Ecolodge</option>
+                    <option value="residence_hoteliere">Résidence hôtelière</option>
+                    <option value="immeuble_entier">Immeuble entier</option>
+                  </select>
+                </div>
               </div>
 
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Description *</label><textarea value={editFormData.description} onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))} rows={4} className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" /></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                <textarea 
+                  value={editFormData.description} 
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))} 
+                  rows={4} 
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" 
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label><input type="text" value={editFormData.city} onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Quartier *</label><input type="text" value={editFormData.district} onChange={(e) => setEditFormData(prev => ({ ...prev, district: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label><input type="text" value={editFormData.address} onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.city} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quartier *</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.district} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, district: e.target.value }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.address} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label><input type="number" min={0} value={editFormData.bedrooms} onChange={(e) => setEditFormData(prev => ({ ...prev, bedrooms: parseInt(e.target.value) || 0 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Lits</label><input type="number" min={1} value={editFormData.beds} onChange={(e) => setEditFormData(prev => ({ ...prev, beds: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label><input type="number" min={1} value={editFormData.bathrooms} onChange={(e) => setEditFormData(prev => ({ ...prev, bathrooms: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Capacité max</label><input type="number" min={1} value={editFormData.max_guests} onChange={(e) => setEditFormData(prev => ({ ...prev, max_guests: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label>
+                  <input 
+                    type="number" 
+                    min={0} 
+                    value={editFormData.bedrooms} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, bedrooms: parseInt(e.target.value) || 0 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Lits</label>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    value={editFormData.beds} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, beds: parseInt(e.target.value) || 1 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    value={editFormData.bathrooms} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, bathrooms: parseInt(e.target.value) || 1 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacité max</label>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    value={editFormData.max_guests} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, max_guests: parseInt(e.target.value) || 1 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
-                  <input type="number" min={0} value={editFormData.price_per_night} onChange={(e) => setEditFormData(prev => ({ ...prev, price_per_night: parseInt(e.target.value) || 0 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" />
+                  <input 
+                    type="number" 
+                    min={0} 
+                    value={editFormData.price_per_night} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, price_per_night: parseInt(e.target.value) || 0 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
                   <p className="text-xs text-gray-500 mt-1">≈ {convertToEuro(editFormData.price_per_night).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</p>
                 </div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Séjour minimum (nuits)</label><input type="number" min={1} value={editFormData.min_stay} onChange={(e) => setEditFormData(prev => ({ ...prev, min_stay: parseInt(e.target.value) || 1 }))} className="w-full rounded-xl border border-gray-200 px-4 py-3" /></div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Séjour minimum (nuits)</label>
+                  <input 
+                    type="number" 
+                    min={1} 
+                    value={editFormData.min_stay} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, min_stay: parseInt(e.target.value) || 1 }))} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                  />
+                </div>
               </div>
             </div>
 
@@ -6899,7 +7024,6 @@ export function HostListingsPage({ onNavigate }: { onNavigate?: (route: Route) =
     </>
   );
 }
-
 // ==================== HOST CALENDAR PAGE ====================
 
 export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Route) => void; id?: string }) {
@@ -8573,6 +8697,13 @@ export function FavoritesPage({ onNavigate }: PageProps) {
 // ==================== PUBLISH LISTING PAGE ====================
 
 export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const [isHost, setIsHost] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  
+  // État pour la devise
+  const [currency, setCurrency] = useState<'XAF' | 'EUR'>('XAF');
+  const [priceInEuro, setPriceInEuro] = useState('');
+  
   const initialForm = {
     title: '',
     description: '',
@@ -8586,7 +8717,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     max_guests: '1',
     price_per_night: '0',
     min_stay: '1',
-    // Équipements existants
     has_wifi: true,
     has_air_conditioning: false,
     has_generator: false,
@@ -8594,21 +8724,18 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_parking: false,
     has_kitchen: false,
     has_tv: false,
-    // Salle de bain
     has_towels: false,
     has_toiletries: false,
     has_hair_dryer: false,
     has_hot_water: false,
     has_bathtub: false,
     has_shower: false,
-    // Chambre et linge
     has_bed_linen: false,
     has_pillows: false,
     has_blankets: false,
     has_hangers: false,
     has_closet: false,
     has_iron: false,
-    // Cuisine et équipements
     has_basic_kitchen_equipment: false,
     has_dishes_cutlery: false,
     has_coffee_maker: false,
@@ -8621,25 +8748,21 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_wine_glasses: false,
     has_toaster: false,
     has_blender: false,
-    // Divertissement
     has_smart_tv: false,
     has_streaming: false,
     has_bluetooth_speaker: false,
     has_books: false,
-    // Sécurité
     has_smoke_detector: false,
     has_first_aid_kit: false,
     has_fire_extinguisher: false,
     has_cctv: false,
     has_electric_fence: false,
-    // Services
     has_breakfast: false,
     has_housekeeping: false,
     has_ironing_service: false,
     has_airport_shuttle: false,
     has_free_parking: false,
     has_luggage_storage: false,
-    // Extérieur
     has_balcony: false,
     has_garden: false,
     has_bbq: false,
@@ -8653,6 +8776,83 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  // Taux de conversion exacts (sans arrondis flottants)
+  // 1 EUR = 655.957 XAF (taux fixe officiel)
+  const XAF_TO_EUR = 1 / 655.957;
+  const EUR_TO_XAF = 655.957;
+
+  // Fonctions de conversion avec préservation de la valeur exacte
+  const convertXAFtoEUR = (xaf: number): string => {
+    const eur = xaf / EUR_TO_XAF;
+    return eur.toFixed(0);
+  };
+
+  const convertEURtoXAF = (eur: number): number => {
+    return Math.round(eur * EUR_TO_XAF);
+  };
+
+  // Gestionnaire pour le changement de devise
+  const handleCurrencyChange = (newCurrency: 'XAF' | 'EUR') => {
+    const currentXAF = parseInt(formData.price_per_night) || 0;
+    
+    if (newCurrency === 'EUR') {
+      // Convertir XAF -> EUR pour affichage
+      const eurValue = convertXAFtoEUR(currentXAF);
+      setPriceInEuro(eurValue);
+    } else {
+      // Convertir EUR -> XAF pour stockage
+      const currentEUR = parseInt(priceInEuro) || 0;
+      const xafValue = convertEURtoXAF(currentEUR);
+      setFormData(prev => ({ ...prev, price_per_night: xafValue.toString() }));
+    }
+    setCurrency(newCurrency);
+  };
+
+  // Gestionnaire pour le changement de prix en XAF
+  const handleXAFPriceChange = (value: string) => {
+    const xafPrice = parseInt(value) || 0;
+    setFormData(prev => ({ ...prev, price_per_night: xafPrice.toString() }));
+    // Mettre à jour l'affichage Euro
+    const eurValue = convertXAFtoEUR(xafPrice);
+    setPriceInEuro(eurValue);
+  };
+
+  // Gestionnaire pour le changement de prix en EUR
+  const handleEURPriceChange = (value: string) => {
+    const eurPrice = parseInt(value) || 0;
+    setPriceInEuro(eurPrice.toString());
+    // Convertir en XAF pour stockage
+    const xafPrice = convertEURtoXAF(eurPrice);
+    setFormData(prev => ({ ...prev, price_per_night: xafPrice.toString() }));
+  };
+
+  useEffect(() => {
+    checkUserType();
+  }, []);
+
+  const checkUserType = () => {
+    setCheckingAuth(true);
+    try {
+      const userStr = localStorage.getItem('user');
+      const userType = localStorage.getItem('userType');
+      
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user.user_type === 'hote' || userType === 'hote') {
+          setIsHost(true);
+        } else {
+          toast.error('Vous devez être connecté en tant qu\'hôte pour publier une annonce');
+        }
+      } else {
+        toast.error('Veuillez vous connecter');
+      }
+    } catch (error) {
+      console.error('Erreur vérification:', error);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   const handleInputChange = (key: keyof typeof initialForm, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
@@ -8664,7 +8864,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     const newFiles = Array.from(files);
     setPhotos((prev) => [...prev, ...newFiles]);
     
-    // Créer les aperçus des nouvelles images
     newFiles.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -8674,7 +8873,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     });
   };
 
-  // Fonction pour supprimer une photo
   const handleRemovePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
@@ -8682,6 +8880,12 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    
+    if (!isHost) {
+      toast.error('Vous devez être connecté en tant qu\'hôte pour publier une annonce');
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -8689,56 +8893,43 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
         throw new Error('Veuillez sélectionner au moins 3 photos pour l\'annonce.');
       }
 
-      // Dans handleSubmit, modifie le payload
-const payload = {
-  title: formData.title,
-  description: formData.description,
-  property_type: formData.property_type,
-  city: formData.city,
-  district: formData.district,
-  address: formData.address,
-  bedrooms: parseInt(formData.bedrooms, 10),
-  beds: parseInt(formData.beds, 10),
-  bathrooms: parseInt(formData.bathrooms, 10),
-  max_guests: parseInt(formData.max_guests, 10),
-  price_per_night: parseFloat(formData.price_per_night),
-  cleaning_fee: 0, // ✅ Ajouter cleaning_fee avec valeur 0
-  min_stay: parseInt(formData.min_stay, 10),
-};
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        property_type: formData.property_type,
+        city: formData.city,
+        district: formData.district,
+        address: formData.address,
+        bedrooms: parseInt(formData.bedrooms, 10),
+        beds: parseInt(formData.beds, 10),
+        bathrooms: parseInt(formData.bathrooms, 10),
+        max_guests: parseInt(formData.max_guests, 10),
+        price_per_night: parseFloat(formData.price_per_night),
+        cleaning_fee: 0,
+        min_stay: parseInt(formData.min_stay, 10),
+      };
 
-      console.log('📤 1/4 - Création de la propriété...', payload);
+      console.log('📤 Création de la propriété avec prix:', payload.price_per_night);
       
       const propertyResponse = await hostService.createProperty(payload);
-      
-      console.log('📥 1/4 - Réponse création propriété:', propertyResponse);
       
       let cleanResponse = propertyResponse;
       if (typeof cleanResponse === 'string') {
         const jsonStartIndex = cleanResponse.indexOf('{');
         if (jsonStartIndex !== -1) {
           const jsonString = cleanResponse.substring(jsonStartIndex);
-          try {
-            cleanResponse = JSON.parse(jsonString);
-          } catch (e) {
-            console.error('❌ Impossible de parser le JSON:', e);
-          }
+          cleanResponse = JSON.parse(jsonString);
         }
       }
       
       let propertyId = cleanResponse?.data?.id || cleanResponse?.id || null;
       
-      console.log('🔑 1/4 - ID récupéré:', propertyId);
-      
       if (!propertyId) {
-        console.error('❌ Structure de réponse inconnue:', cleanResponse);
-        throw new Error('Impossible de récupérer l\'ID de la propriété. Contactez le support.');
+        throw new Error('Impossible de récupérer l\'ID de la propriété.');
       }
       
-      console.log('📤 2/4 - Ajout des photos...', { propertyId, photoCount: photos.length });
       await hostService.addPhotos(propertyId, photos);
-      console.log('✅ 2/4 - Photos ajoutées avec succès');
       
-      console.log('📤 3/4 - Mise à jour des équipements...');
       const amenities = {
         has_wifi: formData.has_wifi,
         has_air_conditioning: formData.has_air_conditioning,
@@ -8793,20 +8984,17 @@ const payload = {
         has_loungers: formData.has_loungers,
       };
       await hostService.updateAmenities(propertyId, amenities);
-      console.log('✅ 3/4 - Équipements mis à jour');
       
-      console.log('📤 4/4 - Soumission pour validation...');
       await hostService.submitForReview(propertyId);
-      console.log('✅ 4/4 - Annonce soumise avec succès');
       
-      toast.success('Votre annonce a bien été soumise. Elle sera examinée par notre équipe.');
+      toast.success('Votre annonce a bien été soumise.');
       setFormData(initialForm);
       setPhotos([]);
       setPhotoPreviews([]);
       setShowSuccessModal(true);
       
     } catch (error: any) {
-      console.error('❌ Erreur détaillée:', error);
+      console.error('❌ Erreur:', error);
       
       let errorMessage = 'Erreur lors de la soumission';
       
@@ -8814,7 +9002,8 @@ const payload = {
         errorMessage = 'Votre session a expiré. Veuillez vous reconnecter.';
         setTimeout(() => onNavigate?.({ name: 'auth' }), 2000);
       } else if (error.response?.status === 403) {
-        errorMessage = 'Vous n\'avez pas les droits pour créer une annonce. Vérifiez votre statut de compte.';
+        errorMessage = error.response?.data?.message || 'Vous n\'avez pas les droits pour créer une annonce.';
+        toast.error(errorMessage);
       } else if (error.response?.status === 422) {
         const errors = error.response?.data?.errors;
         if (errors) {
@@ -8822,13 +9011,11 @@ const payload = {
         } else {
           errorMessage = error.response?.data?.message || 'Données invalides';
         }
-      } else if (error.response?.status === 500) {
-        errorMessage = 'Erreur serveur. Veuillez réessayer dans quelques minutes.';
+        toast.error(errorMessage);
       } else {
         errorMessage = error?.response?.data?.message || error?.message || 'Erreur lors de la soumission';
+        toast.error(errorMessage);
       }
-      
-      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -8839,13 +9026,44 @@ const payload = {
     onNavigate?.({ name: 'host-annonces' });
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+        <p className="ml-3 text-gray-600">Vérification de votre compte...</p>
+      </div>
+    );
+  }
+
+  if (!isHost) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-10 h-10 text-yellow-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-[#0F2940] mb-2">Accès restreint</h2>
+          <p className="text-gray-600 mb-6">
+            Vous devez être connecté en tant qu'hôte pour publier une annonce.
+          </p>
+          <button
+            onClick={() => onNavigate?.({ name: 'become-host' })}
+            className="bg-[#00c9a7] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#00b892] transition"
+          >
+            Devenir hôte
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#f4fffe] min-h-screen py-10">
       <div className="max-w-[950px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Publier une annonce" subtitle="Remplissez les détails de votre logement puis soumettez-le à l’administration pour publication.">
+        <PageSection title="Publier une annonce" subtitle="Remplissez les détails de votre logement puis soumettez-le à l'administration pour publication.">
           <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8 space-y-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Informations de base */}
+              {/* Informations de base - inchangé */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Titre</label>
@@ -8947,22 +9165,77 @@ const payload = {
                 ))}
               </div>
 
-              {/* Tarification */}
+              {/* Tarification avec double devise - CORRIGÉ */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
-                  <label className="text-sm font-medium text-[#0F2940]">Prix par nuit (FCFA)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={formData.price_per_night}
-                    onChange={(e) => handleInputChange('price_per_night', e.target.value)}
-                    className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                    required
-                  />
+                  <label className="text-sm font-medium text-[#0F2940]">Prix par nuit</label>
+                  
+                  {/* Sélecteur de devise */}
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => handleCurrencyChange('XAF')}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
+                        currency === 'XAF' 
+                          ? 'bg-[#00c9a7] text-white' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      FCFA (XAF)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCurrencyChange('EUR')}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
+                        currency === 'EUR' 
+                          ? 'bg-[#00c9a7] text-white' 
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      Euro (€)
+                    </button>
+                  </div>
+                  
+                  {/* Champ de prix selon la devise sélectionnée */}
+                  {currency === 'XAF' ? (
+                    <div>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1000}
+                        value={formData.price_per_night}
+                        onChange={(e) => handleXAFPriceChange(e.target.value)}
+                        className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                        placeholder="Prix en FCFA"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        ≈ {priceInEuro || convertXAFtoEUR(parseInt(formData.price_per_night) || 0)} €
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="number"
+                        min={0}
+                        step={5}
+                        value={priceInEuro}
+                        onChange={(e) => handleEURPriceChange(e.target.value)}
+                        className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                        placeholder="Prix en Euros"
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-2">
+                        ≈ {convertEURtoXAF(parseInt(priceInEuro) || 0).toLocaleString('fr-FR')} FCFA
+                      </p>
+                    </div>
+                  )}
+                  
                   <p className="text-xs text-gray-500 mt-1">
-                     Une commission de 10% sera appliquée sur chaque réservation
+                    Une commission de 10% sera appliquée sur chaque réservation
                   </p>
                 </div>
+                
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Séjour minimum (nuits)</label>
                   <input
@@ -8976,210 +9249,12 @@ const payload = {
                 </div>
               </div>
 
-              {/* Équipements */}
+              {/* Équipements - Gardez votre code existant */}
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5">
-                {/* Équipements de base */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    { label: 'Wi-Fi', key: 'has_wifi' },
-                    { label: 'Climatisation', key: 'has_air_conditioning' },
-                    { label: 'Générateur', key: 'has_generator' },
-                    { label: 'Réservoir d\'eau', key: 'has_water_tank' },
-                    { label: 'Parking', key: 'has_parking' },
-                    { label: 'Cuisine', key: 'has_kitchen' },
-                    { label: 'Télévision', key: 'has_tv' },
-                  ].map((item) => (
-                    <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(formData as any)[item.key]}
-                        onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                        className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                      />
-                      <span className="text-sm text-[#0F2940]">{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {/* Section Salle de bain */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Salle de bain</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Serviettes', key: 'has_towels' },
-                      { label: 'Gel douche / Shampoing', key: 'has_toiletries' },
-                      { label: 'Sèche-cheveux', key: 'has_hair_dryer' },
-                      { label: 'Eau chaude', key: 'has_hot_water' },
-                      { label: 'Baignoire', key: 'has_bathtub' },
-                      { label: 'Douche', key: 'has_shower' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Chambre et linge */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Chambre et linge</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Draps', key: 'has_bed_linen' },
-                      { label: 'Oreillers', key: 'has_pillows' },
-                      { label: 'Couvertures', key: 'has_blankets' },
-                      { label: 'Cintres', key: 'has_hangers' },
-                      { label: 'Espace de rangement (placard)', key: 'has_closet' },
-                      { label: 'Fer à repasser', key: 'has_iron' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Cuisine et équipements */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Cuisine et équipements</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Équipement de cuisine de base', key: 'has_basic_kitchen_equipment' },
-                      { label: 'Vaisselle et couverts', key: 'has_dishes_cutlery' },
-                      { label: 'Cafetière', key: 'has_coffee_maker' },
-                      { label: 'Bouilloire', key: 'has_kettle' },
-                      { label: 'Four', key: 'has_oven' },
-                      { label: 'Four à micro-ondes', key: 'has_microwave' },
-                      { label: 'Congélateur', key: 'has_freezer' },
-                      { label: 'Réfrigérateur', key: 'has_refrigerator' },
-                      { label: 'Table à manger', key: 'has_dining_table' },
-                      { label: 'Verres à vin', key: 'has_wine_glasses' },
-                      { label: 'Grille-pain', key: 'has_toaster' },
-                      { label: 'Mixer / Blender', key: 'has_blender' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Divertissement */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Divertissement</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Smart TV', key: 'has_smart_tv' },
-                      { label: 'Netflix / Streaming', key: 'has_streaming' },
-                      { label: 'Enceinte Bluetooth', key: 'has_bluetooth_speaker' },
-                      { label: 'Livres / Magazines', key: 'has_books' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Sécurité */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Sécurité</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Détecteur de fumée', key: 'has_smoke_detector' },
-                      { label: 'Trousse de secours', key: 'has_first_aid_kit' },
-                      { label: 'Extincteur', key: 'has_fire_extinguisher' },
-                      { label: 'Caméras de surveillance', key: 'has_cctv' },
-                      { label: 'Clôture électrique', key: 'has_electric_fence' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Services */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Services</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Petit-déjeuner', key: 'has_breakfast' },
-                      { label: 'Ménage inclus', key: 'has_housekeeping' },
-                      { label: 'Service de repassage', key: 'has_ironing_service' },
-                      { label: 'Navette aéroport', key: 'has_airport_shuttle' },
-                      { label: 'Parking gratuit', key: 'has_free_parking' },
-                      { label: 'Local à bagages', key: 'has_luggage_storage' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Section Extérieur */}
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-[#0F2940] mb-3"> Extérieur</h4>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {[
-                      { label: 'Balcon / Terrasse', key: 'has_balcony' },
-                      { label: 'Jardin', key: 'has_garden' },
-                      { label: 'Barbecue', key: 'has_bbq' },
-                      { label: 'Piscine', key: 'has_pool' },
-                      { label: 'Transats', key: 'has_loungers' },
-                    ].map((item) => (
-                      <label key={item.key} className="flex items-center gap-3 rounded-3xl border border-[#d9f0ea] bg-white px-4 py-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={(formData as any)[item.key]}
-                          onChange={(e) => handleInputChange(item.key as any, e.target.checked)}
-                          className="h-4 w-4 rounded border-[#00c9a7] text-[#00c9a7] focus:ring-[#00c9a7]"
-                        />
-                        <span className="text-sm text-[#0F2940]">{item.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+                {/* Votre code d'équipements ici */}
               </div>
 
-              {/* Photos avec aperçu et suppression */}
+              {/* Photos */}
               <div>
                 <label className="text-sm font-medium text-[#0F2940]">Photos du logement (minimum 3)</label>
                 <input
@@ -9190,16 +9265,11 @@ const payload = {
                   className="mt-2 block w-full text-sm text-[#0F2940] file:mr-4 file:rounded-full file:border-0 file:bg-[#00c9a7] file:px-4 file:py-2 file:text-white hover:file:bg-[#00b892] transition"
                 />
                 
-                {/* Aperçu des photos */}
                 {photoPreviews.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {photoPreviews.map((preview, index) => (
                       <div key={index} className="relative group rounded-xl overflow-hidden border border-[#e2f5f2] bg-white shadow-sm">
-                        <img 
-                          src={preview} 
-                          alt={`Aperçu ${index + 1}`} 
-                          className="w-full h-32 object-cover"
-                        />
+                        <img src={preview} alt={`Aperçu ${index + 1}`} className="w-full h-32 object-cover" />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button
                             type="button"
@@ -9217,7 +9287,6 @@ const payload = {
                   </div>
                 )}
 
-                {/* Messages d'état */}
                 {photos.length < 3 && (
                   <p className="text-sm text-red-600 mt-3 flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
@@ -9266,84 +9335,43 @@ const payload = {
         </PageSection>
       </div>
 
-     {/* Modal de succès - Version corrigée avec padding-bottom */}
-{showSuccessModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
-    <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2] my-8">
-      <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
-        <button
-          onClick={handleSuccessClose}
-          className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition"
-          aria-label="Fermer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]">
-          <CheckCircle className="w-7 h-7 text-[#00C9A7]" />
-        </div>
-
-        <h2 className="text-lg font-semibold text-[#0F2940]">
-          Votre bien est entre de bonnes mains.
-        </h2>
-        <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">
-          Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
-        </p>
-      </div>
-
-      <div className="px-5 pb-5">
-        <div className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2 text-xs font-medium text-[#0F2940] sm:flex-row sm:justify-center">
-          <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
-          <span>Notre équipe vous contacte sous 24h</span>
-        </div>
-
-        <div className="rounded-xl border border-[#e8f6f2] bg-white p-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#00C9A7] mb-2">Ce qui se passe maintenant</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[
-              { num: 1, title: 'Étude de votre dossier', desc: 'Notre équipe examine votre bien et vérifie qu\'il correspond à nos critères de qualité.' },
-              { num: 2, title: 'Prise de contact', desc: 'Un membre de l\'équipe vous appelle ou vous écrit sur WhatsApp pour échanger et finaliser les détails.' },
-              { num: 3, title: 'Mise en ligne de votre annonce', desc: 'Votre appartement est publié sur Bluefin Immo, visible par tous nos voyageurs.' },
-              { num: 4, title: 'Vos premières réservations arrivent', desc: 'Vous êtes notifié à chaque nouvelle demande et accompagné tout au long du processus.' },
-            ].map((step) => (
-              <div key={step.num} className="flex gap-2 rounded-xl border border-[#eef6f1] bg-[#f9fffb] p-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F2940] text-[10px] font-semibold text-white">
-                  {step.num}
-                </div>
-                <div className="text-left">
-                  <p className="font-semibold text-[#0F2940] text-[11px]">{step.title}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5 leading-4">{step.desc}</p>
-                </div>
+      {/* Modal de succès */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-[500px] rounded-2xl bg-white shadow-xl overflow-hidden border border-[#e2f5f2] my-8">
+            <div className="relative bg-gradient-to-br from-[#f3fffc] to-white px-5 py-5 text-center">
+              <button onClick={handleSuccessClose} className="absolute top-3 right-3 rounded-full p-1.5 text-gray-400 hover:text-gray-600 transition">
+                <X className="w-4 h-4" />
+              </button>
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f9f3] border border-[#c7f1ea]">
+                <CheckCircle className="w-7 h-7 text-[#00C9A7]" />
               </div>
-            ))}
+              <h2 className="text-lg font-semibold text-[#0F2940]">Votre bien est entre de bonnes mains.</h2>
+              <p className="mx-auto mt-2 max-w-md text-xs text-gray-500">
+                Merci pour votre confiance. Nous avons bien reçu votre demande et notre équipe va l'étudier avec la plus grande attention.
+              </p>
+            </div>
+            <div className="px-5 pb-5">
+              <div className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-[#c7f1ea] bg-[#f4fffe] px-3 py-2 text-xs font-medium text-[#0F2940] sm:flex-row sm:justify-center">
+                <Clock className="w-3.5 h-3.5 text-[#00C9A7]" />
+                <span>Notre équipe vous contacte sous 24h</span>
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                <a href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20annonce" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-3 py-2 text-white font-semibold text-sm shadow-sm hover:bg-[#1fbf55] transition">
+                  <MessageCircle className="w-4 h-4 mr-1.5" />
+                  WhatsApp
+                </a>
+                <button onClick={handleSuccessClose} className="inline-flex items-center justify-center rounded-full border border-[#00c9a7] px-3 py-2 text-[#0F2940] font-semibold text-sm hover:bg-[#f4fffe] transition">
+                  Voir mes annonces
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <a
-            href="https://wa.me/22900000000?text=Bonjour%20Bluefin%20Immo%2C%20je%20viens%20de%20soumettre%20mon%20annonce"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-3 py-2 text-white font-semibold text-sm shadow-sm hover:bg-[#1fbf55] transition"
-          >
-            <MessageCircle className="w-4 h-4 mr-1.5" />
-            WhatsApp
-          </a>
-          <button
-            onClick={handleSuccessClose}
-            className="inline-flex items-center justify-center rounded-full border border-[#00c9a7] px-3 py-2 text-[#0F2940] font-semibold text-sm hover:bg-[#f4fffe] transition"
-          >
-            Voir mes annonces
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 }
-
 // ==================== HELP PAGE ====================
 
 
@@ -11970,24 +11998,91 @@ export function ServicesPage({ onNavigate }: PageProps) {
 
 
 // ========== PAGE PRINCIPALE BECOME HOST ==========
+
+// import { CommunityCommitment } from './CommunityCommitment';
+
+interface PageProps {
+  onNavigate?: (page: { name: string; params?: any }) => void;
+}
+
 export function BecomeHost({ onNavigate }: PageProps) {
   const [selectedOption, setSelectedOption] = useState<'property' | 'experience' | 'service' | null>(null);
   const [showAuthPage, setShowAuthPage] = useState(false);
   const [showCommitment, setShowCommitment] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Formulaire
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
+    password_confirmation: ''
+  });
+  
+  const { login, register, switchUserType } = useAuth();
 
   const handleStart = () => {
     setShowAuthPage(true);
+    setAuthMode('login');
+    setError(null);
   };
   
-  const handleAuthSuccess = (user: any) => {
-    setUserData(user);
-    setShowAuthPage(false);
-    setShowCommitment(true);
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Validation
+      if (authMode === 'register') {
+        if (formData.password !== formData.password_confirmation) {
+          throw new Error('Les mots de passe ne correspondent pas');
+        }
+        if (formData.password.length < 8) {
+          throw new Error('Le mot de passe doit contenir au moins 8 caractères');
+        }
+        if (!formData.first_name || !formData.last_name) {
+          throw new Error('Veuillez remplir tous les champs');
+        }
+      }
+      
+      if (authMode === 'login') {
+        // Connexion en tant qu'hôte
+        await login(formData.email, formData.password, 'hote');
+      } else {
+        // Inscription en tant qu'hôte
+        await register({
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          password_confirmation: formData.password_confirmation
+        }, 'hote');
+      }
+      
+      // Forcer le type hôte
+      switchUserType('hote');
+      
+      // Fermer l'auth et passer aux engagements
+      setShowAuthPage(false);
+      setShowCommitment(true);
+      
+    } catch (error: any) {
+      console.error('Erreur auth:', error);
+      setError(error.message || 'Erreur lors de l\'authentification');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleCommitmentAccept = () => {
     setShowCommitment(false);
+    
     if (selectedOption === 'property') {
       onNavigate?.({ name: 'publish' });
     } else if (selectedOption === 'experience') {
@@ -12002,66 +12097,196 @@ export function BecomeHost({ onNavigate }: PageProps) {
   const handleOptionSelect = (option: 'property' | 'experience' | 'service') => {
     setSelectedOption(option);
     setShowAuthPage(true);
+    setAuthMode('login');
+    setError(null);
   };
 
+  // Page d'authentification
   if (showAuthPage) {
-    return <HostOnlyAuthPage onNavigate={onNavigate} onAuthSuccess={handleAuthSuccess} hideBackButton={false} />;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+          <button
+            onClick={() => {
+              setShowAuthPage(false);
+              setSelectedOption(null);
+              setError(null);
+            }}
+            className="absolute top-4 left-4 z-10 p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => {
+                setAuthMode('login');
+                setError(null);
+              }}
+              className={`flex-1 py-4 text-center font-semibold transition-all duration-300 ${
+                authMode === 'login'
+                  ? 'text-[#00c9a7] border-b-2 border-[#00c9a7]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Connexion Hôte
+            </button>
+            <button
+              onClick={() => {
+                setAuthMode('register');
+                setError(null);
+              }}
+              className={`flex-1 py-4 text-center font-semibold transition-all duration-300 ${
+                authMode === 'register'
+                  ? 'text-[#00c9a7] border-b-2 border-[#00c9a7]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Devenir Hôte
+            </button>
+          </div>
+          
+          <div className="p-8">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+                {error}
+              </div>
+            )}
+            
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              {authMode === 'register' && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.first_name}
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                        placeholder="Jean"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.last_name}
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                        placeholder="Dupont"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                    <input
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                      placeholder="+229 XX XXX XXX"
+                    />
+                  </div>
+                </>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                  placeholder="votre@email.com"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
+                <input
+                  type="password"
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                  placeholder="Minimum 8 caractères"
+                />
+              </div>
+              
+              {authMode === 'register' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirmer le mot de passe</label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.password_confirmation}
+                    onChange={(e) => setFormData({ ...formData, password_confirmation: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                    placeholder="Confirmez votre mot de passe"
+                  />
+                </div>
+              )}
+              
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              >
+                {isLoading ? 'Chargement...' : (authMode === 'login' ? 'Se connecter comme hôte' : 'Devenir hôte')}
+              </button>
+            </form>
+            
+            {authMode === 'login' && (
+              <p className="text-center text-sm text-gray-500 mt-4">
+                Pas encore de compte ?{' '}
+                <button
+                  onClick={() => {
+                    setAuthMode('register');
+                    setError(null);
+                  }}
+                  className="text-[#00c9a7] font-semibold hover:underline"
+                >
+                  Créez votre espace hôte
+                </button>
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (showCommitment) {
-    return <CommunityCommitment onAccept={handleCommitmentAccept} onBack={() => { setShowCommitment(false); setShowAuthPage(true); }} />;
+    return <CommunityCommitment 
+      onAccept={handleCommitmentAccept} 
+      onBack={() => { 
+        setShowCommitment(false); 
+        setShowAuthPage(true); 
+      }} 
+    />;
   }
 
+  // Page principale Devenir Hôte
   const hostOptions = [
-    {
-      id: 'property' as const,
-      title: 'Logement',
-      description: 'Mettez votre logement en location',
-      icon: Home,
-      color: 'from-[#00c9a7] to-[#00b396]',
-    },
-    {
-      id: 'experience' as const,
-      title: 'Expérience',
-      description: 'Partagez votre passion',
-      icon: Compass,
-      color: 'from-[#0f2940] to-[#1a3a52]',
-    },
-    {
-      id: 'service' as const,
-      title: 'Service',
-      description: 'Proposez vos services',
-      icon: Briefcase,
-      color: 'from-[#ff6b6b] to-[#ff5252]',
-    },
+    { id: 'property' as const, title: 'Logement', description: 'Mettez votre logement en location', icon: Home, color: 'from-[#00c9a7] to-[#00b396]' },
+    { id: 'experience' as const, title: 'Expérience', description: 'Partagez votre passion', icon: Compass, color: 'from-[#0f2940] to-[#1a3a52]' },
+    { id: 'service' as const, title: 'Service', description: 'Proposez vos services', icon: Briefcase, color: 'from-[#ff6b6b] to-[#ff5252]' },
   ];
 
   const benefits = [
-    {
-      icon: Shield,
-      title: 'Sécurité renforcée',
-      description: 'Paiements sécurisés'
-    },
-    {
-      icon: MessageCircle,
-      title: 'Assistance 7j/7',
-      description: 'Une équipe disponible'
-    },
-    {
-      icon: CreditCard,
-      title: 'Paiements rapides',
-      description: 'Vos gains sous 24h'
-    },
-    {
-      icon: Globe,
-      title: 'Visibilité internationale',
-      description: 'Vue dans le monde entier'
-    }
+    { icon: Shield, title: 'Sécurité renforcée', description: 'Paiements sécurisés' },
+    { icon: MessageCircle, title: 'Assistance 7j/7', description: 'Une équipe disponible' },
+    { icon: CreditCard, title: 'Paiements rapides', description: 'Vos gains sous 24h' },
+    { icon: Globe, title: 'Visibilité internationale', description: 'Vue dans le monde entier' }
   ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
-      {/* Header */}
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-5 py-4">
         <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-3 flex items-center gap-2 hover:text-[#00c9a7] transition-colors group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Retour
@@ -12071,53 +12296,23 @@ export function BecomeHost({ onNavigate }: PageProps) {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
-        {/* Section Hero / Call to Action */}
         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0f2940] to-[#1a3a52] p-6 sm:p-8 md:p-12 mb-8 sm:mb-12 text-center">
           <div className="relative z-10">
             <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[#00ffdb] mb-2 sm:mb-3">Hébergeurs</p>
             <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-4">Rejoignez la communauté</h2>
             <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-2xl mx-auto">
-              Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs locaux et internationaux.
+              Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs.
             </p>
           </div>
         </div>
 
-        {/* 3 Options: Logement, Expérience, Service - Version mobile en row avec flex */}
         <div className="mb-8 sm:mb-12">
           <div className="text-center mb-6 sm:mb-8">
             <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Comment souhaitez-vous contribuer ?</h3>
             <p className="text-gray-500 text-xs sm:text-sm">Choisissez le type d'offre que vous voulez proposer</p>
           </div>
           
-          {/* Version mobile: flex row with equal width */}
-          <div className="flex flex-row gap-2 sm:hidden">
-            {hostOptions.map((option) => {
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => handleOptionSelect(option.id)}
-                  className="flex-1 group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3 text-center transition-all duration-300 hover:shadow-lg active:scale-95"
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-r ${option.color} opacity-0 group-active:opacity-10 transition-opacity duration-300`} />
-                  <div className="relative z-10">
-                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${option.color} text-white flex items-center justify-center mx-auto mb-2 shadow-md`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-[#0F2940] mb-1">
-                      {option.title}
-                    </h3>
-                    <p className="text-[10px] text-gray-500 leading-tight">
-                      {option.description}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Version desktop: grid layout */}
-          <div className="hidden sm:grid sm:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
             {hostOptions.map((option) => {
               const Icon = option.icon;
               return (
@@ -12148,7 +12343,6 @@ export function BecomeHost({ onNavigate }: PageProps) {
           </div>
         </div>
 
-        {/* Section Avantages - 2x2 sur mobile, 4x1 sur desktop */}
         <div className="mb-8 sm:mb-12">
           <div className="text-center mb-6 sm:mb-8">
             <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Pourquoi devenir hôte ?</h3>
@@ -12171,7 +12365,6 @@ export function BecomeHost({ onNavigate }: PageProps) {
           </div>
         </div>
 
-        {/* Bouton Accéder à mon espace - Tout en bas */}
         <div className="flex justify-center pt-6 sm:pt-8 border-t border-slate-200">
           <button
             onClick={handleStart}

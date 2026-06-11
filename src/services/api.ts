@@ -6,6 +6,8 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'https://api.bluefin-immo.com';
 const PUBLIC_API_URL = `${BASE_URL}/api`;  // Pour les routes publiques (sans /v1)
 const V1_API_URL = `${BASE_URL}/api/v1`;   // Pour les routes protégées
 
+
+
 console.log('🌐 API BASE URL:', BASE_URL);
 console.log('🌐 PUBLIC API URL:', PUBLIC_API_URL);
 console.log('🌐 V1 API URL:', V1_API_URL);

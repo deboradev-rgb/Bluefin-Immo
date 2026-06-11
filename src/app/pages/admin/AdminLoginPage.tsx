@@ -16,11 +16,12 @@ export function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { login, user, isAuthenticated } = useAuth();
 
-  // ⭐ Redirection automatique quand l'utilisateur devient admin
+  // Redirection automatique quand l'utilisateur devient admin
   useEffect(() => {
     console.log('🔍 AdminLoginPage - user:', user, 'isAuthenticated:', isAuthenticated);
     if (isAuthenticated && user?.user_type === 'admin') {
-      console.log('✅ Admin détecté, redirection vers dashboard');
+      console.log('✅ Admin détecté, redirection vers dashboard admin');
+      // Rediriger vers le dashboard admin
       onNavigate?.({ name: 'admin-dashboard' });
     }
   }, [user, isAuthenticated, onNavigate]);
@@ -31,15 +32,24 @@ export function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
     setError('');
     
     try {
-      const response = await login(email, password);
-      console.log('📦 Response login:', response);
+      // Spécifier le type 'admin' pour la connexion
+      const response = await login(email, password, 'admin');
+      console.log('📦 Response login admin:', response);
       
       // La redirection se fera via l'useEffect ci-dessus
       // Pas besoin de rediriger ici immédiatement
       
     } catch (err: any) {
       console.error('Erreur login admin:', err);
-      setError('Identifiants invalides ou compte non autorisé');
+      
+      // Afficher un message d'erreur plus précis
+      if (err?.response?.status === 401) {
+        setError('Email ou mot de passe incorrect');
+      } else if (err?.response?.status === 403) {
+        setError('Accès non autorisé. Veuillez contacter l\'administrateur.');
+      } else {
+        setError('Identifiants invalides ou compte non autorisé');
+      }
       setIsLoading(false);
     }
   };

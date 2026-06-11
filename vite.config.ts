@@ -26,23 +26,24 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'https://api.bluefin-immo.com',
-        changeOrigin: true,
-        rewrite: (path) => {
-          // ⚠️ Conserver le chemin exact sans modification
-          // /api/properties → /api/v1/properties
-          // /api/auth/me → /api/v1/auth/me
-          // /api/traveler/favorites → /api/v1/traveler/favorites
-          const newPath = path.replace(/^\/api/, '/api/v1');
-          console.log('🔄 PROXY:', path, '→', newPath);
-          return newPath;
-        },
+ server: {
+  port: 5173,
+  proxy: {
+    '/api': {
+      target: 'https://api.bluefin-immo.com',
+      changeOrigin: true,
+      // Correction : ne pas réécrire si l'URL contient déjà /api/v1
+      rewrite: (path) => {
+        // Si le chemin commence par /api/v1, on le garde tel quel
+        if (path.startsWith('/api/v1')) {
+          return path;
+        }
+        // Sinon, on transforme /api/xxx → /api/v1/xxx
+        return path.replace(/^\/api/, '/api/v1');
       },
     },
+  },
+
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })
