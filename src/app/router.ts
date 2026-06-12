@@ -142,6 +142,8 @@ export function parseRoute(path: string): Route {
     return { name: 'host-dashboard', search };
   }
 
+  
+
   // Routes admin
   if (segments[0] === 'admin') {
     const sub = segments[1];
@@ -202,7 +204,13 @@ export function routeToPath(route: Route): string {
     case 'host-reservations': path = '/hote/reservations'; break;
     case 'host-messages': path = route.id ? `/hote/messages/${route.id}` : '/hote/messages'; break;
     case 'host-favorites': path = '/hote/favoris'; break;
-    case 'messages': path = route.id ? `/messages/${route.id}` : '/messages'; break;
+            case 'messages':
+            // Construire le chemin avec l'id et les paramètres
+            path = `/messages/${route.id || ''}`;
+            if (route.search) {
+                path += `?${route.search}`;
+            }
+            break;
     case 'favorites': path = '/favoris'; break;
     case 'publish': path = '/publier-annonce'; break;
     case 'admin-dashboard': path = '/admin/dashboard'; break;

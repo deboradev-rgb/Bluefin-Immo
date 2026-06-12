@@ -236,6 +236,17 @@ async checkVerificationRequired(): Promise<boolean> {
         return response.data;
     }
 
+
+    // Dans host.service.ts
+async getInquiryMessages(guestId: number) {
+    const response = await v1Api.get(`/host/messages/inquiry/${guestId}`);
+    return response.data;
+}
+
+async sendInquiryReply(guestId: number, data: { message: string }) {
+    const response = await v1Api.post(`/host/messages/inquiry/${guestId}`, data);
+    return response.data;
+}
     // ==================== PROFIL HÔTE ====================
     async getProfile() {
         const response = await v1Api.get('/host/profile');

@@ -160,6 +160,37 @@ function AppContent() {
     };
   }, [navigate]);
 
+  // ✅ Vérifier les intentions de chat au chargement (URL directe)
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+    const currentSearch = window.location.search;
+    
+    // Si on est sur /messages/inquiry sans être authentifié
+    if (currentPath.includes('/messages/inquiry') && !isAuthenticated && !loading) {
+      console.log('🔗 Accès direct à /messages/inquiry sans auth, sauvegarde intention');
+      
+      const params = currentSearch.substring(1); // Enlever le ?
+      const urlParams = new URLSearchParams(currentSearch);
+      const propertyId = urlParams.get('property');
+      
+      if (propertyId) {
+        localStorage.setItem('redirect_intent', 'chat');
+        localStorage.setItem('redirect_property_id', propertyId);
+        localStorage.setItem('pendingChatParams', params);
+        localStorage.setItem('chatIntent', JSON.stringify({
+          propertyId: propertyId,
+          checkIn: urlParams.get('check_in'),
+          checkOut: urlParams.get('check_out'),
+          guests: urlParams.get('guests'),
+          timestamp: Date.now()
+        }));
+      }
+      
+      // Rediriger vers auth
+      navigate({ name: 'auth', search: `redirect=chat&property=${propertyId}` });
+    }
+  }, [window.location.pathname, window.location.search, isAuthenticated, loading]);
+
   const handleMobileNavigate = (tab: Tab | { name: string; id?: string }) => {
     if (typeof tab === 'object') {
       navigate(tab);
@@ -172,9 +203,14 @@ function AppContent() {
   };
 
   const isRouteAllowed = (route: Route): boolean => {
+    // ✅ Routes de messagerie - autorisées même sans auth (seront redirigées vers auth)
+    if (route.name === 'messages') {
+      return true; // Toujours autorisé, on gère l'auth dans le rendu
+    }
+    
     const protectedRoutes: Page[] = [
       'account', 'account-reservations', 'host-dashboard', 'host-annonces',
-      'host-calendrier', 'host-reservations', 'messages', 'host-messages', 'favorites', 'publish',
+      'host-calendrier', 'host-reservations', 'host-messages', 'favorites', 'publish',
     ];
     
     if (protectedRoutes.includes(route.name)) {
@@ -202,6 +238,32 @@ function AppContent() {
         </div>
       </div>
     );
+  }
+
+  // ✅ Cas spécial : messages sans authentification
+  if (route.name === 'messages' && !isAuthenticated) {
+    console.log('💬 Messages sans auth, redirection vers login avec intention');
+    
+    // Sauvegarder l'intention
+    const params = route.search || '';
+    const urlParams = new URLSearchParams(params);
+    const propertyId = urlParams.get('property');
+    
+    if (propertyId) {
+      localStorage.setItem('redirect_intent', 'chat');
+      localStorage.setItem('redirect_property_id', propertyId);
+      localStorage.setItem('pendingChatParams', params);
+      localStorage.setItem('chatIntent', JSON.stringify({
+        propertyId: propertyId,
+        checkIn: urlParams.get('check_in'),
+        checkOut: urlParams.get('check_out'),
+        guests: urlParams.get('guests'),
+        timestamp: Date.now()
+      }));
+    }
+    
+    // Afficher la page d'auth avec intention
+    return <AuthPage onNavigate={navigate} />;
   }
 
   // Vérifier si la route est autorisée
@@ -243,13 +305,10 @@ function AppContent() {
   }
 
   // Routes publiques et protégées classiques
-  // ✅ LE NAVBAR N'EST PLUS AFFICHÉ POUR LA PAGE HOME
-  // Sur la page home, le Navbar est déjà inclus dans HomePage
   const showNavbar = route.name !== 'home';
 
   return (
     <div className="min-h-screen bg-white">
-      {/* ✅ Navbar affiché seulement sur les pages autres que home */}
       {showNavbar && (
         <Navbar
           onOpenSearch={() => navigate({ name: 'search-logements' })}
@@ -281,7 +340,7 @@ function AppContent() {
       {route.name === 'host-annonces' && <HostListingsPage onNavigate={navigate} />}
       {route.name === 'host-calendrier' && <HostCalendarPage onNavigate={navigate} id={route.id} />}
       {route.name === 'host-reservations' && <HostReservationsPage onNavigate={navigate} />}
-      {route.name === 'messages' && <MessagesPage onNavigate={navigate} id={route.id} />}
+      {route.name === 'messages' && <MessagesPage onNavigate={navigate} id={route.id} search={route.search} />}
       {route.name === 'host-messages' && <HostMessagesPage onNavigate={navigate} id={route.id} />}
       {route.name === 'favorites' && <FavoritesPage onNavigate={navigate} />}
       {route.name === 'publish' && <PublishListingPage onNavigate={navigate} />}

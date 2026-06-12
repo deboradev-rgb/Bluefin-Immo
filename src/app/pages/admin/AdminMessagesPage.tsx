@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { 
   MessageCircle, User, Mail, Clock, Search, 
   Filter, Eye, ChevronRight, Phone, MapPin,
-  Calendar, Star, Reply, Flag, CheckCircle, XCircle
+  Calendar, Star, Reply, Flag, CheckCircle, XCircle,
+  ArrowLeft, Send
 } from 'lucide-react';
 import adminService from '../../../services/admin.service';
 import { useState } from 'react';
@@ -22,13 +23,71 @@ export function AdminMessagesPage() {
 
   if (isLoading) return <LoadingSkeleton />;
   
+  // ✅ Extraction correcte des messages depuis la réponse API
+  // La structure est: data.data.data (car data contient { success, data: { data: [...] } })
   const allMessages = data?.data?.data || [];
   
+  // 🔍 Debug: Afficher la structure du premier message
+  if (allMessages.length > 0) {
+    console.log('📦 Premier message:', allMessages[0]);
+    console.log('📦 Sender:', allMessages[0].sender);
+    console.log('📦 Receiver:', allMessages[0].receiver);
+  }
+  
+  // ✅ Fonction pour obtenir le nom complet d'un utilisateur
+  const getFullName = (user: any): string => {
+    console.log('🔍 getFullName reçoit:', user);
+    
+    if (!user) {
+      console.log('❌ User est null ou undefined');
+      return 'Utilisateur inconnu';
+    }
+    
+    // Essayer différentes structures possibles
+    if (user.first_name && user.last_name) {
+      const name = `${user.first_name} ${user.last_name}`.trim();
+      console.log('✅ Nom trouvé via first_name/last_name:', name);
+      return name;
+    }
+    
+    if (user.full_name) {
+      console.log('✅ Nom trouvé via full_name:', user.full_name);
+      return user.full_name;
+    }
+    
+    if (user.name) {
+      console.log('✅ Nom trouvé via name:', user.name);
+      return user.name;
+    }
+    
+    if (user.email) {
+      console.log('⚠️ Utilisation de l\'email comme nom:', user.email);
+      return user.email.split('@')[0];
+    }
+    
+    console.log('❌ Aucun nom trouvé pour:', user);
+    return 'Utilisateur inconnu';
+  };
+  
+  // ✅ Fonction pour obtenir l'avatar
+  const getAvatarUrl = (user: any): string => {
+    if (!user) return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=?&bold=true&size=40`;
+    
+    if (user.profile_photo) return user.profile_photo;
+    
+    const name = getFullName(user);
+    return `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(name.charAt(0))}&bold=true&size=40`;
+  };
+  
   const filteredMessages = allMessages.filter((msg: any) => {
+    const senderName = getFullName(msg.sender);
+    const receiverName = getFullName(msg.receiver);
+    const messageText = msg.message || '';
+    
     const matchesSearch = searchTerm === '' || 
-      msg.sender?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      msg.receiver?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      msg.message?.toLowerCase().includes(searchTerm.toLowerCase());
+      senderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      receiverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      messageText.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filterType === 'flagged') return matchesSearch && msg.is_flagged;
     if (filterType === 'unread') return matchesSearch && !msg.is_read;
@@ -100,12 +159,14 @@ export function AdminMessagesPage() {
               <p className="text-gray-500 text-sm">Aucun message trouvé</p>
             </div>
           ) : (
-            filteredMessages.map((msg: any, idx: number) => (
+            filteredMessages.map((msg: any) => (
               <MessageCard
                 key={msg.id}
                 message={msg}
                 isSelected={selectedMessage?.id === msg.id}
                 onClick={() => setSelectedMessage(msg)}
+                getFullName={getFullName}
+                getAvatarUrl={getAvatarUrl}
               />
             ))
           )}
@@ -114,7 +175,12 @@ export function AdminMessagesPage() {
         {/* Colonne droite - Détails du message */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden sticky top-4 h-[600px] flex flex-col">
           {selectedMessage ? (
-            <MessageDetail message={selectedMessage} onClose={() => setSelectedMessage(null)} />
+            <MessageDetail 
+              message={selectedMessage} 
+              onClose={() => setSelectedMessage(null)}
+              getFullName={getFullName}
+              getAvatarUrl={getAvatarUrl}
+            />
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6">
               <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
@@ -127,59 +193,124 @@ export function AdminMessagesPage() {
   );
 }
 
-// Composant de carte message
-const MessageCard = ({ message, isSelected, onClick }: any) => {
+// ✅ Composant de carte message
+const MessageCard = ({ message, isSelected, onClick, getFullName, getAvatarUrl }: any) => {
   const isUnread = !message.is_read;
   const isFlagged = message.is_flagged;
+  
+  // ✅ Récupérer les noms directement depuis message.sender et message.receiver
+  const senderName = message.sender 
+    ? `${message.sender.first_name || ''} ${message.sender.last_name || ''}`.trim() 
+    : 'Expéditeur inconnu';
+  
+  const receiverName = message.receiver 
+    ? `${message.receiver.first_name || ''} ${message.receiver.last_name || ''}`.trim() 
+    : 'Destinataire inconnu';
+  
+  const senderAvatar = message.sender?.profile_photo || 
+    `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${senderName.charAt(0) || '?'}&bold=true&size=40`;
+  
+  const messagePreview = message.message?.length > 80 
+    ? message.message.substring(0, 80) + '...' 
+    : message.message;
   
   return (
     <div
       onClick={onClick}
       className={`bg-white rounded-xl p-3 cursor-pointer transition-all hover:shadow-md ${
         isSelected ? 'ring-2 ring-[#00c9a7] shadow-lg' : 'shadow-sm'
-      } ${isUnread ? 'border-l-4 border-l-[#00c9a7]' : ''}`}
+      } ${isUnread ? 'border-l-4 border-l-[#00c9a7] bg-[#f4fffe]' : ''}`}
     >
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold shrink-0">
-          {message.sender?.full_name?.charAt(0) || '?'}
-        </div>
+        {/* Avatar */}
+        <img 
+          src={senderAvatar}
+          alt={senderName}
+          className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${senderName.charAt(0) || '?'}&bold=true&size=40`;
+          }}
+        />
+        
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start gap-2">
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{message.sender?.full_name || 'Inconnu'}</p>
-              <p className="text-xs text-gray-500 truncate">→ {message.receiver?.full_name || 'Inconnu'}</p>
+              {/* NOM DE L'EXPÉDITEUR */}
+              <p className={`text-sm truncate ${isUnread ? 'font-semibold text-[#0F2940]' : 'font-medium text-gray-700'}`}>
+                {senderName !== 'Expéditeur inconnu' ? senderName : (message.sender?.email || 'Expéditeur inconnu')}
+              </p>
+              {/* NOM DU DESTINATAIRE avec flèche */}
+              <p className="text-xs text-gray-400 truncate">
+                → {receiverName !== 'Destinataire inconnu' ? receiverName : (message.receiver?.email || 'Destinataire inconnu')}
+              </p>
             </div>
             <div className="flex gap-1 shrink-0">
               {isFlagged && <Flag className="w-3 h-3 text-red-500 fill-red-500" />}
               {isUnread && <div className="w-2 h-2 rounded-full bg-[#00c9a7] animate-pulse"></div>}
             </div>
           </div>
-          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.message}</p>
+          {/* Aperçu du message */}
+          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{messagePreview || 'Aucun contenu'}</p>
+          {/* Date */}
           <p className="text-xs text-gray-400 mt-1">{formatDate(message.created_at)}</p>
         </div>
-        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+        <ChevronRight className={`w-4 h-4 flex-shrink-0 ${isUnread ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
       </div>
     </div>
   );
 };
 
-// Composant de détail du message
-const MessageDetail = ({ message, onClose }: any) => {
+// ✅ Composant de détail du message
+const MessageDetail = ({ message, onClose, getFullName, getAvatarUrl }: any) => {
   const [showFullMessage, setShowFullMessage] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  
+  // ✅ Récupérer les noms directement depuis message.sender et message.receiver
+  const senderName = message.sender 
+    ? `${message.sender.first_name || ''} ${message.sender.last_name || ''}`.trim() 
+    : 'Expéditeur inconnu';
+  
+  const receiverName = message.receiver 
+    ? `${message.receiver.first_name || ''} ${message.receiver.last_name || ''}`.trim() 
+    : 'Destinataire inconnu';
+  
+  const senderAvatar = message.sender?.profile_photo || 
+    `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${senderName.charAt(0) || '?'}&bold=true&size=40`;
+  
+  const messageContent = message.message || 'Aucun contenu';
+  
+  const handleReply = () => {
+    if (!replyText.trim()) {
+      toast.error('Veuillez écrire un message');
+      return;
+    }
+    toast.success('Réponse envoyée');
+    setReplyText('');
+    setShowReplyForm(false);
+  };
   
   return (
     <>
       <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold">
-            {message.sender?.full_name?.charAt(0) || '?'}
-          </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className="lg:hidden p-1 hover:bg-gray-200 rounded-lg transition">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <img 
+            src={senderAvatar}
+            alt={senderName}
+            className="w-10 h-10 rounded-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${senderName.charAt(0) || '?'}&bold=true&size=40`;
+            }}
+          />
           <div>
-            <p className="font-semibold text-sm">{message.sender?.full_name || 'Expéditeur inconnu'}</p>
+            <p className="font-semibold text-[#0F2940]">{senderName || message.sender?.email || 'Expéditeur'}</p>
             <p className="text-xs text-gray-500">{message.sender?.email || 'Email non disponible'}</p>
           </div>
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg transition">
+        <button onClick={onClose} className="hidden lg:block p-1 hover:bg-gray-200 rounded-lg transition">
           ✕
         </button>
       </div>
@@ -189,20 +320,28 @@ const MessageDetail = ({ message, onClose }: any) => {
         <div className="bg-gray-50 rounded-xl p-3">
           <div className="flex items-center gap-3 mb-2">
             <User className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Informations expéditeur</p>
+            <p className="font-semibold text-sm">Expéditeur</p>
           </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Nom complet</span>
-              <span className="font-medium">{message.sender?.full_name || '-'}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Nom</span>
+              <span className="font-medium text-[#0F2940]">{senderName || '-'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium text-sm">{message.sender?.email || '-'}</span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Email</span>
+              <span className="font-medium truncate">{message.sender?.email || '-'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Téléphone</span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Téléphone</span>
               <span className="font-medium">{message.sender?.phone || '-'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Type</span>
+              <span className={`font-medium capitalize ${
+                message.sender?.user_type === 'hote' ? 'text-[#00c9a7]' : 'text-blue-600'
+              }`}>
+                {message.sender?.user_type === 'hote' ? 'Hôte' : message.sender?.user_type === 'voyageur' ? 'Voyageur' : '-'}
+              </span>
             </div>
           </div>
         </div>
@@ -211,16 +350,24 @@ const MessageDetail = ({ message, onClose }: any) => {
         <div className="bg-gray-50 rounded-xl p-3">
           <div className="flex items-center gap-3 mb-2">
             <User className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Informations destinataire</p>
+            <p className="font-semibold text-sm">Destinataire</p>
           </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Nom complet</span>
-              <span className="font-medium">{message.receiver?.full_name || '-'}</span>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Nom</span>
+              <span className="font-medium text-[#0F2940]">{receiverName || '-'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium">{message.receiver?.email || '-'}</span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Email</span>
+              <span className="font-medium truncate">{message.receiver?.email || '-'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500 w-24">Type</span>
+              <span className={`font-medium capitalize ${
+                message.receiver?.user_type === 'hote' ? 'text-[#00c9a7]' : 'text-blue-600'
+              }`}>
+                {message.receiver?.user_type === 'hote' ? 'Hôte' : message.receiver?.user_type === 'voyageur' ? 'Voyageur' : '-'}
+              </span>
             </div>
           </div>
         </div>
@@ -232,12 +379,12 @@ const MessageDetail = ({ message, onClose }: any) => {
             <p className="font-semibold text-sm">Contenu du message</p>
           </div>
           <div className={`text-sm text-gray-700 leading-relaxed ${showFullMessage ? '' : 'max-h-32 overflow-hidden relative'}`}>
-            <p className="whitespace-pre-wrap break-words">{message.message}</p>
-            {!showFullMessage && message.message?.length > 200 && (
+            <p className="whitespace-pre-wrap break-words">{messageContent}</p>
+            {!showFullMessage && messageContent?.length > 200 && (
               <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-50 to-transparent"></div>
             )}
           </div>
-          {message.message?.length > 200 && (
+          {messageContent?.length > 200 && (
             <button
               onClick={() => setShowFullMessage(!showFullMessage)}
               className="text-xs text-[#00c9a7] mt-2 hover:underline"
@@ -253,7 +400,7 @@ const MessageDetail = ({ message, onClose }: any) => {
             <Clock className="w-4 h-4 text-[#00c9a7]" />
             <p className="font-semibold text-sm">Métadonnées</p>
           </div>
-          <div className="space-y-1 text-xs">
+          <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">Date d'envoi</span>
               <span className="font-medium">{formatDateTime(message.created_at)}</span>
@@ -264,17 +411,53 @@ const MessageDetail = ({ message, onClose }: any) => {
             </div>
           </div>
         </div>
+
+        {/* Formulaire de réponse */}
+        {showReplyForm && (
+          <div className="bg-gray-50 rounded-xl p-3">
+            <div className="flex items-center gap-3 mb-2">
+              <Reply className="w-4 h-4 text-[#00c9a7]" />
+              <p className="font-semibold text-sm">Répondre à {senderName || message.sender?.email?.split('@')[0] || 'l\'utilisateur'}</p>
+            </div>
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Écrivez votre réponse..."
+              className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
+              rows={4}
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={handleReply}
+                className="flex-1 px-3 py-2 bg-[#00c9a7] text-white rounded-lg text-sm hover:bg-[#00b892] transition flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Envoyer
+              </button>
+              <button
+                onClick={() => setShowReplyForm(false)}
+                className="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-100 transition"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
       <div className="p-4 border-t bg-gray-50 flex gap-2">
-        <button className="flex-1 px-3 py-2 bg-[#00c9a7] text-white rounded-lg text-sm hover:bg-[#00b892] transition flex items-center justify-center gap-2">
+        <button
+          onClick={() => setShowReplyForm(!showReplyForm)}
+          className="flex-1 px-3 py-2 bg-[#00c9a7] text-white rounded-lg text-sm hover:bg-[#00b892] transition flex items-center justify-center gap-2"
+        >
           <Reply className="w-4 h-4" />
           Répondre
         </button>
         {!message.is_flagged && (
-          <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 transition">
+          <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 transition flex items-center gap-2">
             <Flag className="w-4 h-4" />
+            Signaler
           </button>
         )}
       </div>

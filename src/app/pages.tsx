@@ -13,6 +13,7 @@ import { ListingDetail } from './components/ListingDetail';
 import { Navbar } from './components/Navbar';
 import { useFavorites } from './hooks/useFavorites';
 import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
+import { useInquiryMessages } from './hooks/useInquiryMessages';
 import { IdentityVerification } from './components/IdentityVerification';
 // import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
 
@@ -2332,6 +2333,7 @@ const mappedPropertiesCache = new Map();
 
 // pages.tsx - Version corrigée de mapProperty
 
+// ==================== mapProperty (copié depuis votre code) ====================
 const mapProperty = (p: any) => {
   const getAllImages = (): string[] => {
     const images: string[] = [];
@@ -2398,9 +2400,8 @@ const mapProperty = (p: any) => {
   const allImages = getAllImages();
   const firstImage = allImages[0];
   
-  // ✅ Conversion des prix en FCFA et Euros
-  const XAF_TO_EUR = 0.0015; // 1 FCFA = 0.0015 EUR (environ 667 FCFA = 1 EUR)
-  
+  // Conversion des prix en FCFA et Euros
+  const XAF_TO_EUR = 0.0015;
   const priceFCFA = Number(p.price_per_night ?? p.price ?? 0);
   const priceEuro = priceFCFA * XAF_TO_EUR;
   
@@ -2411,16 +2412,12 @@ const mapProperty = (p: any) => {
     location: `${p.district || ''}${p.district && p.city ? ', ' : ''}${p.city || ''}`.replace(/^,\s/, '') || 'Bénin',
     city: p.city || '',
     district: p.district || '',
-    // ✅ Prix en FCFA
     price: priceFCFA,
     priceFCFA: priceFCFA,
     priceDisplay: `${priceFCFA.toLocaleString()} FCFA`,
-    // ✅ Prix en Euros
     priceEuro: priceEuro,
     priceEuroDisplay: `≈ ${priceEuro.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €`,
-    // ✅ Pour compatibilité avec l'ancien code
     priceNumber: priceFCFA,
-    // ✅ Autres propriétés
     rating: p.average_rating || p.rating || 4.5,
     reviews: p.reviews_count || 0,
     images: allImages,
@@ -2438,6 +2435,7 @@ const mapProperty = (p: any) => {
     bluefin_certified: p.bluefin_certified || false,
   };
 };
+
 // Composant PropertyCard interne (identique à l'original mais utilisant les données mappées)
 
 interface PropertyCardProps {
@@ -2636,9 +2634,12 @@ export default PropertyCard;
 interface PropertyDetailModalProps {
   property: any;
   onClose: () => void;
-  onReserve: (params: any) => void;
-  onChat?: (hostId: number) => void;
-  onNavigate?: (route: any) => void;
+  onNavigate: (route: any) => void;
+  onReserve?: (dates: any) => void;
+  onChat?: (hostId: number) => void;  // ← Garder cette prop
+  selectedCheckIn?: string;  // ← Ajouter ces props
+  selectedCheckOut?: string;  // ← Ajouter ces props
+  selectedGuests?: number;    // ← Ajouter ces props
 }
 
 interface PropertyDetailModalBookingParams {
@@ -2910,6 +2911,135 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     setIsSubmitting(false);
   };
 
+  // Dans ListingPage.tsx
+const handleChatClick = () => {
+    console.log('🔍 handleChatClick - property.id:', property.id);
+    
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    
+    // Construire les paramètres pour le message
+    const params = new URLSearchParams();
+    params.set('property', property.id.toString());
+    
+    if (selectedCheckIn && selectedCheckOut) {
+        params.set('check_in', selectedCheckIn);
+        params.set('check_out', selectedCheckOut);
+    }
+    if (selectedGuests && selectedGuests > 0) {
+        params.set('guests', selectedGuests.toString());
+    }
+    
+    const searchString = params.toString();
+    console.log('📤 Navigation vers messages avec:', {
+        name: 'messages',
+        id: 'inquiry',
+        search: searchString
+    });
+    
+    if (token && user) {
+        // Déjà connecté
+        onNavigate({ 
+            name: 'messages', 
+            id: 'inquiry',
+            search: searchString
+        });
+    } else {
+        // Non connecté - sauvegarder l'intention
+        const chatIntent = {
+            propertyId: property.id,
+            checkIn: selectedCheckIn,
+            checkOut: selectedCheckOut,
+            guests: selectedGuests,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
+        
+        onNavigate({ 
+            name: 'auth',
+            params: { 
+                redirectTo: 'messages',
+                intent: 'chat'
+            }
+        });
+    }
+};
+
+
+// Dans PropertyDetailModal.tsx
+
+// Ajoutez cette fonction pour gérer le chat avec vérification d'authentification
+const handleChatWithAuth = () => {
+  if (!isAuthenticated) {
+    // Sauvegarder l'intention de chat
+    const chatIntent = {
+      propertyId: property.id,
+      propertyTitle: property.title,
+      hostId: hostId,
+      hostName: host,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      guests: totalGuests,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
+    localStorage.setItem('redirect_intent', 'chat');
+    localStorage.setItem('redirect_property_id', property.id.toString());
+    localStorage.setItem('redirect_property_title', property.title);
+    localStorage.setItem('redirect_property_location', property.location);
+    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+    
+    // Sauvegarder les paramètres de chat
+    const params = new URLSearchParams();
+    params.set('property', property.id.toString());
+    if (checkIn && checkOut) {
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+    }
+    if (totalGuests > 0) {
+      params.set('guests', totalGuests.toString());
+    }
+    localStorage.setItem('pendingChatParams', params.toString());
+    
+    console.log('💾 Intention de chat sauvegardée:', {
+      propertyId: property.id,
+      hostId: hostId,
+      checkIn,
+      checkOut,
+      guests: totalGuests
+    });
+    
+    // Rediriger vers la page de connexion
+    if (onNavigate) {
+      onNavigate({ 
+        name: 'auth', 
+        search: `redirect=chat&property=${property.id}` 
+      });
+    } else {
+      window.location.href = `/auth?redirect=chat&property=${property.id}`;
+    }
+  } else {
+    // Déjà connecté, aller directement au chat
+    const params = new URLSearchParams();
+    params.set('property', property.id.toString());
+    if (checkIn && checkOut) {
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+    }
+    if (totalGuests > 0) {
+      params.set('guests', totalGuests.toString());
+    }
+    
+    if (onChat) {
+      onChat(hostId);
+    } else {
+      window.location.href = `/messages/inquiry?${params.toString()}`;
+    }
+  }
+};
+
   const handleBackToDetails = () => setShowBookingForm(false);
 
   useEffect(() => {
@@ -2968,86 +3098,164 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return (
       <>
         {showCancellationModal && <CancellationModal />}
-        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
-            <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp">
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"><ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" /></button>
-                    <div><h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">Réserver</h2><p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {[1, 2].map((step) => (
-                      <div key={step} className="flex items-center gap-1 sm:gap-2">
-                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>{currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}</div>
-                        {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
-                      </div>
-                    ))}
+<div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
+  <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
+    <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp">
+      <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+            </button>
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">
+                Réserver
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {[1, 2].map((step) => (
+              <div key={step} className="flex items-center gap-1 sm:gap-2">
+                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
+                  {currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}
+                </div>
+                {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
+        {currentStep === 1 && (
+          <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+            <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden">
+                  <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3>
+                  <p className="text-xs text-gray-500">{property.location}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
+                    <span className="text-xs font-medium">{property.rating}</span>
                   </div>
                 </div>
               </div>
-              <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
-                {currentStep === 1 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                    <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden"><img src={images[0]} alt={property.title} className="w-full h-full object-cover" /></div>
-                        <div><h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3><p className="text-xs text-gray-500">{property.location}</p><div className="flex items-center gap-1 mt-1"><Star className="w-3 h-3 fill-current text-[#00c9a7]" /><span className="text-xs font-medium">{property.rating}</span></div></div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-2"><div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center"><User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /></div>Vos informations</h3>
-                      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />{formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}</div>
-                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />{formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}</div>
-                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label><input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />{formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}</div>
-                        <div><label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" /></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {currentStep === 2 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                    <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-gray-900 flex items-center gap-2"><CreditCard className="w-4 h-4 text-[#00c9a7]" />Options de paiement</h3>
-                        <div className={`border-2 rounded-xl p-3 sm:p-4 cursor-pointer transition-all ${paymentOption === '50' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`} onClick={() => setPaymentOption('50')}>
-                          <div className="flex justify-between items-center flex-wrap gap-2">
-                            <div><div className="font-semibold text-gray-900">Payer 50% maintenant</div><div className="text-xs text-gray-500">Solde à payer à l'arrivée</div></div>
-                            <div className="text-right"><div className="font-bold text-[#00c9a7]">{Math.floor(total * 0.5).toLocaleString()} FCFA</div><div className="text-xs text-gray-500">{payment50Formatted.euro}</div></div>
-                          </div>
-                        </div>
-                        <div className={`border-2 rounded-xl p-3 sm:p-4 cursor-pointer transition-all ${paymentOption === '100' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`} onClick={() => setPaymentOption('100')}>
-                          <div className="flex justify-between items-center flex-wrap gap-2">
-                            <div><div className="font-semibold text-gray-900">Payer 100% maintenant</div><div className="text-xs text-gray-500">Paiement complet sécurisé</div></div>
-                            <div className="text-right"><div className="font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-gray-900 flex items-center gap-2"><Receipt className="w-4 h-4 text-[#00c9a7]" />Résumé de votre réservation</h3>
-                        <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-white/50">{subtotalFormatted.euro}</div></div></div>
-                            <div className="flex justify-between"><span className="text-white/70">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div></div></div>
-                            <div className="border-t border-white/20 pt-2 mt-2"><div className="flex justify-between items-center"><span className="font-semibold">Total</span><div className="text-right"><div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-white/50">{totalFormatted.euro}</div></div></div></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex gap-3">
-                  {currentStep === 1 && <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">Continuer</button>}
-                  {currentStep === 2 && (<><button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">Retour</button><button onClick={handleConfirmReservation} disabled={isSubmitting || availabilityStatus !== 'available'} className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>{isSubmitting ? <div className="flex justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Chargement</div> : "Confirmer"}</button></>)}
+            </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
+                </div>
+                Vos informations
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />
+                  {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />
+                  {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />
+                  {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label>
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" />
                 </div>
               </div>
             </div>
           </div>
+        )}
+        
+        {currentStep === 2 && (
+          <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+            <div className="grid sm:grid-cols-1 gap-4 sm:gap-6">
+              {/* ✅ Section résumé de la réservation uniquement */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-[#00c9a7]" />
+                  Résumé de votre réservation
+                </h3>
+                <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
+                      <div className="text-right">
+                        <div>{subtotalFormatted.fCFA}</div>
+                        <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-white/70">Frais de service (10%)</span>
+                      <div className="text-right">
+                        <div>{serviceFeeFormatted.fCFA}</div>
+                        <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="border-t border-white/20 pt-2 mt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Total à payer</span>
+                        <div className="text-right">
+                          <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
+                          <div className="text-xs text-white/50">{totalFormatted.euro}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3">
+                  <p className="text-xs text-blue-700 flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Paiement sécurisé de 100% à la réservation
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+        <div className="flex gap-3">
+          {currentStep === 1 && (
+            <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">
+              Continuer
+            </button>
+          )}
+          {currentStep === 2 && (
+            <>
+              <button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
+                Retour
+              </button>
+              <button 
+                onClick={handleConfirmReservation} 
+                disabled={isSubmitting || availabilityStatus !== 'available'} 
+                className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+              >
+                {isSubmitting ? (
+                  <div className="flex justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Chargement
+                  </div>
+                ) : "Confirmer et payer"}
+              </button>
+            </>
+          )}
         </div>
+      </div>
+    </div>
+  </div>
+</div>
       </>
     );
   }
@@ -3122,18 +3330,31 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                     {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
                   </button>
                   
-                  {onChat && hostId && (
-                    <button onClick={() => handleAuthenticatedAction(() => {
-                      onNavigate?.({
-                        name: 'messages',
-                        id: 'inquiry',
-                        search: `?property=${property.id}&host=${hostId}&auto=true`
-                      });
-                      onChat(hostId);
-                    }, 'chat')} className="w-full mt-3 bg-[#0F76F4] text-white py-3 rounded-xl font-bold text-sm sm:text-base hover:bg-[#0d6ad0] transition-all shadow-md hover:shadow-lg transform hover:scale-[1.02]">
-                      💬 Discuter avec l'hôte
-                    </button>
-                  )}
+
+{onChat && hostId && (
+  <button
+    onClick={() => {
+      const params = new URLSearchParams();
+      params.set('property', property.id.toString());
+      
+      // Utiliser les dates sélectionnées depuis les états du modal
+      if (checkIn && checkOut) {
+        params.set('check_in', checkIn);
+        params.set('check_out', checkOut);
+      }
+      if (totalGuests > 0) {
+        params.set('guests', totalGuests.toString());
+      }
+      
+      // Navigation directe - La solution la plus fiable
+      window.location.href = `/messages/inquiry?${params.toString()}`;
+    }}
+    className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full"
+  >
+    <MessageCircle className="w-5 h-5" />
+    Discutez avec l'hôte
+  </button>
+)}
                 </div>
               </div>
             </div>
@@ -4344,6 +4565,8 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     );
   }
 
+
+
   const rawProperty = data?.data || data;
 
   if (!rawProperty) {
@@ -4369,16 +4592,17 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     );
   }
 
-  // ✅ Fonction pour récupérer les images (identique à mapProperty)
+  // ✅ Fonction pour récupérer les images
   const getPropertyImages = (property: any): string[] => {
     const images: string[] = [];
+
+
     
     const addImage = (url: string) => {
       if (!url) return;
       
       let cleanUrl = url;
       
-      // Utiliser l'API Laravel comme proxy
       if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
         const filename = cleanUrl.split('/').pop();
         if (filename && property.id) {
@@ -4397,7 +4621,6 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
       }
     };
     
-    // Vérifier les photos
     if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
       for (const photo of property.photos) {
         if (photo.photo_url) {
@@ -4413,7 +4636,6 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
       }
     }
     
-    // Vérifier cover_photo
     if (property.cover_photo && typeof property.cover_photo === 'object') {
       if (property.cover_photo.photo_url) {
         addImage(property.cover_photo.photo_url);
@@ -4427,13 +4649,14 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
       }
     }
     
-    // Fallback
     if (images.length === 0) {
       images.push(`https://picsum.photos/seed/${property.id}/400/300`);
     }
     
     return images;
   };
+
+  
 
   // ✅ Fonction de réservation
   const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
@@ -4465,11 +4688,35 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     }
   };
 
+ // Dans ListingPage.tsx
+const handleChatClick = () => {
+    console.log('🔍 handleChatClick - property.id:', property.id);
+    
+    // Construire les paramètres
+    const params = new URLSearchParams();
+    params.set('property', property.id.toString());
+    
+    if (selectedCheckIn && selectedCheckOut) {
+        params.set('check_in', selectedCheckIn);
+        params.set('check_out', selectedCheckOut);
+    }
+    if (selectedGuests && selectedGuests > 0) {
+        params.set('guests', selectedGuests.toString());
+    }
+    
+    const searchString = params.toString();
+    const fullUrl = `/messages/inquiry?${searchString}`;
+    console.log('🔗 Navigation vers:', fullUrl);
+    
+    // Utiliser window.location pour une navigation directe
+    window.location.href = fullUrl;
+};
+
   // ✅ Récupérer toutes les images
   const propertyImages = getPropertyImages(rawProperty);
   const firstImage = propertyImages[0] || '/placeholder.jpg';
 
-  // ✅ Transformation des données avec les images corrigées
+  // ✅ Transformation des données
   const property = {
     id: rawProperty.id,
     title: rawProperty.title,
@@ -4568,14 +4815,17 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     hostId: property.hostId,
   });
 
-  // ✅ Retour direct du modal
+  // ✅ Retour du modal avec toutes les props
   return (
     <PropertyDetailModal
       property={property}
       onClose={() => onNavigate({ name: 'home' })}
       onNavigate={onNavigate}
       onReserve={handleReserve}
-      onChat={() => onNavigate({ name: 'messages', id: 'inquiry', search: `?property=${property.id}` })}
+      onChat={handleChatClick}
+      selectedCheckIn={selectedCheckIn}
+      selectedCheckOut={selectedCheckOut}
+      selectedGuests={selectedGuests}
     />
   );
 }
@@ -4755,7 +5005,7 @@ export function CancellationPolicy({
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      {/* En-tête */}
+      {/* En-tête */} 
       <div className="bg-gradient-to-r from-[#0F2940] to-[#1a3a52] px-5 py-4">
         <div className="flex items-center gap-3">
           <Calendar className="w-5 h-5 text-[#00c9a7]" />
@@ -7706,27 +7956,43 @@ interface HostMessagesPageProps {
 
 export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
     const { user } = useAuth();
-    const [selectedBookingId, setSelectedBookingId] = useState<string | null>(id || null);
+    const [selectedConversation, setSelectedConversation] = useState<any>(null);
+    const [selectedType, setSelectedType] = useState<'booking' | 'inquiry'>('booking');
+    const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null);
     const [messageInput, setMessageInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const queryClient = useQueryClient();
 
     // Récupérer les conversations
-    const { data: conversationsData, isLoading: convLoading } = useQuery({
+    const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
         queryKey: ['host-messages-conversations'],
         queryFn: () => hostService.getHostConversations(),
     });
 
-    // Récupérer les messages d'une conversation
-    const { data: messagesData, refetch: refetchMessages } = useQuery({
-        queryKey: ['host-messages', selectedBookingId],
-        queryFn: () => hostService.getHostMessages(selectedBookingId!),
-        enabled: !!selectedBookingId,
+    // Récupérer les messages d'une conversation (booking)
+    const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
+        queryKey: ['host-messages', selectedType, selectedConversation?.booking?.id],
+        queryFn: () => {
+            if (selectedType === 'booking' && selectedConversation?.booking?.id) {
+                return hostService.getHostMessages(selectedConversation.booking.id.toString());
+            } else if (selectedType === 'inquiry' && selectedGuestId) {
+                return hostService.getInquiryMessages(selectedGuestId);
+            }
+            return Promise.reject('No selection');
+        },
+        enabled: !!selectedConversation,
     });
 
     // Mutation pour envoyer un message
     const sendMutation = useMutation({
-        mutationFn: (message: string) => hostService.sendHostMessage(selectedBookingId!, { message }),
+        mutationFn: (message: string) => {
+            if (selectedType === 'booking' && selectedConversation?.booking?.id) {
+                return hostService.sendHostMessage(selectedConversation.booking.id.toString(), { message });
+            } else if (selectedType === 'inquiry' && selectedGuestId) {
+                return hostService.sendInquiryReply(selectedGuestId, { message });
+            }
+            throw new Error('Invalid conversation type');
+        },
         onSuccess: () => {
             setMessageInput('');
             refetchMessages();
@@ -7743,8 +8009,19 @@ export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
     const messages = messagesData?.data?.messages || [];
     const currentBooking = messagesData?.data?.booking;
 
+    const handleSelectConversation = (conv: any) => {
+        setSelectedConversation(conv);
+        if (conv.type === 'inquiry') {
+            setSelectedType('inquiry');
+            setSelectedGuestId(conv.booking.guest?.id);
+        } else {
+            setSelectedType('booking');
+            setSelectedGuestId(null);
+        }
+    };
+
     const handleSendMessage = () => {
-        if (!messageInput.trim() || !selectedBookingId) return;
+        if (!messageInput.trim() || !selectedConversation) return;
         sendMutation.mutate(messageInput);
     };
 
@@ -7785,81 +8062,103 @@ export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
                                         <p>Aucune conversation</p>
                                     </div>
                                 ) : (
-                                    conversations.map((conv: any) => (
-                                        <button
-                                            key={conv.booking.id}
-                                            onClick={() => setSelectedBookingId(conv.booking.id.toString())}
-                                            className={`w-full text-left p-4 hover:bg-white transition ${
-                                                selectedBookingId === conv.booking.id.toString() ? 'bg-white shadow-sm' : ''
-                                            }`}
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex-1">
-                                                    <p className="font-medium text-[#0f2940]">
-                                                        {conv.booking.guest?.name || 'Voyageur'}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500">
-                                                        {conv.booking.property?.title}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        {conv.booking.dates?.check_in} → {conv.booking.dates?.check_out}
-                                                    </p>
+                                    conversations.map((conv: any, index: number) => {
+                                        const conversationKey = conv.type === 'inquiry' 
+                                            ? `inquiry_${conv.booking.guest?.id}_${index}`
+                                            : `booking_${conv.booking.id}`;
+                                        
+                                        const isSelected = selectedConversation?.booking?.id === conv.booking.id ||
+                                            (conv.type === 'inquiry' && selectedGuestId === conv.booking.guest?.id);
+                                        
+                                        return (
+                                            <button
+                                                key={conversationKey}
+                                                onClick={() => handleSelectConversation(conv)}
+                                                className={`w-full text-left p-4 hover:bg-white transition ${
+                                                    isSelected ? 'bg-white shadow-sm' : ''
+                                                }`}
+                                            >
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        <p className="font-medium text-[#0f2940]">
+                                                            {conv.booking.guest?.name || 'Voyageur'}
+                                                        </p>
+                                                        <p className="text-sm text-gray-500">
+                                                            {conv.booking.property?.title || 'Demande d\'information'}
+                                                        </p>
+                                                        {conv.booking.dates?.check_in && conv.booking.dates?.check_out && (
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                {conv.booking.dates.check_in} → {conv.booking.dates.check_out}
+                                                            </p>
+                                                        )}
+                                                        {conv.type === 'inquiry' && (
+                                                            <span className="text-xs text-[#00c9a7] mt-1 inline-block">
+                                                                Demande d'information
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {conv.unread_count > 0 && (
+                                                        <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
+                                                            {conv.unread_count}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                {conv.unread_count > 0 && (
-                                                    <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
-                                                        {conv.unread_count}
-                                                    </span>
+                                                {conv.last_message && (
+                                                    <p className="text-xs text-gray-400 mt-2 truncate">
+                                                        {conv.last_message.preview || conv.last_message.message}
+                                                    </p>
                                                 )}
-                                            </div>
-                                            {conv.last_message && (
-                                                <p className="text-xs text-gray-400 mt-2 truncate">
-                                                    {conv.last_message.preview || conv.last_message.message}
-                                                </p>
-                                            )}
-                                        </button>
-                                    ))
+                                            </button>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
 
                         {/* Zone de chat */}
                         <div className="lg:w-2/3 flex flex-col h-[600px]">
-                            {selectedBookingId && currentBooking ? (
+                            {selectedConversation ? (
                                 <>
                                     {/* En-tête */}
                                     <div className="p-4 border-b bg-white">
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="font-semibold text-[#0f2940]">
-                                                    {currentBooking.guest?.name || 'Voyageur'}
+                                                    {selectedConversation.booking.guest?.name || 'Voyageur'}
                                                 </p>
                                                 <div className="flex gap-3 mt-1 text-xs text-gray-500">
                                                     <span className="flex items-center gap-1">
                                                         <Phone className="w-3 h-3" />
-                                                        {currentBooking.guest?.phone || 'Non renseigné'}
+                                                        {selectedConversation.booking.guest?.phone || 'Non renseigné'}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <Mail className="w-3 h-3" />
-                                                        {currentBooking.guest?.email || 'Non renseigné'}
+                                                        {selectedConversation.booking.guest?.email || 'Non renseigné'}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="text-right text-xs text-gray-500">
                                                 <p className="flex items-center gap-1">
                                                     <Home className="w-3 h-3" />
-                                                    {currentBooking.property?.title}
+                                                    {selectedConversation.booking.property?.title || 'Demande d\'information'}
                                                 </p>
-                                                <p className="flex items-center gap-1 mt-1">
-                                                    <Calendar className="w-3 h-3" />
-                                                    {currentBooking.dates?.check_in} → {currentBooking.dates?.check_out}
-                                                </p>
+                                                {selectedConversation.booking.dates?.check_in && selectedConversation.booking.dates?.check_out && (
+                                                    <p className="flex items-center gap-1 mt-1">
+                                                        <Calendar className="w-3 h-3" />
+                                                        {selectedConversation.booking.dates.check_in} → {selectedConversation.booking.dates.check_out}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Messages */}
                                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f4fffe]">
-                                        {messages.length === 0 ? (
+                                        {messagesLoading ? (
+                                            <div className="text-center py-10">
+                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7] mx-auto"></div>
+                                            </div>
+                                        ) : messages.length === 0 ? (
                                             <div className="text-center py-20 text-gray-400">
                                                 <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                                                 <p>Aucun message</p>
@@ -8309,25 +8608,116 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
 }
 // ==================== MESSAGES PAGE ====================
 
+
+
 interface MessagesPageProps {
   onNavigate?: (route: any) => void;
   id?: string;
+  search?: string;
 }
 
-export function MessagesPage({ onNavigate, id }: MessagesPageProps) {
+export function MessagesPage({ onNavigate, id, search }: MessagesPageProps) {
   const { user } = useAuth();
   const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const inquiryPropertyId = searchParams.get('property');
-  const inquiryCheckIn = searchParams.get('check_in');
-  const inquiryCheckOut = searchParams.get('check_out');
-  const inquiryGuests = searchParams.get('guests');
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [messageInput, setMessageInput] = useState('');
-  const [hasSentInquiry, setHasSentInquiry] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  // États pour les paramètres d'inquiry
+  const [inquiryPropertyId, setInquiryPropertyId] = useState<string | null>(null);
+  const [inquiryCheckIn, setInquiryCheckIn] = useState<string | null>(null);
+  const [inquiryCheckOut, setInquiryCheckOut] = useState<string | null>(null);
+  const [inquiryGuests, setInquiryGuests] = useState<string | null>(null);
+
+  // États du composant
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | InquiryConversation | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [hasSentInquiry, setHasSentInquiry] = useState(false);
+  const [isSendingInquiry, setIsSendingInquiry] = useState(false);
+  const [selectedType, setSelectedType] = useState<'booking' | 'inquiry'>('booking');
+  const [selectedId, setSelectedId] = useState<string | number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const initialMessageSent = useRef(false);
+
+  // Récupération des paramètres depuis l'URL (identique à votre code)
+  useEffect(() => {
+    console.log('=== RÉCUPÉRATION DES PARAMÈTRES ===');
+    let propertyId = null;
+    let checkIn = null;
+    let checkOut = null;
+    let guests = null;
+    let searchString = '';
+
+    if (search && search !== 'undefined') {
+      searchString = search;
+    } else if (location.search && location.search !== '') {
+      searchString = location.search;
+    } else {
+      const pendingChat = localStorage.getItem('pendingChatProperty');
+      if (pendingChat) {
+        try {
+          const data = JSON.parse(pendingChat);
+          searchString = data.search || '';
+          localStorage.removeItem('pendingChatProperty');
+        } catch (e) { console.error(e); }
+      }
+      if (!searchString) {
+        const chatIntentStr = localStorage.getItem('chatIntent');
+        if (chatIntentStr) {
+          try {
+            const chatIntent = JSON.parse(chatIntentStr);
+            propertyId = chatIntent.propertyId?.toString();
+            checkIn = chatIntent.checkIn;
+            checkOut = chatIntent.checkOut;
+            guests = chatIntent.guests?.toString();
+            localStorage.removeItem('chatIntent');
+          } catch (e) { console.error(e); }
+        }
+      }
+    }
+
+    if (searchString && !propertyId) {
+      const cleanSearch = searchString.startsWith('?') ? searchString.substring(1) : searchString;
+      const params = new URLSearchParams(cleanSearch);
+      propertyId = params.get('property');
+      checkIn = params.get('check_in');
+      checkOut = params.get('check_out');
+      guests = params.get('guests');
+    }
+
+    if (!propertyId && id === 'inquiry') {
+      const urlParams = new URLSearchParams(window.location.search);
+      propertyId = urlParams.get('property');
+      checkIn = urlParams.get('check_in');
+      checkOut = urlParams.get('check_out');
+      guests = urlParams.get('guests');
+    }
+
+    setInquiryPropertyId(propertyId);
+    setInquiryCheckIn(checkIn);
+    setInquiryCheckOut(checkOut);
+    setInquiryGuests(guests);
+  }, [search, location.search, location.pathname, id]);
+
+  // Récupération des conversations (bookings + inquiries)
+  const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: async () => {
+      const bookingsResponse = await messageService.getConversations();
+      const inquiriesResponse = await messageService.getInquiries();
+      const allConversations = [
+        ...(bookingsResponse?.data || []),
+        ...(inquiriesResponse?.data || [])
+      ];
+      allConversations.sort((a, b) => {
+        const timeA = a.last_message?.sent_at || '';
+        const timeB = b.last_message?.sent_at || '';
+        return timeB.localeCompare(timeA);
+      });
+      return { data: allConversations };
+    },
+  });
+  const conversations = conversationsData?.data || [];
+
+  // Mutation pour envoyer une inquiry (premier message)
   const inquiryMutation = useMutation({
     mutationFn: (data: {
       property_id: number;
@@ -8336,74 +8726,130 @@ export function MessagesPage({ onNavigate, id }: MessagesPageProps) {
       check_out?: string;
       guests?: number;
     }) => messageService.sendInquiry(data),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log('✅ Premier message envoyé avec succès:', response);
       setHasSentInquiry(true);
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setIsSendingInquiry(false);
+      initialMessageSent.current = true;
+      refetchConversations();
+      let retryCount = 0;
+      const maxRetries = 10;
+      const checkForConversation = setInterval(() => {
+        refetchConversations();
+        retryCount++;
+        if (retryCount >= maxRetries) clearInterval(checkForConversation);
+      }, 2000);
+      setTimeout(() => clearInterval(checkForConversation), 20000);
+      toast.success('Message envoyé à l\'hôte');
     },
     onError: (err: any) => {
-      console.error('Erreur lors de l\'envoi du message initial :', err);
+      console.error('❌ Erreur inquiry:', err);
+      setIsSendingInquiry(false);
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
     },
   });
 
-  // Récupérer les conversations
-  const { data: conversationsData, isLoading: convLoading } = useQuery({
-    queryKey: ['conversations'],
-    queryFn: () => messageService.getConversations(),
+  // Récupération des messages (booking ou inquiry)
+  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading, error: messagesError } = useQuery({
+    queryKey: ['messages', selectedType, selectedId],
+    queryFn: async () => {
+      if (!selectedId) return { data: { messages: [] } };
+      console.log('📥 Récupération messages - type:', selectedType, 'id:', selectedId);
+      if (selectedType === 'booking') {
+        const res = await messageService.getMessages(selectedId as number);
+        return res.data;
+      } else if (selectedType === 'inquiry') {
+        try {
+          const res = await messageService.getInquiryMessages(selectedId as number);
+          return res.data;
+        } catch (err: any) {
+          if (err.response?.status === 500) {
+            console.warn('⚠️ API inquiry 500, utilisation localStorage');
+            return { data: { host: { id: selectedId }, messages: [] } };
+          }
+          throw err;
+        }
+      }
+      return { data: { messages: [] } };
+    },
+    enabled: !!selectedId && !!selectedType,
   });
 
-  const conversations = conversationsData?.data || [];
-
-  useEffect(() => {
-    if (!selectedConversation && id && conversations.length > 0) {
-      const matched = conversations.find(conv => conv.booking.id.toString() === id);
-      if (matched) {
-        setSelectedConversation(matched);
-      }
-    }
-    if (id === 'inquiry' && inquiryPropertyId && hasSentInquiry && conversations.length > 0 && !selectedConversation) {
-      const matched = conversations.find(conv => conv.booking.property?.id.toString() === inquiryPropertyId);
-      if (matched) {
-        setSelectedConversation(matched);
-      }
-    }
-  }, [id, conversations, selectedConversation]);
-
-  useEffect(() => {
-    if (id === 'inquiry' && inquiryPropertyId && !hasSentInquiry && !inquiryMutation.isLoading) {
-      inquiryMutation.mutate({
-        property_id: parseInt(inquiryPropertyId, 10),
-        message: "Bonjour, je suis intéressé par votre logement et j'aimerais en savoir plus.",
-        check_in: inquiryCheckIn || undefined,
-        check_out: inquiryCheckOut || undefined,
-        guests: inquiryGuests ? parseInt(inquiryGuests, 10) : undefined,
-      });
-    }
-  }, [id, inquiryPropertyId, inquiryCheckIn, inquiryCheckOut, inquiryGuests, hasSentInquiry, inquiryMutation]);
-
-  // Récupérer les messages de la conversation sélectionnée
-  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
-    queryKey: ['messages', selectedConversation?.booking?.id],
-    queryFn: () => messageService.getMessages(selectedConversation!.booking.id),
-    enabled: !!selectedConversation,
-  });
-
-  // Auto-scroll en bas des messages
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messagesData]);
-
-  // Mutation pour envoyer un message
+  // Mutation pour envoyer un message (booking ou inquiry)
   const sendMutation = useMutation({
-    mutationFn: (text: string) => 
-      messageService.sendMessage(selectedConversation!.booking.id, { message: text }),
+    mutationFn: async (text: string) => {
+      if (!selectedId) throw new Error('No conversation selected');
+      if (selectedType === 'booking') {
+        return messageService.sendMessage(selectedId as number, { message: text });
+      } else if (selectedType === 'inquiry') {
+        return messageService.sendInquiryReply(selectedId as number, { message: text });
+      }
+      throw new Error('Invalid type');
+    },
     onSuccess: () => {
       setMessageInput('');
       refetchMessages();
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
+    onError: (err: any) => {
+      console.error('❌ Erreur envoi:', err);
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
+    },
   });
+
+  // Envoi automatique du premier message (inquiry)
+  useEffect(() => {
+    if (id === 'inquiry' && inquiryPropertyId && !hasSentInquiry && !isSendingInquiry && !initialMessageSent.current && user) {
+      setIsSendingInquiry(true);
+      let message = `Bonjour, je suis intéressé(e) par votre logement. Pourriez-vous me donner plus d'informations ? Merci !`;
+      if (inquiryCheckIn && inquiryCheckOut) {
+        const checkInDate = new Date(inquiryCheckIn);
+        const checkOutDate = new Date(inquiryCheckOut);
+        if (checkOutDate > checkInDate) {
+          message = `Bonjour, je suis intéressé(e) par votre logement du ${inquiryCheckIn} au ${inquiryCheckOut}${inquiryGuests ? ` pour ${inquiryGuests} personne(s)` : ''}. Pourriez-vous me donner plus d'informations sur la disponibilité ? Merci !`;
+        }
+      } else if (inquiryGuests) {
+        message = `Bonjour, je suis intéressé(e) par votre logement pour ${inquiryGuests} personne(s). Pourriez-vous me donner plus d'informations ? Merci !`;
+      }
+      const mutationData: any = { property_id: parseInt(inquiryPropertyId, 10), message };
+      if (inquiryCheckIn && inquiryCheckOut) {
+        const checkInDate = new Date(inquiryCheckIn);
+        const checkOutDate = new Date(inquiryCheckOut);
+        if (checkOutDate > checkInDate) {
+          mutationData.check_in = inquiryCheckIn;
+          mutationData.check_out = inquiryCheckOut;
+        }
+      }
+      if (inquiryGuests && parseInt(inquiryGuests) > 0) {
+        mutationData.guests = parseInt(inquiryGuests, 10);
+      }
+      inquiryMutation.mutate(mutationData);
+    }
+  }, [id, inquiryPropertyId, inquiryCheckIn, inquiryCheckOut, inquiryGuests, hasSentInquiry, isSendingInquiry, user]);
+
+  // Sélection auto après envoi inquiry
+  useEffect(() => {
+    if (hasSentInquiry && conversations.length > 0 && !selectedConversation && inquiryPropertyId) {
+      const matched = conversations.find((conv: any) =>
+        conv.booking.property?.id?.toString() === inquiryPropertyId ||
+        conv.booking.property_id?.toString() === inquiryPropertyId
+      );
+      if (matched) setSelectedConversation(matched);
+    }
+  }, [hasSentInquiry, conversations, selectedConversation, inquiryPropertyId]);
+
+  // Sélection par id dans l'URL
+  useEffect(() => {
+    if (!selectedConversation && id && id !== 'inquiry' && conversations.length > 0) {
+      const matched = conversations.find((conv: any) => conv.booking.id.toString() === id);
+      if (matched) setSelectedConversation(matched);
+    }
+  }, [id, conversations, selectedConversation]);
+
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messagesData]);
 
   const handleSendMessage = () => {
     if (!messageInput.trim() || !selectedConversation) return;
@@ -8417,176 +8863,376 @@ export function MessagesPage({ onNavigate, id }: MessagesPageProps) {
     }
   };
 
-  if (convLoading) {
+  const handleSelectConversation = (conv: any) => {
+    console.log('📌 Sélection conversation:', conv);
+    if (conv.type === 'inquiry') {
+      setSelectedType('inquiry');
+      const hostId = conv.booking.host?.id;
+      setSelectedId(hostId);
+    } else {
+      setSelectedType('booking');
+      const bookingId = conv.booking.id;
+      setSelectedId(bookingId);
+    }
+    setSelectedConversation(conv);
+  };
+
+  // Composant de chat pour les inquiries (avec fallback localStorage)
+  const InquiryChat = ({ hostId, hostName, propertyTitle }: { hostId: number; hostName: string; propertyTitle: string }) => {
+    const { messages, loading, error, sending, sendMessage, reloadMessages } = useInquiryMessages(hostId);
+    const [localInput, setLocalInput] = useState('');
+    const localMessagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      localMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleLocalSend = async () => {
+      if (!localInput.trim()) return;
+      const success = await sendMessage(localInput);
+      if (success) {
+        setLocalInput('');
+        localMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b bg-white">
+          <p className="font-semibold text-gray-900">{hostName}</p>
+          <p className="text-sm text-gray-500">{propertyTitle}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+          {error && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+              ⚠️ {error}
+              <button onClick={reloadMessages} className="ml-2 text-[#00c9a7] underline">Réessayer</button>
+            </div>
+          )}
+          {loading && messages.length === 0 ? (
+            <div className="text-center py-10">Chargement des messages...</div>
+          ) : messages.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <MessageCircle className="w-12 h-12 mx-auto mb-2" />
+              <p>Aucun message</p>
+              <p className="text-sm mt-1">Soyez le premier à envoyer un message !</p>
+            </div>
+          ) : (
+            messages.map((msg) => {
+              const isFromMe = msg.sender_id === user?.id;
+              const isPending = msg.id > 999999999;
+              return (
+                <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] rounded-2xl p-3 ${isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
+                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <p className={`text-xs ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
+                        {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {isPending && <span className="text-xs text-yellow-600">⏳ Envoi...</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={localMessagesEndRef} />
+        </div>
+        <div className="p-4 border-t bg-white">
+          <div className="flex gap-2">
+            <textarea
+              value={localInput}
+              onChange={(e) => setLocalInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleLocalSend()}
+              placeholder="Écrivez votre message..."
+              rows={1}
+              className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+            />
+            <button
+              onClick={handleLocalSend}
+              disabled={!localInput.trim() || sending}
+              className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition"
+            >
+              {sending ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : <Send className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Composant de chat pour les bookings (version simplifiée, identique à votre code)
+  const BookingChat = ({ bookingId, hostName, propertyTitle }: { bookingId: number; hostName: string; propertyTitle: string }) => {
+    const { data: msgsData, isLoading, refetch } = useQuery({
+      queryKey: ['bookingMessages', bookingId],
+      queryFn: () => messageService.getMessages(bookingId),
+      enabled: !!bookingId,
+    });
+    const messages = msgsData?.data?.messages || [];
+    const [localInput, setLocalInput] = useState('');
+    const sendBookingMutation = useMutation({
+      mutationFn: (text: string) => messageService.sendMessage(bookingId, { message: text }),
+      onSuccess: () => {
+        setLocalInput('');
+        refetch();
+      },
+      onError: (err: any) => toast.error(err?.response?.data?.message || 'Erreur envoi'),
+    });
+    const localEndRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      localEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b bg-white">
+          <p className="font-semibold text-gray-900">{hostName}</p>
+          <p className="text-sm text-gray-500">{propertyTitle}</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+          {isLoading ? <div className="text-center py-10">Chargement...</div> : messages.length === 0 ? (
+            <div className="text-center py-10 text-gray-400"><MessageCircle className="w-12 h-12 mx-auto mb-2" /><p>Aucun message</p></div>
+          ) : (
+            messages.map((msg: Message) => {
+              const isFromMe = msg.sender_id === user?.id;
+              return (
+                <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[70%] rounded-2xl p-3 ${isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
+                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                    <p className={`text-xs mt-1 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={localEndRef} />
+        </div>
+        <div className="p-4 border-t bg-white">
+          <div className="flex gap-2">
+            <textarea value={localInput} onChange={(e) => setLocalInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendBookingMutation.mutate(localInput)} placeholder="Écrivez votre message..." rows={1} className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none" style={{ minHeight: '44px', maxHeight: '120px' }} />
+            <button onClick={() => sendBookingMutation.mutate(localInput)} disabled={!localInput.trim() || sendBookingMutation.isPending} className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition">
+              {sendBookingMutation.isPending ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : <Send className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Écrans de chargement
+  if (id === 'inquiry' && inquiryPropertyId && isSendingInquiry) {
     return (
       <div className="bg-[#f4fffe] min-h-screen py-10">
-        <div className="text-center py-10">Chargement des conversations...</div>
+        <div className="max-w-[1200px] mx-auto px-4 text-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+          <p className="text-gray-600">Envoi de votre message à l'hôte...</p>
+        </div>
       </div>
     );
   }
 
+  if (convLoading) {
+    return (
+      <div className="bg-[#f4fffe] min-h-screen py-10">
+        <div className="max-w-[1200px] mx-auto px-4 text-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+          <p className="text-gray-600 mt-4">Chargement des conversations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Rendu principal
   return (
     <div className="bg-[#f4fffe] min-h-screen py-10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-        <PageSection title="Messagerie" subtitle="Conversations entre voyageurs et hôtes.">
-          <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl shadow-md overflow-hidden">
-            {/* Liste des conversations */}
-            <div className="lg:w-1/3 border-r">
-              <div className="p-4 border-b font-semibold bg-white">
-                Conversations ({conversations.length})
-              </div>
-              <div className="divide-y max-h-[600px] overflow-y-auto">
-                {conversations.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400">
-                    <MessageCircle className="w-12 h-12 mx-auto mb-2" />
-                    <p>Aucune conversation</p>
-                  </div>
-                ) : (
-                  conversations.map((conv: Conversation) => (
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold text-[#0F2940]">Messagerie</h1>
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 hover:text-[#00c9a7] transition">← Retour</button>
+        </div>
+        <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl shadow-md overflow-hidden">
+          {/* Liste des conversations */}
+          <div className="lg:w-1/3 border-r">
+            <div className="p-4 border-b font-semibold bg-white">Conversations ({conversations.length})</div>
+            <div className="divide-y max-h-[600px] overflow-y-auto">
+              {conversations.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-2" />
+                  <p>Aucune conversation</p>
+                </div>
+              ) : (
+                conversations.map((conv: any, index: number) => {
+                  const conversationKey = conv.type === 'inquiry'
+                    ? `inquiry_${conv.booking.host?.id || conv.booking.reference || index}_${index}`
+                    : `booking_${conv.booking.id || index}`;
+                  const isSelected = selectedConversation === conv;
+                  return (
                     <button
-                      key={conv.booking.id}
-                      onClick={() => setSelectedConversation(conv)}
-                      className={`w-full text-left p-4 hover:bg-gray-50 transition ${
-                        selectedConversation?.booking.id === conv.booking.id ? 'bg-gray-100' : ''
-                      }`}
+                      key={conversationKey}
+                      onClick={() => handleSelectConversation(conv)}
+                      className={`w-full text-left p-4 hover:bg-gray-50 transition ${isSelected ? 'bg-gray-100' : ''}`}
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
-                            {conv.booking.host?.name || 'Hôte'}
+                            {conv.type === 'inquiry' ? conv.booking.host?.name || 'Hôte' : conv.booking.host?.name || 'Hôte'}
                           </p>
-                          <p className="text-sm text-gray-500">{conv.booking.property?.title}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {conv.booking.dates.check_in} → {conv.booking.dates.check_out}
-                          </p>
+                          <p className="text-sm text-gray-500">{conv.booking.property?.title || 'Demande d\'information'}</p>
+                          {conv.booking.dates?.check_in && conv.booking.dates?.check_out && (
+                            <p className="text-xs text-gray-400 mt-1">{conv.booking.dates.check_in} → {conv.booking.dates.check_out}</p>
+                          )}
+                          {conv.type === 'inquiry' && <span className="text-xs text-[#00c9a7] mt-1 inline-block">Demande d'information</span>}
                         </div>
-                        {conv.unread_count > 0 && (
-                          <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
-                            {conv.unread_count}
-                          </span>
-                        )}
+                        {conv.unread_count > 0 && <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1">{conv.unread_count}</span>}
                       </div>
-                      <p className="text-xs text-gray-400 mt-2 truncate">
-                        {conv.last_message?.message || 'Aucun message'}
-                      </p>
-                      {conv.last_message && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          {conv.last_message.sent_at}
-                        </p>
-                      )}
+                      {conv.last_message && <p className="text-xs text-gray-400 mt-2 truncate">{conv.last_message.message}</p>}
                     </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Zone de chat */}
-            <div className="lg:w-2/3 flex flex-col h-[600px]">
-              {selectedConversation ? (
-                <>
-                  {/* En-tête du chat */}
-                  <div className="p-4 border-b bg-white sticky top-0 z-10">
-                    <p className="font-semibold text-gray-900">
-                      {selectedConversation.booking.host?.name || 'Hôte'}
-                    </p>
-                    <div className="flex gap-4 text-xs text-gray-500 mt-1">
-                      <span>Réservation #{selectedConversation.booking.reference}</span>
-                      <span>
-                        {selectedConversation.booking.dates.check_in} → {selectedConversation.booking.dates.check_out}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Propriété: {selectedConversation.booking.property?.title}
-                    </p>
-                  </div>
-
-                  {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-                    {messagesLoading ? (
-                      <div className="text-center py-10">Chargement des messages...</div>
-                    ) : (
-                      <>
-                        {(messagesData?.data?.messages || []).map((msg: Message) => {
-                          const isFromMe = msg.sender_id === user?.id;
-                          return (
-                            <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[70%] rounded-2xl p-3 ${
-                                isFromMe 
-                                  ? 'bg-[#00c9a7] text-white' 
-                                  : 'bg-white text-gray-800 shadow-sm'
-                              }`}>
-                                <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                                <p className={`text-xs mt-1 ${
-                                  isFromMe ? 'text-white/70' : 'text-gray-400'
-                                }`}>
-                                  {new Date(msg.created_at).toLocaleTimeString('fr-FR', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        <div ref={messagesEndRef} />
-                      </>
-                    )}
-                  </div>
-
-                  {/* Input de message */}
-                  <div className="p-4 border-t bg-white">
-                    <div className="flex gap-2">
-                      <textarea
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Écrivez votre message..."
-                        rows={1}
-                        className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
-                        style={{ minHeight: '44px', maxHeight: '120px' }}
-                      />
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!messageInput.trim() || sendMutation.isPending}
-                        className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition"
-                      >
-                        <Send className="w-5 h-5" />
-                      </button>
-                    </div>
-                    {sendMutation.isPending && (
-                      <p className="text-xs text-gray-400 mt-2 text-center">Envoi en cours...</p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-                  <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Sélectionnez une conversation</p>
-                  <p className="text-sm">Pour commencer à discuter avec un hôte</p>
-                </div>
+                  );
+                })
               )}
             </div>
           </div>
-        </PageSection>
+
+          {/* Zone de chat dynamique */}
+          <div className="lg:w-2/3 flex flex-col h-[600px]">
+            {selectedConversation ? (
+              selectedConversation.type === 'inquiry' ? (
+                <InquiryChat
+                  hostId={selectedConversation.booking.host.id}
+                  hostName={selectedConversation.booking.host.name}
+                  propertyTitle={selectedConversation.booking.property.title}
+                />
+              ) : (
+                <BookingChat
+                  bookingId={selectedConversation.booking.id}
+                  hostName={selectedConversation.booking.host.name}
+                  propertyTitle={selectedConversation.booking.property.title}
+                />
+              )
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">Sélectionnez une conversation</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
 // ==================== FAVORITES PAGE ====================
+
 export function FavoritesPage({ onNavigate }: PageProps) {
-  const { favorites, removeFavorite, isFavorite } = useFavorites();
+  const { favorites, removeFavorite, toggleFavorite } = useFavorites();
   const [selectedFilter, setSelectedFilter] = useState('Tous');
 
+  // ✅ Extraire les données du favori (la propriété est dans property)
+  const getPropertyData = (favorite: any) => {
+    // Si c'est déjà un favori transformé avec la structure correcte
+    if (favorite.property) {
+      return favorite.property;
+    }
+    // Si c'est déjà une propriété directe
+    return favorite;
+  };
+
+  // ✅ Fonction pour extraire l'image
+  const getImageUrl = (favorite: any): string => {
+    const property = getPropertyData(favorite);
+    
+    // Vérifier photo directe
+    if (property.photo) {
+      let cleanUrl = property.photo;
+      if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
+        const filename = cleanUrl.split('/').pop();
+        if (filename && property.id) {
+          cleanUrl = `https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`;
+        }
+      }
+      return cleanUrl;
+    }
+    
+    // Vérifier images array
+    if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+      return property.images[0];
+    }
+    
+    // Vérifier cover_photo
+    if (property.cover_photo) {
+      if (typeof property.cover_photo === 'string') return property.cover_photo;
+      if (property.cover_photo.photo_url) return property.cover_photo.photo_url;
+      if (property.cover_photo.full_url) return property.cover_photo.full_url;
+    }
+    
+    // Fallback
+    return `https://picsum.photos/seed/${property.id}/400/300`;
+  };
+
+  // ✅ Fonction pour le prix
+  const getPriceDisplay = (favorite: any): string => {
+    const property = getPropertyData(favorite);
+    const price = property.price_per_night || property.price || 0;
+    // Nettoyer le prix (enlever les espaces et convertir en nombre)
+    const cleanPrice = typeof price === 'string' ? parseInt(price.replace(/\s/g, '')) : price;
+    return `${cleanPrice.toLocaleString()} FCFA`;
+  };
+
+  // ✅ Fonction pour la note
+  const getRating = (favorite: any): number => {
+    const property = getPropertyData(favorite);
+    const rating = property.average_rating || property.rating || 0;
+    return typeof rating === 'number' ? rating : parseFloat(rating) || 0;
+  };
+
+  // ✅ Fonction pour le nombre d'avis
+  const getReviews = (favorite: any): number => {
+    const property = getPropertyData(favorite);
+    return property.reviews_count || property.reviews || 0;
+  };
+
+  // ✅ Fonction pour la localisation
+  const getLocation = (favorite: any): string => {
+    const property = getPropertyData(favorite);
+    if (property.location) return property.location;
+    const parts = [];
+    if (property.district) parts.push(property.district);
+    if (property.city) parts.push(property.city);
+    return parts.length > 0 ? parts.join(', ') : 'Bénin';
+  };
+
+  // ✅ Fonction pour le titre
+  const getTitle = (favorite: any): string => {
+    const property = getPropertyData(favorite);
+    return property.title || 'Logement sans titre';
+  };
+
+  // ✅ Fonction pour l'ID
+  const getPropertyId = (favorite: any): number => {
+    const property = getPropertyData(favorite);
+    return property.id;
+  };
+
+  // ✅ Filtrage et tri
   const getFilteredFavorites = () => {
     let filtered = [...favorites];
     switch (selectedFilter) {
       case 'Prix croissant':
-          return filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
+        return filtered.sort((a, b) => {
+          const priceA = parseInt((a.property?.price_per_night || '0').replace(/\s/g, ''));
+          const priceB = parseInt((b.property?.price_per_night || '0').replace(/\s/g, ''));
+          return priceA - priceB;
+        });
       case 'Prix décroissant':
-          return filtered.sort((a, b) => (b.price || 0) - (a.price || 0));
+        return filtered.sort((a, b) => {
+          const priceA = parseInt((a.property?.price_per_night || '0').replace(/\s/g, ''));
+          const priceB = parseInt((b.property?.price_per_night || '0').replace(/\s/g, ''));
+          return priceB - priceA;
+        });
       case 'Mieux notés':
-          return filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return filtered.sort((a, b) => getRating(b) - getRating(a));
       default:
         return filtered;
     }
@@ -8594,41 +9240,20 @@ export function FavoritesPage({ onNavigate }: PageProps) {
 
   const displayedFavorites = getFilteredFavorites();
 
-  return (
-    <div className="min-h-screen bg-white py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* En-tête avec retour */}
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => onNavigate?.({ name: 'home' })}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
-          </button>
-          <h1 className="text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
-          <span className="text-sm text-gray-500">({favorites.length} logements)</span>
-        </div>
-
-        {/* Filtres */}
-        <div className="mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'].map(filter => (
-              <button
-                key={filter}
-                onClick={() => setSelectedFilter(filter)}
-                className={`px-4 py-2 rounded-full text-sm transition-colors ${
-                  selectedFilter === filter 
-                    ? 'bg-[#00c9a7] text-white' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+  if (!favorites || favorites.length === 0) {
+    return (
+      <div className="min-h-screen bg-white py-10">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => onNavigate?.({ name: 'home' })}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+            </button>
+            <h1 className="text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
+            <span className="text-sm text-gray-500">(0 logement)</span>
           </div>
-        </div>
-
-        {displayedFavorites.length === 0 ? (
           <div className="text-center py-16">
             <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-[#0F2940] mb-2">Aucun favori</h2>
@@ -8640,60 +9265,165 @@ export function FavoritesPage({ onNavigate }: PageProps) {
               Découvrir des logements
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {displayedFavorites.map((property) => (
-              <div 
-                key={property.id} 
-                className="group rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
-                onClick={() => onNavigate?.({ name: 'listing', id: property.id.toString() })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white py-10">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* En-tête */}
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => onNavigate?.({ name: 'home' })}
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+          </button>
+          <h1 className="text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
+          <span className="text-sm text-gray-500">({displayedFavorites.length} logements)</span>
+        </div>
+
+        {/* Filtres */}
+        <div className="mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'].map(filter => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-4 py-2 rounded-full text-sm transition-colors whitespace-nowrap ${
+                  selectedFilter === filter 
+                    ? 'bg-[#00c9a7] text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <div className="relative h-48 overflow-hidden">
+                {filter}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Grille des favoris */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayedFavorites.map((favorite) => {
+            const propertyId = getPropertyId(favorite);
+            const imageUrl = getImageUrl(favorite);
+            const title = getTitle(favorite);
+            const location = getLocation(favorite);
+            const priceDisplay = getPriceDisplay(favorite);
+            const rating = getRating(favorite);
+            const reviews = getReviews(favorite);
+            const propertyData = getPropertyData(favorite);
+            
+            return (
+              <div 
+                key={favorite.id} 
+                className="group rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
+                onClick={() => onNavigate?.({ name: 'listing', id: propertyId.toString() })}
+              >
+                {/* Image */}
+                <div className="relative h-48 overflow-hidden bg-gray-100">
                   <img
-                    src={property.images?.[0] || property.image || '/placeholder.jpg'}
-                    alt={property.title}
+                    src={imageUrl}
+                    alt={title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${propertyId}/400/300`;
+                    }}
                   />
+                  
+                  {/* Bouton retirer des favoris */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeFavorite(property.id);
+                      removeFavorite(propertyId);
                     }}
-                    className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-10"
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-10 shadow-md"
+                    aria-label="Retirer des favoris"
                   >
                     <Heart className="w-5 h-5 fill-red-500 text-red-500" />
                   </button>
-                  <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
-                    {property.type}
-                  </div>
+                  
+                  {/* Badge Bluefin Certifié */}
+                  {propertyData.bluefin_certified && (
+                    <div className="absolute top-3 left-3 px-2 py-1 bg-blue-600 text-white text-xs rounded-full font-medium z-10">
+                      ✓ Bluefin Certifié
+                    </div>
+                  )}
+                  
+                  {/* Badge Instant Booking */}
+                  {propertyData.instant_booking && (
+                    <div className="absolute bottom-3 left-3 px-2 py-1 bg-green-600 text-white text-xs rounded-full z-10">
+                      ⚡ Réservation instantanée
+                    </div>
+                  )}
                 </div>
+                
+                {/* Contenu */}
                 <div className="p-4">
                   <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{property.title}</h3>
-                    <div className="flex items-center gap-1 text-sm">
-                      <Star className="w-4 h-4 fill-[#00c9a7] text-[#00c9a7]" />
-                      <span className="font-medium">{property.rating}</span>
-                      <span className="text-gray-500">({property.reviews})</span>
-                    </div>
+                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{title}</h3>
+                    {rating > 0 && (
+                      <div className="flex items-center gap-1 text-sm">
+                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                        <span className="font-medium">{rating.toFixed(1)}</span>
+                        {reviews > 0 && (
+                          <span className="text-gray-500">({reviews})</span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{property.location}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="font-bold text-lg text-[#0F2940]">{property.priceDisplay}</span>
-                    <span className="text-xs text-gray-400">
-                      Ajouté le {new Date(property.addedAt).toLocaleDateString('fr-FR')}
-                    </span>
+                  
+                  <p className="text-sm text-gray-500 mt-1">{location}</p>
+                  
+                  {/* Équipements */}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {propertyData.has_wifi && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                        📶 Wi-Fi
+                      </span>
+                    )}
+                    {propertyData.has_air_conditioning && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                        ❄️ Clim
+                      </span>
+                    )}
+                    {propertyData.has_generator && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                        ⚡ Groupe
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Prix */}
+                  <div className="mt-3 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-bold text-lg text-[#00c9a7]">{priceDisplay}</span>
+                        <span className="text-sm text-gray-400"> / nuit</span>
+                      </div>
+                      <button 
+                        className="text-sm text-[#00c9a7] hover:text-[#0F2940] font-medium transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNavigate?.({ name: 'listing', id: propertyId.toString() });
+                        }}
+                      >
+                        Voir détails →
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
-
 // ==================== PUBLISH LISTING PAGE ====================
 
 export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
@@ -12831,22 +13561,26 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
-  // AuthPage.tsx - Modifie la fonction handleSuccessfulAuth
+  // Dans AuthPage.tsx - handleSuccessfulAuth
 
 const handleSuccessfulAuth = (userData: any) => {
-  console.log('✅ Authentification réussie, redirection vers:', redirectTo);
+  console.log('✅ Authentification réussie');
+  console.log('🔍 Vérification des localStorage:', {
+    redirect_intent: localStorage.getItem('redirect_intent'),
+    redirect_property_id: localStorage.getItem('redirect_property_id'),
+    chatIntent: localStorage.getItem('chatIntent')
+  });
   
-  // ✅ Vérifier si c'est une intention de chat (depuis localStorage)
+  // ✅ PRIORITÉ 1: Vérifier l'intention de CHAT
   const chatIntent = localStorage.getItem('redirect_intent');
   const propertyId = localStorage.getItem('redirect_property_id');
-  const propertyTitle = localStorage.getItem('redirect_property_title');
-  const propertyLocation = localStorage.getItem('redirect_property_location');
-  const propertyPrice = localStorage.getItem('redirect_property_price');
-  const propertyImage = localStorage.getItem('redirect_property_image');
+  const savedChatParams = localStorage.getItem('pendingChatParams');
   
-  // ✅ PRIORITÉ ABSOLUE : Vérifier l'intention de chat DANS LE localStorage
   if (chatIntent === 'chat' && propertyId) {
-    console.log('💬 Intention de chat détectée, redirection vers le logement:', propertyId);
+    console.log('💬 Intention de chat détectée, redirection vers la messagerie');
+    
+    // Récupérer les paramètres sauvegardés
+    let params = savedChatParams || `property=${propertyId}`;
     
     // Nettoyer les données temporaires
     localStorage.removeItem('redirect_intent');
@@ -12855,63 +13589,62 @@ const handleSuccessfulAuth = (userData: any) => {
     localStorage.removeItem('redirect_property_location');
     localStorage.removeItem('redirect_property_price');
     localStorage.removeItem('redirect_property_image');
+    localStorage.removeItem('pendingChatParams');
+    localStorage.removeItem('chatIntent');
     
-    // Rediriger vers la page du logement (le useEffect du modal ouvrira le chat)
+    // Rediriger vers la page de messagerie
     if (onNavigate) {
-      onNavigate({ name: 'listing', id: propertyId });
+      onNavigate({ 
+        name: 'messages', 
+        id: 'inquiry',
+        search: params
+      });
     } else {
-      window.location.href = `/property/${propertyId}`;
+      window.location.href = `/messages/inquiry?${params}`;
     }
     return;
   }
   
-  // ✅ Vérifier si c'est une intention de chat depuis l'URL
+  // ✅ PRIORITÉ 2: Vérifier l'intention de BOOKING (réservation)
+  const bookingIntent = localStorage.getItem('redirect_intent');
+  const bookingPropertyId = localStorage.getItem('redirect_property_id');
+  
+  if (bookingIntent === 'booking' && bookingPropertyId) {
+    console.log('🏠 Intention de réservation détectée, redirection vers le logement:', bookingPropertyId);
+    
+    // Ne pas nettoyer booking_intent et booking_context ici
+    localStorage.removeItem('redirect_intent');
+    
+    if (onNavigate) {
+      onNavigate({ name: 'listing', id: bookingPropertyId });
+    } else {
+      window.location.href = `/annonce/${bookingPropertyId}`;
+    }
+    return;
+  }
+  
+  // ✅ PRIORITÉ 3: Vérifier l'intention de chat depuis l'URL
   const urlParams = new URLSearchParams(window.location.search);
   const redirectIntent = urlParams.get('redirect');
   const propertyIdFromUrl = urlParams.get('property');
   
   if (redirectIntent === 'chat' && propertyIdFromUrl) {
-    console.log('💬 Intention de chat depuis URL, redirection vers le logement:', propertyIdFromUrl);
+    console.log('💬 Intention de chat depuis URL, redirection vers la messagerie');
     
     if (onNavigate) {
-      onNavigate({ name: 'listing', id: propertyIdFromUrl });
+      onNavigate({ 
+        name: 'messages', 
+        id: 'inquiry',
+        search: `property=${propertyIdFromUrl}`
+      });
     } else {
-      window.location.href = `/property/${propertyIdFromUrl}`;
+      window.location.href = `/messages/inquiry?property=${propertyIdFromUrl}`;
     }
     return;
   }
   
-  // ✅ Vérifier les données de réservation
-  const tempBookingData = localStorage.getItem('temp_booking_data');
-  
-  if (redirectTo === 'booking' && tempBookingData) {
-    try {
-      const bookingData = JSON.parse(tempBookingData);
-      console.log('📦 Données de réservation trouvées, redirection vers la page de paiement');
-      
-      const params = new URLSearchParams({
-        check_in: bookingData.checkIn,
-        check_out: bookingData.checkOut,
-        guests: bookingData.guests.toString(),
-        nights: bookingData.nights.toString()
-      });
-      
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'booking', 
-          id: bookingData.propertyId.toString(),
-          search: params.toString()
-        });
-      } else {
-        window.location.href = `/booking/${bookingData.propertyId}?${params.toString()}`;
-      }
-      return;
-    } catch (e) {
-      console.error('Erreur lors de la récupération des données de réservation:', e);
-    }
-  }
-  
-  // Redirection par défaut
+  // ✅ Redirection par défaut selon le type d'utilisateur
+  console.log('➡️ Redirection par défaut');
   if (onAuthSuccess) {
     onAuthSuccess(userData);
   } else {
@@ -12971,7 +13704,6 @@ const handleSuccessfulAuth = (userData: any) => {
     } catch (err: any) {
       console.error('Erreur:', err);
       
-      // Gérer les erreurs de validation
       if (err.response?.data?.errors) {
         const apiErrors = err.response.data.errors;
         const errorMessages: string[] = [];
@@ -13077,10 +13809,18 @@ const handleSuccessfulAuth = (userData: any) => {
                     </p>
                     
                     {/* ✅ Affichage du contexte de redirection */}
-                    {redirectTo === 'booking' && (
+                    {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
                       <div className="mt-3 p-2 bg-amber-50 rounded-lg">
                         <p className="text-xs text-amber-700">
-                          🔄 Après connexion, vous serez redirigé vers le paiement de votre réservation
+                          🔄 Après connexion, vous serez redirigé pour finaliser votre réservation
+                        </p>
+                      </div>
+                    )}
+                    
+                    {localStorage.getItem('redirect_intent') === 'chat' && (
+                      <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-blue-700">
+                          💬 Après connexion, vous pourrez discuter avec l'hôte
                         </p>
                       </div>
                     )}

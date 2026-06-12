@@ -1,4 +1,3 @@
-// src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { publicApi, v1Api } from '../services/api';
 
@@ -19,14 +18,12 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string, userType?: 'voyageur' | 'hote' | 'admin') => Promise<any>;
-  loginWithOTP: (phone: string, userType?: 'voyageur' | 'hote') => Promise<any>;
-  verifyOTP: (phone: string, otp: string, userType?: 'voyageur' | 'hote') => Promise<any>;
-  register: (data: any, userType?: 'voyageur' | 'hote') => Promise<any>;
+  login: (email: string, password: string) => Promise<any>;
+  loginWithOTP: (phone: string) => Promise<any>;
+  verifyOTP: (phone: string, otp: string) => Promise<any>;
+  register: (data: any) => Promise<any>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
-  switchUserType: (userType: 'voyageur' | 'hote') => void;
-  getUserType: () => 'voyageur' | 'hote' | 'admin';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,25 +33,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // ⭐ Commencer à false
 
-  // Login avec support du type d'utilisateur (y compris admin)
-  const login = async (email: string, password: string, userType: 'voyageur' | 'hote' | 'admin' = 'voyageur') => {
+  // ⭐ SIMPLIFICATION: Pas de chargement initial, on utilise juste localStorage
+  // Le loading reste à false car on a déjà l'utilisateur du localStorage
+
+  // Login
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Déterminer l'endpoint selon le type d'utilisateur
-      let endpoint = '';
-      if (userType === 'admin') {
-        endpoint = '/admin/login';
-      } else if (userType === 'hote') {
-        endpoint = '/host/login';
-      } else {
-        endpoint = '/traveler/login';
-      }
-      
-      console.log(`🔐 Tentative de login ${userType} avec:`, { email });
-      
-      const response = await publicApi.post(endpoint, { email, password });
+      console.log('🔐 Tentative de login avec:', { email });
+      const response = await publicApi.post('/traveler/login', { email, password });
 
       // Nettoyer la réponse
       let rawData = response.data;
@@ -69,45 +58,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const token = rawData.token;
-      let userData = rawData.user;
+      const userData = rawData.user;
 
       if (!token) {
         throw new Error('Token non reçu');
       }
 
-      // Forcer le type d'utilisateur dans les données
-      userData = {
-        ...userData,
-        user_type: userType
-      };
-
       // Sauvegarder
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('userType', userType);
       
       // Mettre à jour l'état
       setUser(userData);
       
-      console.log(`✅ Login ${userType} réussi:`, userData);
+      console.log('✅ Login réussi:', userData);
       
       // Déclencher événement
-      window.dispatchEvent(new CustomEvent('authChange', { detail: { user: userData, userType } }));
+      window.dispatchEvent(new CustomEvent('authChange', { detail: { user: userData } }));
       
       return rawData;
     } catch (error: any) {
-      console.error(`❌ Erreur login ${userType}:`, error);
+      console.error('❌ Erreur login:', error);
       throw error;
     } finally {
       setLoading(false);
     }
+    
   };
 
-  // Login avec OTP
-  const loginWithOTP = async (phone: string, userType: 'voyageur' | 'hote' = 'voyageur') => {
+  const loginWithOTP = async (phone: string) => {
     try {
-      const endpoint = userType === 'hote' ? '/host/login-otp' : '/traveler/login-otp';
-      const response = await publicApi.post(endpoint, { phone });
+      const response = await publicApi.post('/traveler/login-otp', { phone });
       return response.data;
     } catch (error) {
       console.error('Erreur login OTP:', error);
@@ -115,24 +96,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Vérification OTP
-  const verifyOTP = async (phone: string, otp: string, userType: 'voyageur' | 'hote' = 'voyageur') => {
+  const verifyOTP = async (phone: string, otp: string) => {
     try {
-      const endpoint = userType === 'hote' ? '/host/verify-otp' : '/traveler/verify-otp';
-      const response = await publicApi.post(endpoint, { phone, otp });
+      const response = await publicApi.post('/traveler/verify-otp', { phone, otp });
       
       const { token, user: userData } = response.data;
       
       if (token) {
-        const finalUserData = {
-          ...userData,
-          user_type: userType
-        };
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(finalUserData));
-        localStorage.setItem('userType', userType);
-        setUser(finalUserData);
-        window.dispatchEvent(new CustomEvent('authChange', { detail: { user: finalUserData, userType } }));
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        window.dispatchEvent(new CustomEvent('authChange', { detail: { user: userData } }));
       }
       
       return response.data;
@@ -142,61 +116,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Inscription
-  const register = async (data: any, userType: 'voyageur' | 'hote' = 'voyageur') => {
-    setLoading(true);
+  const register = async (data: any) => {
     try {
-      const endpoint = userType === 'hote' ? '/host/register' : '/traveler/register';
-      console.log(`📝 Tentative d'inscription ${userType} avec:`, data.email);
-      
-      const registerData = {
-        ...data,
-        user_type: userType
-      };
-      
-      const response = await publicApi.post(endpoint, registerData);
+      const response = await publicApi.post('/traveler/register', data);
       
       const { token, user: userData } = response.data;
       
       if (token) {
-        const finalUserData = {
-          ...userData,
-          user_type: userType
-        };
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(finalUserData));
-        localStorage.setItem('userType', userType);
-        setUser(finalUserData);
-        window.dispatchEvent(new CustomEvent('authChange', { detail: { user: finalUserData, userType } }));
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        window.dispatchEvent(new CustomEvent('authChange', { detail: { user: userData } }));
       }
       
-      console.log(`✅ Inscription ${userType} réussie:`, userData);
       return response.data;
-    } catch (error: any) {
-      console.error(`❌ Erreur inscription ${userType}:`, error);
-      if (error.response?.status === 422) {
-        const errors = error.response?.data?.errors;
-        if (errors?.email) {
-          throw new Error('Cet email est déjà utilisé');
-        }
-        if (errors?.phone) {
-          throw new Error('Ce numéro de téléphone est déjà utilisé');
-        }
-        throw new Error('Données invalides. Vérifiez vos informations.');
-      }
+    } catch (error) {
+      console.error('Erreur register:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Déconnexion
   const logout = async () => {
     try {
       const token = localStorage.getItem('token');
       const savedUser = localStorage.getItem('user');
       const parsedUser = savedUser ? JSON.parse(savedUser) : null;
       
+      // Essayer de faire le logout API si possible, sinon ignorer l'erreur
       if (token && parsedUser) {
         try {
           let logoutEndpoint = '/traveler/logout';
@@ -207,19 +153,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           await v1Api.post(logoutEndpoint);
         } catch (apiError) {
-          console.warn('API logout failed:', apiError);
+          // Ignorer les erreurs API pour le logout
+          console.warn('API logout failed (endpoint may not exist):', apiError);
         }
       }
     } catch (error) {
       console.error('Erreur déconnexion:', error);
     } finally {
+      // Toujours nettoyer le localStorage et l'état
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      localStorage.removeItem('userType');
       setUser(null);
-      window.dispatchEvent(new CustomEvent('authChange', { detail: { user: null, userType: null } }));
+      window.dispatchEvent(new CustomEvent('authChange', { detail: { user: null } }));
     }
   };
+
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
@@ -227,23 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     window.dispatchEvent(new CustomEvent('authChange', { detail: { user: updatedUser } }));
   };
 
-  const switchUserType = (userType: 'voyageur' | 'hote') => {
-    if (user) {
-      const updatedUser = {
-        ...user,
-        user_type: userType
-      };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      localStorage.setItem('userType', userType);
-      window.dispatchEvent(new CustomEvent('authChange', { detail: { user: updatedUser, userType } }));
-    }
-  };
-
-  const getUserType = (): 'voyageur' | 'hote' | 'admin' => {
-    if (!user) return 'voyageur';
-    return user.user_type;
-  };
+  
 
   return (
     <AuthContext.Provider
@@ -257,8 +189,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         register,
         logout,
         updateUser,
-        switchUserType,
-        getUserType,
       }}
     >
       {children}
