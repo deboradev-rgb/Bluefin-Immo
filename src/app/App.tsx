@@ -54,6 +54,9 @@ import { AdminSidebar } from './components/AdminSidebar';
 import { AdminHeader } from './components/AdminHeader';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { WhatsAppButton } from './components/WhatsAppButton';
+// Dans App.tsx, ajoutez l'import
+import { BookingSummaryPage } from '../app/pages/BookingSummaryPage';
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -359,6 +362,8 @@ function AppContent() {
       {route.name === 'site-functioning' && <SiteFunctioningPage onNavigate={navigate} />}
       {route.name === 'company-info' && <CompanyInfoPage onNavigate={navigate} />}
       {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
+      {route.name === 'booking-summary' && <BookingSummaryPage onNavigate={navigate} id={route.id} search={route.search} />}
+
 
       <Footer onNavigate={navigate} />
       <div className="lg:hidden">
