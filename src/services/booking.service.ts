@@ -69,10 +69,33 @@ class BookingService {
     }
 
     // Annuler une réservation
-    async cancel(id: number, reason?: string) {
-        // POST /v1/bookings/{id}/cancel existe dans vos routes
-        const response = await v1Api.post(`/bookings/${id}/cancel`, { reason });
-        return response.data;
+     async cancel(id: number, reason?: string) {
+        try {
+            // Essayer avec reason dans le body
+            const payload = reason ? { cancellation_reason: reason } : {};
+            const response = await v1Api.post(`/bookings/${id}/cancel`, payload);
+            return response.data;
+        } catch (error: any) {
+            console.error('Erreur annulation:', error);
+            
+            // Récupérer le message d'erreur détaillé
+            const errorMessage = error?.response?.data?.message 
+                || error?.response?.data?.error 
+                || error?.message 
+                || 'Impossible d\'annuler la réservation';
+            
+            // Si l'API attend un format différent, essayer sans raison
+            if (error?.response?.status === 422) {
+                try {
+                    const response = await v1Api.post(`/bookings/${id}/cancel`, {});
+                    return response.data;
+                } catch (retryError: any) {
+                    throw new Error(retryError?.response?.data?.message || 'La réservation ne peut pas être annulée');
+                }
+            }
+            
+            throw new Error(errorMessage);
+        }
     }
 
     // Confirmer le paiement
@@ -99,6 +122,8 @@ class BookingService {
         const response = await v1Api.get('/traveler/bookings/stats');
         return response.data;
     }
+
+    
 }
 
 export default new BookingService();

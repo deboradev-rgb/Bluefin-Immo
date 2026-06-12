@@ -40,7 +40,7 @@ import {
   Zap, Headphones, Home, Heart, Calendar, 
   ShieldCheck, Rocket, BookOpen, Info, Bookmark, Star, CreditCard, Check, BarChart3, CalendarDays, Building2, Sparkles, Search as SearchIcon, HelpCircle  ,
   UserPlus,CheckCircle, XCircle, Clock,Flag ,
-  DollarSign,ArrowUp ,Activity ,Wallet ,Ban ,
+  DollarSign,ArrowUp ,Activity ,Wallet ,Ban , AlertTriangle , 
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
   Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,
   Settings,  Calendar as CalendarIcon, Plus,
@@ -2656,14 +2656,11 @@ interface PropertyDetailModalBookingParams {
   paymentAmount: number;
 }
 
-// Helper pour le formatage des prix en FCFA et EUR
-const formatCurrency = (amountFCFA: number) => {
-  const EUR_RATE = 0.0015;
-  const euro = amountFCFA * EUR_RATE;
-  return {
-    fCFA: amountFCFA.toLocaleString() + ' FCFA',
-    euro: '≈ ' + euro.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €'
-  };
+
+const formatCurrency = (amount: number) => {
+  const fCFA = `${amount.toLocaleString()} FCFA`;
+  const euro = `${(amount / 655.957).toFixed(2)} €`;
+  return { fCFA, euro };
 };
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
@@ -2678,15 +2675,11 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const { isAuthenticated, user } = useAuth();
   
-  // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
   const [availabilityMessage, setAvailabilityMessage] = useState('');
-  
-  // États pour les modales
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   
-  // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlCheckIn = urlParams.get('check_in');
@@ -2704,7 +2697,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   });
   
-  // Types de voyageurs
   const [adults, setAdults] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const guests = urlParams.get('guests');
@@ -2717,17 +2709,14 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-
-  // États du formulaire
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [paymentOption, setPaymentOption] = useState<'50' | '100'>('50');
+  const [paymentOption, setPaymentOption] = useState<'50' | '100'>('100');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const maxGuests = property.max_guests || 10;
-
   const totalGuests = adults + children;
 
   const formatDisplayFromIso = (isoDate: string) => {
@@ -2736,7 +2725,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
-  // ✅ Calcul des constantes AVANT le useEffect qui les utilise
   const host = property.host || 'Hôte vérifié';
   const hostId = property.hostId ?? property.id;
   const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
@@ -2744,7 +2732,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const superhost = property.superhost ?? true;
   const responseRate = property.responseRate || 95;
 
-  // ✅ Fonction pour gérer la redirection si non connecté
   const handleAuthenticatedAction = (action: () => void, intent: string) => {
     if (!isAuthenticated) {
       localStorage.setItem('redirect_intent', intent);
@@ -2764,7 +2751,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
   };
 
-  // ✅ Vérifier si l'utilisateur vient d'être redirigé après connexion
   useEffect(() => {
     const redirectIntent = localStorage.getItem('redirect_intent');
     const propertyId = localStorage.getItem('redirect_property_id');
@@ -2837,8 +2823,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const images = getPropertyImages(property);
   const nightlyPrice = property.priceNumber || property.price || 0;
-  
-  const longDescription = property.longDescription || property.description;
   const amenities = property.amenities || ["Wi-Fi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
   const testimonials = [
     { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
@@ -2855,9 +2839,8 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const subtotalFormatted = formatCurrency(subtotal);
   const serviceFeeFormatted = formatCurrency(serviceFee);
   const totalFormatted = formatCurrency(total);
-  const payment50Formatted = formatCurrency(Math.floor(total * 0.5));
   
-  const getPaymentAmount = () => paymentOption === '50' ? Math.floor(total * 0.5) : total;
+  const getPaymentAmount = () => total;
 
   const validateStep = (step: number) => {
     const errors: Record<string, string> = {};
@@ -2897,7 +2880,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
       email: email.trim(), 
       phone: phone.trim(), 
       address: address.trim(), 
-      paymentOption, 
+      paymentOption: '100', 
       totalAmount: total, 
       paymentAmount: getPaymentAmount() 
     };
@@ -2911,134 +2894,61 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     setIsSubmitting(false);
   };
 
-  // Dans ListingPage.tsx
-const handleChatClick = () => {
-    console.log('🔍 handleChatClick - property.id:', property.id);
-    
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    
-    // Construire les paramètres pour le message
-    const params = new URLSearchParams();
-    params.set('property', property.id.toString());
-    
-    if (selectedCheckIn && selectedCheckOut) {
-        params.set('check_in', selectedCheckIn);
-        params.set('check_out', selectedCheckOut);
-    }
-    if (selectedGuests && selectedGuests > 0) {
-        params.set('guests', selectedGuests.toString());
-    }
-    
-    const searchString = params.toString();
-    console.log('📤 Navigation vers messages avec:', {
-        name: 'messages',
-        id: 'inquiry',
-        search: searchString
-    });
-    
-    if (token && user) {
-        // Déjà connecté
-        onNavigate({ 
-            name: 'messages', 
-            id: 'inquiry',
-            search: searchString
-        });
+  const handleChatWithAuth = () => {
+    if (!isAuthenticated) {
+      const chatIntent = {
+        propertyId: property.id,
+        propertyTitle: property.title,
+        hostId: hostId,
+        hostName: host,
+        checkIn: checkIn,
+        checkOut: checkOut,
+        guests: totalGuests,
+        timestamp: Date.now()
+      };
+      
+      localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
+      localStorage.setItem('redirect_intent', 'chat');
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      localStorage.setItem('redirect_property_title', property.title);
+      localStorage.setItem('redirect_property_location', property.location);
+      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+      
+      const params = new URLSearchParams();
+      params.set('property', property.id.toString());
+      if (checkIn && checkOut) {
+        params.set('check_in', checkIn);
+        params.set('check_out', checkOut);
+      }
+      if (totalGuests > 0) {
+        params.set('guests', totalGuests.toString());
+      }
+      localStorage.setItem('pendingChatParams', params.toString());
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: `redirect=chat&property=${property.id}` });
+      } else {
+        window.location.href = `/auth?redirect=chat&property=${property.id}`;
+      }
     } else {
-        // Non connecté - sauvegarder l'intention
-        const chatIntent = {
-            propertyId: property.id,
-            checkIn: selectedCheckIn,
-            checkOut: selectedCheckOut,
-            guests: selectedGuests,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
-        
-        onNavigate({ 
-            name: 'auth',
-            params: { 
-                redirectTo: 'messages',
-                intent: 'chat'
-            }
-        });
+      const params = new URLSearchParams();
+      params.set('property', property.id.toString());
+      if (checkIn && checkOut) {
+        params.set('check_in', checkIn);
+        params.set('check_out', checkOut);
+      }
+      if (totalGuests > 0) {
+        params.set('guests', totalGuests.toString());
+      }
+      
+      if (onChat) {
+        onChat(hostId);
+      } else {
+        window.location.href = `/messages/inquiry?${params.toString()}`;
+      }
     }
-};
-
-
-// Dans PropertyDetailModal.tsx
-
-// Ajoutez cette fonction pour gérer le chat avec vérification d'authentification
-const handleChatWithAuth = () => {
-  if (!isAuthenticated) {
-    // Sauvegarder l'intention de chat
-    const chatIntent = {
-      propertyId: property.id,
-      propertyTitle: property.title,
-      hostId: hostId,
-      hostName: host,
-      checkIn: checkIn,
-      checkOut: checkOut,
-      guests: totalGuests,
-      timestamp: Date.now()
-    };
-    
-    localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
-    localStorage.setItem('redirect_intent', 'chat');
-    localStorage.setItem('redirect_property_id', property.id.toString());
-    localStorage.setItem('redirect_property_title', property.title);
-    localStorage.setItem('redirect_property_location', property.location);
-    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-    
-    // Sauvegarder les paramètres de chat
-    const params = new URLSearchParams();
-    params.set('property', property.id.toString());
-    if (checkIn && checkOut) {
-      params.set('check_in', checkIn);
-      params.set('check_out', checkOut);
-    }
-    if (totalGuests > 0) {
-      params.set('guests', totalGuests.toString());
-    }
-    localStorage.setItem('pendingChatParams', params.toString());
-    
-    console.log('💾 Intention de chat sauvegardée:', {
-      propertyId: property.id,
-      hostId: hostId,
-      checkIn,
-      checkOut,
-      guests: totalGuests
-    });
-    
-    // Rediriger vers la page de connexion
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'auth', 
-        search: `redirect=chat&property=${property.id}` 
-      });
-    } else {
-      window.location.href = `/auth?redirect=chat&property=${property.id}`;
-    }
-  } else {
-    // Déjà connecté, aller directement au chat
-    const params = new URLSearchParams();
-    params.set('property', property.id.toString());
-    if (checkIn && checkOut) {
-      params.set('check_in', checkIn);
-      params.set('check_out', checkOut);
-    }
-    if (totalGuests > 0) {
-      params.set('guests', totalGuests.toString());
-    }
-    
-    if (onChat) {
-      onChat(hostId);
-    } else {
-      window.location.href = `/messages/inquiry?${params.toString()}`;
-    }
-  }
-};
+  };
 
   const handleBackToDetails = () => setShowBookingForm(false);
 
@@ -3050,21 +2960,38 @@ const handleChatWithAuth = () => {
 
   const cancellationRules = getCancellationRules();
 
-  // Modal Politique d'annulation
+  // Modal Politique d'annulation - RESPONSIVE
   const CancellationModal = () => (
     <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
       <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" /><h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2></div>
-          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /></button>
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" />
+            <h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2>
+          </div>
+          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          </button>
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3"><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /><span className="font-medium">Vos dates</span></div>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
+              <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
+              <span className="font-medium">Vos dates</span>
+            </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p></div>
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Départ</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p></div>
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Nuits</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Départ</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Nuits</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p>
+              </div>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3">
@@ -3083,278 +3010,423 @@ const handleChatWithAuth = () => {
             ))}
           </div>
           <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
-            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
+            <div className="flex items-start gap-2">
+              <Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p>
+            </div>
           </div>
         </div>
         <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">Fermer</button>
+          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">
+            Fermer
+          </button>
         </div>
       </div>
     </div>
   );
 
-  // Vue du formulaire de réservation
+  // Vue du formulaire de réservation - RESPONSIVE
   if (showBookingForm) {
     return (
       <>
         {showCancellationModal && <CancellationModal />}
-<div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
-  <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
-    <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp">
-      <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
-              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-            </button>
-            <div>
-              <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">
-                Réserver
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {[1, 2].map((step) => (
-              <div key={step} className="flex items-center gap-1 sm:gap-2">
-                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
-                  {currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}
-                </div>
-                {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
-        {currentStep === 1 && (
-          <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-            <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden">
-                  <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3>
-                  <p className="text-xs text-gray-500">{property.location}</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
-                    <span className="text-xs font-medium">{property.rating}</span>
+        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
+            <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp mx-3 sm:mx-0">
+              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
+                      <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                    </button>
+                    <div>
+                      <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">Réserver</h2>
+                      <p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[1, 2].map((step) => (
+                      <div key={step} className="flex items-center gap-1 sm:gap-2">
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
+                          {currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}
+                        </div>
+                        {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
-                </div>
-                Vos informations
-              </h3>
-              <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
-                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />
-                  {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />
-                  {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />
-                  {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
-                </div>
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {currentStep === 2 && (
-          <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-            <div className="grid sm:grid-cols-1 gap-4 sm:gap-6">
-              {/* ✅ Section résumé de la réservation uniquement */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-[#00c9a7]" />
-                  Résumé de votre réservation
-                </h3>
-                <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                      <div className="text-right">
-                        <div>{subtotalFormatted.fCFA}</div>
-                        <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
+              
+              <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
+                {currentStep === 1 && (
+                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+                    <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden">
+                          <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3>
+                          <p className="text-xs text-gray-500">{property.location}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
+                            <span className="text-xs font-medium">{property.rating}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-white/70">Frais de service (10%)</span>
-                      <div className="text-right">
-                        <div>{serviceFeeFormatted.fCFA}</div>
-                        <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
-                      </div>
-                    </div>
-                    <div className="border-t border-white/20 pt-2 mt-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold">Total à payer</span>
-                        <div className="text-right">
-                          <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
-                          <div className="text-xs text-white/50">{totalFormatted.euro}</div>
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
+                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
+                        </div>
+                        Vos informations
+                      </h3>
+                      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                          <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />
+                          {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label>
+                          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />
+                          {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
+                          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />
+                          {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label>
+                          <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" />
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="bg-blue-50 rounded-xl p-3">
-                  <p className="text-xs text-blue-700 flex items-center gap-1">
-                    <Info className="w-3 h-3" />
-                    Paiement sécurisé de 100% à la réservation
-                  </p>
+                )}
+                
+                {currentStep === 2 && (
+                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
+                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                      <div className="space-y-4">
+                        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                          <Receipt className="w-4 h-4 text-[#00c9a7]" />
+                          Résumé de votre réservation
+                        </h3>
+                        <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
+                              <div className="text-right">
+                                <div>{subtotalFormatted.fCFA}</div>
+                                <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
+                              </div>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-white/70">Frais de service (10%)</span>
+                              <div className="text-right">
+                                <div>{serviceFeeFormatted.fCFA}</div>
+                                <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
+                              </div>
+                            </div>
+                            <div className="border-t border-white/20 pt-2 mt-2">
+                              <div className="flex justify-between items-center">
+                                <span className="font-semibold">Total à payer</span>
+                                <div className="text-right">
+                                  <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
+                                  <div className="text-xs text-white/50">{totalFormatted.euro}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 rounded-xl p-3">
+                          <p className="text-xs text-blue-700 flex items-center gap-1">
+                            <Info className="w-3 h-3" />
+                            Paiement sécurisé de 100% à la réservation
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+                <div className="flex gap-3">
+                  {currentStep === 1 && (
+                    <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">
+                      Continuer
+                    </button>
+                  )}
+                  {currentStep === 2 && (
+                    <>
+                      <button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
+                        Retour
+                      </button>
+                      <button 
+                        onClick={handleConfirmReservation} 
+                        disabled={isSubmitting || availabilityStatus !== 'available'} 
+                        className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                      >
+                        {isSubmitting ? (
+                          <div className="flex justify-center gap-2">
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Chargement
+                          </div>
+                        ) : "Confirmer et payer"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-        )}
-      </div>
-      
-      <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-        <div className="flex gap-3">
-          {currentStep === 1 && (
-            <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">
-              Continuer
-            </button>
-          )}
-          {currentStep === 2 && (
-            <>
-              <button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
-                Retour
-              </button>
-              <button 
-                onClick={handleConfirmReservation} 
-                disabled={isSubmitting || availabilityStatus !== 'available'} 
-                className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-              >
-                {isSubmitting ? (
-                  <div className="flex justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Chargement
-                  </div>
-                ) : "Confirmer et payer"}
-              </button>
-            </>
-          )}
         </div>
-      </div>
-    </div>
-  </div>
-</div>
       </>
     );
   }
 
-  // Vue détaillée
+  // Vue détaillée - RESPONSIVE
   return (
     <>
       {showCancellationModal && <CancellationModal />}
       
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
         <div className="min-h-screen pb-20">
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all"><ArrowLeft className="w-5 h-5" /></button>
-            <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5" /></button></div>
+          {/* Header sticky avec ombre */}
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all active:bg-gray-200">
+              <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+            </button>
+            <div className="flex gap-2">
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5 text-[#0F2940]" /></button>
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5 text-[#0F2940]" /></button>
+            </div>
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
-              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>
-              {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>))}
+            {/* Galerie d'images responsive */}
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
+              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]">
+                <img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+              </div>
+              {images.slice(1, 5).map((img, i) => (
+                <div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block">
+                  <img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                </div>
+              ))}
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-              <div className="flex-1 space-y-6 sm:space-y-8">
+              {/* Colonne gauche - Infos */}
+              <div className="flex-1 space-y-5 sm:space-y-8">
                 <div className="border-b pb-4">
                   <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
                   <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                  <div className="flex flex-wrap items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="font-medium text-sm">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}</div>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
+                    <span className="font-medium text-sm">{property.rating}</span>
+                    <span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>
+                    {superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}
+                  </div>
                 </div>
-                {property.rating >= 4.8 && (<div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center"><Crown className="w-8 h-8 text-[#00c9a7]" /><div><div className="font-semibold">Coup de cœur</div><div className="text-sm text-gray-600">Logement préféré des voyageurs</div></div></div>)}
-                <div className="flex gap-4 items-start"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
+                
+                {property.rating >= 4.8 && (
+                  <div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center">
+                    <Crown className="w-8 h-8 text-[#00c9a7]" />
+                    <div>
+                      <div className="font-semibold">Coup de cœur</div>
+                      <div className="text-sm text-gray-600">Logement préféré des voyageurs</div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Hôte */}
+                <div className="flex gap-4 items-start">
+                  <img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" />
+                  <div>
+                    <div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>
+                    {superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}
+                    <div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div>
+                  </div>
+                </div>
+                
+                {/* Description */}
                 <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
-                <div className="border-t pt-4"><div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-lg">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm text-gray-700"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
-                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5"><h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#00c9a7]" />Ce que nos clients disent</h3><div className="flex flex-col sm:flex-row gap-4 items-start"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" /><div><div className="font-semibold">{testimonials[currentTestimonial]?.name}</div><p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p></div></div></div>
+                
+                {/* Équipements */}
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-lg">Équipements</h3>
+                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
+                      Voir tout
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                        <Check className="w-4 h-4 text-[#00c9a7]" />
+                        {a}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Témoignages */}
+                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-4 sm:p-5">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#00c9a7]" />
+                    Ce que nos clients disent
+                  </h3>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" />
+                    <div>
+                      <div className="font-semibold">{testimonials[currentTestimonial]?.name}</div>
+                      <p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
+              {/* Colonne droite - Réservation */}
               <div className="lg:w-96 xl:w-[400px]">
                 <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
                   <div className="flex justify-between items-center mb-4">
                     <div>
-                      <div className="flex items-baseline gap-2"><span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
+                        <span className="text-gray-500 text-sm">/ nuit</span>
+                      </div>
                       <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div>
+                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                      <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
+                      {property.rating}
+                    </div>
                   </div>
 
+                  {/* Formulaire dates et voyageurs */}
                   <div className="border rounded-xl mb-4 overflow-hidden">
                     <div className="grid grid-cols-2 border-b">
-                      <div className="p-3"><div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
-                      <div className="p-3 border-l"><div className="text-xs font-bold text-gray-500 uppercase">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                      <div className="p-2 sm:p-3">
+                        <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
+                        <input 
+                          type="date" 
+                          value={checkIn} 
+                          onChange={(e) => setCheckIn(e.target.value)} 
+                          min={new Date().toISOString().split('T')[0]} 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                        />
+                      </div>
+                      <div className="p-2 sm:p-3 border-l">
+                        <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
+                        <input 
+                          type="date" 
+                          value={checkOut} 
+                          onChange={(e) => setCheckOut(e.target.value)} 
+                          min={checkIn} 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                        />
+                      </div>
                     </div>
-                    {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
-                    {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
-                    <div className="p-3">
+                    
+                    {availabilityStatus === 'available' && (
+                      <div className="p-2 bg-green-50 text-center text-xs text-green-600">
+                        <CheckCircle className="inline w-3 h-3 mr-1" />
+                        Disponible
+                      </div>
+                    )}
+                    {availabilityStatus === 'unavailable' && (
+                      <div className="p-2 bg-red-50 text-center text-xs text-red-600">
+                        <AlertCircle className="inline w-3 h-3 mr-1" />
+                        Non disponible
+                      </div>
+                    )}
+                    
+                    <div className="p-2 sm:p-3">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
-                      <div className="flex justify-between items-center py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
-                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
-                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center py-1">
+                          <span className="text-sm">Adultes</span>
+                          <div className="flex gap-3">
+                            <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                            <span>{adults}</span>
+                            <button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-t">
+                          <span className="text-sm">Enfants</span>
+                          <div className="flex gap-3">
+                            <button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                            <span>{children}</span>
+                            <button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-t">
+                          <span className="text-sm">Bébés</span>
+                          <div className="flex gap-3">
+                            <button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                            <span>{babies}</span>
+                            <button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          </div>
+                        </div>
+                      </div>
                       <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
                     </div>
                   </div>
 
+                  {/* Prix */}
                   <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-gray-400">{subtotalFormatted.euro}</div></div></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div></div></div>
-                    <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><div className="text-right"><div className="text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div></div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
+                      <div className="text-right">
+                        <div>{subtotalFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-400">{subtotalFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Frais de service (10%)</span>
+                      <div className="text-right">
+                        <div>{serviceFeeFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between font-bold pt-2 border-t">
+                      <span>Total</span>
+                      <div className="text-right">
+                        <div className="text-[#00c9a7]">{totalFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-500">{totalFormatted.euro}</div>
+                      </div>
+                    </div>
                   </div>
 
-                  <button onClick={() => setShowCancellationModal(true)} className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline">Voir la politique d'annulation</button>
+                  <button 
+                    onClick={() => setShowCancellationModal(true)} 
+                    className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline"
+                  >
+                    Voir la politique d'annulation
+                  </button>
                   
-                  <button onClick={handleReserveClick} disabled={availabilityStatus !== 'available'} className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                  <button 
+                    onClick={handleReserveClick} 
+                    disabled={availabilityStatus !== 'available'} 
+                    className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  >
                     {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
                   </button>
                   
-
-{onChat && hostId && (
-  <button
-    onClick={() => {
-      const params = new URLSearchParams();
-      params.set('property', property.id.toString());
-      
-      // Utiliser les dates sélectionnées depuis les états du modal
-      if (checkIn && checkOut) {
-        params.set('check_in', checkIn);
-        params.set('check_out', checkOut);
-      }
-      if (totalGuests > 0) {
-        params.set('guests', totalGuests.toString());
-      }
-      
-      // Navigation directe - La solution la plus fiable
-      window.location.href = `/messages/inquiry?${params.toString()}`;
-    }}
-    className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full"
-  >
-    <MessageCircle className="w-5 h-5" />
-    Discutez avec l'hôte
-  </button>
-)}
+                  {onChat && hostId && (
+                    <button
+                      onClick={handleChatWithAuth}
+                      className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full mt-2"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      Discutez avec l'hôte
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -3726,7 +3798,6 @@ const enrichedHotels = useMemo(() => {
 // pages/BookingPage.tsx
 
 
-
 interface BookingPageProps {
     onNavigate?: (route: any) => void;
     id?: string;
@@ -3768,7 +3839,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         }
     }, []);
 
-    // ✅ Vérifier s'il y a des données temporaires au chargement
+    // Vérifier s'il y a des données temporaires au chargement
     useEffect(() => {
         const tempData = temporaryBookingService.getBookingData();
         if (tempData && !bookingFormData) {
@@ -3810,11 +3881,8 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     const serviceFee = subtotal * 0.15;
     const cleaningFee = 15000;
     const total = subtotal + serviceFee + cleaningFee;
-
-    // ✅ Déclarer paymentAmount AVANT le modal
     const paymentAmount = bookingFormData?.paymentAmount || total;
 
-    // Validation des champs de paiement
     const validatePaymentDetails = () => {
         if (paymentMethod === 'mobile_money') {
             if (!mobileProvider) {
@@ -3997,14 +4065,18 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
 
     return (
         <>
-            <div className="bg-[#f4fffe] min-h-screen pb-12">
-                <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3">
+            <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
+                {/* Header sticky */}
+                <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition">
+                        <button 
+                            onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
+                            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
+                        >
                             <ArrowLeft className="w-5 h-5 text-gray-600" />
                         </button>
                         <div>
-                            <h1 className="font-semibold text-[#0F2940]">Confirmation</h1>
+                            <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
                             <p className="text-xs text-gray-500">Vérifiez vos informations</p>
                         </div>
                     </div>
@@ -4012,10 +4084,15 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
 
                 <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
                     {/* Carte récapitulative mobile */}
-                    <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm">
+                    <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm border border-gray-100">
                         <div className="flex items-start gap-3">
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                <img src={property.images?.[0] || property.image} alt={property.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
+                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                                <img 
+                                    src={property.images?.[0] || property.image} 
+                                    alt={property.title} 
+                                    className="w-full h-full object-cover" 
+                                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
+                                />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
@@ -4033,104 +4110,213 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                         </div>
                     </div>
 
-                    <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Colonne gauche */}
+                    <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+                        {/* Colonne gauche - Informations */}
                         <div className="flex-1 space-y-4">
-                            <div className="bg-white rounded-xl p-4 shadow-sm">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><Calendar className="w-5 h-5 text-[#00c9a7]" />Vos dates</h2>
-                                <div className="flex flex-wrap gap-4 text-sm">
-                                    <div><p className="text-gray-500">Arrivée</p><p className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
-                                    <div><p className="text-gray-500">Départ</p><p className="font-medium">{new Date(checkOut).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p></div>
-                                    <div><p className="text-gray-500">Durée</p><p className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</p></div>
-                                    <div><p className="text-gray-500">Voyageurs</p><p className="font-medium">{guests} personne{guests > 1 ? 's' : ''}</p></div>
+                            {/* Vos dates */}
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                                    <Calendar className="w-5 h-5 text-[#00c9a7]" />
+                                    Vos dates
+                                </h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                    <div>
+                                        <p className="text-gray-500 text-xs">Arrivée</p>
+                                        <p className="font-medium text-sm">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500 text-xs">Départ</p>
+                                        <p className="font-medium text-sm">{new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500 text-xs">Durée</p>
+                                        <p className="font-medium text-sm">{nights} nuit{nights > 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-gray-500 text-xs">Voyageurs</p>
+                                        <p className="font-medium text-sm">{guests} pers.</p>
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Vos informations */}
                             {(guestInfo.full_name || guestInfo.email || guestInfo.phone) && (
-                                <div className="bg-white rounded-xl p-4 shadow-sm">
-                                    <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><User className="w-5 h-5 text-[#00c9a7]" />Vos informations</h2>
+                                <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                                    <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                                        <User className="w-5 h-5 text-[#00c9a7]" />
+                                        Vos informations
+                                    </h2>
                                     <div className="space-y-2 text-sm">
-                                        {guestInfo.full_name && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Nom complet</span><span className="font-medium">{guestInfo.full_name}</span></div>}
-                                        {guestInfo.email && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Email</span><span className="font-medium break-all">{guestInfo.email}</span></div>}
-                                        {guestInfo.phone && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Téléphone</span><span className="font-medium">{guestInfo.phone}</span></div>}
-                                        {guestInfo.nationality && <div className="flex flex-wrap justify-between"><span className="text-gray-500">Nationalité</span><span className="font-medium">{guestInfo.nationality}</span></div>}
+                                        {guestInfo.full_name && (
+                                            <div className="flex flex-wrap justify-between items-center">
+                                                <span className="text-gray-500 text-xs">Nom complet</span>
+                                                <span className="font-medium text-sm">{guestInfo.full_name}</span>
+                                            </div>
+                                        )}
+                                        {guestInfo.email && (
+                                            <div className="flex flex-wrap justify-between items-center">
+                                                <span className="text-gray-500 text-xs">Email</span>
+                                                <span className="font-medium text-sm break-all">{guestInfo.email}</span>
+                                            </div>
+                                        )}
+                                        {guestInfo.phone && (
+                                            <div className="flex flex-wrap justify-between items-center">
+                                                <span className="text-gray-500 text-xs">Téléphone</span>
+                                                <span className="font-medium text-sm">{guestInfo.phone}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
 
-                            <div className="bg-white rounded-xl p-4 shadow-sm">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base"><MessageCircle className="w-5 h-5 text-[#00c9a7]" />Demandes spéciales</h2>
-                                <textarea value={specialRequests} onChange={(e) => setSpecialRequests(e.target.value)} placeholder="Horaires d'arrivée, allergies, demandes particulières..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" rows={3} />
+                            {/* Demandes spéciales */}
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                                    <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                                    Demandes spéciales
+                                </h2>
+                                <textarea 
+                                    value={specialRequests} 
+                                    onChange={(e) => setSpecialRequests(e.target.value)} 
+                                    placeholder="Horaires d'arrivée, allergies, demandes particulières..." 
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
+                                    rows={3} 
+                                />
                             </div>
                         </div>
 
-                        {/* Colonne droite */}
+                        {/* Colonne droite - Résumé et paiement */}
                         <div className="lg:w-96 space-y-4">
-                            <div className="bg-white rounded-xl p-4 shadow-sm sticky top-20">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
                                 <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
                                 <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between"><span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotal.toLocaleString()} FCFA</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-600">Frais de ménage</span><span>{cleaningFee.toLocaleString()} FCFA</span></div>
-                                    <div className="flex justify-between"><span className="text-gray-600">Frais de service</span><span>{serviceFee.toLocaleString()} FCFA</span></div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {nights} nuits</span>
+                                        <span>{subtotal.toLocaleString()} FCFA</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Frais de ménage</span>
+                                        <span>{cleaningFee.toLocaleString()} FCFA</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Frais de service (15%)</span>
+                                        <span>{serviceFee.toLocaleString()} FCFA</span>
+                                    </div>
                                     <div className="border-t border-gray-200 pt-3 mt-3">
-                                        <div className="flex justify-between font-bold"><span>Total</span><span className="text-[#00c9a7] text-lg">{total.toLocaleString()} FCFA</span></div>
-                                        {bookingFormData?.paymentOption === '50' && <div className="flex justify-between text-sm mt-2"><span className="text-gray-500">À payer maintenant</span><span className="font-semibold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</span></div>}
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-semibold">Total</span>
+                                            <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
+                                        </div>
+                                        {bookingFormData?.paymentOption === '50' && (
+                                            <div className="flex justify-between text-sm mt-2">
+                                                <span className="text-gray-500">À payer maintenant</span>
+                                                <span className="font-semibold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <button onClick={handleOpenPaymentModal} disabled={loading} className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm">{loading ? 'Traitement...' : 'Procéder au paiement'}</button>
-                                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400"><div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div><div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Garantie BF-Immo</span></div></div>
+                                
+                                <button 
+                                    onClick={handleOpenPaymentModal} 
+                                    disabled={loading} 
+                                    className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98]"
+                                >
+                                    {loading ? 'Traitement...' : 'Procéder au paiement'}
+                                </button>
+                                
+                                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
+                                    <div className="flex items-center gap-1">
+                                        <Lock className="w-3 h-3" />
+                                        <span>Paiement sécurisé</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Shield className="w-3 h-3" />
+                                        <span>Garantie BF-Immo</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center"><MessageCircle className="w-4 h-4 text-[#00c9a7]" /></div><div><p className="font-medium text-[#0F2940] text-sm">Une question ?</p><p className="text-xs text-gray-500">Contactez notre support</p></div></div>
+
+                            {/* Support */}
+                            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
+                                    <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
+                                    <p className="text-xs text-gray-500">Contactez notre support 24/7</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* ✅ Modal de paiement - Défini directement dans le return */}
+            {/* Modal de paiement responsive */}
             {showPaymentModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
-                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp" style={{ overflow: 'hidden' }}>
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
+                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl" style={{ overflow: 'hidden' }}>
+                        {/* Header modal */}
                         <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
-                            <h3 className="text-lg font-semibold text-[#0F2940]">
+                            <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
                                 {paymentStep === 'form' && 'Paiement sécurisé'}
                                 {paymentStep === 'processing' && 'Traitement en cours...'}
                                 {paymentStep === 'success' && 'Paiement réussi !'}
                                 {paymentStep === 'error' && 'Erreur de paiement'}
                             </h3>
-                            <button onClick={() => { setShowPaymentModal(false); setPaymentStep('form'); setError(''); }} className="p-2 rounded-full hover:bg-gray-100 transition">
-                                <X className="w-5 h-5" />
+                            <button 
+                                onClick={() => { setShowPaymentModal(false); setPaymentStep('form'); setError(''); }} 
+                                className="p-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
+                            >
+                                <X className="w-5 h-5 text-gray-500" />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-6">
+                        {/* Body modal */}
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                             {paymentStep === 'form' && (
-                                <div className="space-y-6">
+                                <div className="space-y-5">
+                                    {/* Montant */}
                                     <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
-                                        <p className="text-sm text-gray-600">Montant à payer</p>
-                                        <p className="text-3xl font-bold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</p>
+                                        <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</p>
                                     </div>
 
+                                    {/* Méthode de paiement */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-3">Méthode de paiement</label>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <button type="button" onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                <Smartphone className={`w-6 h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                                <span className="text-sm font-medium">Mobile Money</span>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} 
+                                                className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition-all active:scale-[0.98] ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}
+                                            >
+                                                <Smartphone className={`w-5 h-5 sm:w-6 sm:h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                                                <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
                                             </button>
-                                            <button type="button" onClick={() => { setPaymentMethod('card'); setError(''); }} className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                                <span className="text-sm font-medium">Carte bancaire</span>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => { setPaymentMethod('card'); setError(''); }} 
+                                                className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition-all active:scale-[0.98] ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200 hover:border-gray-300'}`}
+                                            >
+                                                <CreditCard className={`w-5 h-5 sm:w-6 sm:h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                                                <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
                                             </button>
                                         </div>
                                     </div>
 
+                                    {/* Mobile Money */}
                                     {paymentMethod === 'mobile_money' && (
                                         <div className="space-y-4">
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                                                        <button key={provider} type="button" onClick={() => { setMobileProvider(provider); setError(''); }} className={`py-3 rounded-xl border-2 transition-all font-medium ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                        <button 
+                                                            key={provider} 
+                                                            type="button" 
+                                                            onClick={() => { setMobileProvider(provider); setError(''); }} 
+                                                            className={`py-2 sm:py-3 rounded-xl border-2 transition-all font-medium text-sm ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200 hover:border-gray-300'}`}
+                                                        >
                                                             {provider}
                                                         </button>
                                                     ))}
@@ -4138,44 +4324,148 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
-                                                <input type="tel" value={mobileMoneyNumber} onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} placeholder="97 00 00 00" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" />
+                                                <input 
+                                                    type="tel" 
+                                                    value={mobileMoneyNumber} 
+                                                    onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} 
+                                                    placeholder="97 00 00 00" 
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm" 
+                                                />
                                                 <p className="text-xs text-gray-400 mt-1">Vous recevrez une demande de paiement sur ce numéro</p>
                                             </div>
                                         </div>
                                     )}
 
+                                    {/* Carte bancaire */}
                                     {paymentMethod === 'card' && (
                                         <div className="space-y-4">
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label><input type="text" value={cardNumber} onChange={handleCardNumberChange} placeholder="1234 5678 9012 3456" maxLength={19} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" /></div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div><label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label><input type="text" value={cardExpiry} onChange={handleExpiryChange} placeholder="MM/AA" maxLength={5} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" /></div>
-                                                <div><label className="block text-sm font-medium text-gray-700 mb-2">CVV</label><div className="relative"><input type={showCvv ? 'text' : 'password'} value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} placeholder="123" maxLength={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent pr-10" /><button type="button" onClick={() => setShowCvv(!showCvv)} className="absolute right-3 top-1/2 -translate-y-1/2">{showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}</button></div></div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={cardNumber} 
+                                                    onChange={handleCardNumberChange} 
+                                                    placeholder="1234 5678 9012 3456" 
+                                                    maxLength={19} 
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm" 
+                                                />
                                             </div>
-                                            <div><label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label><input type="text" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} placeholder="JEAN DUPONT" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent uppercase" /></div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
+                                                    <input 
+                                                        type="text" 
+                                                        value={cardExpiry} 
+                                                        onChange={handleExpiryChange} 
+                                                        placeholder="MM/AA" 
+                                                        maxLength={5} 
+                                                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm" 
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                                                    <div className="relative">
+                                                        <input 
+                                                            type={showCvv ? 'text' : 'password'} 
+                                                            value={cardCvv} 
+                                                            onChange={(e) => setCardCvv(e.target.value)} 
+                                                            placeholder="123" 
+                                                            maxLength={4} 
+                                                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm pr-10" 
+                                                        />
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => setShowCvv(!showCvv)} 
+                                                            className="absolute right-3 top-1/2 -translate-y-1/2"
+                                                        >
+                                                            {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={cardName} 
+                                                    onChange={(e) => setCardName(e.target.value.toUpperCase())} 
+                                                    placeholder="JEAN DUPONT" 
+                                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm uppercase" 
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
-                                    {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2"><AlertCircle className="w-5 h-5 text-red-500" /><p className="text-sm text-red-600">{error}</p></div>}
+                                    {error && (
+                                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                                            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                                            <p className="text-sm text-red-600">{error}</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
+                            {/* Écran de traitement */}
                             {paymentStep === 'processing' && (
-                                <div className="text-center py-8"><div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div><p className="text-gray-600">Traitement du paiement en cours...</p><p className="text-sm text-gray-400 mt-2">Veuillez ne pas fermer cette fenêtre</p></div>
+                                <div className="text-center py-8">
+                                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Traitement du paiement en cours...</p>
+                                    <p className="text-sm text-gray-400 mt-2">Veuillez ne pas fermer cette fenêtre</p>
+                                </div>
                             )}
+
+                            {/* Écran de succès */}
                             {paymentStep === 'success' && (
-                                <div className="text-center py-8"><div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle className="w-8 h-8 text-green-500" /></div><h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4><p className="text-gray-500">Votre réservation est en cours de confirmation</p><p className="text-sm text-gray-400 mt-4">Redirection en cours...</p></div>
+                                <div className="text-center py-8">
+                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <CheckCircle className="w-8 h-8 text-green-500" />
+                                    </div>
+                                    <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
+                                    <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
+                                    <p className="text-sm text-gray-400 mt-4">Redirection en cours...</p>
+                                </div>
                             )}
+
+                            {/* Écran d'erreur */}
                             {paymentStep === 'error' && (
-                                <div className="text-center py-8"><div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle className="w-8 h-8 text-red-500" /></div><h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4><p className="text-gray-500 mb-4">{error || 'Une erreur est survenue. Veuillez réessayer.'}</p><button type="button" onClick={() => { setPaymentStep('form'); setError(''); setIsProcessing(false); }} className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl">Réessayer</button></div>
+                                <div className="text-center py-8">
+                                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <AlertCircle className="w-8 h-8 text-red-500" />
+                                    </div>
+                                    <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
+                                    <p className="text-gray-500 mb-4">{error || 'Une erreur est survenue. Veuillez réessayer.'}</p>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => { setPaymentStep('form'); setError(''); setIsProcessing(false); }} 
+                                        className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
+                                    >
+                                        Réessayer
+                                    </button>
+                                </div>
                             )}
                         </div>
 
+                        {/* Footer modal - bouton de paiement */}
                         {paymentStep === 'form' && (
                             <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
-                                <button type="button" onClick={handlePaymentSubmit} disabled={isProcessing} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50">
+                                <button 
+                                    type="button" 
+                                    onClick={handlePaymentSubmit} 
+                                    disabled={isProcessing} 
+                                    className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98]"
+                                >
                                     {isProcessing ? 'Traitement...' : `Payer ${paymentAmount.toLocaleString()} FCFA`}
                                 </button>
-                                <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3"><div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div><div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Données chiffrées</span></div></div>
+                                <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3">
+                                    <div className="flex items-center gap-1">
+                                        <Lock className="w-3 h-3" />
+                                        <span>Paiement sécurisé</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Shield className="w-3 h-3" />
+                                        <span>Données chiffrées</span>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -5978,289 +6268,510 @@ export function AccountPage({ onNavigate }: PageProps) {
 
 // ==================== ACCOUNT RESERVATIONS PAGE ====================
 
+
+
 interface PageProps {
-    onNavigate?: (route: { name: string; id?: string }) => void;
+  onNavigate?: (route: any) => void;
 }
 
 export function AccountReservationsPage({ onNavigate }: PageProps) {
-    const { data, isLoading, error, refetch } = useQuery({
-        queryKey: ['account-reservations'],
-        queryFn: () => bookingService.getMyBookings(),
+  const queryClient = useQueryClient();
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['account-reservations'],
+    queryFn: () => bookingService.getMyBookings(),
+  });
+
+  // Mutation pour annuler une réservation
+  const cancelMutation = useMutation({
+    mutationFn: async ({ bookingId, reason }: { bookingId: number; reason?: string }) => {
+      return await bookingService.cancel(bookingId, reason);
+    },
+    onSuccess: () => {
+      toast.success('Réservation annulée avec succès');
+      queryClient.invalidateQueries({ queryKey: ['account-reservations'] });
+      setShowCancelModal(false);
+      setSelectedBooking(null);
+      setCancellationReason('');
+    },
+    onError: (error: any) => {
+      console.error('Erreur annulation:', error);
+      const errorMessage = error?.message || 'Impossible d\'annuler la réservation';
+      toast.error(errorMessage);
+    },
+    onSettled: () => {
+      setIsCancelling(false);
+    },
+  });
+
+  // Rafraîchir toutes les 30 secondes
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  // Vérifier si une réservation peut être annulée
+  const canCancel = (booking: any): boolean => {
+    if (booking.status === 'cancelled') return false;
+    if (booking.status === 'completed') return false;
+    
+    const checkInDate = new Date(booking.dates?.check_in);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (checkInDate < today) return false;
+    
+    return booking.status === 'pending' || booking.status === 'confirmed';
+  };
+
+  // Calcul du remboursement
+  const getRefundInfo = (booking: any): { percentage: number; amount: number; message: string } => {
+    const checkInDate = new Date(booking.dates?.check_in);
+    const today = new Date();
+    const daysBeforeArrival = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const totalAmount = parseFloat(booking.price_details?.total) || 0;
+    
+    let refundPercentage = 0;
+    let message = '';
+    
+    if (daysBeforeArrival >= 7) {
+      refundPercentage = 100;
+      message = 'Remboursement intégral (100%)';
+    } else if (daysBeforeArrival >= 1) {
+      refundPercentage = 50;
+      message = 'Remboursement partiel (50%)';
+    } else {
+      refundPercentage = 0;
+      message = 'Aucun remboursement';
+    }
+    
+    const refundAmount = (totalAmount * refundPercentage) / 100;
+    
+    return {
+      percentage: refundPercentage,
+      amount: refundAmount,
+      message
+    };
+  };
+
+  const handleCancelClick = (booking: any) => {
+    setSelectedBooking(booking);
+    setShowCancelModal(true);
+    setCancellationReason('');
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!selectedBooking) return;
+    setIsCancelling(true);
+    await cancelMutation.mutateAsync({
+      bookingId: selectedBooking.id,
+      reason: cancellationReason || undefined
     });
+  };
 
-    // Rafraîchir toutes les 30 secondes pour voir les changements de statut
-    React.useEffect(() => {
-        const interval = setInterval(() => {
-            refetch();
-        }, 30000);
-        return () => clearInterval(interval);
-    }, [refetch]);
-
-    if (isLoading) {
-        return (
-            <div className="bg-white min-h-screen py-10">
-                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="text-center py-20">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
-                        <p className="mt-4 text-gray-500">Chargement de vos réservations...</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="bg-white min-h-screen py-10">
-                <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
-                        <div className="text-4xl mb-4">❌</div>
-                        <h3 className="text-lg font-semibold text-red-700 mb-2">Erreur de chargement</h3>
-                        <p className="text-red-600">Impossible de charger vos réservations.</p>
-                        <button
-                            onClick={() => refetch()}
-                            className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-                        >
-                            Réessayer
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // ✅ Utiliser la structure correcte des données
-    const bookings = data?.data?.data || [];
-    const stats = data?.stats || {};
-
-    // ✅ Fonctions pour le statut
-    const getStatusLabel = (status: string) => {
-        const statusMap: Record<string, string> = {
-            'pending': 'En attente',
-            'confirmed': 'Confirmée',
-            'cancelled': 'Annulée',
-            'completed': 'Terminée',
-        };
-        return statusMap[status] || status;
-    };
-
-    const getStatusColor = (status: string) => {
-        const colorMap: Record<string, string> = {
-            'pending': 'bg-yellow-100 text-yellow-800',
-            'confirmed': 'bg-green-100 text-green-800',
-            'cancelled': 'bg-red-100 text-red-800',
-            'completed': 'bg-blue-100 text-blue-800',
-        };
-        return colorMap[status] || 'bg-gray-100 text-gray-800';
-    };
-
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case 'confirmed':
-                return <CheckCircle className="w-5 h-5 text-green-600" />;
-            case 'pending':
-                return <Clock className="w-5 h-5 text-yellow-600" />;
-            case 'cancelled':
-                return <XCircle className="w-5 h-5 text-red-600" />;
-            case 'completed':
-                return <Star className="w-5 h-5 text-blue-600" />;
-            default:
-                return null;
-        }
-    };
-
+  if (isLoading) {
     return (
-        <div className="bg-white min-h-screen py-10">
-            <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-                <PageSection title="Mes réservations" subtitle="Suivez vos voyages passés et futurs.">
-                    
-                    {/* En-tête avec bouton rafraîchir */}
-                    <div className="flex justify-end mb-4">
-                        <button
-                            onClick={() => refetch()}
-                            className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#00c9a7] transition"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            Rafraîchir
-                        </button>
+      <div className="bg-white min-h-screen py-10">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => onNavigate?.({ name: 'profile' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold text-[#0F2940]">Mes réservations</h1>
+          </div>
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+            <p className="mt-4 text-gray-500">Chargement de vos réservations...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white min-h-screen py-10">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => onNavigate?.({ name: 'profile' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold text-[#0F2940]">Mes réservations</h1>
+          </div>
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+            <div className="text-4xl mb-4">❌</div>
+            <h3 className="text-lg font-semibold text-red-700 mb-2">Erreur de chargement</h3>
+            <p className="text-red-600">Impossible de charger vos réservations.</p>
+            <button onClick={() => refetch()} className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+              Réessayer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const bookings = data?.data?.data || [];
+  const stats = data?.stats || {};
+
+  const getStatusLabel = (status: string) => {
+    const statusMap: Record<string, string> = {
+      'pending': 'En attente',
+      'confirmed': 'Confirmée',
+      'cancelled': 'Annulée',
+      'completed': 'Terminée',
+    };
+    return statusMap[status] || status;
+  };
+
+  const getStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'confirmed': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'completed': 'bg-blue-100 text-blue-800',
+    };
+    return colorMap[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'confirmed': return <CheckCircle className="w-5 h-5 text-green-600" />;
+      case 'pending': return <Clock className="w-5 h-5 text-yellow-600" />;
+      case 'cancelled': return <XCircle className="w-5 h-5 text-red-600" />;
+      case 'completed': return <Star className="w-5 h-5 text-blue-600" />;
+      default: return null;
+    }
+  };
+
+  return (
+    <div className="bg-white min-h-screen pb-24 md:pb-10">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* En-tête avec bouton retour */}
+        <div className="flex items-center justify-between gap-4 pt-4 pb-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => onNavigate?.({ name: 'profile' })}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#0F2940]">Mes réservations</h1>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#00c9a7] transition"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Rafraîchir</span>
+          </button>
+        </div>
+
+        {/* Statistiques */}
+        {stats.total > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]">
+              <div className="text-xl font-bold text-[#0f2940]">{stats.total || 0}</div>
+              <div className="text-xs text-gray-500">Total</div>
+            </div>
+            <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
+              <div className="text-xl font-bold text-green-600">{stats.confirmed || 0}</div>
+              <div className="text-xs text-green-600">Confirmées</div>
+            </div>
+            <div className="bg-yellow-50 rounded-xl p-3 text-center border border-yellow-200">
+              <div className="text-xl font-bold text-yellow-600">{stats.pending || 0}</div>
+              <div className="text-xs text-yellow-600">En attente</div>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
+              <div className="text-xl font-bold text-blue-600">{stats.completed || 0}</div>
+              <div className="text-xs text-blue-600">Terminées</div>
+            </div>
+          </div>
+        )}
+
+        {/* Liste des réservations */}
+        {bookings.length === 0 ? (
+          <div className="rounded-3xl border border-[#e2f5f2] p-12 bg-[#f4fffe] text-center">
+            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-[#0f2940] mb-2">Aucune réservation</h3>
+            <p className="text-gray-500 mb-6">Vous n'avez pas encore effectué de réservation.</p>
+            <button
+              onClick={() => onNavigate?.({ name: 'home' })}
+              className="bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
+            >
+              Découvrir des logements
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4 pb-4">
+            {bookings.map((booking: any) => {
+              const refundInfo = getRefundInfo(booking);
+              const cancellable = canCancel(booking);
+              
+              return (
+                <div key={booking.id} className="rounded-2xl sm:rounded-3xl border border-[#e2f5f2] overflow-hidden bg-white hover:shadow-lg transition">
+                  {/* En-tête avec statut */}
+                  <div className={`p-3 sm:p-4 border-b ${booking.status === 'confirmed' ? 'bg-green-50' : booking.status === 'pending' ? 'bg-yellow-50' : booking.status === 'cancelled' ? 'bg-red-50' : 'bg-gray-50'}`}>
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(booking.status)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                          {getStatusLabel(booking.status)}
+                        </span>
+                        <span className="text-xs text-gray-500 font-mono hidden sm:inline">
+                          Réf: {booking.reference}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {booking.created_at}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-500 font-mono sm:hidden mt-1">
+                      Réf: {booking.reference}
+                    </div>
+                  </div>
+
+                  {/* Contenu principal */}
+                  <div className="p-3 sm:p-4">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      {/* Image */}
+                      {booking.property?.photo ? (
+                        <img 
+                          src={booking.property.photo} 
+                          alt={booking.property.title}
+                          className="w-full sm:w-24 h-24 rounded-xl object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full sm:w-24 h-24 rounded-xl bg-gray-200 flex items-center justify-center">
+                          <Home className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                      
+                      <div className="flex-1">
+                        <h3 className="text-lg sm:text-xl font-semibold text-[#0f2940]">
+                          {booking.property?.title || 'Propriété'}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {booking.property?.district}, {booking.property?.city}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-3 sm:gap-4 mt-2 text-xs sm:text-sm">
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>{booking.dates?.check_in} → {booking.dates?.check_out}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>{booking.guests_count} voyageur(s)</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-gray-600">
+                            <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span className="font-medium text-[#00c9a7]">
+                              {booking.price_details?.total} FCFA
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Statistiques */}
-                    {(stats.total > 0) && (
-                        <div className="grid gap-3 sm:grid-cols-4 mb-6">
-                            <div className="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]">
-                                <div className="text-xl font-bold text-[#0f2940]">{stats.total || 0}</div>
-                                <div className="text-xs text-gray-500">Total</div>
-                            </div>
-                            <div className="bg-green-50 rounded-xl p-3 text-center border border-green-200">
-                                <div className="text-xl font-bold text-green-600">{stats.confirmed || 0}</div>
-                                <div className="text-xs text-green-600">Confirmées</div>
-                            </div>
-                            <div className="bg-yellow-50 rounded-xl p-3 text-center border border-yellow-200">
-                                <div className="text-xl font-bold text-yellow-600">{stats.pending || 0}</div>
-                                <div className="text-xs text-yellow-600">En attente</div>
-                            </div>
-                            <div className="bg-blue-50 rounded-xl p-3 text-center border border-blue-200">
-                                <div className="text-xl font-bold text-blue-600">{stats.completed || 0}</div>
-                                <div className="text-xs text-blue-600">Terminées</div>
-                            </div>
+                    {/* Hôte */}
+                    <div className="mt-3 pt-3 border-t flex flex-wrap justify-between items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-xs">👤</span>
                         </div>
+                        <span className="text-xs sm:text-sm text-gray-600">
+                          Hôte: {booking.host?.name || 'Non renseigné'}
+                        </span>
+                      </div>
+                      
+                      <button
+                        onClick={() => onNavigate?.({ name: 'messages', id: booking.id.toString() })}
+                        className="text-xs sm:text-sm text-[#00c9a7] hover:underline flex items-center gap-1"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        Contacter l'hôte
+                      </button>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => onNavigate?.({ name: 'listing', id: booking.property?.id?.toString() })}
+                        className="flex-1 border border-[#00c9a7] text-[#00c9a7] py-2 rounded-xl text-xs sm:text-sm hover:bg-[#00c9a7] hover:text-white transition"
+                      >
+                        Voir l'annonce
+                      </button>
+                      
+                      {cancellable && (
+                        <button
+                          onClick={() => handleCancelClick(booking)}
+                          className="flex-1 bg-red-500 text-white py-2 rounded-xl text-xs sm:text-sm hover:bg-red-600 transition flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          Annuler
+                        </button>
+                      )}
+                      
+                      {booking.status === 'pending' && !cancellable && (
+                        <div className="flex-1 text-center text-xs sm:text-sm text-gray-500 py-2 bg-gray-100 rounded-xl">
+                          En attente de confirmation
+                        </div>
+                      )}
+                      
+                      {booking.status === 'completed' && !booking.has_review && (
+                        <button
+                          onClick={() => onNavigate?.({ name: 'reviews', id: booking.property?.id?.toString() })}
+                          className="flex-1 bg-yellow-500 text-white py-2 rounded-xl text-xs sm:text-sm hover:bg-yellow-600 transition"
+                        >
+                          Laisser un avis
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Message d'information sur le remboursement */}
+                    {cancellable && booking.status !== 'cancelled' && refundInfo.percentage > 0 && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-start gap-2">
+                          <Info className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <div className="text-xs text-blue-700">
+                            {refundInfo.message} - <strong>{refundInfo.amount.toLocaleString()} FCFA</strong>
+                          </div>
+                        </div>
+                      </div>
                     )}
 
-                    {bookings.length === 0 ? (
-                        <div className="rounded-3xl border border-[#e2f5f2] p-12 bg-[#f4fffe] text-center">
-                            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-[#0f2940] mb-2">
-                                Aucune réservation
-                            </h3>
-                            <p className="text-gray-500 mb-6">
-                                Vous n'avez pas encore effectué de réservation.
-                            </p>
-                            <button
-                                onClick={() => onNavigate?.({ name: 'home' })}
-                                className="bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
-                            >
-                                Découvrir des logements
-                            </button>
+                    {/* Message pour les réservations annulées */}
+                    {booking.status === 'cancelled' && booking.cancellation_reason && (
+                      <div className="mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+                          <div className="text-xs text-red-700">
+                            {booking.cancellation_reason}
+                          </div>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {bookings.map((booking: any) => (
-                                <div key={booking.id} className="rounded-3xl border border-[#e2f5f2] overflow-hidden bg-[#f4fffe] hover:shadow-lg transition">
-                                    {/* En-tête avec statut */}
-                                    <div className={`p-4 border-b ${booking.status === 'confirmed' ? 'bg-green-50' : booking.status === 'pending' ? 'bg-yellow-50' : 'bg-gray-50'}`}>
-                                        <div className="flex flex-wrap justify-between items-center gap-2">
-                                            <div className="flex items-center gap-2">
-                                                {getStatusIcon(booking.status)}
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                                                    {getStatusLabel(booking.status)}
-                                                </span>
-                                                <span className="text-xs text-gray-500 font-mono">
-                                                    Réf: {booking.reference}
-                                                </span>
-                                            </div>
-                                            <span className="text-xs text-gray-400">
-                                                Réservé le {booking.created_at}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Contenu principal */}
-                                    <div className="p-4">
-                                        <div className="flex flex-col sm:flex-row gap-4">
-                                            {/* Image */}
-                                            {booking.property?.photo ? (
-                                                <img 
-                                                    src={booking.property.photo} 
-                                                    alt={booking.property.title}
-                                                    className="w-full sm:w-28 h-28 rounded-xl object-cover"
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).style.display = 'none';
-                                                    }}
-                                                />
-                                            ) : (
-                                                <div className="w-full sm:w-28 h-28 rounded-xl bg-gray-200 flex items-center justify-center">
-                                                    <Home className="w-8 h-8 text-gray-400" />
-                                                </div>
-                                            )}
-                                            
-                                            <div className="flex-1">
-                                                <h3 className="text-xl font-semibold text-[#0f2940]">
-                                                    {booking.property?.title || 'Propriété'}
-                                                </h3>
-                                                <p className="text-sm text-gray-500 mt-1">
-                                                    {booking.property?.district}, {booking.property?.city}
-                                                </p>
-                                                
-                                                <div className="flex flex-wrap gap-4 mt-3 text-sm">
-                                                    <div className="flex items-center gap-1 text-gray-600">
-                                                        <Calendar className="w-4 h-4" />
-                                                        <span>{booking.dates?.check_in} → {booking.dates?.check_out}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-gray-600">
-                                                        <Users className="w-4 h-4" />
-                                                        <span>{booking.guests_count} voyageur(s)</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-gray-600">
-                                                        <CreditCard className="w-4 h-4" />
-                                                        <span className="font-medium text-[#00c9a7]">
-                                                            {booking.price_details?.total} FCFA
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Hôte */}
-                                        <div className="mt-4 pt-3 border-t flex flex-wrap justify-between items-center gap-3">
-                                            <div className="flex items-center gap-2">
-                                                {booking.host?.photo ? (
-                                                    <img 
-                                                        src={booking.host.photo} 
-                                                        alt={booking.host.name}
-                                                        className="w-6 h-6 rounded-full"
-                                                    />
-                                                ) : (
-                                                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                                                        <span className="text-xs">👤</span>
-                                                    </div>
-                                                )}
-                                                <span className="text-sm text-gray-600">
-                                                    Hôte: {booking.host?.name || 'Non renseigné'}
-                                                </span>
-                                            </div>
-                                            
-                                            <button
-                                                onClick={() => onNavigate?.({ name: 'messages', id: booking.id.toString() })}
-                                                className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1"
-                                            >
-                                                <MessageCircle className="w-4 h-4" />
-                                                Contacter l'hôte
-                                            </button>
-                                        </div>
-
-                                        {/* Actions selon le statut */}
-                                        <div className="mt-4 flex flex-wrap gap-3">
-                                            <button
-                                                onClick={() => onNavigate?.({ name: 'listing', id: booking.property?.id?.toString() })}
-                                                className="flex-1 border border-[#00c9a7] text-[#00c9a7] py-2 rounded-xl text-sm hover:bg-[#00c9a7] hover:text-white transition"
-                                            >
-                                                Voir l'annonce
-                                            </button>
-                                            
-                                            {booking.status === 'confirmed' && (
-                                                                                <button
-    onClick={() => onNavigate?.({ name: 'messages', id: booking.id.toString() })}
-    className="flex-1 bg-[#00c9a7] text-white py-2 rounded-xl text-sm hover:bg-[#00b396] transition"
->
-    Contacter l'hôte
-</button>
-                                            )}
-                                            
-                                            {booking.status === 'pending' && (
-                                                <div className="flex-1 text-center text-sm text-gray-500 py-2 bg-gray-100 rounded-xl">
-                                                    En attente de confirmation par l'hôte
-                                                </div>
-                                            )}
-                                            
-                                            {booking.status === 'completed' && !booking.has_review && (
-                                                <button
-                                                    onClick={() => onNavigate?.({ name: 'reviews', id: booking.property?.id?.toString() })}
-                                                    className="flex-1 bg-yellow-500 text-white py-2 rounded-xl text-sm hover:bg-yellow-600 transition"
-                                                >
-                                                    Laisser un avis
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                      </div>
                     )}
-                </PageSection>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de confirmation d'annulation - z-index élevé pour être au-dessus de tout */}
+      {showCancelModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full mx-auto overflow-hidden shadow-2xl my-auto">
+            {/* En-tête */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 px-4 sm:px-6 py-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                <h2 className="text-lg sm:text-xl font-bold text-white">Annuler la réservation</h2>
+              </div>
             </div>
+            
+            {/* Contenu */}
+            <div className="p-4 sm:p-6 max-h-[60vh] overflow-y-auto">
+              <p className="text-gray-700 mb-4 text-sm sm:text-base">
+                Êtes-vous sûr de vouloir annuler cette réservation ?
+              </p>
+              
+              {/* Informations de la réservation */}
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4 text-sm">
+                <p className="font-semibold text-[#0F2940]">{selectedBooking.property?.title}</p>
+                <p className="text-gray-500 text-xs mt-1">
+                  📅 {selectedBooking.dates?.check_in} → {selectedBooking.dates?.check_out}
+                </p>
+                <p className="text-gray-500 text-xs">
+                  👥 {selectedBooking.guests_count} voyageur(s)
+                </p>
+                <p className="text-[#00c9a7] font-semibold text-sm mt-2">
+                  Montant: {selectedBooking.price_details?.total} FCFA
+                </p>
+              </div>
+              
+              {/* Information remboursement */}
+              <div className="bg-blue-50 rounded-xl p-3 mb-4 border border-blue-200">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-blue-700">
+                    {(() => {
+                      const refund = getRefundInfo(selectedBooking);
+                      if (refund.percentage === 100) {
+                        return `✓ Remboursement intégral de ${refund.amount.toLocaleString()} FCFA (100%)`;
+                      } else if (refund.percentage === 50) {
+                        return `⚠️ Remboursement partiel de ${refund.amount.toLocaleString()} FCFA (50%)`;
+                      } else {
+                        return `❌ Aucun remboursement`;
+                      }
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Raison de l'annulation */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Raison de l'annulation (optionnelle)
+                </label>
+                <textarea
+                  value={cancellationReason}
+                  onChange={(e) => setCancellationReason(e.target.value)}
+                  placeholder="Dites-nous pourquoi vous annulez..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                />
+              </div>
+            </div>
+            
+            {/* Boutons d'action - fixés en bas sur mobile */}
+            <div className="p-4 border-t bg-gray-50">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setSelectedBooking(null);
+                    setCancellationReason('');
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl text-sm sm:text-base font-medium hover:bg-gray-100 transition"
+                >
+                  Retour
+                </button>
+                <button
+                  onClick={handleConfirmCancel}
+                  disabled={isCancelling}
+                  className="flex-1 px-4 py-2.5 bg-red-500 text-white rounded-xl text-sm sm:text-base font-medium hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isCancelling ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Annulation...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Confirmer
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 }
 
 // ==================== HOST DASHBOARD PAGE ====================
@@ -13509,8 +14020,6 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
-
-
 interface Route {
   name: string;
   id?: string;
@@ -13518,7 +14027,7 @@ interface Route {
 }
 
 export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
-  const { login, register, loginWithOTP, verifyOTP } = useAuth();
+  const { login, register } = useAuth();
   const location = useLocation();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -13534,14 +14043,12 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
+  const [resetSent, setResetSent] = useState(false); // Pour le mode forgot
 
-  // Récupérer le paramètre de redirection depuis l'URL
   const searchParams = new URLSearchParams(location.search);
   const redirectTo = searchParams.get('redirect') || 'profile';
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
@@ -13567,24 +14074,22 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
+  const validateForgot = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    return newErrors;
+  };
+
   const handleSuccessfulAuth = (userData: any) => {
     console.log('✅ Authentification réussie');
-    console.log('🔍 Vérification des localStorage:', {
-      redirect_intent: localStorage.getItem('redirect_intent'),
-      redirect_property_id: localStorage.getItem('redirect_property_id'),
-      chatIntent: localStorage.getItem('chatIntent')
-    });
     
-    // PRIORITÉ 1: Vérifier l'intention de CHAT
     const chatIntent = localStorage.getItem('redirect_intent');
     const propertyId = localStorage.getItem('redirect_property_id');
     const savedChatParams = localStorage.getItem('pendingChatParams');
     
     if (chatIntent === 'chat' && propertyId) {
-      console.log('💬 Intention de chat détectée, redirection vers la messagerie');
-      
-      let params = savedChatParams || `property=${propertyId}`;
-      
+      const params = savedChatParams || `property=${propertyId}`;
       localStorage.removeItem('redirect_intent');
       localStorage.removeItem('redirect_property_id');
       localStorage.removeItem('redirect_property_title');
@@ -13595,26 +14100,18 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
       localStorage.removeItem('chatIntent');
       
       if (onNavigate) {
-        onNavigate({ 
-          name: 'messages', 
-          id: 'inquiry',
-          search: params
-        });
+        onNavigate({ name: 'messages', id: 'inquiry', search: params });
       } else {
         window.location.href = `/messages/inquiry?${params}`;
       }
       return;
     }
     
-    // PRIORITÉ 2: Vérifier l'intention de BOOKING (réservation)
     const bookingIntent = localStorage.getItem('redirect_intent');
     const bookingPropertyId = localStorage.getItem('redirect_property_id');
     
     if (bookingIntent === 'booking' && bookingPropertyId) {
-      console.log('🏠 Intention de réservation détectée, redirection vers le logement:', bookingPropertyId);
-      
       localStorage.removeItem('redirect_intent');
-      
       if (onNavigate) {
         onNavigate({ name: 'listing', id: bookingPropertyId });
       } else {
@@ -13623,39 +14120,50 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
       return;
     }
     
-    // PRIORITÉ 3: Vérifier l'intention de chat depuis l'URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const redirectIntent = urlParams.get('redirect');
-    const propertyIdFromUrl = urlParams.get('property');
-    
-    if (redirectIntent === 'chat' && propertyIdFromUrl) {
-      console.log('💬 Intention de chat depuis URL, redirection vers la messagerie');
-      
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'messages', 
-          id: 'inquiry',
-          search: `property=${propertyIdFromUrl}`
-        });
-      } else {
-        window.location.href = `/messages/inquiry?property=${propertyIdFromUrl}`;
-      }
-      return;
-    }
-    
-    // Redirection par défaut selon le type d'utilisateur
-    console.log('➡️ Redirection par défaut');
     if (onAuthSuccess) {
       onAuthSuccess(userData);
+    } else if (onNavigate) {
+      onNavigate({ name: 'profile' });
     } else {
-      const userType = userData?.user_type;
-      if (userType === 'hote') {
-        onNavigate?.({ name: 'host-dashboard' });
-      } else if (userType === 'admin') {
-        onNavigate?.({ name: 'admin-dashboard' });
-      } else {
-        onNavigate?.({ name: 'profile' });
+      window.location.href = '/profile';
+    }
+  };
+
+  // ✅ Fonction pour réinitialiser le mot de passe (envoi d'email)
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationErrors = validateForgot();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    setErrors({});
+    
+    try {
+      // Essayer différents endpoints possibles
+      let response;
+      try {
+        // Option 1: Endpoint standard
+        response = await publicApi.post('/traveler/forgot-password', { email: formData.email });
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          // Option 2: Autre endpoint possible
+          response = await publicApi.post('/password/email', { email: formData.email });
+        } else {
+          throw err;
+        }
       }
+      
+      setResetSent(true);
+      setSuccessMessage(`Un email de réinitialisation a été envoyé à ${formData.email}`);
+      toast.success('Email envoyé ! Vérifiez votre boîte de réception');
+    } catch (err: any) {
+      console.error('Erreur forgot password:', err);
+      setErrors({ general: err.response?.data?.message || 'Impossible d\'envoyer l\'email. Vérifiez que l\'email existe.' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -13663,11 +14171,8 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     e.preventDefault();
     setErrors({});
     setSuccessMessage('');
-    let validationErrors = {};
-    if (mode === 'login') validationErrors = validateLogin();
-    else if (mode === 'signup') validationErrors = validateSignup();
-    else validationErrors = {};
-
+    
+    const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
@@ -13676,7 +14181,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     setLoading(true);
     try {
       if (mode === 'signup') {
-        // ✅ Suppression de selectedRole, toujours 'voyageur'
         const payload = {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -13684,23 +14188,15 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
           phone: formData.phone,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
-          user_type: 'voyageur', // Toujours voyageur
+          user_type: 'voyageur',
         };
         const response = await register(payload);
         setSuccessMessage('Inscription réussie ! Redirection...');
-        setTimeout(() => {
-          handleSuccessfulAuth(response?.user);
-        }, 1500);
+        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
       } else if (mode === 'login') {
         const response = await login(formData.email, formData.password);
         setSuccessMessage('Connexion réussie !');
-        setTimeout(() => {
-          handleSuccessfulAuth(response?.user);
-        }, 1500);
-      } else if (mode === 'forgot') {
-        await loginWithOTP(formData.phone || formData.email);
-        setOtpSent(true);
-        setSuccessMessage('Code OTP envoyé par SMS/WhatsApp');
+        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
       }
     } catch (err: any) {
       console.error('Erreur:', err);
@@ -13709,11 +14205,8 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
         const apiErrors = err.response.data.errors;
         const errorMessages: string[] = [];
         Object.values(apiErrors).forEach((msgs: any) => {
-          if (Array.isArray(msgs)) {
-            errorMessages.push(...msgs);
-          } else {
-            errorMessages.push(msgs);
-          }
+          if (Array.isArray(msgs)) errorMessages.push(...msgs);
+          else errorMessages.push(msgs);
         });
         setErrors({ general: errorMessages.join(', ') });
       } else if (err.response?.data?.message) {
@@ -13721,21 +14214,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
       } else {
         setErrors({ general: err.message || 'Erreur, veuillez réessayer' });
       }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    setLoading(true);
-    try {
-      const response = await verifyOTP(formData.phone || formData.email, otpCode);
-      setSuccessMessage('Authentification réussie');
-      setTimeout(() => {
-        handleSuccessfulAuth(response?.user);
-      }, 1500);
-    } catch (err: any) {
-      setErrors({ otp: err.response?.data?.message || 'Code invalide' });
     } finally {
       setLoading(false);
     }
@@ -13760,19 +14238,31 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div className="p-6 sm:p-8">
-              {mode === 'forgot' && otpSent ? (
+              {mode === 'forgot' && resetSent ? (
+                // Étape 2: Email envoyé avec succès
                 <div>
-                  <h2 className="text-xl font-semibold text-center mb-4">Vérification OTP</h2>
-                  <input
-                    type="text"
-                    placeholder="Code à 6 chiffres"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    className="w-full border rounded-xl p-3 mb-4"
-                  />
-                  {errors.otp && <p className="text-red-500 text-sm mb-2">{errors.otp}</p>}
-                  <button onClick={handleVerifyOTP} disabled={loading} className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-semibold">
-                    Vérifier
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#0F2940] mb-2">Email envoyé !</h2>
+                    <p className="text-sm text-gray-500">
+                      Un lien de réinitialisation a été envoyé à <strong>{formData.email}</strong>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Vérifiez vos spams si vous ne recevez rien dans les prochaines minutes.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      setMode('login');
+                      setResetSent(false);
+                      setSuccessMessage('');
+                    }}
+                    className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+                  >
+                    Retour à la connexion
                   </button>
                 </div>
               ) : (
@@ -13796,28 +14286,23 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     <h2 className="text-2xl font-bold text-[#0F2940]">
                       {mode === 'login' && 'Bienvenue !'}
                       {mode === 'signup' && 'Rejoignez Bluefin-Immo'}
-                      {mode === 'forgot' && 'Besoin d\'aide ?'}
+                      {mode === 'forgot' && 'Mot de passe oublié ?'}
                     </h2>
                     <p className="text-sm text-gray-500 mt-2">
                       {mode === 'login' && 'Connectez-vous à votre compte voyageur'}
                       {mode === 'signup' && 'Créez votre compte voyageur en quelques secondes'}
-                      {mode === 'forgot' && 'Entrez votre email pour recevoir un code'}
+                      {mode === 'forgot' && 'Entrez votre email pour réinitialiser votre mot de passe'}
                     </p>
                     
-                    {/* Affichage du contexte de redirection */}
                     {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
                       <div className="mt-3 p-2 bg-amber-50 rounded-lg">
-                        <p className="text-xs text-amber-700">
-                          🔄 Après connexion, vous serez redirigé pour finaliser votre réservation
-                        </p>
+                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé pour finaliser votre réservation</p>
                       </div>
                     )}
                     
                     {localStorage.getItem('redirect_intent') === 'chat' && (
                       <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                        <p className="text-xs text-blue-700">
-                          💬 Après connexion, vous pourrez discuter avec l'hôte
-                        </p>
+                        <p className="text-xs text-blue-700">💬 Après connexion, vous pourrez discuter avec l'hôte</p>
                       </div>
                     )}
                   </div>
@@ -13834,13 +14319,11 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     </div>
                   )}
 
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* ✅ Suppression de la section "Je suis :" pour l'inscription */}
-                    
+                  <form onSubmit={mode === 'forgot' ? handleForgotPassword : handleSubmit} className="space-y-4">
                     {mode === 'signup' && (
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Prénom</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
                           <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -13854,7 +14337,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                           {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Nom</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
                           <div className="relative">
                             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
@@ -13870,22 +14353,21 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                       </div>
                     )}
 
-                    {(mode === 'login' || mode === 'signup' || mode === 'forgot') && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
-                          />
-                        </div>
-                        {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          placeholder="votre@email.com"
+                          className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                        />
                       </div>
-                    )}
+                      {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                    </div>
 
                     {mode === 'signup' && (
                       <div>
@@ -13905,7 +14387,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
 
                     {mode !== 'forgot' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe *</label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
@@ -13925,7 +14407,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
 
                     {mode === 'signup' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer mot de passe</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer mot de passe *</label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
@@ -13954,7 +14436,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold disabled:opacity-50"
+                      className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold disabled:opacity-50 transition-all hover:shadow-lg"
                     >
                       {loading
                         ? 'Chargement...'
@@ -13962,19 +14444,32 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                         ? 'Se connecter'
                         : mode === 'signup'
                         ? 'Créer mon compte voyageur'
-                        : 'Envoyer le code'}
+                        : 'Envoyer le lien de réinitialisation'}
                     </button>
                   </form>
 
                   <div className="text-center mt-5">
                     {mode === 'login' && (
                       <p className="text-xs text-gray-500">
-                        Pas encore de compte voyageur ? <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium">S'inscrire</button>
+                        Pas encore de compte ?{' '}
+                        <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium hover:underline">
+                          S'inscrire
+                        </button>
                       </p>
                     )}
                     {mode === 'signup' && (
                       <p className="text-xs text-gray-500">
-                        Déjà un compte voyageur ? <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium">Se connecter</button>
+                        Déjà un compte ?{' '}
+                        <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium hover:underline">
+                          Se connecter
+                        </button>
+                      </p>
+                    )}
+                    {mode === 'forgot' && (
+                      <p className="text-xs text-gray-500">
+                        <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium hover:underline">
+                          ← Retour à la connexion
+                        </button>
                       </p>
                     )}
                   </div>
