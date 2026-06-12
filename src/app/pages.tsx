@@ -13510,13 +13510,19 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
 
+
+interface Route {
+  name: string;
+  id?: string;
+  search?: string;
+}
+
 export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
   const { login, register, loginWithOTP, verifyOTP } = useAuth();
   const location = useLocation();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'traveler' | 'visitor'>('traveler');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -13531,7 +13537,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
 
-  // ✅ Récupérer le paramètre de redirection depuis l'URL
+  // Récupérer le paramètre de redirection depuis l'URL
   const searchParams = new URLSearchParams(location.search);
   const redirectTo = searchParams.get('redirect') || 'profile';
 
@@ -13561,103 +13567,97 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
-  // Dans AuthPage.tsx - handleSuccessfulAuth
-
-const handleSuccessfulAuth = (userData: any) => {
-  console.log('✅ Authentification réussie');
-  console.log('🔍 Vérification des localStorage:', {
-    redirect_intent: localStorage.getItem('redirect_intent'),
-    redirect_property_id: localStorage.getItem('redirect_property_id'),
-    chatIntent: localStorage.getItem('chatIntent')
-  });
-  
-  // ✅ PRIORITÉ 1: Vérifier l'intention de CHAT
-  const chatIntent = localStorage.getItem('redirect_intent');
-  const propertyId = localStorage.getItem('redirect_property_id');
-  const savedChatParams = localStorage.getItem('pendingChatParams');
-  
-  if (chatIntent === 'chat' && propertyId) {
-    console.log('💬 Intention de chat détectée, redirection vers la messagerie');
+  const handleSuccessfulAuth = (userData: any) => {
+    console.log('✅ Authentification réussie');
+    console.log('🔍 Vérification des localStorage:', {
+      redirect_intent: localStorage.getItem('redirect_intent'),
+      redirect_property_id: localStorage.getItem('redirect_property_id'),
+      chatIntent: localStorage.getItem('chatIntent')
+    });
     
-    // Récupérer les paramètres sauvegardés
-    let params = savedChatParams || `property=${propertyId}`;
+    // PRIORITÉ 1: Vérifier l'intention de CHAT
+    const chatIntent = localStorage.getItem('redirect_intent');
+    const propertyId = localStorage.getItem('redirect_property_id');
+    const savedChatParams = localStorage.getItem('pendingChatParams');
     
-    // Nettoyer les données temporaires
-    localStorage.removeItem('redirect_intent');
-    localStorage.removeItem('redirect_property_id');
-    localStorage.removeItem('redirect_property_title');
-    localStorage.removeItem('redirect_property_location');
-    localStorage.removeItem('redirect_property_price');
-    localStorage.removeItem('redirect_property_image');
-    localStorage.removeItem('pendingChatParams');
-    localStorage.removeItem('chatIntent');
-    
-    // Rediriger vers la page de messagerie
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'messages', 
-        id: 'inquiry',
-        search: params
-      });
-    } else {
-      window.location.href = `/messages/inquiry?${params}`;
+    if (chatIntent === 'chat' && propertyId) {
+      console.log('💬 Intention de chat détectée, redirection vers la messagerie');
+      
+      let params = savedChatParams || `property=${propertyId}`;
+      
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('redirect_property_title');
+      localStorage.removeItem('redirect_property_location');
+      localStorage.removeItem('redirect_property_price');
+      localStorage.removeItem('redirect_property_image');
+      localStorage.removeItem('pendingChatParams');
+      localStorage.removeItem('chatIntent');
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'messages', 
+          id: 'inquiry',
+          search: params
+        });
+      } else {
+        window.location.href = `/messages/inquiry?${params}`;
+      }
+      return;
     }
-    return;
-  }
-  
-  // ✅ PRIORITÉ 2: Vérifier l'intention de BOOKING (réservation)
-  const bookingIntent = localStorage.getItem('redirect_intent');
-  const bookingPropertyId = localStorage.getItem('redirect_property_id');
-  
-  if (bookingIntent === 'booking' && bookingPropertyId) {
-    console.log('🏠 Intention de réservation détectée, redirection vers le logement:', bookingPropertyId);
     
-    // Ne pas nettoyer booking_intent et booking_context ici
-    localStorage.removeItem('redirect_intent');
+    // PRIORITÉ 2: Vérifier l'intention de BOOKING (réservation)
+    const bookingIntent = localStorage.getItem('redirect_intent');
+    const bookingPropertyId = localStorage.getItem('redirect_property_id');
     
-    if (onNavigate) {
-      onNavigate({ name: 'listing', id: bookingPropertyId });
-    } else {
-      window.location.href = `/annonce/${bookingPropertyId}`;
+    if (bookingIntent === 'booking' && bookingPropertyId) {
+      console.log('🏠 Intention de réservation détectée, redirection vers le logement:', bookingPropertyId);
+      
+      localStorage.removeItem('redirect_intent');
+      
+      if (onNavigate) {
+        onNavigate({ name: 'listing', id: bookingPropertyId });
+      } else {
+        window.location.href = `/annonce/${bookingPropertyId}`;
+      }
+      return;
     }
-    return;
-  }
-  
-  // ✅ PRIORITÉ 3: Vérifier l'intention de chat depuis l'URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const redirectIntent = urlParams.get('redirect');
-  const propertyIdFromUrl = urlParams.get('property');
-  
-  if (redirectIntent === 'chat' && propertyIdFromUrl) {
-    console.log('💬 Intention de chat depuis URL, redirection vers la messagerie');
     
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'messages', 
-        id: 'inquiry',
-        search: `property=${propertyIdFromUrl}`
-      });
-    } else {
-      window.location.href = `/messages/inquiry?property=${propertyIdFromUrl}`;
+    // PRIORITÉ 3: Vérifier l'intention de chat depuis l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectIntent = urlParams.get('redirect');
+    const propertyIdFromUrl = urlParams.get('property');
+    
+    if (redirectIntent === 'chat' && propertyIdFromUrl) {
+      console.log('💬 Intention de chat depuis URL, redirection vers la messagerie');
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'messages', 
+          id: 'inquiry',
+          search: `property=${propertyIdFromUrl}`
+        });
+      } else {
+        window.location.href = `/messages/inquiry?property=${propertyIdFromUrl}`;
+      }
+      return;
     }
-    return;
-  }
-  
-  // ✅ Redirection par défaut selon le type d'utilisateur
-  console.log('➡️ Redirection par défaut');
-  if (onAuthSuccess) {
-    onAuthSuccess(userData);
-  } else {
-    const userType = userData?.user_type;
-    if (userType === 'hote') {
-      onNavigate?.({ name: 'host-dashboard' });
-    } else if (userType === 'admin') {
-      onNavigate?.({ name: 'admin-dashboard' });
+    
+    // Redirection par défaut selon le type d'utilisateur
+    console.log('➡️ Redirection par défaut');
+    if (onAuthSuccess) {
+      onAuthSuccess(userData);
     } else {
-      onNavigate?.({ name: 'profile' });
+      const userType = userData?.user_type;
+      if (userType === 'hote') {
+        onNavigate?.({ name: 'host-dashboard' });
+      } else if (userType === 'admin') {
+        onNavigate?.({ name: 'admin-dashboard' });
+      } else {
+        onNavigate?.({ name: 'profile' });
+      }
     }
-  }
-};
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -13676,6 +13676,7 @@ const handleSuccessfulAuth = (userData: any) => {
     setLoading(true);
     try {
       if (mode === 'signup') {
+        // ✅ Suppression de selectedRole, toujours 'voyageur'
         const payload = {
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -13683,7 +13684,7 @@ const handleSuccessfulAuth = (userData: any) => {
           phone: formData.phone,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
-          user_type: 'voyageur',
+          user_type: 'voyageur', // Toujours voyageur
         };
         const response = await register(payload);
         setSuccessMessage('Inscription réussie ! Redirection...');
@@ -13739,11 +13740,6 @@ const handleSuccessfulAuth = (userData: any) => {
       setLoading(false);
     }
   };
-
-  const roles = [
-    { id: 'traveler' as const, name: 'Voyageur', icon: Compass },
-    { id: 'visitor' as const, name: 'Visiteur', icon: Briefcase },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
@@ -13803,12 +13799,12 @@ const handleSuccessfulAuth = (userData: any) => {
                       {mode === 'forgot' && 'Besoin d\'aide ?'}
                     </h2>
                     <p className="text-sm text-gray-500 mt-2">
-                      {mode === 'login' && 'Connectez-vous à votre compte'}
-                      {mode === 'signup' && 'Créez votre compte en quelques secondes'}
+                      {mode === 'login' && 'Connectez-vous à votre compte voyageur'}
+                      {mode === 'signup' && 'Créez votre compte voyageur en quelques secondes'}
                       {mode === 'forgot' && 'Entrez votre email pour recevoir un code'}
                     </p>
                     
-                    {/* ✅ Affichage du contexte de redirection */}
+                    {/* Affichage du contexte de redirection */}
                     {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
                       <div className="mt-3 p-2 bg-amber-50 rounded-lg">
                         <p className="text-xs text-amber-700">
@@ -13839,28 +13835,8 @@ const handleSuccessfulAuth = (userData: any) => {
                   )}
 
                   <form onSubmit={handleSubmit} className="space-y-4">
-                    {mode === 'signup' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Je suis :</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {roles.map(role => {
-                            const Icon = role.icon;
-                            return (
-                              <button
-                                key={role.id}
-                                type="button"
-                                onClick={() => setSelectedRole(role.id)}
-                                className={`p-3 rounded-xl border-2 text-center transition-all ${selectedRole === role.id ? 'border-[#00c9a7] bg-[#00c9a7]/10' : 'border-gray-200'}`}
-                              >
-                                <Icon className={`w-6 h-6 mx-auto mb-1 ${selectedRole === role.id ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                <p className={`text-xs font-medium ${selectedRole === role.id ? 'text-[#0F2940]' : 'text-gray-500'}`}>{role.name}</p>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
+                    {/* ✅ Suppression de la section "Je suis :" pour l'inscription */}
+                    
                     {mode === 'signup' && (
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -13985,7 +13961,7 @@ const handleSuccessfulAuth = (userData: any) => {
                         : mode === 'login'
                         ? 'Se connecter'
                         : mode === 'signup'
-                        ? 'Créer mon compte'
+                        ? 'Créer mon compte voyageur'
                         : 'Envoyer le code'}
                     </button>
                   </form>
@@ -13993,12 +13969,12 @@ const handleSuccessfulAuth = (userData: any) => {
                   <div className="text-center mt-5">
                     {mode === 'login' && (
                       <p className="text-xs text-gray-500">
-                        Pas encore de compte ? <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium">S'inscrire</button>
+                        Pas encore de compte voyageur ? <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium">S'inscrire</button>
                       </p>
                     )}
                     {mode === 'signup' && (
                       <p className="text-xs text-gray-500">
-                        Déjà un compte ? <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium">Se connecter</button>
+                        Déjà un compte voyageur ? <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium">Se connecter</button>
                       </p>
                     )}
                   </div>
