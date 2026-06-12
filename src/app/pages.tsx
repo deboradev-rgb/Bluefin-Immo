@@ -2631,31 +2631,14 @@ export default PropertyCard;
 
 // PropertyDetailModal.tsx
 
+
 interface PropertyDetailModalProps {
   property: any;
   onClose: () => void;
-  onNavigate: (route: any) => void;
-  onReserve?: (dates: any) => void;
-  onChat?: (hostId: number) => void;  // ← Garder cette prop
-  selectedCheckIn?: string;  // ← Ajouter ces props
-  selectedCheckOut?: string;  // ← Ajouter ces props
-  selectedGuests?: number;    // ← Ajouter ces props
+  onReserve?: (bookingData: any) => void;
+  onChat?: (hostId: number) => void;
+  onNavigate?: (route: any) => void;
 }
-
-interface PropertyDetailModalBookingParams {
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  nights: number;
-  fullName: string;
-  email: string;
-  phone: string;
-  address: string;
-  paymentOption: '50' | '100';
-  totalAmount: number;
-  paymentAmount: number;
-}
-
 
 const formatCurrency = (amount: number) => {
   const fCFA = `${amount.toLocaleString()} FCFA`;
@@ -2672,13 +2655,24 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 }) => {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [showPaymentStep, setShowPaymentStep] = useState(false);
   const { isAuthenticated, user } = useAuth();
   
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
-  const [availabilityMessage, setAvailabilityMessage] = useState('');
   const [showCancellationModal, setShowCancellationModal] = useState(false);
+  
+  // États de paiement
+  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
+  const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [isPaying, setIsPaying] = useState(false);
   
   const [checkIn, setCheckIn] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -2704,18 +2698,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   });
   const [children, setChildren] = useState(0);
   const [babies, setBabies] = useState(0);
-  const [pets, setPets] = useState(0);
   
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [paymentOption, setPaymentOption] = useState<'50' | '100'>('100');
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const maxGuests = property.max_guests || 10;
   const totalGuests = adults + children;
 
@@ -2732,68 +2718,155 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const superhost = property.superhost ?? true;
   const responseRate = property.responseRate || 95;
 
-  const handleAuthenticatedAction = (action: () => void, intent: string) => {
-    if (!isAuthenticated) {
-      localStorage.setItem('redirect_intent', intent);
-      localStorage.setItem('redirect_property_id', property.id.toString());
-      localStorage.setItem('redirect_property_title', property.title);
-      localStorage.setItem('redirect_property_location', property.location);
-      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-      
-      if (onNavigate) {
-        onNavigate({ name: 'auth', search: `redirect=${intent}&property=${property.id}` });
-      } else {
-        window.location.href = `/auth?redirect=${intent}&property=${property.id}`;
+  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
+  const nightlyPrice = property.priceNumber || property.price || 0;
+  const subtotal = nightlyPrice * nights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+  
+  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
+  const subtotalFormatted = formatCurrency(subtotal);
+  const serviceFeeFormatted = formatCurrency(serviceFee);
+  const totalFormatted = formatCurrency(total);
+
+  // Validation des infos de paiement
+  const validatePaymentInfo = () => {
+    if (paymentMethod === 'mobile_money') {
+      if (!mobileProvider) {
+        setPaymentError('Veuillez sélectionner votre opérateur');
+        return false;
+      }
+      if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
+        setPaymentError('Numéro Mobile Money invalide');
+        return false;
       }
     } else {
-      action();
+      const cleanCardNumber = cardNumber.replace(/\s/g, '');
+      if (!cardNumber || cleanCardNumber.length < 16) {
+        setPaymentError('Numéro de carte invalide');
+        return false;
+      }
+      if (!cardExpiry || !cardExpiry.includes('/')) {
+        setPaymentError('Date d\'expiration invalide');
+        return false;
+      }
+      if (!cardCvv || cardCvv.length < 3) {
+        setPaymentError('CVV invalide');
+        return false;
+      }
+      if (!cardName) {
+        setPaymentError('Nom sur la carte requis');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Afficher le formulaire de paiement
+  const handleShowPayment = () => {
+    if (availabilityStatus !== 'available') {
+      toast.error('Ce logement n\'est pas disponible pour les dates sélectionnées');
+      return;
+    }
+    setShowPaymentStep(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Retour au résumé
+  const handleBackToSummary = () => {
+    setShowPaymentStep(false);
+    setPaymentError('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Création de la réservation et paiement
+  const handleConfirmPayment = async () => {
+    if (!validatePaymentInfo()) return;
+    
+    setIsPaying(true);
+    setPaymentError('');
+    
+    // Simuler le traitement du paiement
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Préparer les données de réservation
+    const bookingData = {
+      property_id: property.id,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests_count: totalGuests,
+      payment_method: paymentMethod,
+      mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+      mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
+      guest_details: {
+        full_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Voyageur',
+        email: user?.email || '',
+        phone: user?.phone || '',
+        address: null
+      },
+      payment_option: '100',
+      total_amount: total,
+      payment_amount: total,
+      nights: nights
+    };
+    
+    try {
+      const response = await bookingService.create(bookingData);
+      const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id;
+      
+      if (bookingId) {
+        toast.success('Réservation confirmée !');
+        setTimeout(() => {
+          setIsPaying(false);
+          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+        }, 1500);
+      } else {
+        setPaymentError('Erreur lors de la création de la réservation');
+        setIsPaying(false);
+      }
+    } catch (err: any) {
+      console.error('Erreur:', err);
+      setPaymentError(err.response?.data?.message || 'Une erreur est survenue');
+      setIsPaying(false);
     }
   };
 
-  useEffect(() => {
-    const redirectIntent = localStorage.getItem('redirect_intent');
-    const propertyId = localStorage.getItem('redirect_property_id');
-    
-    if (isAuthenticated && redirectIntent === 'chat' && propertyId === property.id.toString()) {
-      localStorage.removeItem('redirect_intent');
-      localStorage.removeItem('redirect_property_id');
-      localStorage.removeItem('redirect_property_title');
-      localStorage.removeItem('redirect_property_location');
-      localStorage.removeItem('redirect_property_price');
-      localStorage.removeItem('redirect_property_image');
-      
-      if (onChat && hostId) {
-        onNavigate?.({
-          name: 'messages',
-          id: 'inquiry',
-          search: `?property=${property.id}&host=${hostId}&auto=true`
-        });
-        onChat(hostId);
-      }
+  const formatCardNumber = (value: string) => {
+    const cleaned = value.replace(/\s/g, '');
+    const groups = cleaned.match(/.{1,4}/g);
+    return groups ? groups.join(' ') : cleaned;
+  };
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCardNumber(e.target.value);
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 4);
     }
-  }, [isAuthenticated, property.id, hostId, onChat, onNavigate]);
+    setCardExpiry(value);
+  };
 
   const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
     if (!checkInDate || !checkOutDate) return;
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
     try {
-        const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-        const isAvailable = response?.data?.available === true;
-        if (isAvailable) {
-            setAvailabilityStatus('available');
-            setAvailabilityMessage('✓ Ces dates sont disponibles !');
-        } else {
-            setAvailabilityStatus('unavailable');
-            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles.');
-        }
-    } catch (error) {
-        console.error('Erreur vérification:', error);
+      const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
+      const isAvailable = response?.data?.available === true;
+      if (isAvailable) {
+        setAvailabilityStatus('available');
+      } else {
         setAvailabilityStatus('unavailable');
-        setAvailabilityMessage('❌ Impossible de vérifier la disponibilité.');
+      }
+    } catch (error) {
+      console.error('Erreur vérification:', error);
+      setAvailabilityStatus('unavailable');
     } finally {
-        setIsCheckingAvailability(false);
+      setIsCheckingAvailability(false);
     }
   };
 
@@ -2803,14 +2876,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
       return () => clearTimeout(debounceTimer);
     }
   }, [checkIn, checkOut]);
-
-  const getCancellationRules = () => {
-    return [
-      { label: 'Remboursement intégral', percentage: 100, color: 'green', icon: '✅', description: 'Annulez dans les 24h suivant votre réservation pour un remboursement complet.', deadlineText: 'dans les 24h suivant la réservation' },
-      { label: 'Remboursement partiel', percentage: 50, color: 'orange', icon: '⚠️', description: 'Annulez au moins 7 jours avant votre arrivée pour recevoir 50% du montant. Frais de service non remboursés.', deadlineText: 'au moins 7 jours avant l\'arrivée' },
-      { label: 'Aucun remboursement', percentage: 0, color: 'red', icon: '❌', description: 'Annulation moins de 7 jours avant l\'arrivée : aucun remboursement.', deadlineText: 'moins de 7 jours avant l\'arrivée' }
-    ];
-  };
 
   const getPropertyImages = (property: any): string[] => {
     if (property.images && Array.isArray(property.images) && property.images.length > 0) return property.images;
@@ -2822,7 +2887,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   };
 
   const images = getPropertyImages(property);
-  const nightlyPrice = property.priceNumber || property.price || 0;
   const amenities = property.amenities || ["Wi-Fi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
   const testimonials = [
     { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
@@ -2830,127 +2894,29 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
-  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
-  const subtotal = nightlyPrice * nights;
-  const serviceFee = subtotal * 0.10;
-  const total = subtotal + serviceFee;
-  
-  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
-  const subtotalFormatted = formatCurrency(subtotal);
-  const serviceFeeFormatted = formatCurrency(serviceFee);
-  const totalFormatted = formatCurrency(total);
-  
-  const getPaymentAmount = () => total;
-
-  const validateStep = (step: number) => {
-    const errors: Record<string, string> = {};
-    if (step === 1) {
-      if (!fullName.trim()) errors.fullName = 'Nom complet requis';
-      if (!email.trim()) errors.email = 'Email requis';
-      else if (!/\S+@\S+\.\S+/.test(email)) errors.email = 'Email invalide';
-      if (!phone.trim()) errors.phone = 'Téléphone requis';
-    }
-    if (step === 2) {
-      if (!adults || adults < 1) errors.adults = 'Au moins 1 adulte requis';
-      if (totalGuests > maxGuests) errors.guests = `Maximum ${maxGuests} voyageur${maxGuests > 1 ? 's' : ''}`;
-    }
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleNextStep = () => { if (validateStep(currentStep)) { setCurrentStep(currentStep + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); } };
-  const handlePrevStep = () => { setCurrentStep(currentStep - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const handleReserveClick = () => { 
-    handleAuthenticatedAction(() => {
-      setShowBookingForm(true); 
-      setCurrentStep(1);
-    }, 'booking');
-  };
-  
-  const handleConfirmReservation = () => {
-    if (!validateStep(2)) return;
-    if (availabilityStatus !== 'available') { setFormErrors({ general: 'Ce logement n\'est pas disponible pour les dates sélectionnées.' }); return; }
-    setIsSubmitting(true);
-    const bookingParams = { 
-      checkIn, 
-      checkOut, 
-      guests: totalGuests, 
-      nights, 
-      fullName: fullName.trim(), 
-      email: email.trim(), 
-      phone: phone.trim(), 
-      address: address.trim(), 
-      paymentOption: '100', 
-      totalAmount: total, 
-      paymentAmount: getPaymentAmount() 
-    };
+  const handleReserveClick = () => {
     if (!isAuthenticated) {
-      localStorage.setItem('temp_booking_data', JSON.stringify({ propertyId: property.id, checkIn, checkOut, guests: totalGuests, nights, bookingFormData: bookingParams }));
-      onNavigate ? onNavigate({ name: 'auth', search: 'redirect=booking' }) : window.location.href = '/auth?redirect=booking';
-      setIsSubmitting(false);
+      localStorage.setItem('redirect_intent', 'booking');
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      onNavigate?.({ name: 'auth', search: `redirect=booking&property=${property.id}` });
       return;
     }
-    onReserve(bookingParams);
-    setIsSubmitting(false);
+    setShowBookingForm(true);
+    setShowPaymentStep(false);
   };
 
   const handleChatWithAuth = () => {
     if (!isAuthenticated) {
-      const chatIntent = {
-        propertyId: property.id,
-        propertyTitle: property.title,
-        hostId: hostId,
-        hostName: host,
-        checkIn: checkIn,
-        checkOut: checkOut,
-        guests: totalGuests,
-        timestamp: Date.now()
-      };
-      
-      localStorage.setItem('chatIntent', JSON.stringify(chatIntent));
-      localStorage.setItem('redirect_intent', 'chat');
-      localStorage.setItem('redirect_property_id', property.id.toString());
-      localStorage.setItem('redirect_property_title', property.title);
-      localStorage.setItem('redirect_property_location', property.location);
-      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-      
-      const params = new URLSearchParams();
-      params.set('property', property.id.toString());
-      if (checkIn && checkOut) {
-        params.set('check_in', checkIn);
-        params.set('check_out', checkOut);
-      }
-      if (totalGuests > 0) {
-        params.set('guests', totalGuests.toString());
-      }
-      localStorage.setItem('pendingChatParams', params.toString());
-      
-      if (onNavigate) {
-        onNavigate({ name: 'auth', search: `redirect=chat&property=${property.id}` });
-      } else {
-        window.location.href = `/auth?redirect=chat&property=${property.id}`;
-      }
-    } else {
-      const params = new URLSearchParams();
-      params.set('property', property.id.toString());
-      if (checkIn && checkOut) {
-        params.set('check_in', checkIn);
-        params.set('check_out', checkOut);
-      }
-      if (totalGuests > 0) {
-        params.set('guests', totalGuests.toString());
-      }
-      
-      if (onChat) {
-        onChat(hostId);
-      } else {
-        window.location.href = `/messages/inquiry?${params.toString()}`;
-      }
+      onNavigate?.({ name: 'auth', search: `redirect=chat&property=${property.id}` });
+    } else if (onChat) {
+      onChat(hostId);
     }
   };
 
-  const handleBackToDetails = () => setShowBookingForm(false);
+  const handleBackToDetails = () => {
+    setShowBookingForm(false);
+    setShowPaymentStep(false);
+  };
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -2958,482 +2924,365 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  const cancellationRules = getCancellationRules();
-
-  // Modal Politique d'annulation - RESPONSIVE
-  const CancellationModal = () => (
-    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
-      <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" />
-            <h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2>
-          </div>
-          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors">
-            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </button>
-        </div>
-        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
-              <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
-              <span className="font-medium">Vos dates</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Départ</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Nuits</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2 sm:space-y-3">
-            <p className="text-xs sm:text-sm font-medium text-gray-700 px-1">📋 Conditions d'annulation</p>
-            {cancellationRules.map((rule, index) => (
-              <div key={index} className={`rounded-xl p-3 sm:p-4 border-l-4 transition-all hover:shadow-md ${rule.color === 'green' ? 'bg-green-50 border-green-500' : rule.color === 'orange' ? 'bg-orange-50 border-orange-500' : 'bg-red-50 border-red-500'}`}>
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <span className="text-lg sm:text-xl">{rule.icon}</span>
-                  <div className="flex-1">
-                    <h3 className={`font-semibold text-sm sm:text-base ${rule.color === 'green' ? 'text-green-700' : rule.color === 'orange' ? 'text-orange-700' : 'text-red-700'}`}>{rule.label}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">{rule.description}</p>
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-1 sm:mt-2">{rule.percentage === 100 ? `✓ Annulation ${rule.deadlineText}` : rule.percentage === 50 ? `⚠️ Annulation ${rule.deadlineText}` : `❌ ${rule.deadlineText}`}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
-            <div className="flex items-start gap-2">
-              <Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p>
-            </div>
-          </div>
-        </div>
-        <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">
-            Fermer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Vue du formulaire de réservation - RESPONSIVE
+  // Vue du formulaire de réservation (Résumé + Paiement)
   if (showBookingForm) {
     return (
-      <>
-        {showCancellationModal && <CancellationModal />}
-        <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
-          <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
-            <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp mx-3 sm:mx-0">
-              <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
-                      <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-                    </button>
-                    <div>
-                      <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">Réserver</h2>
-                      <p className="text-xs sm:text-sm text-gray-500">Remplissez vos informations</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {[1, 2].map((step) => (
-                      <div key={step} className="flex items-center gap-1 sm:gap-2">
-                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all ${currentStep >= step ? 'bg-[#00c9a7] text-white shadow-lg' : 'bg-gray-100 text-gray-400'}`}>
-                          {currentStep > step ? <Check className="w-3 h-3 sm:w-4 sm:h-4" /> : step}
-                        </div>
-                        {step < 2 && <div className={`w-8 sm:w-12 h-0.5 rounded-full ${currentStep > step ? 'bg-[#00c9a7]' : 'bg-gray-200'}`} />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
-                {currentStep === 1 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                    <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl sm:rounded-2xl p-3 sm:p-4">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden">
-                          <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{property.title}</h3>
-                          <p className="text-xs text-gray-500">{property.location}</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Star className="w-3 h-3 fill-current text-[#00c9a7]" />
-                            <span className="text-xs font-medium">{property.rating}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-[#00c9a7]/10 flex items-center justify-center">
-                          <User className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
-                        </div>
-                        Vos informations
-                      </h3>
-                      <div className="grid sm:grid-cols-2 gap-4 sm:gap-6">
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
-                          <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Jean Dupont" />
-                          {formErrors.fullName && <p className="text-red-500 text-xs mt-1">{formErrors.fullName}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Email *</label>
-                          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="jean@email.com" />
-                          {formErrors.email && <p className="text-red-500 text-xs mt-1">{formErrors.email}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="+229 97 00 00 00" />
-                          {formErrors.phone && <p className="text-red-500 text-xs mt-1">{formErrors.phone}</p>}
-                        </div>
-                        <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Adresse (optionnelle)</label>
-                          <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2 sm:px-4 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-[#00c9a7] text-sm" placeholder="Votre adresse" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {currentStep === 2 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fadeIn">
-                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
-                      <div className="space-y-4">
-                        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                          <Receipt className="w-4 h-4 text-[#00c9a7]" />
-                          Résumé de votre réservation
-                        </h3>
-                        <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white">
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                              <div className="text-right">
-                                <div>{subtotalFormatted.fCFA}</div>
-                                <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
-                              </div>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-white/70">Frais de service (10%)</span>
-                              <div className="text-right">
-                                <div>{serviceFeeFormatted.fCFA}</div>
-                                <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
-                              </div>
-                            </div>
-                            <div className="border-t border-white/20 pt-2 mt-2">
-                              <div className="flex justify-between items-center">
-                                <span className="font-semibold">Total à payer</span>
-                                <div className="text-right">
-                                  <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
-                                  <div className="text-xs text-white/50">{totalFormatted.euro}</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="bg-blue-50 rounded-xl p-3">
-                          <p className="text-xs text-blue-700 flex items-center gap-1">
-                            <Info className="w-3 h-3" />
-                            Paiement sécurisé de 100% à la réservation
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-                <div className="flex gap-3">
-                  {currentStep === 1 && (
-                    <button onClick={handleNextStep} className="flex-1 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold">
-                      Continuer
-                    </button>
-                  )}
-                  {currentStep === 2 && (
-                    <>
-                      <button onClick={handlePrevStep} className="flex-1 py-2.5 sm:py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold">
-                        Retour
-                      </button>
-                      <button 
-                        onClick={handleConfirmReservation} 
-                        disabled={isSubmitting || availabilityStatus !== 'available'} 
-                        className={`flex-1 py-2.5 sm:py-3 rounded-xl font-semibold ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                      >
-                        {isSubmitting ? (
-                          <div className="flex justify-center gap-2">
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Chargement
-                          </div>
-                        ) : "Confirmer et payer"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // Vue détaillée - RESPONSIVE
-  return (
-    <>
-      {showCancellationModal && <CancellationModal />}
-      
-      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-        <div className="min-h-screen pb-20">
-          {/* Header sticky avec ombre */}
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all active:bg-gray-200">
-              <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
-            </button>
-            <div className="flex gap-2">
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5 text-[#0F2940]" /></button>
-              <button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5 text-[#0F2940]" /></button>
-            </div>
-          </div>
-          
-          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            {/* Galerie d'images responsive */}
-            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
-              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]">
-                <img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-              </div>
-              {images.slice(1, 5).map((img, i) => (
-                <div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block">
-                  <img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-              {/* Colonne gauche - Infos */}
-              <div className="flex-1 space-y-5 sm:space-y-8">
-                <div className="border-b pb-4">
-                  <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
-                  <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                    <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
-                    <span className="font-medium text-sm">{property.rating}</span>
-                    <span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>
-                    {superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}
-                  </div>
-                </div>
-                
-                {property.rating >= 4.8 && (
-                  <div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center">
-                    <Crown className="w-8 h-8 text-[#00c9a7]" />
-                    <div>
-                      <div className="font-semibold">Coup de cœur</div>
-                      <div className="text-sm text-gray-600">Logement préféré des voyageurs</div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Hôte */}
-                <div className="flex gap-4 items-start">
-                  <img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" />
+      <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
+        <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
+          <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp mx-3 sm:mx-0">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
+                    <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                  </button>
                   <div>
-                    <div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>
-                    {superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}
-                    <div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div>
-                  </div>
-                </div>
-                
-                {/* Description */}
-                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
-                
-                {/* Équipements */}
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-lg">Équipements</h3>
-                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
-                      Voir tout
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                        <Check className="w-4 h-4 text-[#00c9a7]" />
-                        {a}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Témoignages */}
-                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-4 sm:p-5">
-                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-[#00c9a7]" />
-                    Ce que nos clients disent
-                  </h3>
-                  <div className="flex flex-col sm:flex-row gap-4 items-start">
-                    <img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" />
-                    <div>
-                      <div className="font-semibold">{testimonials[currentTestimonial]?.name}</div>
-                      <p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p>
-                    </div>
+                    <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">
+                      {!showPaymentStep ? 'Résumé de votre réservation' : 'Paiement sécurisé'}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      {!showPaymentStep ? 'Vérifiez vos informations' : 'Finalisez votre réservation'}
+                    </p>
                   </div>
                 </div>
               </div>
-
-              {/* Colonne droite - Réservation */}
-              <div className="lg:w-96 xl:w-[400px]">
-                <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
-                  <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
-                        <span className="text-gray-500 text-sm">/ nuit</span>
+            </div>
+            
+            <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
+              {/* Étape 1: Résumé de la réservation */}
+              {!showPaymentStep && (
+                <div className="space-y-4 animate-fadeIn">
+                  {/* Logement */}
+                  <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl p-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                        <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
                       </div>
-                      <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
-                    </div>
-                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                      <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
-                      {property.rating}
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">{property.title}</h3>
+                        <p className="text-sm text-gray-500">{property.location}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
+                          <span className="text-sm">{property.rating}</span>
+                          <span className="text-gray-400 text-sm">({property.reviews} avis)</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Formulaire dates et voyageurs */}
-                  <div className="border rounded-xl mb-4 overflow-hidden">
-                    <div className="grid grid-cols-2 border-b">
-                      <div className="p-2 sm:p-3">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
-                        <input 
-                          type="date" 
-                          value={checkIn} 
-                          onChange={(e) => setCheckIn(e.target.value)} 
-                          min={new Date().toISOString().split('T')[0]} 
-                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
-                        />
-                      </div>
-                      <div className="p-2 sm:p-3 border-l">
-                        <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
-                        <input 
-                          type="date" 
-                          value={checkOut} 
-                          onChange={(e) => setCheckOut(e.target.value)} 
-                          min={checkIn} 
-                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
-                        />
-                      </div>
+                  {/* Dates */}
+                  <div className="border-b pb-3">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <CalendarIcon className="w-4 h-4 text-[#00c9a7]" />
+                      Dates
+                    </h4>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Arrivée</span>
+                      <span className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                     </div>
-                    
-                    {availabilityStatus === 'available' && (
-                      <div className="p-2 bg-green-50 text-center text-xs text-green-600">
-                        <CheckCircle className="inline w-3 h-3 mr-1" />
-                        Disponible
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">Départ</span>
+                      <span className="font-medium">{new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mt-1">
+                      <span className="text-gray-600">Durée</span>
+                      <span className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+
+                  {/* Voyageurs */}
+                  <div className="border-b pb-3">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#00c9a7]" />
+                      Voyageurs
+                    </h4>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Adultes</span>
+                      <span className="font-medium">{adults}</span>
+                    </div>
+                    {children > 0 && (
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-gray-600">Enfants</span>
+                        <span className="font-medium">{children}</span>
                       </div>
                     )}
-                    {availabilityStatus === 'unavailable' && (
-                      <div className="p-2 bg-red-50 text-center text-xs text-red-600">
-                        <AlertCircle className="inline w-3 h-3 mr-1" />
-                        Non disponible
+                    {babies > 0 && (
+                      <div className="flex justify-between text-sm mt-1">
+                        <span className="text-gray-600">Bébés</span>
+                        <span className="font-medium">{babies}</span>
                       </div>
                     )}
-                    
-                    <div className="p-2 sm:p-3">
-                      <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center py-1">
-                          <span className="text-sm">Adultes</span>
-                          <div className="flex gap-3">
-                            <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                            <span>{adults}</span>
-                            <button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-t">
-                          <span className="text-sm">Enfants</span>
-                          <div className="flex gap-3">
-                            <button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                            <span>{children}</span>
-                            <button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center py-1 border-t">
-                          <span className="text-sm">Bébés</span>
-                          <div className="flex gap-3">
-                            <button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                            <span>{babies}</span>
-                            <button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
-                    </div>
                   </div>
 
                   {/* Prix */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                      <div className="text-right">
-                        <div>{subtotalFormatted.fCFA}</div>
-                        <div className="text-xs text-gray-400">{subtotalFormatted.euro}</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Frais de service (10%)</span>
-                      <div className="text-right">
-                        <div>{serviceFeeFormatted.fCFA}</div>
-                        <div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div>
-                      </div>
-                    </div>
-                    <div className="flex justify-between font-bold pt-2 border-t">
-                      <span>Total</span>
-                      <div className="text-right">
-                        <div className="text-[#00c9a7]">{totalFormatted.fCFA}</div>
-                        <div className="text-xs text-gray-500">{totalFormatted.euro}</div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-[#00c9a7]" />
+                      Détail des prix
+                    </h4>
+                    <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl p-4 text-white">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
+                          <div className="text-right">
+                            <div>{subtotalFormatted.fCFA}</div>
+                            <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-white/70">Frais de service (10%)</span>
+                          <div className="text-right">
+                            <div>{serviceFeeFormatted.fCFA}</div>
+                            <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
+                          </div>
+                        </div>
+                        <div className="border-t border-white/20 pt-2 mt-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold">Total à payer</span>
+                            <div className="text-right">
+                              <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
+                              <div className="text-xs text-white/50">{totalFormatted.euro}</div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  <button 
-                    onClick={() => setShowCancellationModal(true)} 
-                    className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline"
-                  >
-                    Voir la politique d'annulation
-                  </button>
-                  
-                  <button 
-                    onClick={handleReserveClick} 
-                    disabled={availabilityStatus !== 'available'} 
-                    className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                  >
-                    {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
-                  </button>
-                  
-                  {onChat && hostId && (
-                    <button
-                      onClick={handleChatWithAuth}
-                      className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full mt-2"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                      Discutez avec l'hôte
-                    </button>
+              {/* Étape 2: Paiement */}
+              {showPaymentStep && (
+                <div className="space-y-4 animate-fadeIn">
+                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
+                    <p className="text-sm text-gray-600">Montant à payer</p>
+                    <p className="text-3xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</p>
+                    <p className="text-xs text-gray-500 mt-1">{totalFormatted.euro}</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Méthode de paiement</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => { setPaymentMethod('mobile_money'); setPaymentError(''); }} 
+                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}
+                      >
+                        <Smartphone className={`w-6 h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                        <span className="text-sm font-medium">Mobile Money</span>
+                      </button>
+                      <button 
+                        onClick={() => { setPaymentMethod('card'); setPaymentError(''); }} 
+                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}
+                      >
+                        <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                        <span className="text-sm font-medium">Carte bancaire</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
+                            <button 
+                              key={provider} 
+                              onClick={() => { setMobileProvider(provider); setPaymentError(''); }} 
+                              className={`py-3 rounded-xl border-2 transition-all ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200'}`}
+                            >
+                              {provider}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
+                        <input 
+                          type="tel" 
+                          value={mobileMoneyNumber} 
+                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setPaymentError(''); }} 
+                          placeholder="97 00 00 00" 
+                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Vous recevrez une demande de paiement sur ce numéro</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
+                        <input 
+                          type="text" 
+                          value={cardNumber} 
+                          onChange={handleCardNumberChange} 
+                          placeholder="1234 5678 9012 3456" 
+                          maxLength={19} 
+                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Expiration</label>
+                          <input 
+                            type="text" 
+                            value={cardExpiry} 
+                            onChange={handleExpiryChange} 
+                            placeholder="MM/AA" 
+                            maxLength={5} 
+                            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                          <div className="relative">
+                            <input 
+                              type={showCvv ? 'text' : 'password'} 
+                              value={cardCvv} 
+                              onChange={(e) => setCardCvv(e.target.value)} 
+                              placeholder="123" 
+                              maxLength={4} 
+                              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] pr-10" 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => setShowCvv(!showCvv)} 
+                              className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                              {showCvv ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
+                        <input 
+                          type="text" 
+                          value={cardName} 
+                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
+                          placeholder="JEAN DUPONT" 
+                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] uppercase" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 text-center">
+                      {paymentError}
+                    </div>
                   )}
                 </div>
+              )}
+            </div>
+            
+            <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+              <div className="flex gap-3">
+                {!showPaymentStep && (
+                  <button 
+                    onClick={handleShowPayment} 
+                    disabled={availabilityStatus !== 'available'} 
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold disabled:opacity-50"
+                  >
+                    Confirmer et payer
+                  </button>
+                )}
+                {showPaymentStep && (
+                  <>
+                    <button 
+                      onClick={handleBackToSummary} 
+                      className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                    >
+                      Retour
+                    </button>
+                    <button 
+                      onClick={handleConfirmPayment} 
+                      disabled={isPaying} 
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold disabled:opacity-50"
+                    >
+                      {isPaying ? (
+                        <div className="flex justify-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Paiement...
+                        </div>
+                      ) : `Payer ${totalFormatted.fCFA}`}
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3">
+                <div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div>
+                <div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Garantie BF-Immo</span></div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </>
+    );
+  }
+
+  // Vue détaillée
+  return (
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="min-h-screen pb-20">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-[#0F2940]" /></button>
+          <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100"><Heart className="w-5 h-5" /></button></div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-xl overflow-hidden mb-4">
+            <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover" /></div>
+            {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover" /></div>))}
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex-1 space-y-5">
+              <div><div className="text-xs text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div><h1 className="text-xl sm:text-2xl font-semibold text-[#0F2940] mt-2">{property.title}</h1><div className="flex items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="text-sm font-medium">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm">· Superhôte</span>}</div></div>
+              <div className="flex gap-4"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
+              <div className="text-sm text-gray-700 leading-relaxed">{property.description}</div>
+              <div><div className="flex justify-between mb-4"><h3 className="font-semibold">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
+            </div>
+
+            <div className="lg:w-96">
+              <div className="sticky top-24 bg-white border rounded-xl p-4 shadow-xl">
+                <div className="flex justify-between mb-4"><div><div className="flex items-baseline gap-2"><span className="text-2xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div></div><div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div></div>
+
+                <div className="border rounded-xl mb-4 overflow-hidden">
+                  <div className="grid grid-cols-2 border-b"><div className="p-3"><div className="text-xs font-bold text-gray-500">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm mt-1 border-0 p-0 focus:ring-0" /></div><div className="p-3 border-l"><div className="text-xs font-bold text-gray-500">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm mt-1 border-0 p-0 focus:ring-0" /></div></div>
+                  {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
+                  {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
+                  <div className="p-3"><div className="text-xs font-bold text-gray-500 mb-2">Voyageurs</div>
+                    <div className="flex justify-between py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
+                    <div className="flex justify-between py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
+                    <div className="flex justify-between py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
+                    <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <div className="flex justify-between text-sm"><span>{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotalFormatted.fCFA}</span></div>
+                  <div className="flex justify-between text-sm"><span>Frais de service (10%)</span><span>{serviceFeeFormatted.fCFA}</span></div>
+                  <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><span className="text-[#00c9a7]">{totalFormatted.fCFA}</span></div>
+                </div>
+
+                <button onClick={handleReserveClick} disabled={availabilityStatus !== 'available'} className={`w-full py-3 rounded-xl font-bold transition-all ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                  {availabilityStatus === 'available' ? 'Réserver' : 'Non disponible'}
+                </button>
+                
+                {onChat && hostId && (
+                  <button onClick={handleChatWithAuth} className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full mt-2">
+                    <MessageCircle className="w-5 h-5" /> Discutez avec l'hôte
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -3842,17 +3691,26 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     // Vérifier s'il y a des données temporaires au chargement
     useEffect(() => {
         const tempData = temporaryBookingService.getBookingData();
+        console.log('🔍 Vérification données temporaires:', tempData);
+        
         if (tempData && !bookingFormData) {
             console.log('📦 Données temporaires trouvées:', tempData);
+            
+            const guestDetails = tempData.bookingFormData || {};
+            
             setBookingFormData({
                 check_in: tempData.checkIn,
                 check_out: tempData.checkOut,
                 guests: tempData.guests,
                 nights: tempData.nights,
-                guest_details: tempData.bookingFormData,
-                paymentOption: tempData.bookingFormData.paymentOption,
-                totalAmount: tempData.bookingFormData.totalAmount,
-                paymentAmount: tempData.bookingFormData.paymentAmount
+                guest_details: {
+                    full_name: guestDetails.fullName || '',
+                    email: guestDetails.email || '',
+                    phone: guestDetails.phone || '',
+                    address: guestDetails.address || ''
+                },
+                totalAmount: guestDetails.totalAmount || 0,
+                paymentAmount: guestDetails.paymentAmount || 0
             });
             temporaryBookingService.clearBookingData();
         }
@@ -3881,6 +3739,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     const serviceFee = subtotal * 0.15;
     const cleaningFee = 15000;
     const total = subtotal + serviceFee + cleaningFee;
+    
     const paymentAmount = bookingFormData?.paymentAmount || total;
 
     const validatePaymentDetails = () => {
@@ -3953,13 +3812,11 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
             full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email?.split('@')[0] || 'Voyageur',
             email: user?.email || '',
             phone: user?.phone || '',
-            address: bookingFormData?.address || '',
-            nationality: bookingFormData?.nationality || '',
-            id_type: bookingFormData?.idType || '',
-            id_number: bookingFormData?.idNumber || ''
+            address: '',
+            nationality: '',
+            id_type: '',
+            id_number: ''
         };
-
-        const paymentAmountValue = bookingFormData?.paymentOption === '50' ? Math.floor(total * 0.5) : total;
 
         const bookingData: BookingData = {
             property_id: parseInt(propertyId || '0'),
@@ -3978,9 +3835,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 id_type: guestDetails.id_type,
                 id_number: guestDetails.id_number
             },
-            payment_option: bookingFormData?.paymentOption || '100',
-            total_amount: bookingFormData?.totalAmount || total,
-            payment_amount: paymentAmountValue,
+            payment_option: '100',
+            total_amount: total,
+            payment_amount: paymentAmount,
             nights: nights,
             special_requests: specialRequests || undefined
         };
@@ -4122,11 +3979,11 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                     <div>
                                         <p className="text-gray-500 text-xs">Arrivée</p>
-                                        <p className="font-medium text-sm">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
+                                        <p className="font-medium text-sm">{checkIn ? new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '-'}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500 text-xs">Départ</p>
-                                        <p className="font-medium text-sm">{new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</p>
+                                        <p className="font-medium text-sm">{checkOut ? new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '-'}</p>
                                     </div>
                                     <div>
                                         <p className="text-gray-500 text-xs">Durée</p>
@@ -4207,12 +4064,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                                             <span className="font-semibold">Total</span>
                                             <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
                                         </div>
-                                        {bookingFormData?.paymentOption === '50' && (
-                                            <div className="flex justify-between text-sm mt-2">
-                                                <span className="text-gray-500">À payer maintenant</span>
-                                                <span className="font-semibold text-[#00c9a7]">{paymentAmount.toLocaleString()} FCFA</span>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                                 
@@ -4251,7 +4102,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 </div>
             </div>
 
-            {/* Modal de paiement responsive */}
+            {/* Modal de paiement */}
             {showPaymentModal && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
                     <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl" style={{ overflow: 'hidden' }}>
