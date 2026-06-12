@@ -2779,6 +2779,32 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+ 
+const handleAuthenticatedAction = (action: () => void, intent: string) => {
+  if (!isAuthenticated) {
+    // ✅ Sauvegarder toutes les données de réservation
+    localStorage.setItem('temp_booking_check_in', checkIn);
+    localStorage.setItem('temp_booking_check_out', checkOut);
+    localStorage.setItem('temp_booking_guests', totalGuests.toString());
+    localStorage.setItem('temp_booking_nights', nights.toString());
+    
+    localStorage.setItem('redirect_intent', intent);
+    localStorage.setItem('redirect_property_id', property.id.toString());
+    localStorage.setItem('redirect_property_title', property.title);
+    localStorage.setItem('redirect_property_location', property.location);
+    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+    
+    if (onNavigate) {
+      onNavigate({ name: 'auth', search: `redirect=${intent}&property=${property.id}` });
+    } else {
+      window.location.href = `/auth?redirect=${intent}&property=${property.id}`;
+    }
+  } else {
+    action();
+  }
+};
+
   // Création de la réservation et paiement
   const handleConfirmPayment = async () => {
     if (!validatePaymentInfo()) return;
@@ -13871,6 +13897,7 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
+
 interface Route {
   name: string;
   id?: string;
@@ -13894,7 +13921,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resetSent, setResetSent] = useState(false); // Pour le mode forgot
+  const [resetSent, setResetSent] = useState(false);
 
   const searchParams = new URLSearchParams(location.search);
   const redirectTo = searchParams.get('redirect') || 'profile';
@@ -13932,15 +13959,101 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
+  // ✅ Fonction pour sauvegarder les données de réservation complètes
+  const saveCompleteBookingData = () => {
+    const checkIn = localStorage.getItem('temp_booking_check_in');
+    const checkOut = localStorage.getItem('temp_booking_check_out');
+    const guests = localStorage.getItem('temp_booking_guests');
+    const nights = localStorage.getItem('temp_booking_nights');
+    const propertyId = localStorage.getItem('redirect_property_id');
+    const propertyTitle = localStorage.getItem('redirect_property_title');
+    const propertyLocation = localStorage.getItem('redirect_property_location');
+    const propertyPrice = localStorage.getItem('redirect_property_price');
+    const propertyImage = localStorage.getItem('redirect_property_image');
+
+    if (propertyId && checkIn && checkOut) {
+      const bookingData = {
+        propertyId: parseInt(propertyId),
+        propertyTitle: propertyTitle,
+        propertyLocation: propertyLocation,
+        propertyImage: propertyImage,
+        pricePerNight: parseFloat(propertyPrice || '0'),
+        checkIn: checkIn,
+        checkOut: checkOut,
+        guests: parseInt(guests || '1'),
+        nights: parseInt(nights || '1'),
+        timestamp: Date.now()
+      };
+      localStorage.setItem('complete_booking_data', JSON.stringify(bookingData));
+      console.log('💾 Données de réservation sauvegardées:', bookingData);
+      return bookingData;
+    }
+    return null;
+  };
+
+  // ✅ Redirection vers la page de paiement après connexion
+  const redirectToPayment = () => {
+    const bookingData = saveCompleteBookingData();
+    if (bookingData) {
+      const params = new URLSearchParams();
+      params.set('property', bookingData.propertyId.toString());
+      params.set('check_in', bookingData.checkIn);
+      params.set('check_out', bookingData.checkOut);
+      params.set('guests', bookingData.guests.toString());
+      params.set('nights', bookingData.nights.toString());
+      
+      // Calculer le total approximatif
+      const pricePerNight = bookingData.pricePerNight || 0;
+      const subtotal = pricePerNight * bookingData.nights;
+      const serviceFee = subtotal * 0.10;
+      const total = subtotal + serviceFee;
+      params.set('total', total.toString());
+      
+      // Nettoyer les données temporaires
+      localStorage.removeItem('temp_booking_check_in');
+      localStorage.removeItem('temp_booking_check_out');
+      localStorage.removeItem('temp_booking_guests');
+      localStorage.removeItem('temp_booking_nights');
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'payment', 
+          id: bookingData.propertyId.toString(),
+          search: params.toString()
+        });
+      } else {
+        window.location.href = `/payment/${bookingData.propertyId}?${params.toString()}`;
+      }
+    }
+  };
+
   const handleSuccessfulAuth = (userData: any) => {
     console.log('✅ Authentification réussie');
     
-    const chatIntent = localStorage.getItem('redirect_intent');
+    // ✅ PRIORITÉ 1: Vérifier l'intention de réservation (booking)
+    const bookingIntent = localStorage.getItem('redirect_intent');
     const propertyId = localStorage.getItem('redirect_property_id');
+    
+    if (bookingIntent === 'booking' && propertyId) {
+      console.log('🏠 Intention de réservation détectée - Redirection vers le paiement');
+      
+      // Nettoyer l'intention
+      localStorage.removeItem('redirect_intent');
+      
+      // Rediriger directement vers le paiement
+      redirectToPayment();
+      return;
+    }
+    
+    // ✅ PRIORITÉ 2: Vérifier l'intention de chat
+    const chatIntent = localStorage.getItem('redirect_intent');
+    const chatPropertyId = localStorage.getItem('redirect_property_id');
     const savedChatParams = localStorage.getItem('pendingChatParams');
     
-    if (chatIntent === 'chat' && propertyId) {
-      const params = savedChatParams || `property=${propertyId}`;
+    if (chatIntent === 'chat' && chatPropertyId) {
+      console.log('💬 Intention de chat détectée');
+      const params = savedChatParams || `property=${chatPropertyId}`;
+      
       localStorage.removeItem('redirect_intent');
       localStorage.removeItem('redirect_property_id');
       localStorage.removeItem('redirect_property_title');
@@ -13958,19 +14071,8 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
       return;
     }
     
-    const bookingIntent = localStorage.getItem('redirect_intent');
-    const bookingPropertyId = localStorage.getItem('redirect_property_id');
-    
-    if (bookingIntent === 'booking' && bookingPropertyId) {
-      localStorage.removeItem('redirect_intent');
-      if (onNavigate) {
-        onNavigate({ name: 'listing', id: bookingPropertyId });
-      } else {
-        window.location.href = `/annonce/${bookingPropertyId}`;
-      }
-      return;
-    }
-    
+    // ✅ Redirection par défaut
+    console.log('➡️ Redirection par défaut vers le profil');
     if (onAuthSuccess) {
       onAuthSuccess(userData);
     } else if (onNavigate) {
@@ -13980,7 +14082,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     }
   };
 
-  // ✅ Fonction pour réinitialiser le mot de passe (envoi d'email)
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const validationErrors = validateForgot();
@@ -13993,14 +14094,11 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     setErrors({});
     
     try {
-      // Essayer différents endpoints possibles
       let response;
       try {
-        // Option 1: Endpoint standard
         response = await publicApi.post('/traveler/forgot-password', { email: formData.email });
       } catch (err: any) {
         if (err.response?.status === 404) {
-          // Option 2: Autre endpoint possible
           response = await publicApi.post('/password/email', { email: formData.email });
         } else {
           throw err;
@@ -14090,7 +14188,6 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
             <div className="p-6 sm:p-8">
               {mode === 'forgot' && resetSent ? (
-                // Étape 2: Email envoyé avec succès
                 <div>
                   <div className="text-center mb-6">
                     <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
@@ -14147,7 +14244,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     
                     {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
                       <div className="mt-3 p-2 bg-amber-50 rounded-lg">
-                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé pour finaliser votre réservation</p>
+                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé vers le paiement</p>
                       </div>
                     )}
                     
