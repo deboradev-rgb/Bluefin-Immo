@@ -13899,393 +13899,537 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
 
-
-interface BookingSummaryPageProps {
-    onNavigate?: (route: any) => void;
-    id?: string;
-    search?: string;
+interface Route {
+  name: string;
+  id?: string;
+  search?: string;
 }
 
-export function BookingSummaryPage({ onNavigate, id, search }: BookingSummaryPageProps) {
-    const params = useParams<{ id: string }>();
-    const propertyId = id || params.id;
-    const location = useLocation();
-    const { user } = useAuth();
-    const [showPaymentStep, setShowPaymentStep] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
-    const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
-    const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
-    const [cardNumber, setCardNumber] = useState('');
-    const [cardExpiry, setCardExpiry] = useState('');
-    const [cardCvv, setCardCvv] = useState('');
-    const [cardName, setCardName] = useState('');
-    const [showCvv, setShowCvv] = useState(false);
-    const [paymentError, setPaymentError] = useState('');
-    const [isPaying, setIsPaying] = useState(false);
+export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
+  const { login, register } = useAuth();
+  const location = useLocation();
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
-    const queryString = search || location.search;
-    const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+  const searchParams = new URLSearchParams(location.search);
+  const redirectTo = searchParams.get('redirect') || 'profile';
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const validateLogin = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    if (!formData.password) newErrors.password = "Le mot de passe est requis";
+    return newErrors;
+  };
+
+  const validateSignup = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.firstName) newErrors.firstName = "Le prénom est requis";
+    if (!formData.lastName) newErrors.lastName = "Le nom est requis";
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    if (!formData.password) newErrors.password = "Le mot de passe est requis";
+    else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
+    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+    return newErrors;
+  };
+
+  const validateForgot = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    return newErrors;
+  };
+
+  // ✅ Fonction pour sauvegarder les données de réservation complètes
+  const saveCompleteBookingData = () => {
+    const checkIn = localStorage.getItem('temp_booking_check_in');
+    const checkOut = localStorage.getItem('temp_booking_check_out');
+    const guests = localStorage.getItem('temp_booking_guests');
+    const nights = localStorage.getItem('temp_booking_nights');
+    const propertyId = localStorage.getItem('redirect_property_id');
+    const propertyTitle = localStorage.getItem('redirect_property_title');
+    const propertyLocation = localStorage.getItem('redirect_property_location');
+    const propertyPrice = localStorage.getItem('redirect_property_price');
+    const propertyImage = localStorage.getItem('redirect_property_image');
+
+    if (propertyId && checkIn && checkOut) {
+      const bookingData = {
+        propertyId: parseInt(propertyId),
+        propertyTitle: propertyTitle,
+        propertyLocation: propertyLocation,
+        propertyImage: propertyImage,
+        pricePerNight: parseFloat(propertyPrice || '0'),
+        checkIn: checkIn,
+        checkOut: checkOut,
+        guests: parseInt(guests || '1'),
+        nights: parseInt(nights || '1'),
+        timestamp: Date.now()
+      };
+      localStorage.setItem('complete_booking_data', JSON.stringify(bookingData));
+      console.log('💾 Données de réservation sauvegardées:', bookingData);
+      return bookingData;
+    }
+    return null;
+  };
+
+  // ✅ Redirection vers la page de paiement après connexion
+  const redirectToPayment = () => {
+    const bookingData = saveCompleteBookingData();
+    if (bookingData) {
+      const params = new URLSearchParams();
+      params.set('property', bookingData.propertyId.toString());
+      params.set('check_in', bookingData.checkIn);
+      params.set('check_out', bookingData.checkOut);
+      params.set('guests', bookingData.guests.toString());
+      params.set('nights', bookingData.nights.toString());
+      
+      // Calculer le total approximatif
+      const pricePerNight = bookingData.pricePerNight || 0;
+      const subtotal = pricePerNight * bookingData.nights;
+      const serviceFee = subtotal * 0.10;
+      const total = subtotal + serviceFee;
+      params.set('total', total.toString());
+      
+      // Nettoyer les données temporaires
+      localStorage.removeItem('temp_booking_check_in');
+      localStorage.removeItem('temp_booking_check_out');
+      localStorage.removeItem('temp_booking_guests');
+      localStorage.removeItem('temp_booking_nights');
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'payment', 
+          id: bookingData.propertyId.toString(),
+          search: params.toString()
+        });
+      } else {
+        window.location.href = `/payment/${bookingData.propertyId}?${params.toString()}`;
+      }
+    }
+  };
+
+  const handleSuccessfulAuth = (userData: any) => {
+    console.log('✅ Authentification réussie');
     
-    const checkIn = searchParams.get('check_in') || '';
-    const checkOut = searchParams.get('check_out') || '';
-    const guestsParam = searchParams.get('guests') || '1';
-    const guests = parseInt(guestsParam);
-    const nightsParam = searchParams.get('nights') || '1';
-    const nights = parseInt(nightsParam);
-    const totalParam = searchParams.get('total') || '0';
-    const total = parseFloat(totalParam);
+    // ✅ PRIORITÉ 1: Vérifier l'intention de réservation (booking)
+    const bookingIntent = localStorage.getItem('redirect_intent');
+    const propertyId = localStorage.getItem('redirect_property_id');
+    
+    if (bookingIntent === 'booking' && propertyId) {
+      console.log('🏠 Intention de réservation détectée - Redirection vers le paiement');
+      
+      // Nettoyer l'intention
+      localStorage.removeItem('redirect_intent');
+      
+      // Rediriger directement vers le paiement
+      redirectToPayment();
+      return;
+    }
+    
+    // ✅ PRIORITÉ 2: Vérifier l'intention de chat
+    const chatIntent = localStorage.getItem('redirect_intent');
+    const chatPropertyId = localStorage.getItem('redirect_property_id');
+    const savedChatParams = localStorage.getItem('pendingChatParams');
+    
+    if (chatIntent === 'chat' && chatPropertyId) {
+      console.log('💬 Intention de chat détectée');
+      const params = savedChatParams || `property=${chatPropertyId}`;
+      
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('redirect_property_title');
+      localStorage.removeItem('redirect_property_location');
+      localStorage.removeItem('redirect_property_price');
+      localStorage.removeItem('redirect_property_image');
+      localStorage.removeItem('pendingChatParams');
+      localStorage.removeItem('chatIntent');
+      
+      if (onNavigate) {
+        onNavigate({ name: 'messages', id: 'inquiry', search: params });
+      } else {
+        window.location.href = `/messages/inquiry?${params}`;
+      }
+      return;
+    }
+    
+    // ✅ Redirection par défaut
+    console.log('➡️ Redirection par défaut vers le profil');
+    if (onAuthSuccess) {
+      onAuthSuccess(userData);
+    } else if (onNavigate) {
+      onNavigate({ name: 'profile' });
+    } else {
+      window.location.href = '/profile';
+    }
+  };
 
-    const { data: propertyData, isLoading } = useQuery({
-        queryKey: ['property', propertyId],
-        queryFn: () => propertyService.getById(parseInt(propertyId || '0')),
-        enabled: !!propertyId,
-    });
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationErrors = validateForgot();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
 
-    const property = propertyData?.data || propertyData;
-    const pricePerNight = property?.price_per_night || 0;
-
-    const formatCardNumber = (value: string) => {
-        const cleaned = value.replace(/\s/g, '');
-        const groups = cleaned.match(/.{1,4}/g);
-        return groups ? groups.join(' ') : cleaned;
-    };
-
-    const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatCardNumber(e.target.value);
-        setCardNumber(formatted);
-    };
-
-    const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 2) {
-            value = value.slice(0, 2) + '/' + value.slice(2, 4);
-        }
-        setCardExpiry(value);
-    };
-
-    const validatePaymentInfo = () => {
-        if (paymentMethod === 'mobile_money') {
-            if (!mobileProvider) {
-                setPaymentError('Veuillez sélectionner votre opérateur');
-                return false;
-            }
-            if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
-                setPaymentError('Numéro Mobile Money invalide');
-                return false;
-            }
+    setLoading(true);
+    setErrors({});
+    
+    try {
+      let response;
+      try {
+        response = await publicApi.post('/traveler/forgot-password', { email: formData.email });
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          response = await publicApi.post('/password/email', { email: formData.email });
         } else {
-            const cleanCardNumber = cardNumber.replace(/\s/g, '');
-            if (!cardNumber || cleanCardNumber.length < 16) {
-                setPaymentError('Numéro de carte invalide');
-                return false;
-            }
-            if (!cardExpiry || !cardExpiry.includes('/')) {
-                setPaymentError('Date d\'expiration invalide');
-                return false;
-            }
-            if (!cardCvv || cardCvv.length < 3) {
-                setPaymentError('CVV invalide');
-                return false;
-            }
-            if (!cardName) {
-                setPaymentError('Nom sur la carte requis');
-                return false;
-            }
+          throw err;
         }
-        return true;
-    };
+      }
+      
+      setResetSent(true);
+      setSuccessMessage(`Un email de réinitialisation a été envoyé à ${formData.email}`);
+      toast.success('Email envoyé ! Vérifiez votre boîte de réception');
+    } catch (err: any) {
+      console.error('Erreur forgot password:', err);
+      setErrors({ general: err.response?.data?.message || 'Impossible d\'envoyer l\'email. Vérifiez que l\'email existe.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleConfirmPayment = async () => {
-        if (!validatePaymentInfo()) return;
-        
-        setIsPaying(true);
-        setPaymentError('');
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const bookingData = {
-            property_id: parseInt(propertyId || '0'),
-            check_in: checkIn,
-            check_out: checkOut,
-            guests_count: guests,
-            payment_method: paymentMethod,
-            mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
-            mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
-            guest_details: {
-                full_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Voyageur',
-                email: user?.email || '',
-                phone: user?.phone || '',
-                address: null
-            },
-            payment_option: '100',
-            total_amount: total,
-            payment_amount: total,
-            nights: nights
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    setSuccessMessage('');
+    
+    const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        const payload = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          user_type: 'voyageur',
         };
-        
-        try {
-            const response = await bookingService.create(bookingData);
-            const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id;
-            
-            if (bookingId) {
-                toast.success('Réservation confirmée !');
-                setTimeout(() => {
-                    setIsPaying(false);
-                    onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
-                }, 1500);
-            } else {
-                setPaymentError('Erreur lors de la création de la réservation');
-                setIsPaying(false);
-            }
-        } catch (err: any) {
-            console.error('Erreur:', err);
-            setPaymentError(err.response?.data?.message || 'Une erreur est survenue');
-            setIsPaying(false);
-        }
-    };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
-            </div>
-        );
+        const response = await register(payload);
+        setSuccessMessage('Inscription réussie ! Redirection...');
+        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
+      } else if (mode === 'login') {
+        const response = await login(formData.email, formData.password);
+        setSuccessMessage('Connexion réussie !');
+        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
+      }
+    } catch (err: any) {
+      console.error('Erreur:', err);
+      
+      if (err.response?.data?.errors) {
+        const apiErrors = err.response.data.errors;
+        const errorMessages: string[] = [];
+        Object.values(apiErrors).forEach((msgs: any) => {
+          if (Array.isArray(msgs)) errorMessages.push(...msgs);
+          else errorMessages.push(msgs);
+        });
+        setErrors({ general: errorMessages.join(', ') });
+      } else if (err.response?.data?.message) {
+        setErrors({ general: err.response.data.message });
+      } else {
+        setErrors({ general: err.message || 'Erreur, veuillez réessayer' });
+      }
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (!property) {
-        return (
-            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe] p-4">
-                <div className="text-center bg-white rounded-2xl p-8 max-w-md">
-                    <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-red-500 mb-4">Propriété introuvable</p>
-                    <button onClick={() => onNavigate?.({ name: 'home' })} className="text-[#00c9a7] underline">Retour à l'accueil</button>
-                </div>
-            </div>
-        );
-    }
-
-    const subtotal = pricePerNight * nights;
-    const serviceFee = subtotal * 0.10;
-
-    return (
-        <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
-            <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
-                        className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
-                    >
-                        <ArrowLeft className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <div>
-                        <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">
-                            {!showPaymentStep ? 'Résumé de votre réservation' : 'Paiement sécurisé'}
-                        </h1>
-                        <p className="text-xs text-gray-500">
-                            {!showPaymentStep ? 'Vérifiez vos informations' : 'Finalisez votre réservation'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
-                <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Colonne gauche - Récapitulatif */}
-                    <div className="flex-1 space-y-4">
-                        {/* Logement */}
-                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                            <div className="flex gap-4">
-                                <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100">
-                                    <img 
-                                        src={property.images?.[0] || property.image} 
-                                        alt={property.title}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-[#0F2940]">{property.title}</h3>
-                                    <p className="text-sm text-gray-500 mt-0.5">{property.district}, {property.city}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                                        <span className="text-sm">{property.average_rating || 4.5}</span>
-                                        <span className="text-gray-400 text-sm">({property.reviews_count || 0} avis)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Dates et voyageurs */}
-                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                                        <CalendarIcon className="w-4 h-4" /> Arrivée
-                                    </h4>
-                                    <p className="font-semibold">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                </div>
-                                <div>
-                                    <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                                        <CalendarIcon className="w-4 h-4" /> Départ
-                                    </h4>
-                                    <p className="font-semibold">{new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                </div>
-                            </div>
-                            <div className="mt-3 pt-3 border-t">
-                                <h4 className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-1">
-                                    <Users className="w-4 h-4" /> Voyageurs
-                                </h4>
-                                <p className="font-semibold">{guests} personne{guests > 1 ? 's' : ''}</p>
-                            </div>
-                        </div>
-
-                        {/* Détail des prix */}
-                        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                            <h4 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
-                                <Receipt className="w-4 h-4 text-[#00c9a7]" />
-                                Détail des prix
-                            </h4>
-                            <div className="space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {nights} nuits</span>
-                                    <span>{subtotal.toLocaleString()} FCFA</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Frais de service (10%)</span>
-                                    <span>{serviceFee.toLocaleString()} FCFA</span>
-                                </div>
-                                <div className="border-t pt-2 mt-2">
-                                    <div className="flex justify-between font-bold">
-                                        <span>Total</span>
-                                        <span className="text-[#00c9a7] text-lg">{total.toLocaleString()} FCFA</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Colonne droite */}
-                    <div className="lg:w-96 space-y-4">
-                        {!showPaymentStep ? (
-                            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 sticky top-20">
-                                <h2 className="text-xl font-bold text-[#0F2940] mb-4">Récapitulatif</h2>
-                                <div className="space-y-3 mb-6">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Logement</span>
-                                        <span className="font-medium">{property.title}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Dates</span>
-                                        <span className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} → {new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Durée</span>
-                                        <span className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Voyageurs</span>
-                                        <span className="font-medium">{guests} personne{guests > 1 ? 's' : ''}</span>
-                                    </div>
-                                </div>
-                                <div className="border-t pt-3 mb-6">
-                                    <div className="flex justify-between font-bold">
-                                        <span>Total à payer</span>
-                                        <span className="text-[#00c9a7] text-xl">{total.toLocaleString()} FCFA</span>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => setShowPaymentStep(true)}
-                                    className="w-full py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold hover:shadow-lg transition-all"
-                                >
-                                    Confirmer et payer
-                                </button>
-                                <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3">
-                                    <div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div>
-                                    <div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Garantie BF-Immo</span></div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 sticky top-20">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <button onClick={() => setShowPaymentStep(false)} className="text-[#00c9a7] hover:underline text-sm">← Retour</button>
-                                </div>
-                                <h2 className="text-xl font-bold text-[#0F2940] mb-4">Paiement</h2>
-                                
-                                <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center mb-4">
-                                    <p className="text-sm text-gray-600">Montant à payer</p>
-                                    <p className="text-2xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Méthode de paiement</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button onClick={() => { setPaymentMethod('mobile_money'); setPaymentError(''); }} className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}>
-                                            <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                            <span className="text-xs">Mobile Money</span>
-                                        </button>
-                                        <button onClick={() => { setPaymentMethod('card'); setPaymentError(''); }} className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}>
-                                            <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                            <span className="text-xs">Carte bancaire</span>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {paymentMethod === 'mobile_money' && (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Opérateur</label>
-                                            <div className="grid grid-cols-3 gap-2">
-                                                {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                                                    <button key={provider} onClick={() => { setMobileProvider(provider); setPaymentError(''); }} className={`py-2 rounded-xl border transition-all text-sm ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200'}`}>
-                                                        {provider}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Numéro Mobile Money</label>
-                                            <input type="tel" value={mobileMoneyNumber} onChange={(e) => { setMobileMoneyNumber(e.target.value); setPaymentError(''); }} placeholder="97 00 00 00" className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {paymentMethod === 'card' && (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de carte</label>
-                                            <input type="text" value={cardNumber} onChange={handleCardNumberChange} placeholder="1234 5678 9012 3456" maxLength={19} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Expiration</label>
-                                                <input type="text" value={cardExpiry} onChange={handleExpiryChange} placeholder="MM/AA" maxLength={5} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                                                <div className="relative">
-                                                    <input type={showCvv ? 'text' : 'password'} value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} placeholder="123" maxLength={4} className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] pr-8" />
-                                                    <button type="button" onClick={() => setShowCvv(!showCvv)} className="absolute right-2 top-1/2 -translate-y-1/2">{showCvv ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Nom sur la carte</label>
-                                            <input type="text" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} placeholder="JEAN DUPONT" className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] uppercase" />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {paymentError && <div className="p-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 text-center">{paymentError}</div>}
-
-                                <button onClick={handleConfirmPayment} disabled={isPaying} className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold disabled:opacity-50">
-                                    {isPaying ? <div className="flex justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Paiement...</div> : `Payer ${total.toLocaleString()} FCFA`}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
+      {!hideBackButton && (
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center gap-4 z-20">
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition-all">
+            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+          </button>
+          <h1 className="text-xl font-semibold text-[#0F2940]">
+            {mode === 'login' && 'Connexion'}
+            {mode === 'signup' && 'Créer un compte'}
+            {mode === 'forgot' && 'Mot de passe oublié'}
+          </h1>
         </div>
-    );
+      )}
+
+      <div className="flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-3xl shadow-xl overflow-hidden">
+            <div className="p-6 sm:p-8">
+              {mode === 'forgot' && resetSent ? (
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-[#0F2940] mb-2">Email envoyé !</h2>
+                    <p className="text-sm text-gray-500">
+                      Un lien de réinitialisation a été envoyé à <strong>{formData.email}</strong>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Vérifiez vos spams si vous ne recevez rien dans les prochaines minutes.
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => {
+                      setMode('login');
+                      setResetSent(false);
+                      setSuccessMessage('');
+                    }}
+                    className="w-full bg-[#00c9a7] text-white py-3 rounded-xl font-semibold hover:bg-[#00b892] transition"
+                  >
+                    Retour à la connexion
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-6">
+                    <div className="w-20 h-20 mx-auto mb-4 rounded-2xl overflow-hidden shadow-lg bg-white">
+                      <img 
+                        src={LogoUrl} 
+                        alt="Bluefin-Immo" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<span class="text-2xl font-bold text-white bg-gradient-to-r from-[#00c9a7] to-[#0f2940] w-full h-full flex items-center justify-center">B</span>';
+                          }
+                        }}
+                      />
+                    </div>
+                    <h2 className="text-2xl font-bold text-[#0F2940]">
+                      {mode === 'login' && 'Bienvenue !'}
+                      {mode === 'signup' && 'Rejoignez Bluefin-Immo'}
+                      {mode === 'forgot' && 'Mot de passe oublié ?'}
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {mode === 'login' && 'Connectez-vous à votre compte voyageur'}
+                      {mode === 'signup' && 'Créez votre compte voyageur en quelques secondes'}
+                      {mode === 'forgot' && 'Entrez votre email pour réinitialiser votre mot de passe'}
+                    </p>
+                    
+                    {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
+                      <div className="mt-3 p-2 bg-amber-50 rounded-lg">
+                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé vers le paiement</p>
+                      </div>
+                    )}
+                    
+                    {localStorage.getItem('redirect_intent') === 'chat' && (
+                      <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-blue-700">💬 Après connexion, vous pourrez discuter avec l'hôte</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {successMessage && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                      <Check className="w-5 h-5 text-green-500" />
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  )}
+                  {errors.general && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600">{errors.general}</p>
+                    </div>
+                  )}
+
+                  <form onSubmit={mode === 'forgot' ? handleForgotPassword : handleSubmit} className="space-y-4">
+                    {mode === 'signup' && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Prénom *</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              name="firstName"
+                              value={formData.firstName}
+                              onChange={handleChange}
+                              className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.firstName ? 'border-red-500' : 'border-gray-200'}`}
+                            />
+                          </div>
+                          {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              name="lastName"
+                              value={formData.lastName}
+                              onChange={handleChange}
+                              className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.lastName ? 'border-red-500' : 'border-gray-200'}`}
+                            />
+                          </div>
+                          {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          placeholder="votre@email.com"
+                          className={`w-full pl-9 pr-3 py-2 border rounded-xl ${errors.email ? 'border-red-500' : 'border-gray-200'}`}
+                        />
+                      </div>
+                      {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                    </div>
+
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {mode !== 'forgot' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe *</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            className={`w-full pl-9 pr-10 py-2 border rounded-xl ${errors.password ? 'border-red-500' : 'border-gray-200'}`}
+                          />
+                          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
+                      </div>
+                    )}
+
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmer mot de passe *</label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            name="confirmPassword"
+                            value={formData.confirmPassword}
+                            onChange={handleChange}
+                            className={`w-full pl-9 pr-10 py-2 border rounded-xl ${errors.confirmPassword ? 'border-red-500' : 'border-gray-200'}`}
+                          />
+                          <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {errors.confirmPassword && <p className="text-xs text-red-500 mt-1">{errors.confirmPassword}</p>}
+                      </div>
+                    )}
+
+                    {mode === 'login' && (
+                      <div className="text-right">
+                        <button type="button" onClick={() => setMode('forgot')} className="text-sm text-[#00c9a7] hover:underline">
+                          Mot de passe oublié ?
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-2.5 rounded-xl font-semibold disabled:opacity-50 transition-all hover:shadow-lg"
+                    >
+                      {loading
+                        ? 'Chargement...'
+                        : mode === 'login'
+                        ? 'Se connecter'
+                        : mode === 'signup'
+                        ? 'Créer mon compte voyageur'
+                        : 'Envoyer le lien de réinitialisation'}
+                    </button>
+                  </form>
+
+                  <div className="text-center mt-5">
+                    {mode === 'login' && (
+                      <p className="text-xs text-gray-500">
+                        Pas encore de compte ?{' '}
+                        <button onClick={() => setMode('signup')} className="text-[#00c9a7] font-medium hover:underline">
+                          S'inscrire
+                        </button>
+                      </p>
+                    )}
+                    {mode === 'signup' && (
+                      <p className="text-xs text-gray-500">
+                        Déjà un compte ?{' '}
+                        <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium hover:underline">
+                          Se connecter
+                        </button>
+                      </p>
+                    )}
+                    {mode === 'forgot' && (
+                      <p className="text-xs text-gray-500">
+                        <button onClick={() => setMode('login')} className="text-[#00c9a7] font-medium hover:underline">
+                          ← Retour à la connexion
+                        </button>
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 // ==================== HOTELS PAGE ====================
 
