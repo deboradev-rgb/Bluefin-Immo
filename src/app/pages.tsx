@@ -2412,6 +2412,7 @@ const mapProperty = (p: any) => {
     location: `${p.district || ''}${p.district && p.city ? ', ' : ''}${p.city || ''}`.replace(/^,\s/, '') || 'Bénin',
     city: p.city || '',
     district: p.district || '',
+    is_hotel_promoted: p.is_hotel_promoted || false,
     price: priceFCFA,
     priceFCFA: priceFCFA,
     priceDisplay: `${priceFCFA.toLocaleString()} FCFA`,
@@ -3120,9 +3121,21 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
   const rawAllProperties = allPropertiesData?.data?.data || allPropertiesData?.data || [];
   const rawHotels = hotelsData?.data?.data || hotelsData?.data || [];
   
-  const allProperties = useMemo(() => {
-    return rawAllProperties.map(mapProperty).filter((p: any) => p.isVisible);
-  }, [rawAllProperties]);
+const allProperties = useMemo(() => {
+  const mapped = rawAllProperties.map(mapProperty).filter((p: any) => p.isVisible);
+  // Dédoublonner par id
+  const unique = [];
+  const seen = new Set();
+  for (const p of mapped) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      unique.push(p);
+    }
+  }
+  return mapped.filter(p => 
+    p.isVisible && !p.is_hotel_promoted   // ← exclure les hôtels promus
+  );
+}, [rawAllProperties]);
 
   const hotelsProperties = useMemo(() => {
     return rawHotels.map(mapProperty).filter((p: any) => p.isVisible);
