@@ -3307,7 +3307,7 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
                 <button onClick={() => onNavigate?.({ name: 'home' })} className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#00c9a7] text-white whitespace-nowrap">
                   Logements
                 </button>
-                <button onClick={() => onNavigate?.({ name: 'experiences' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
+                <button onClick={() => onNavigate?.({ name: 'experience' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
                   Expériences
                 </button>
                 <button onClick={() => onNavigate?.({ name: 'services' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
