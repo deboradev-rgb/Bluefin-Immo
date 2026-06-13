@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, ChevronLeft, ChevronRight, Users, Plus, Minus, Baby, Dog, Info } from 'lucide-react';
 import type { Route } from '../router';
 import Logo from '../assets/Bluefin Immo_01.jpg.jpeg';
+import propertyService from '../../services/property.service';
 
 const destinationsList = [
   "Abomey", "Abomey-Calavi", "Cotonou", "Porto-Novo", "Parakou", "Ouidah", "Grand-Popo",
@@ -49,6 +50,10 @@ export function Navbar({
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   
+  // ✅ Nouveaux états pour la vérification de disponibilité
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availableProperties, setAvailableProperties] = useState<any[]>([]);
+  
   const searchRef = useRef<HTMLDivElement>(null);
   const destinationPopupRef = useRef<HTMLDivElement>(null);
   const datesPopupRef = useRef<HTMLDivElement>(null);
@@ -68,7 +73,96 @@ export function Navbar({
     return false;
   };
 
-  // Recherche en temps réel
+  // ✅ NOUVELLE FONCTION: Vérifier la disponibilité des propriétés par dates
+  const checkAvailabilityByDates = async (city: string, checkInDate: string, checkOutDate: string, guestsCount: number) => {
+    if (!checkInDate || !checkOutDate) {
+      // Si pas de dates, retourner les propriétés de la ville
+      return null;
+    }
+    
+    setIsCheckingAvailability(true);
+    try {
+      // Appel API pour vérifier la disponibilité
+      const response = await propertyService.getAll({
+        city: city,
+        check_in: checkInDate,
+        check_out: checkOutDate,
+        max_guests: guestsCount,
+        per_page: 50
+      });
+      
+      const properties = response?.data?.data || response?.data || [];
+      setAvailableProperties(properties);
+      return properties;
+    } catch (error) {
+      console.error('Erreur vérification disponibilité:', error);
+      return null;
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
+  // ✅ RECHERCHE COMPLÈTE AVEC VÉRIFICATION DE DISPONIBILITÉ
+  const handleSearch = async () => {
+    if (isSearching) return;
+    
+    setIsSearching(true);
+    
+    const totalGuests = adults + children + (babies > 0 ? 1 : 0);
+    const finalGuests = totalGuests > 0 ? totalGuests : 1;
+    
+    const searchParams = {
+      destination: destination,
+      checkIn: checkIn,
+      checkOut: checkOut,
+      guests: finalGuests
+    };
+    
+    console.log('🔍 Recherche complète avec disponibilité:', searchParams);
+    
+    // ✅ Si des dates sont fournies, vérifier la disponibilité
+    if (checkIn && checkOut && destination) {
+      const availableProps = await checkAvailabilityByDates(destination, checkIn, checkOut, finalGuests);
+      
+      if (availableProps && availableProps.length === 0) {
+        // Pas de propriétés disponibles
+        console.log('❌ Aucune propriété disponible pour ces dates');
+        if (onSearch) {
+          onSearch({ ...searchParams, noResults: true });
+        }
+      } else if (availableProps && availableProps.length > 0) {
+        // Propriétés disponibles trouvées
+        console.log(`✅ ${availableProps.length} propriété(s) disponible(s) trouvée(s)`);
+        if (onSearch) {
+          onSearch(searchParams);
+        }
+      } else {
+        // Fallback à la recherche normale
+        if (onSearch) {
+          onSearch(searchParams);
+        }
+      }
+    } else {
+      // Pas de dates - recherche normale
+      if (onSearch) {
+        onSearch(searchParams);
+      }
+    }
+    
+    // Mettre à jour la recherche en temps réel pour la ville
+    if (onRealTimeSearch && destination) {
+      onRealTimeSearch(destination);
+    }
+    
+    setActiveTab(null);
+    setMobileSearchActive(false);
+    
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 500);
+  };
+
+  // ✅ Recherche en temps réel avec suggestion des villes
   const handleRealTimeSearch = (searchTerm: string) => {
     setDestination(searchTerm);
     
@@ -227,52 +321,26 @@ export function Navbar({
 
   const days = getDaysInMonth(currentMonth);
 
-  // ✅ RECHERCHE COMPLÈTE AVEC DATES
-  const handleSearch = () => {
+  // ✅ Version mobile de la recherche
+  const handleMobileSearch = async () => {
     if (isSearching) return;
     
     setIsSearching(true);
     
     const totalGuests = adults + children + (babies > 0 ? 1 : 0);
+    const finalGuests = totalGuests > 0 ? totalGuests : 1;
     
     const searchParams = {
       destination: destination,
       checkIn: checkIn,
       checkOut: checkOut,
-      guests: totalGuests > 0 ? totalGuests : 1
+      guests: finalGuests
     };
     
-    console.log('🔍 Recherche complète:', searchParams);
-    
-    if (onSearch) {
-      onSearch(searchParams);
+    // Vérifier la disponibilité si des dates sont fournies
+    if (checkIn && checkOut && destination) {
+      await checkAvailabilityByDates(destination, checkIn, checkOut, finalGuests);
     }
-    
-    if (onRealTimeSearch && destination) {
-      onRealTimeSearch(destination);
-    }
-    
-    setActiveTab(null);
-    setMobileSearchActive(false);
-    
-    setTimeout(() => {
-      setIsSearching(false);
-    }, 500);
-  };
-
-  const handleMobileSearch = () => {
-    if (isSearching) return;
-    
-    setIsSearching(true);
-    
-    const totalGuests = adults + children + (babies > 0 ? 1 : 0);
-    
-    const searchParams = {
-      destination: destination,
-      checkIn: checkIn,
-      checkOut: checkOut,
-      guests: totalGuests > 0 ? totalGuests : 1
-    };
     
     if (onSearch) {
       onSearch(searchParams);
@@ -627,11 +695,15 @@ export function Navbar({
               {/* Bouton Rechercher */}
               <button 
                 onClick={handleSearch}
-                disabled={isSearching}
+                disabled={isSearching || isCheckingAvailability}
                 className="bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:shadow-lg transition-all ml-1 font-medium disabled:opacity-50"
               >
-                <Search className="w-4 h-4" />
-                <span>{isSearching ? 'Recherche...' : 'Rechercher'}</span>
+                {isCheckingAvailability ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+                <span>{isCheckingAvailability ? 'Vérification...' : (isSearching ? 'Recherche...' : 'Rechercher')}</span>
               </button>
             </div>
           </div>
@@ -779,8 +851,8 @@ export function Navbar({
               </div>
             </div>
 
-            <button onClick={handleMobileSearch} disabled={isSearching} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3.5 rounded-xl font-semibold shadow-lg disabled:opacity-50">
-              {isSearching ? 'Recherche...' : 'Rechercher'}
+            <button onClick={handleMobileSearch} disabled={isSearching || isCheckingAvailability} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3.5 rounded-xl font-semibold shadow-lg disabled:opacity-50">
+              {isCheckingAvailability ? 'Vérification...' : (isSearching ? 'Recherche...' : 'Rechercher')}
             </button>
           </div>
         </div>

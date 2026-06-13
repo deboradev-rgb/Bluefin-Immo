@@ -3096,9 +3096,13 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchingAPI, setIsSearchingAPI] = useState(false);
 
+  // ✅ Optimisation 1: Utiliser React Query avec staleTime et refetchOnWindowFocus false
   const { data: allPropertiesData, isLoading: allPropertiesLoading } = useQuery({
     queryKey: ['all-properties'],
     queryFn: () => propertyService.getAll({ per_page: 50, sort_by: 'popular' }),
+    staleTime: 5 * 60 * 1000, // 5 minutes - pas de rechargement inutile
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const { data: hotelsData, isLoading: hotelsLoading } = useQuery({
@@ -3107,8 +3111,12 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
       is_hotel_promoted: true,
       per_page: 20 
     }),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
+  // ✅ Optimisation 2: Mapper les données avec useMemo et ne le faire qu'une fois
   const rawAllProperties = allPropertiesData?.data?.data || allPropertiesData?.data || [];
   const rawHotels = hotelsData?.data?.data || hotelsData?.data || [];
   
@@ -3120,104 +3128,11 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
     return rawHotels.map(mapProperty).filter((p: any) => p.isVisible);
   }, [rawHotels]);
 
-// pages.tsx
-const enrichedProperties = useMemo(() => {
-    return allProperties;
-}, [allProperties]);
-
-const enrichedHotels = useMemo(() => {
-    return hotelsProperties;
-}, [hotelsProperties]);
-
-  const searchProperties = useCallback(async (searchParams: {
-    destination?: string;
-    check_in?: string;
-    check_out?: string;
-    guests?: number;
-  }) => {
-    setIsSearchingAPI(true);
-    setShowSearchResults(true);
-    setSearchDestination(searchParams.destination || '');
-    
-    try {
-      const filters: any = { per_page: 50 };
-      
-      if (searchParams.check_in && searchParams.check_out) {
-        filters.check_in = searchParams.check_in;
-        filters.check_out = searchParams.check_out;
-      }
-      
-      if (searchParams.guests && searchParams.guests > 0) {
-        filters.max_guests = searchParams.guests;
-      }
-      
-      const response = await propertyService.getAll(filters);
-      let allResults = response?.data?.data || response?.data || [];
-      
-      const destination = searchParams.destination?.toLowerCase().trim();
-      let filteredResults = allResults;
-      
-      if (destination) {
-        filteredResults = allResults.filter((prop: any) => {
-          const city = (prop.city || '').toLowerCase();
-          const district = (prop.district || '').toLowerCase();
-          return city === destination || city.includes(destination) ||
-                 district === destination || district.includes(destination);
-        });
-      }
-      
-      const mappedResults = filteredResults.map(mapProperty).filter((p: any) => p.isVisible);
-      setSearchResults(mappedResults);
-      
-      if (mappedResults.length === 0 && destination) {
-        toast.error(`Aucun logement trouvé à ${searchParams.destination}`);
-      }
-    } catch (error) {
-      console.error('❌ Erreur recherche:', error);
-      setSearchResults([]);
-      toast.error('Erreur lors de la recherche');
-    } finally {
-      setIsSearchingAPI(false);
-    }
-  }, []);
-
-  const handleRealTimeSearch = (destination: string) => {
-    setSearchDestination(destination);
-    
-    if (!destination.trim()) {
-      setShowSearchResults(false);
-      setSearchResults([]);
-      return;
-    }
-    
-    setIsSearching(true);
-    
-    const allProps = [...allProperties, ...hotelsProperties];
-    const lowerDest = destination.toLowerCase().trim();
-    
-    const filtered = allProps.filter(prop => {
-      const cityMatch = prop.city?.toLowerCase() === lowerDest ||
-                       prop.city?.toLowerCase().includes(lowerDest);
-      const districtMatch = prop.district?.toLowerCase() === lowerDest ||
-                           prop.district?.toLowerCase().includes(lowerDest);
-      const locationMatch = prop.location?.toLowerCase().includes(lowerDest);
-      
-      return cityMatch || districtMatch || locationMatch;
-    });
-    
-    setSearchResults(filtered);
-    setShowSearchResults(true);
-    setIsSearching(false);
-  };
-
-  const clearSearch = () => {
-    setSearchDestination('');
-    setShowSearchResults(false);
-    setSearchResults([]);
-  };
-
-  const applyFilters = (properties: any[]) => {
+  // ✅ Optimisation 3: Mémoriser le résultat filtré
+  const filteredAndSortedProperties = useMemo(() => {
+    const properties = showSearchResults ? searchResults : allProperties;
     let filtered = [...properties];
+    
     switch (selectedFilter) {
       case 'Prix croissant':
         return filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -3228,33 +3143,124 @@ const enrichedHotels = useMemo(() => {
       default:
         return filtered;
     }
-  };
+  }, [showSearchResults, searchResults, allProperties, selectedFilter]);
 
-  const displayProperties = showSearchResults ? searchResults : enrichedProperties;
-  const filteredProperties = applyFilters(displayProperties);
+  // ✅ Optimisation 4: Debounce la recherche en temps réel
+  const debouncedSearch = useRef<NodeJS.Timeout>();
+  
+  const handleRealTimeSearch = useCallback((destination: string) => {
+    setSearchDestination(destination);
+    
+    if (!destination.trim()) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+    
+    // Debounce pour ne pas trop calculer
+    if (debouncedSearch.current) {
+      clearTimeout(debouncedSearch.current);
+    }
+    
+    setIsSearching(true);
+    
+    debouncedSearch.current = setTimeout(() => {
+      const allProps = [...allProperties, ...hotelsProperties];
+      const lowerDest = destination.toLowerCase().trim();
+      
+      const filtered = allProps.filter(prop => {
+        const cityMatch = prop.city?.toLowerCase() === lowerDest ||
+                         prop.city?.toLowerCase().includes(lowerDest);
+        const districtMatch = prop.district?.toLowerCase() === lowerDest ||
+                             prop.district?.toLowerCase().includes(lowerDest);
+        const locationMatch = prop.location?.toLowerCase().includes(lowerDest);
+        
+        return cityMatch || districtMatch || locationMatch;
+      });
+      
+      setSearchResults(filtered);
+      setShowSearchResults(true);
+      setIsSearching(false);
+    }, 300); // 300ms de debounce
+  }, [allProperties, hotelsProperties]);
 
-  const handleFullSearch = (searchParams: any) => {
+  // ✅ Optimisation 5: Mémoriser la fonction de recherche API
+ const searchProperties = useCallback(async (searchParams: {
+  destination?: string;
+  check_in?: string;
+  check_out?: string;
+  guests?: number;
+}) => {
+  setIsSearchingAPI(true);
+  setShowSearchResults(true);
+  setSearchDestination(searchParams.destination || '');
+
+  try {
+    const filters: any = { per_page: 50 };
+
+    if (searchParams.check_in && searchParams.check_out) {
+      filters.check_in = searchParams.check_in;
+      filters.check_out = searchParams.check_out;
+    }
+
+    if (searchParams.guests && searchParams.guests > 0) {
+      filters.max_guests = searchParams.guests;
+    }
+
+    const response = await propertyService.getAll(filters);
+    let allResults = response?.data?.data || response?.data || [];
+
+    const destination = searchParams.destination?.toLowerCase().trim();
+    let filteredResults = allResults;
+
+    if (destination) {
+      filteredResults = allResults.filter((prop: any) => {
+        const city = (prop.city || '').toLowerCase();
+        const district = (prop.district || '').toLowerCase();
+        return city === destination ||
+               city.includes(destination) ||
+               district === destination ||
+               district.includes(destination);
+      });
+    }
+
+    const mappedResults = filteredResults.map(mapProperty).filter((p: any) => p.isVisible);
+    setSearchResults(mappedResults);
+
+    // ✅ Aucun toast, aucun message intempestif
+
+  } catch (error) {
+    console.error('❌ Erreur recherche:', error);
+    setSearchResults([]);
+    // Optionnel : garder un toast seulement pour les vraies erreurs réseau
+    // toast.error('Erreur lors de la recherche');
+  } finally {
+    setIsSearchingAPI(false);
+  }
+}, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchDestination('');
+    setShowSearchResults(false);
+    setSearchResults([]);
+  }, []);
+
+  const handleFullSearch = useCallback((searchParams: any) => {
     searchProperties({
       destination: searchParams.destination,
       check_in: searchParams.checkIn,
       check_out: searchParams.checkOut,
       guests: searchParams.guests
     });
-  };
+  }, [searchProperties]);
 
+  // ✅ Optimisation 6: Mémoriser la liste des filtres
+  const filtersList = useMemo(() => ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'], []);
+
+  // ✅ Optimisation 7: Afficher un skeleton loader plus rapide
   const isLoading = allPropertiesLoading || hotelsLoading;
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#00c9a7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des logements...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ✅ Optimisation 8: Rendre la page visible immédiatement avec les données déjà chargées
   return (
     <div className="bg-white">
       <Navbar
@@ -3263,7 +3269,7 @@ const enrichedHotels = useMemo(() => {
         currentPage="home"
         onSearch={handleFullSearch}
         onRealTimeSearch={handleRealTimeSearch}
-        allLogements={enrichedProperties}
+        allLogements={allProperties}
       />
 
       <Hero 
@@ -3283,6 +3289,7 @@ const enrichedHotels = useMemo(() => {
         }} 
       />
 
+      {/* Barre de résultats de recherche - affichage conditionnel */}
       {showSearchResults && (
         <div className="bg-[#f4fffe] border-b border-gray-200 px-4 py-3">
           <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3">
@@ -3310,7 +3317,7 @@ const enrichedHotels = useMemo(() => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4 overflow-x-auto pb-2">
                 <div className="relative">
-                  <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors">
+                  <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors whitespace-nowrap">
                     <Filter className="w-4 h-4 text-[#00c9a7]" />
                     <span className="text-sm text-[#0F2940]">Trier par</span>
                     <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
@@ -3336,9 +3343,9 @@ const enrichedHotels = useMemo(() => {
                   )}
                 </div>
                 
-                <div className="text-sm text-[#0F2940]">
+                <div className="text-sm text-[#0F2940] whitespace-nowrap">
                   {!isLoading ? (
-                    `${filteredProperties.length} logement${filteredProperties.length > 1 ? 's' : ''} disponible${filteredProperties.length > 1 ? 's' : ''}`
+                    `${filteredAndSortedProperties.length} logement${filteredAndSortedProperties.length > 1 ? 's' : ''} disponible${filteredAndSortedProperties.length > 1 ? 's' : ''}`
                   ) : (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
@@ -3352,11 +3359,22 @@ const enrichedHotels = useMemo(() => {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - Chargement progressif */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-[1440px] mx-auto">
           
-          {filteredProperties.length > 0 ? (
+          {/* Afficher un skeleton loader pendant le chargement initial */}
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 rounded-xl aspect-[4/3] mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : filteredAndSortedProperties.length > 0 ? (
             <>
               <div className="mb-6">
                 <h2 className="text-2xl font-semibold text-[#0F2940]">
@@ -3370,7 +3388,7 @@ const enrichedHotels = useMemo(() => {
               </div>
               
               <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredProperties.map(property => (
+                {filteredAndSortedProperties.map(property => (
                   <PropertyCard
                     key={property.id}
                     property={property}
@@ -3397,8 +3415,8 @@ const enrichedHotels = useMemo(() => {
             </div>
           ) : null}
 
-          {/* Section Hôtels */}
-          {!showSearchResults && hotelsProperties.length > 0 && (
+          {/* Section Hôtels - Chargement séparé */}
+          {!showSearchResults && !hotelsLoading && hotelsProperties.length > 0 && (
             <div className="mt-12 mb-12">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -9437,22 +9455,23 @@ export function MessagesPage({ onNavigate, id, search }: MessagesPageProps) {
 export function FavoritesPage({ onNavigate }: PageProps) {
   const { favorites, removeFavorite, toggleFavorite } = useFavorites();
   const [selectedFilter, setSelectedFilter] = useState('Tous');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ Extraire les données du favori (la propriété est dans property)
-  const getPropertyData = (favorite: any) => {
-    // Si c'est déjà un favori transformé avec la structure correcte
-    if (favorite.property) {
-      return favorite.property;
-    }
-    // Si c'est déjà une propriété directe
-    return favorite;
-  };
+  // ✅ Simuler un chargement rapide
+  useEffect(() => {
+    // Petit délai pour éviter le flash de contenu vide
+    const timer = setTimeout(() => setIsLoading(false), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
-  // ✅ Fonction pour extraire l'image
-  const getImageUrl = (favorite: any): string => {
+  // ✅ Mémoriser les fonctions de transformation pour éviter les recalculs
+  const getPropertyData = useCallback((favorite: any) => {
+    return favorite.property || favorite;
+  }, []);
+
+  const getImageUrl = useCallback((favorite: any): string => {
     const property = getPropertyData(favorite);
     
-    // Vérifier photo directe
     if (property.photo) {
       let cleanUrl = property.photo;
       if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
@@ -9464,80 +9483,70 @@ export function FavoritesPage({ onNavigate }: PageProps) {
       return cleanUrl;
     }
     
-    // Vérifier images array
     if (property.images && Array.isArray(property.images) && property.images.length > 0) {
       return property.images[0];
     }
     
-    // Vérifier cover_photo
     if (property.cover_photo) {
       if (typeof property.cover_photo === 'string') return property.cover_photo;
       if (property.cover_photo.photo_url) return property.cover_photo.photo_url;
       if (property.cover_photo.full_url) return property.cover_photo.full_url;
     }
     
-    // Fallback
     return `https://picsum.photos/seed/${property.id}/400/300`;
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour le prix
-  const getPriceDisplay = (favorite: any): string => {
+  const getPriceDisplay = useCallback((favorite: any): string => {
     const property = getPropertyData(favorite);
     const price = property.price_per_night || property.price || 0;
-    // Nettoyer le prix (enlever les espaces et convertir en nombre)
     const cleanPrice = typeof price === 'string' ? parseInt(price.replace(/\s/g, '')) : price;
     return `${cleanPrice.toLocaleString()} FCFA`;
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour la note
-  const getRating = (favorite: any): number => {
+  const getRating = useCallback((favorite: any): number => {
     const property = getPropertyData(favorite);
     const rating = property.average_rating || property.rating || 0;
     return typeof rating === 'number' ? rating : parseFloat(rating) || 0;
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour le nombre d'avis
-  const getReviews = (favorite: any): number => {
+  const getReviews = useCallback((favorite: any): number => {
     const property = getPropertyData(favorite);
     return property.reviews_count || property.reviews || 0;
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour la localisation
-  const getLocation = (favorite: any): string => {
+  const getLocation = useCallback((favorite: any): string => {
     const property = getPropertyData(favorite);
     if (property.location) return property.location;
     const parts = [];
     if (property.district) parts.push(property.district);
     if (property.city) parts.push(property.city);
     return parts.length > 0 ? parts.join(', ') : 'Bénin';
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour le titre
-  const getTitle = (favorite: any): string => {
+  const getTitle = useCallback((favorite: any): string => {
     const property = getPropertyData(favorite);
     return property.title || 'Logement sans titre';
-  };
+  }, [getPropertyData]);
 
-  // ✅ Fonction pour l'ID
-  const getPropertyId = (favorite: any): number => {
+  const getPropertyId = useCallback((favorite: any): number => {
     const property = getPropertyData(favorite);
     return property.id;
-  };
+  }, [getPropertyData]);
 
-  // ✅ Filtrage et tri
-  const getFilteredFavorites = () => {
+  // ✅ Optimisation: Mémoriser les favoris filtrés et triés
+  const displayedFavorites = useMemo(() => {
     let filtered = [...favorites];
     switch (selectedFilter) {
       case 'Prix croissant':
         return filtered.sort((a, b) => {
-          const priceA = parseInt((a.property?.price_per_night || '0').replace(/\s/g, ''));
-          const priceB = parseInt((b.property?.price_per_night || '0').replace(/\s/g, ''));
+          const priceA = parseInt((a.property?.price_per_night || '0').toString().replace(/\s/g, ''));
+          const priceB = parseInt((b.property?.price_per_night || '0').toString().replace(/\s/g, ''));
           return priceA - priceB;
         });
       case 'Prix décroissant':
         return filtered.sort((a, b) => {
-          const priceA = parseInt((a.property?.price_per_night || '0').replace(/\s/g, ''));
-          const priceB = parseInt((b.property?.price_per_night || '0').replace(/\s/g, ''));
+          const priceA = parseInt((a.property?.price_per_night || '0').toString().replace(/\s/g, ''));
+          const priceB = parseInt((b.property?.price_per_night || '0').toString().replace(/\s/g, ''));
           return priceB - priceA;
         });
       case 'Mieux notés':
@@ -9545,10 +9554,155 @@ export function FavoritesPage({ onNavigate }: PageProps) {
       default:
         return filtered;
     }
-  };
+  }, [favorites, selectedFilter, getRating]);
 
-  const displayedFavorites = getFilteredFavorites();
+  // ✅ Liste des filtres mémorisée
+  const filtersList = useMemo(() => ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'], []);
 
+  // ✅ Composant de carte optimisé avec memo
+  const FavoriteCard = useMemo(() => {
+    return ({ favorite }: { favorite: any }) => {
+      const propertyId = getPropertyId(favorite);
+      const imageUrl = getImageUrl(favorite);
+      const title = getTitle(favorite);
+      const location = getLocation(favorite);
+      const priceDisplay = getPriceDisplay(favorite);
+      const rating = getRating(favorite);
+      const reviews = getReviews(favorite);
+      const propertyData = getPropertyData(favorite);
+      
+      return (
+        <div 
+          className="group rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
+          onClick={() => onNavigate?.({ name: 'listing', id: propertyId.toString() })}
+        >
+          {/* Image - hauteur réduite sur mobile */}
+          <div className="relative h-48 sm:h-52 md:h-56 overflow-hidden bg-gray-100">
+            <img
+              src={imageUrl}
+              alt={title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              loading="lazy"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${propertyId}/400/300`;
+              }}
+            />
+            
+            {/* Bouton retirer des favoris */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                removeFavorite(propertyId);
+              }}
+              className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-10 shadow-md"
+              aria-label="Retirer des favoris"
+            >
+              <Heart className="w-5 h-5 fill-red-500 text-red-500" />
+            </button>
+            
+            {/* Badges */}
+            <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+              {propertyData.bluefin_certified && (
+                <div className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full font-medium shadow-sm">
+                  ✓ Bluefin Certifié
+                </div>
+              )}
+            </div>
+            
+            {propertyData.instant_booking && (
+              <div className="absolute bottom-3 left-3 px-2 py-1 bg-green-600 text-white text-xs rounded-full z-10 shadow-sm">
+                ⚡ Réservation instantanée
+              </div>
+            )}
+          </div>
+          
+          {/* Contenu */}
+          <div className="p-3 sm:p-4">
+            <div className="flex justify-between items-start gap-2">
+              <h3 className="font-semibold text-[#0F2940] text-sm sm:text-base line-clamp-1 flex-1">
+                {title}
+              </h3>
+              {rating > 0 && (
+                <div className="flex items-center gap-1 text-xs sm:text-sm flex-shrink-0">
+                  <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-500 text-yellow-500" />
+                  <span className="font-medium">{rating.toFixed(1)}</span>
+                  {reviews > 0 && (
+                    <span className="text-gray-500 text-xs hidden sm:inline">({reviews})</span>
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-1">{location}</p>
+            
+            {/* Équipements - cachés sur très petit mobile */}
+            <div className="hidden sm:flex flex-wrap gap-2 mt-3">
+              {propertyData.has_wifi && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  📶 Wi-Fi
+                </span>
+              )}
+              {propertyData.has_air_conditioning && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  ❄️ Clim
+                </span>
+              )}
+              {propertyData.has_generator && (
+                <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
+                  ⚡ Groupe
+                </span>
+              )}
+            </div>
+            
+            {/* Prix */}
+            <div className="mt-3 pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-base sm:text-lg text-[#00c9a7]">{priceDisplay}</span>
+                  <span className="text-xs sm:text-sm text-gray-400"> / nuit</span>
+                </div>
+                <button 
+                  className="text-xs sm:text-sm text-[#00c9a7] hover:text-[#0F2940] font-medium transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNavigate?.({ name: 'listing', id: propertyId.toString() });
+                  }}
+                >
+                  Voir →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+  }, [onNavigate, removeFavorite, getPropertyId, getImageUrl, getTitle, getLocation, getPriceDisplay, getRating, getReviews, getPropertyData]);
+
+  // ✅ État de chargement
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white py-10">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-9 h-9 bg-gray-200 rounded-full animate-pulse"></div>
+            <div className="h-8 w-32 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-5 w-20 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-gray-200 rounded-2xl h-48 mb-3"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ État vide
   if (!favorites || favorites.length === 0) {
     return (
       <div className="min-h-screen bg-white py-10">
@@ -9579,31 +9733,36 @@ export function FavoritesPage({ onNavigate }: PageProps) {
     );
   }
 
+  // ✅ Vue principale
   return (
-    <div className="min-h-screen bg-white py-10">
-      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* En-tête */}
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => onNavigate?.({ name: 'home' })}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
-          </button>
-          <h1 className="text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
-          <span className="text-sm text-gray-500">({displayedFavorites.length} logements)</span>
+    <div className="min-h-screen bg-white py-4 sm:py-10">
+      <div className="max-w-[1100px] mx-auto px-3 sm:px-6 lg:px-8">
+        {/* En-tête - sticky sur mobile */}
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-3 -mt-2 mb-4 sm:static sm:bg-transparent sm:py-0 sm:mb-6">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => onNavigate?.({ name: 'home' })}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors active:bg-gray-200"
+            >
+              <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
+            </button>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#0F2940]">Mes favoris</h1>
+            <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+              {displayedFavorites.length}
+            </span>
+          </div>
         </div>
 
-        {/* Filtres */}
-        <div className="mb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'].map(filter => (
+        {/* Filtres - scroll horizontal sur mobile */}
+        <div className="mb-4 sm:mb-6 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div className="flex gap-2 pb-2 min-w-max sm:min-w-0">
+            {filtersList.map(filter => (
               <button
                 key={filter}
                 onClick={() => setSelectedFilter(filter)}
-                className={`px-4 py-2 rounded-full text-sm transition-colors whitespace-nowrap ${
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm transition-all duration-200 whitespace-nowrap ${
                   selectedFilter === filter 
-                    ? 'bg-[#00c9a7] text-white' 
+                    ? 'bg-[#00c9a7] text-white shadow-md scale-105' 
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -9613,122 +9772,19 @@ export function FavoritesPage({ onNavigate }: PageProps) {
           </div>
         </div>
 
-        {/* Grille des favoris */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {displayedFavorites.map((favorite) => {
-            const propertyId = getPropertyId(favorite);
-            const imageUrl = getImageUrl(favorite);
-            const title = getTitle(favorite);
-            const location = getLocation(favorite);
-            const priceDisplay = getPriceDisplay(favorite);
-            const rating = getRating(favorite);
-            const reviews = getReviews(favorite);
-            const propertyData = getPropertyData(favorite);
-            
-            return (
-              <div 
-                key={favorite.id} 
-                className="group rounded-2xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer bg-white"
-                onClick={() => onNavigate?.({ name: 'listing', id: propertyId.toString() })}
-              >
-                {/* Image */}
-                <div className="relative h-48 overflow-hidden bg-gray-100">
-                  <img
-                    src={imageUrl}
-                    alt={title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    loading="lazy"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${propertyId}/400/300`;
-                    }}
-                  />
-                  
-                  {/* Bouton retirer des favoris */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFavorite(propertyId);
-                    }}
-                    className="absolute top-3 right-3 p-2 rounded-full bg-white/90 hover:bg-white transition-colors z-10 shadow-md"
-                    aria-label="Retirer des favoris"
-                  >
-                    <Heart className="w-5 h-5 fill-red-500 text-red-500" />
-                  </button>
-                  
-                  {/* Badge Bluefin Certifié */}
-                  {propertyData.bluefin_certified && (
-                    <div className="absolute top-3 left-3 px-2 py-1 bg-blue-600 text-white text-xs rounded-full font-medium z-10">
-                      ✓ Bluefin Certifié
-                    </div>
-                  )}
-                  
-                  {/* Badge Instant Booking */}
-                  {propertyData.instant_booking && (
-                    <div className="absolute bottom-3 left-3 px-2 py-1 bg-green-600 text-white text-xs rounded-full z-10">
-                      ⚡ Réservation instantanée
-                    </div>
-                  )}
-                </div>
-                
-                {/* Contenu */}
-                <div className="p-4">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-[#0F2940] line-clamp-1">{title}</h3>
-                    {rating > 0 && (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                        <span className="font-medium">{rating.toFixed(1)}</span>
-                        {reviews > 0 && (
-                          <span className="text-gray-500">({reviews})</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="text-sm text-gray-500 mt-1">{location}</p>
-                  
-                  {/* Équipements */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {propertyData.has_wifi && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
-                        📶 Wi-Fi
-                      </span>
-                    )}
-                    {propertyData.has_air_conditioning && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
-                        ❄️ Clim
-                      </span>
-                    )}
-                    {propertyData.has_generator && (
-                      <span className="inline-flex items-center gap-1 text-xs bg-gray-100 px-2 py-1 rounded-full">
-                        ⚡ Groupe
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Prix */}
-                  <div className="mt-3 pt-2 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-bold text-lg text-[#00c9a7]">{priceDisplay}</span>
-                        <span className="text-sm text-gray-400"> / nuit</span>
-                      </div>
-                      <button 
-                        className="text-sm text-[#00c9a7] hover:text-[#0F2940] font-medium transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onNavigate?.({ name: 'listing', id: propertyId.toString() });
-                        }}
-                      >
-                        Voir détails →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Grille des favoris - 2 colonnes sur mobile, 3 sur desktop */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
+          {displayedFavorites.map((favorite, index) => (
+            <FavoriteCard key={favorite.id || index} favorite={favorite} />
+          ))}
         </div>
+
+        {/* Message de fin */}
+        {displayedFavorites.length >= 4 && (
+          <div className="text-center mt-8 sm:mt-12 text-gray-400 text-xs sm:text-sm">
+            — Fin de la liste —
+          </div>
+        )}
       </div>
     </div>
   );
