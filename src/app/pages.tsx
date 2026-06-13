@@ -2832,42 +2832,85 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const getPaymentAmount = () => Math.floor(total * 0.5); // Paiement 50% par défaut
 
   // NOUVELLE FONCTION : Redirection vers la page de réservation/confirmation
-  const handleReservationClick = () => {
-  if (availabilityStatus !== 'available') {
-    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
-    return;
-  }
+  // Dans PropertyDetailModal - fonction handleReservationClick
+const handleReservationClick = () => {
+    if (availabilityStatus !== 'available') {
+        alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+        return;
+    }
 
-  // ✅ Sauvegarder TOUTES les données avant redirection
-  localStorage.setItem('redirect_intent', 'booking');
-  localStorage.setItem('redirect_property_id', property.id.toString());
-  localStorage.setItem('redirect_property_title', property.title);
-  localStorage.setItem('redirect_property_location', property.location);
-  localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-  localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-  localStorage.setItem('temp_booking_check_in', checkIn);
-  localStorage.setItem('temp_booking_check_out', checkOut);
-  localStorage.setItem('temp_booking_guests', totalGuests.toString());
-  localStorage.setItem('temp_booking_nights', nights.toString());
-  
-  console.log('💾 Données sauvegardées avant redirection:', {
-    intent: 'booking',
-    propertyId: property.id,
-    checkIn,
-    checkOut,
-    guests: totalGuests,
-    nights
-  });
+    const token = localStorage.getItem('token');
+    const isLoggedIn = !!token;
 
-  // Rediriger vers la page d'auth
-  if (onNavigate) {
-    onNavigate({ 
-      name: 'auth', 
-      search: `redirect=booking&property=${property.id}`
-    });
-  } else {
-    window.location.href = `/auth?redirect=booking&property=${property.id}`;
-  }
+    if (!isLoggedIn) {
+        // Non connecté - sauvegarder et rediriger vers auth
+        localStorage.setItem('redirect_intent', 'booking');
+        localStorage.setItem('redirect_property_id', property.id.toString());
+        localStorage.setItem('redirect_property_title', property.title);
+        localStorage.setItem('redirect_property_location', property.location);
+        localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+        localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+        localStorage.setItem('temp_booking_check_in', checkIn);
+        localStorage.setItem('temp_booking_check_out', checkOut);
+        localStorage.setItem('temp_booking_guests', totalGuests.toString());
+        localStorage.setItem('temp_booking_nights', nights.toString());
+        
+        if (onNavigate) {
+            onNavigate({ name: 'auth', search: 'redirect=booking' });
+        } else {
+            window.location.href = '/auth?redirect=booking';
+        }
+    } else {
+        // ✅ DÉJÀ CONNECTÉ - Redirection directe vers BookingPage
+        console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
+        
+        // Récupérer l'utilisateur
+        const userStr = localStorage.getItem('user');
+        let userData = null;
+        try {
+            userData = userStr ? JSON.parse(userStr) : null;
+        } catch (e) {
+            console.error('Erreur parsing user:', e);
+        }
+        
+        // Construire les données pour BookingPage
+        const bookingData = {
+            property_id: property.id,
+            check_in: checkIn,
+            check_out: checkOut,
+            guests: totalGuests,
+            nights: nights,
+            guest_details: {
+                full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+                email: userData?.email || '',
+                phone: userData?.phone || '',
+                address: ''
+            },
+            totalAmount: 0,
+            paymentAmount: 0
+        };
+        
+        // Sauvegarder dans sessionStorage
+        sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+        
+        // Construire les paramètres URL
+        const params = new URLSearchParams();
+        params.set('check_in', checkIn);
+        params.set('check_out', checkOut);
+        params.set('guests', totalGuests.toString());
+        params.set('nights', nights.toString());
+        
+        // Rediriger vers BookingPage
+        if (onNavigate) {
+            onNavigate({ 
+                name: 'booking', 
+                id: property.id.toString(),
+                search: `?${params.toString()}`
+            });
+        } else {
+            window.location.href = `/booking/${property.id}?${params.toString()}`;
+        }
+    }
 };
 
   useEffect(() => {
@@ -3625,15 +3668,60 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         });
     };
 
-    const handleOpenPaymentModal = () => {
-        if (!user) {
-            onNavigate?.({ name: 'auth' });
-            return;
+    const {isAuthenticated } = useAuth();
+
+// Dans BookingPage, corrigez la fonction handleOpenPaymentModal
+const handleOpenPaymentModal = () => {
+    // Vérifier d'abord si l'utilisateur est connecté
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    console.log('🔍 Vérification connexion:', { 
+        hasToken: !!token, 
+        hasUser: !!storedUser,
+        authUser: user,
+        isAuthenticatedFromContext: isAuthenticated
+    });
+    
+    // Vérifier si l'utilisateur est connecté (token existe ET user existe)
+    if (!token || !storedUser || !user) {
+        // Non connecté - rediriger vers auth
+        console.log('❌ Utilisateur non connecté, redirection vers auth');
+        
+        // Sauvegarder les données de réservation actuelles
+        const currentBookingData = {
+            property_id: parseInt(propertyId || '0'),
+            check_in: currentCheckIn,
+            check_out: currentCheckOut,
+            guests: currentGuests,
+            nights: currentNights,
+            guest_details: bookingFormData?.guest_details || {}
+        };
+        sessionStorage.setItem('bookingFormData', JSON.stringify(currentBookingData));
+        
+        // Sauvegarder l'intention de réservation
+        localStorage.setItem('redirect_intent', 'booking');
+        localStorage.setItem('redirect_property_id', propertyId || '');
+        localStorage.setItem('temp_booking_check_in', currentCheckIn);
+        localStorage.setItem('temp_booking_check_out', currentCheckOut);
+        localStorage.setItem('temp_booking_guests', currentGuests.toString());
+        localStorage.setItem('temp_booking_nights', currentNights.toString());
+        
+        // Rediriger vers auth
+        if (onNavigate) {
+            onNavigate({ name: 'auth', search: 'redirect=booking' });
+        } else {
+            window.location.href = '/auth?redirect=booking';
         }
-        setError('');
-        setShowPaymentModal(true);
-        setPaymentStep('form');
-    };
+        return;
+    }
+    
+    // Connecté - ouvrir le modal de paiement
+    console.log('✅ Utilisateur connecté, ouverture du modal de paiement');
+    setError('');
+    setShowPaymentModal(true);
+    setPaymentStep('form');
+};
 
     const handlePaymentSubmit = async () => {
         if (!validatePaymentDetails()) return;
