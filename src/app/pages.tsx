@@ -3087,65 +3087,70 @@ const Receipt = ({ className }: { className?: string }) => (
 // HomePage.tsx - Version finale avec les couleurs du site et prix en euros
 
 
+
 export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+  // États pour le tri (desktop)
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  // États pour la recherche
   const [searchDestination, setSearchDestination] = useState('');
-  const { favorites, isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSearchingAPI, setIsSearchingAPI] = useState(false);
 
-  // ✅ Optimisation 1: Utiliser React Query avec staleTime et refetchOnWindowFocus false
+  // Requêtes API
   const { data: allPropertiesData, isLoading: allPropertiesLoading } = useQuery({
     queryKey: ['all-properties'],
     queryFn: () => propertyService.getAll({ per_page: 50, sort_by: 'popular' }),
-    staleTime: 5 * 60 * 1000, // 5 minutes - pas de rechargement inutile
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
   const { data: hotelsData, isLoading: hotelsLoading } = useQuery({
     queryKey: ['hotels-promoted'],
-    queryFn: () => propertyService.getAll({ 
+    queryFn: () => propertyService.getAll({
       is_hotel_promoted: true,
-      per_page: 20 
+      per_page: 20
     }),
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  // ✅ Optimisation 2: Mapper les données avec useMemo et ne le faire qu'une fois
   const rawAllProperties = allPropertiesData?.data?.data || allPropertiesData?.data || [];
   const rawHotels = hotelsData?.data?.data || hotelsData?.data || [];
-  
-const allProperties = useMemo(() => {
-  const mapped = rawAllProperties.map(mapProperty).filter((p: any) => p.isVisible);
-  // Dédoublonner par id
-  const unique = [];
-  const seen = new Set();
-  for (const p of mapped) {
-    if (!seen.has(p.id)) {
-      seen.add(p.id);
-      unique.push(p);
-    }
-  }
-  return mapped.filter(p => 
-    p.isVisible && !p.is_hotel_promoted   // ← exclure les hôtels promus
-  );
-}, [rawAllProperties]);
 
+  // Propriétés normales (exclut les hôtels promus)
+  const allProperties = useMemo(() => {
+    const mapped = rawAllProperties.map(mapProperty).filter((p: any) => p.isVisible);
+    const unique = [];
+    const seen = new Set();
+    for (const p of mapped) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        unique.push(p);
+      }
+    }
+    return unique.filter(p => p.isVisible && !p.is_hotel_promoted);
+  }, [rawAllProperties]);
+
+  // Hôtels promus
   const hotelsProperties = useMemo(() => {
     return rawHotels.map(mapProperty).filter((p: any) => p.isVisible);
   }, [rawHotels]);
 
-  // ✅ Optimisation 3: Mémoriser le résultat filtré
+  // Propriétés brutes (recherche ou toutes)
+  const displayedProperties = useMemo(() => {
+    return showSearchResults ? searchResults : allProperties;
+  }, [showSearchResults, searchResults, allProperties]);
+
+  // Propriétés triées (pour l'affichage desktop)
   const filteredAndSortedProperties = useMemo(() => {
-    const properties = showSearchResults ? searchResults : allProperties;
-    let filtered = [...properties];
-    
+    let filtered = [...displayedProperties];
     switch (selectedFilter) {
       case 'Prix croissant':
         return filtered.sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -3156,101 +3161,75 @@ const allProperties = useMemo(() => {
       default:
         return filtered;
     }
-  }, [showSearchResults, searchResults, allProperties, selectedFilter]);
+  }, [displayedProperties, selectedFilter]);
 
-  // ✅ Optimisation 4: Debounce la recherche en temps réel
+  const filtersList = useMemo(() => ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'], []);
+
+  // Recherche en temps réel
   const debouncedSearch = useRef<NodeJS.Timeout>();
-  
   const handleRealTimeSearch = useCallback((destination: string) => {
     setSearchDestination(destination);
-    
     if (!destination.trim()) {
       setShowSearchResults(false);
       setSearchResults([]);
       return;
     }
-    
-    // Debounce pour ne pas trop calculer
-    if (debouncedSearch.current) {
-      clearTimeout(debouncedSearch.current);
-    }
-    
+    if (debouncedSearch.current) clearTimeout(debouncedSearch.current);
     setIsSearching(true);
-    
     debouncedSearch.current = setTimeout(() => {
       const allProps = [...allProperties, ...hotelsProperties];
       const lowerDest = destination.toLowerCase().trim();
-      
       const filtered = allProps.filter(prop => {
-        const cityMatch = prop.city?.toLowerCase() === lowerDest ||
-                         prop.city?.toLowerCase().includes(lowerDest);
-        const districtMatch = prop.district?.toLowerCase() === lowerDest ||
-                             prop.district?.toLowerCase().includes(lowerDest);
+        const cityMatch = prop.city?.toLowerCase() === lowerDest || prop.city?.toLowerCase().includes(lowerDest);
+        const districtMatch = prop.district?.toLowerCase() === lowerDest || prop.district?.toLowerCase().includes(lowerDest);
         const locationMatch = prop.location?.toLowerCase().includes(lowerDest);
-        
         return cityMatch || districtMatch || locationMatch;
       });
-      
       setSearchResults(filtered);
       setShowSearchResults(true);
       setIsSearching(false);
-    }, 300); // 300ms de debounce
+    }, 300);
   }, [allProperties, hotelsProperties]);
 
-  // ✅ Optimisation 5: Mémoriser la fonction de recherche API
- const searchProperties = useCallback(async (searchParams: {
-  destination?: string;
-  check_in?: string;
-  check_out?: string;
-  guests?: number;
-}) => {
-  setIsSearchingAPI(true);
-  setShowSearchResults(true);
-  setSearchDestination(searchParams.destination || '');
-
-  try {
-    const filters: any = { per_page: 50 };
-
-    if (searchParams.check_in && searchParams.check_out) {
-      filters.check_in = searchParams.check_in;
-      filters.check_out = searchParams.check_out;
+  // Recherche complète (depuis navbar / hero)
+  const searchProperties = useCallback(async (searchParams: {
+    destination?: string;
+    check_in?: string;
+    check_out?: string;
+    guests?: number;
+  }) => {
+    setIsSearchingAPI(true);
+    setShowSearchResults(true);
+    setSearchDestination(searchParams.destination || '');
+    try {
+      const filters: any = { per_page: 50 };
+      if (searchParams.check_in && searchParams.check_out) {
+        filters.check_in = searchParams.check_in;
+        filters.check_out = searchParams.check_out;
+      }
+      if (searchParams.guests && searchParams.guests > 0) {
+        filters.max_guests = searchParams.guests;
+      }
+      const response = await propertyService.getAll(filters);
+      let allResults = response?.data?.data || response?.data || [];
+      const destination = searchParams.destination?.toLowerCase().trim();
+      let filteredResults = allResults;
+      if (destination) {
+        filteredResults = allResults.filter((prop: any) => {
+          const city = (prop.city || '').toLowerCase();
+          const district = (prop.district || '').toLowerCase();
+          return city === destination || city.includes(destination) || district === destination || district.includes(destination);
+        });
+      }
+      const mappedResults = filteredResults.map(mapProperty).filter((p: any) => p.isVisible);
+      setSearchResults(mappedResults);
+    } catch (error) {
+      console.error('❌ Erreur recherche:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearchingAPI(false);
     }
-
-    if (searchParams.guests && searchParams.guests > 0) {
-      filters.max_guests = searchParams.guests;
-    }
-
-    const response = await propertyService.getAll(filters);
-    let allResults = response?.data?.data || response?.data || [];
-
-    const destination = searchParams.destination?.toLowerCase().trim();
-    let filteredResults = allResults;
-
-    if (destination) {
-      filteredResults = allResults.filter((prop: any) => {
-        const city = (prop.city || '').toLowerCase();
-        const district = (prop.district || '').toLowerCase();
-        return city === destination ||
-               city.includes(destination) ||
-               district === destination ||
-               district.includes(destination);
-      });
-    }
-
-    const mappedResults = filteredResults.map(mapProperty).filter((p: any) => p.isVisible);
-    setSearchResults(mappedResults);
-
-    // ✅ Aucun toast, aucun message intempestif
-
-  } catch (error) {
-    console.error('❌ Erreur recherche:', error);
-    setSearchResults([]);
-    // Optionnel : garder un toast seulement pour les vraies erreurs réseau
-    // toast.error('Erreur lors de la recherche');
-  } finally {
-    setIsSearchingAPI(false);
-  }
-}, []);
+  }, []);
 
   const clearSearch = useCallback(() => {
     setSearchDestination('');
@@ -3267,13 +3246,8 @@ const allProperties = useMemo(() => {
     });
   }, [searchProperties]);
 
-  // ✅ Optimisation 6: Mémoriser la liste des filtres
-  const filtersList = useMemo(() => ['Tous', 'Prix croissant', 'Prix décroissant', 'Mieux notés'], []);
-
-  // ✅ Optimisation 7: Afficher un skeleton loader plus rapide
   const isLoading = allPropertiesLoading || hotelsLoading;
 
-  // ✅ Optimisation 8: Rendre la page visible immédiatement avec les données déjà chargées
   return (
     <div className="bg-white">
       <Navbar
@@ -3285,11 +3259,11 @@ const allProperties = useMemo(() => {
         allLogements={allProperties}
       />
 
-      <Hero 
+      <Hero
         onSearch={(query) => {
           setSearchDestination(query);
           handleRealTimeSearch(query);
-        }} 
+        }}
         onNavigate={(path, params) => {
           if (path === 'search-logements') {
             if (params?.destination) {
@@ -3299,10 +3273,10 @@ const allProperties = useMemo(() => {
           } else {
             onNavigate?.({ name: path, ...params });
           }
-        }} 
+        }}
       />
 
-      {/* Barre de résultats de recherche - affichage conditionnel */}
+      {/* Barre de résultats de recherche */}
       {showSearchResults && (
         <div className="bg-[#f4fffe] border-b border-gray-200 px-4 py-3">
           <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3">
@@ -3312,7 +3286,7 @@ const allProperties = useMemo(() => {
               </div>
               <span className="text-sm text-gray-600">
                 {isSearchingAPI || isSearching ? 'Recherche en cours...' :
-                 `${searchResults.length} résultat${searchResults.length > 1 ? 's' : ''} trouvé${searchResults.length > 1 ? 's' : ''} pour "${searchDestination}"`}
+                  `${searchResults.length} résultat${searchResults.length > 1 ? 's' : ''} trouvé${searchResults.length > 1 ? 's' : ''} pour "${searchDestination}"`}
               </span>
             </div>
             <button onClick={clearSearch} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
@@ -3323,60 +3297,71 @@ const allProperties = useMemo(() => {
         </div>
       )}
 
-      {/* Filtres */}
+      {/* Barre de navigation responsive : onglets mobiles / tri desktop */}
       <div className="border-b border-gray-200 sticky top-0 bg-white z-30 w-full">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
           <div className="max-w-[1440px] mx-auto">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 overflow-x-auto pb-2">
-                <div className="relative">
-                  <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors whitespace-nowrap">
-                    <Filter className="w-4 h-4 text-[#00c9a7]" />
-                    <span className="text-sm text-[#0F2940]">Trier par</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
-                  </button>
-                  {showFilterDropdown && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
-                      <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-2">
-                        {filtersList.map(filter => (
-                          <button
-                            key={filter}
-                            onClick={() => {
-                              setSelectedFilter(filter);
-                              setShowFilterDropdown(false);
-                            }}
-                            className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f4fffe] ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
-                          >
-                            {filter}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                <div className="text-sm text-[#0F2940] whitespace-nowrap">
-                  {!isLoading ? (
-                    `${filteredAndSortedProperties.length} logement${filteredAndSortedProperties.length > 1 ? 's' : ''} disponible${filteredAndSortedProperties.length > 1 ? 's' : ''}`
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
-                      <span>Chargement...</span>
+              {/* Mobile : trois onglets centrés */}
+              <div className="flex flex-1 justify-center items-center gap-3 lg:hidden">
+                <button onClick={() => onNavigate?.({ name: 'home' })} className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#00c9a7] text-white whitespace-nowrap">
+                  Logements
+                </button>
+                <button onClick={() => onNavigate?.({ name: 'experiences' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
+                  Expériences
+                </button>
+                <button onClick={() => onNavigate?.({ name: 'services' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
+                  Services
+                </button>
+              </div>
+
+              {/* Desktop : dropdown Trier par */}
+              <div className="hidden lg:block relative">
+                <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors whitespace-nowrap">
+                  <Filter className="w-4 h-4 text-[#00c9a7]" />
+                  <span className="text-sm text-[#0F2940]">Trier par</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                {showFilterDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
+                    <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-2">
+                      {filtersList.map(filter => (
+                        <button
+                          key={filter}
+                          onClick={() => {
+                            setSelectedFilter(filter);
+                            setShowFilterDropdown(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f4fffe] ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
+                        >
+                          {filter}
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
+              </div>
+
+              {/* Compteur TOTAL (logements normaux + hôtels promus) */}
+              <div className="hidden lg:block text-sm text-[#0F2940] whitespace-nowrap">
+                {!isLoading ? (
+                  `${allProperties.length + hotelsProperties.length} logement${allProperties.length + hotelsProperties.length > 1 ? 's' : ''} disponible${allProperties.length + hotelsProperties.length > 1 ? 's' : ''}`
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
+                    <span>Chargement...</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Chargement progressif */}
+      {/* Main Content */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-[1440px] mx-auto">
-          
-          {/* Afficher un skeleton loader pendant le chargement initial */}
           {isLoading ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
               {[...Array(8)].map((_, i) => (
@@ -3394,12 +3379,11 @@ const allProperties = useMemo(() => {
                   {showSearchResults ? 'Résultats de recherche' : 'Tous les logements au Bénin'}
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  {showSearchResults 
+                  {showSearchResults
                     ? `Voici les logements correspondant à "${searchDestination}"`
                     : 'Découvrez notre sélection de logements à travers le Bénin'}
                 </p>
               </div>
-              
               <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredAndSortedProperties.map(property => (
                   <PropertyCard
@@ -3428,7 +3412,7 @@ const allProperties = useMemo(() => {
             </div>
           ) : null}
 
-          {/* Section Hôtels - Chargement séparé */}
+          {/* Section Hôtels */}
           {!showSearchResults && !hotelsLoading && hotelsProperties.length > 0 && (
             <div className="mt-12 mb-12">
               <div className="flex items-center justify-between mb-6">
@@ -3440,7 +3424,6 @@ const allProperties = useMemo(() => {
                   <p className="text-gray-500 mt-1">Hôtels de qualité supérieure, sélectionnés pour vous</p>
                 </div>
               </div>
-              
               <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                 {hotelsProperties.slice(0, 8).map(property => (
                   <PropertyCard
