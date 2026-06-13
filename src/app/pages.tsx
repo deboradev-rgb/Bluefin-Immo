@@ -14433,6 +14433,14 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
 }
 // ==================== HOTELS PAGE ====================
 
+
+interface Route {
+  name: string;
+  id?: string;
+  search?: string;
+}
+
+
 interface HotelsPageProps {
   onNavigate?: (route: Route) => void;
 }
@@ -14444,14 +14452,13 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
   const [showCheckout, setShowCheckout] = useState(false);
   const [checkoutData, setCheckoutData] = useState<any>(null);
 
-  // Données complètes des hôtels avec images spécifiques
   const hotelsData: HotelProperty[] = [
     { 
       id: 4, 
       title: "Hôtel Golden Tulip", 
       location: "Cotonou, Bénin", 
-        price: 150000,
-        priceDisplay: "150 000 FCFA / nuit",
+      price: 150000,
+      priceDisplay: "150 000 FCFA / nuit",
       priceNumber: 150000, 
       rating: 4.9, 
       reviews: 342, 
@@ -14472,14 +14479,14 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       responseRate: 98,
       responseTime: "dans l'heure",
       amenities: ["Piscine", "Spa", "Wifi gratuit", "Parking", "Restaurant", "Room service", "Climatisation", "TV", "Mini-bar", "Service de blanchisserie"],
-      longDescription: "Situé au cœur de Cotonou, le Golden Tulip offre une expérience de luxe avec ses chambres spacieuses, sa piscine à débordement et son restaurant gastronomique. Idéal pour les voyages d'affaires et les séjours touristiques."
+      longDescription: "Situé au cœur de Cotonou, le Golden Tulip offre une expérience de luxe."
     },
     { 
       id: 5, 
       title: "Novotel Cotonou", 
       location: "Cotonou, Bénin", 
-        price: 120000,
-        priceDisplay: "120 000 FCFA / nuit",
+      price: 120000,
+      priceDisplay: "120 000 FCFA / nuit",
       priceNumber: 120000, 
       rating: 4.8, 
       reviews: 267, 
@@ -14500,14 +14507,14 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       responseRate: 95,
       responseTime: "dans l'heure",
       amenities: ["Vue sur lagon", "Piscine", "Salle de sport", "Wifi", "Restaurant", "Bar", "Parking", "Terrasse", "Salle de réunion"],
-      longDescription: "Le Novotel Cotonou offre une vue imprenable sur le lagon. Idéal pour les voyageurs d'affaires et les familles avec ses chambres modernes et confortables."
+      longDescription: "Le Novotel Cotonou offre une vue imprenable sur le lagon."
     },
     { 
       id: 6, 
       title: "Azalaï Hôtel", 
       location: "Cotonou, Bénin", 
-        price: 95000,
-        priceDisplay: "95 000 FCFA / nuit",
+      price: 95000,
+      priceDisplay: "95 000 FCFA / nuit",
       priceNumber: 95000, 
       rating: 4.7, 
       reviews: 189, 
@@ -14528,22 +14535,22 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
       responseRate: 92,
       responseTime: "quelques heures",
       amenities: ["Piscine", "Restaurant", "Wifi", "Parking", "Climatisation", "TV", "Bar"],
-      longDescription: "L'Azalaï Hôtel est un établissement confortable et bien situé, parfait pour les voyageurs recherchant un bon rapport qualité-prix."
+      longDescription: "L'Azalaï Hôtel est un établissement confortable et bien situé."
     }
   ];
 
   const filterProperties = (properties: HotelProperty[]) => {
     const filtered = [...properties];
-      if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => (a.priceNumber || a.price || 0) - (b.priceNumber || b.price || 0));
-      if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => (b.priceNumber || b.price || 0) - (a.priceNumber || a.price || 0));
-      if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => (b.rating || 0) - (a.rating || 0));
+    if (selectedFilter === "Prix croissant") return filtered.sort((a,b) => (a.priceNumber || a.price || 0) - (b.priceNumber || b.price || 0));
+    if (selectedFilter === "Prix décroissant") return filtered.sort((a,b) => (b.priceNumber || b.price || 0) - (a.priceNumber || a.price || 0));
+    if (selectedFilter === "Mieux notés") return filtered.sort((a,b) => (b.rating || 0) - (a.rating || 0));
     return filtered;
   };
 
   const displayedProperties = filterProperties(hotelsData);
 
   const handleReserve = (property: HotelProperty) => {
-      const total = (property.priceNumber || property.price || 0) * 2 * 1.1;
+    const total = (property.priceNumber || property.price || 0) * 2 * 1.1;
     setCheckoutData({ property, checkIn: "15/05/2026", checkOut: "17/05/2026", guests: 1, totalPrice: total });
     setShowCheckout(true);
     setDetailProperty(null);
@@ -14557,78 +14564,152 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
 
   const getMapUrl = () => "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d634630.827254447!2d2.2569729!3d6.474903!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1020a44f6b9c7e9b%3A0x9b4b5c1e4f5a6b7!2sBenin!5e0!3m2!1sfr!2sfr!4v1699999999999!5m2!1sfr!2sfr";
 
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => handleNavigate({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
-          <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-screen bg-white flex flex-col pb-16 lg:pb-0">
+      {/* Header fixe */}
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4 shadow-sm">
+        <button 
+          onClick={() => handleNavigate({ name: 'home' })} 
+          className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors active:bg-gray-200"
+        >
+          <ArrowLeft className="w-5 h-5 text-[#0F2940]" />
         </button>
-        <h1 className="text-xl font-semibold text-[#0F2940]">De superbes hôtels pour votre prochain voyage</h1>
+        <h1 className="text-base sm:text-lg md:text-xl font-semibold text-[#0F2940] line-clamp-1">De superbes hôtels</h1>
       </div>
 
-      <div className="sticky top-[73px] bg-white border-b px-4 py-2 z-10">
+      {/* Barre de filtre */}
+      <div className="sticky top-[57px] sm:top-[61px] md:top-[65px] z-20 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
         <div className="relative inline-block">
-          <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300">
-            <Filter className="w-4 h-4 text-[#00c9a7]"/><span>Trier : {selectedFilter}</span><ChevronDown className="w-4 h-4"/>
+          <button 
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)} 
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-[#00c9a7] transition-colors"
+          >
+            <Filter className="w-4 h-4 text-[#00c9a7]" />
+            <span className="text-sm text-gray-700">Trier : {selectedFilter}</span>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
+          
           {showFilterDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white shadow-lg rounded-xl border w-40 z-20">
-              {["Tous", "Prix croissant", "Prix décroissant", "Mieux notés"].map(f => (
-                <div key={f} className="p-2 hover:bg-[#00c9a7]/10 cursor-pointer" onClick={() => { setSelectedFilter(f); setShowFilterDropdown(false); }}>
-                  {f}
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowFilterDropdown(false)} />
+              <div className="absolute top-full left-0 mt-2 bg-white shadow-lg rounded-xl border border-gray-200 w-48 z-20 overflow-hidden">
+                {["Tous", "Prix croissant", "Prix décroissant", "Mieux notés"].map(filter => (
+                  <div 
+                    key={filter} 
+                    className={`px-4 py-2 hover:bg-[#f4fffe] cursor-pointer text-sm transition-colors ${selectedFilter === filter ? 'text-[#00c9a7] font-medium bg-[#f4fffe]' : 'text-gray-700'}`}
+                    onClick={() => { setSelectedFilter(filter); setShowFilterDropdown(false); }}
+                  >
+                    {filter}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)]">
-        {/* Colonne gauche : grille des hôtels */}
-        <div className="lg:w-1/2 overflow-y-auto p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {displayedProperties.map(property => (
+      {/* Contenu principal */}
+      <div className="flex flex-1 flex-col lg:flex-row">
+        {/* Colonne gauche : grille des hôtels - TOUJOURS 2 colonnes */}
+        <div className="lg:w-1/2 w-full overflow-y-auto p-3 sm:p-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            {displayedProperties.map((property) => (
               <div 
                 key={property.id} 
-                className="border rounded-2xl p-4 hover:shadow-xl cursor-pointer bg-white group hover:border-[#00c9a7] hover:scale-[1.02] transition-all duration-300" 
+                className="group bg-white rounded-xl overflow-hidden border border-gray-200 hover:shadow-xl hover:border-[#00c9a7] transition-all duration-300 cursor-pointer"
                 onClick={() => setDetailProperty(property)}
               >
-                <div className="relative overflow-hidden rounded-xl">
-                  <img src={property.images?.[0] || property.image || '/placeholder.jpg'} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110" onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} />
-                  <div className="absolute top-3 right-3 bg-[#00c9a7] text-white text-xs font-bold px-2 py-1 rounded-full">Coup de cœur</div>
+                {/* Image - ratio carré pour mieux s'adapter */}
+                <div className="relative overflow-hidden aspect-square bg-gray-100">
+                  <img 
+                    src={property.images?.[0] || property.image || '/placeholder.jpg'} 
+                    alt={property.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
+                  />
+                  {property.rating >= 4.8 && (
+                    <div className="absolute top-2 right-2 bg-[#00c9a7] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      Coup de cœur
+                    </div>
+                  )}
+                  {property.superhost && (
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                      ⭐ Superhost
+                    </div>
+                  )}
                 </div>
-                <h3 className="font-semibold mt-2 text-[#0F2940] text-lg">{property.title}</h3>
-                <p className="text-sm text-gray-500">{property.location}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Star className="w-4 h-4 fill-current text-[#00c9a7]"/>
-                  <span className="font-medium">{property.rating}</span>
-                  <span className="text-gray-500">({property.reviews})</span>
+                
+                {/* Contenu */}
+                <div className="p-2">
+                  <h3 className="font-semibold text-[#0F2940] text-sm line-clamp-1">{property.title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{property.location}</p>
+                  
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                    <span className="font-medium text-xs">{property.rating}</span>
+                    <span className="text-gray-400 text-xs">({property.reviews})</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-1 text-gray-500">
+                    <div className="flex items-center gap-0.5">
+                      <Bed className="w-3 h-3" />
+                      <span className="text-[10px]">{property.beds}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <Bath className="w-3 h-3" />
+                      <span className="text-[10px]">{property.baths}</span>
+                    </div>
+                    {property.amenities.includes("Wifi gratuit") && (
+                      <Wifi className="w-3 h-3" />
+                    )}
+                  </div>
+                  
+                  <div className="mt-2 flex items-baseline justify-between items-center">
+                    <div>
+                      <span className="font-bold text-[#00c9a7] text-sm">{property.priceDisplay.split('/')[0]}</span>
+                      <span className="text-[10px] text-gray-400"> / nuit</span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReserve(property);
+                      }}
+                      className="text-[#00c9a7] text-xs font-medium hover:underline"
+                    >
+                      Réserver →
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                  <div className="flex items-center gap-1"><Bed className="w-4 h-4"/><span>{property.beds} lits</span></div>
-                  <div className="flex items-center gap-1"><Bath className="w-4 h-4"/><span>{property.baths} sdb</span></div>
-                </div>
-                <p className="font-bold mt-2 text-[#0F2940] text-lg">{property.price}</p>
               </div>
             ))}
           </div>
+          
+          {displayedProperties.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Aucun hôtel trouvé</p>
+            </div>
+          )}
         </div>
 
-        {/* Colonne droite : Carte */}
-        <div className="lg:w-1/2 h-96 lg:h-auto bg-gray-100 relative">
+        {/* Colonne droite : Carte Google Maps */}
+        <div className="lg:w-1/2 w-full h-[280px] sm:h-[320px] lg:h-auto relative border-t lg:border-t-0 lg:border-l border-gray-200">
           <iframe 
-            title="Carte" 
+            title="Carte des hôtels au Bénin" 
             src={getMapUrl()} 
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 
             allowFullScreen 
             loading="lazy" 
-            className="w-full h-full" 
+            className="w-full h-full"
           />
-          <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur rounded-lg px-3 py-1 text-xs shadow">
-            📍 Hôtels au Bénin
+          <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-[#00c9a7]" />
+              <span className="text-xs font-medium text-gray-700">📍 Hôtels au Bénin</span>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-0.5">{displayedProperties.length} hôtels disponibles</p>
           </div>
         </div>
       </div>
@@ -14638,8 +14719,10 @@ export function HotelsPage({ onNavigate }: HotelsPageProps) {
           property={detailProperty} 
           onClose={() => setDetailProperty(null)} 
           onReserve={() => handleReserve(detailProperty)} 
+          onNavigate={onNavigate}
         />
       )}
+      
       {showCheckout && checkoutData && (
         <CheckoutModal
           propertyId={checkoutData.property.id}
