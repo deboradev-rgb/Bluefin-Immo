@@ -2646,6 +2646,7 @@ const formatCurrency = (amount: number) => {
   return { fCFA, euro };
 };
 
+
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
   onClose, 
@@ -2655,25 +2656,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 }) => {
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [showPaymentStep, setShowPaymentStep] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
   const { isAuthenticated, user } = useAuth();
   
+  // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
+  
+  // États pour les modales
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   
-  // États de paiement
-  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
-  const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
-  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [showCvv, setShowCvv] = useState(false);
-  const [paymentError, setPaymentError] = useState('');
-  const [isPaying, setIsPaying] = useState(false);
-  
+  // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlCheckIn = urlParams.get('check_in');
@@ -2691,6 +2685,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   });
   
+  // Types de voyageurs
   const [adults, setAdults] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const guests = urlParams.get('guests');
@@ -2698,10 +2693,12 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   });
   const [children, setChildren] = useState(0);
   const [babies, setBabies] = useState(0);
+  const [pets, setPets] = useState(0);
   
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
-  
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
   const maxGuests = property.max_guests || 10;
   const totalGuests = adults + children;
 
@@ -2711,6 +2708,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
+  // ✅ Calcul des constantes AVANT le useEffect qui les utilise
   const host = property.host || 'Hôte vérifié';
   const hostId = property.hostId ?? property.id;
   const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
@@ -2718,182 +2716,70 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const superhost = property.superhost ?? true;
   const responseRate = property.responseRate || 95;
 
-  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
-  const nightlyPrice = property.priceNumber || property.price || 0;
-  const subtotal = nightlyPrice * nights;
-  const serviceFee = subtotal * 0.10;
-  const total = subtotal + serviceFee;
-  
-  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
-  const subtotalFormatted = formatCurrency(subtotal);
-  const serviceFeeFormatted = formatCurrency(serviceFee);
-  const totalFormatted = formatCurrency(total);
-
-  // Validation des infos de paiement
-  const validatePaymentInfo = () => {
-    if (paymentMethod === 'mobile_money') {
-      if (!mobileProvider) {
-        setPaymentError('Veuillez sélectionner votre opérateur');
-        return false;
-      }
-      if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
-        setPaymentError('Numéro Mobile Money invalide');
-        return false;
-      }
-    } else {
-      const cleanCardNumber = cardNumber.replace(/\s/g, '');
-      if (!cardNumber || cleanCardNumber.length < 16) {
-        setPaymentError('Numéro de carte invalide');
-        return false;
-      }
-      if (!cardExpiry || !cardExpiry.includes('/')) {
-        setPaymentError('Date d\'expiration invalide');
-        return false;
-      }
-      if (!cardCvv || cardCvv.length < 3) {
-        setPaymentError('CVV invalide');
-        return false;
-      }
-      if (!cardName) {
-        setPaymentError('Nom sur la carte requis');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // Afficher le formulaire de paiement
-  const handleShowPayment = () => {
-    if (availabilityStatus !== 'available') {
-      toast.error('Ce logement n\'est pas disponible pour les dates sélectionnées');
-      return;
-    }
-    setShowPaymentStep(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Retour au résumé
-  const handleBackToSummary = () => {
-    setShowPaymentStep(false);
-    setPaymentError('');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
- 
-// Dans PropertyDetailModal.tsx, modifiez handleAuthenticatedAction
-const handleAuthenticatedAction = (action: () => void, intent: string) => {
-  if (!isAuthenticated) {
-    // ✅ Sauvegarder toutes les données de réservation
-    localStorage.setItem('temp_booking_check_in', checkIn);
-    localStorage.setItem('temp_booking_check_out', checkOut);
-    localStorage.setItem('temp_booking_guests', totalGuests.toString());
-    localStorage.setItem('temp_booking_nights', nights.toString());
-    
-    localStorage.setItem('redirect_intent', intent);
-    localStorage.setItem('redirect_property_id', property.id.toString());
-    localStorage.setItem('redirect_property_title', property.title);
-    localStorage.setItem('redirect_property_location', property.location);
-    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-    
-    if (onNavigate) {
-      onNavigate({ name: 'auth', search: `redirect=${intent}&property=${property.id}` });
-    } else {
-      window.location.href = `/auth?redirect=${intent}&property=${property.id}`;
-    }
-  } else {
-    action();
-  }
-};
-
-  // Création de la réservation et paiement
-  const handleConfirmPayment = async () => {
-    if (!validatePaymentInfo()) return;
-    
-    setIsPaying(true);
-    setPaymentError('');
-    
-    // Simuler le traitement du paiement
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Préparer les données de réservation
-    const bookingData = {
-      property_id: property.id,
-      check_in: checkIn,
-      check_out: checkOut,
-      guests_count: totalGuests,
-      payment_method: paymentMethod,
-      mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
-      mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
-      guest_details: {
-        full_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'Voyageur',
-        email: user?.email || '',
-        phone: user?.phone || '',
-        address: null
-      },
-      payment_option: '100',
-      total_amount: total,
-      payment_amount: total,
-      nights: nights
-    };
-    
-    try {
-      const response = await bookingService.create(bookingData);
-      const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id;
+  // ✅ Fonction pour gérer la redirection si non connecté
+  const handleAuthenticatedAction = (action: () => void, intent: string) => {
+    if (!isAuthenticated) {
+      localStorage.setItem('redirect_intent', intent);
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      localStorage.setItem('redirect_property_title', property.title);
+      localStorage.setItem('redirect_property_location', property.location);
+      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
       
-      if (bookingId) {
-        toast.success('Réservation confirmée !');
-        setTimeout(() => {
-          setIsPaying(false);
-          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
-        }, 1500);
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: `redirect=${intent}&property=${property.id}` });
       } else {
-        setPaymentError('Erreur lors de la création de la réservation');
-        setIsPaying(false);
+        window.location.href = `/auth?redirect=${intent}&property=${property.id}`;
       }
-    } catch (err: any) {
-      console.error('Erreur:', err);
-      setPaymentError(err.response?.data?.message || 'Une erreur est survenue');
-      setIsPaying(false);
+    } else {
+      action();
     }
   };
 
-  const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
-    const groups = cleaned.match(/.{1,4}/g);
-    return groups ? groups.join(' ') : cleaned;
-  };
-
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length >= 2) {
-      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+  // ✅ Vérifier si l'utilisateur vient d'être redirigé après connexion
+  useEffect(() => {
+    const redirectIntent = localStorage.getItem('redirect_intent');
+    const propertyId = localStorage.getItem('redirect_property_id');
+    
+    if (isAuthenticated && redirectIntent === 'chat' && propertyId === property.id.toString()) {
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('redirect_property_title');
+      localStorage.removeItem('redirect_property_location');
+      localStorage.removeItem('redirect_property_price');
+      localStorage.removeItem('redirect_property_image');
+      
+      if (onChat && hostId) {
+        onNavigate?.({
+          name: 'messages',
+          id: 'inquiry',
+          search: `?property=${property.id}&host=${hostId}&auto=true`
+        });
+        onChat(hostId);
+      }
     }
-    setCardExpiry(value);
-  };
+  }, [isAuthenticated, property.id, hostId, onChat, onNavigate]);
 
   const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
     if (!checkInDate || !checkOutDate) return;
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
     try {
-      const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-      const isAvailable = response?.data?.available === true;
-      if (isAvailable) {
-        setAvailabilityStatus('available');
-      } else {
-        setAvailabilityStatus('unavailable');
-      }
+        const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
+        const isAvailable = response?.data?.available === true;
+        if (isAvailable) {
+            setAvailabilityStatus('available');
+            setAvailabilityMessage('✓ Ces dates sont disponibles !');
+        } else {
+            setAvailabilityStatus('unavailable');
+            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles.');
+        }
     } catch (error) {
-      console.error('Erreur vérification:', error);
-      setAvailabilityStatus('unavailable');
+        console.error('Erreur vérification:', error);
+        setAvailabilityStatus('unavailable');
+        setAvailabilityMessage('❌ Impossible de vérifier la disponibilité.');
     } finally {
-      setIsCheckingAvailability(false);
+        setIsCheckingAvailability(false);
     }
   };
 
@@ -2903,6 +2789,14 @@ const handleAuthenticatedAction = (action: () => void, intent: string) => {
       return () => clearTimeout(debounceTimer);
     }
   }, [checkIn, checkOut]);
+
+  const getCancellationRules = () => {
+    return [
+      { label: 'Remboursement intégral', percentage: 100, color: 'green', icon: '✅', description: 'Annulez dans les 24h suivant votre réservation pour un remboursement complet.', deadlineText: 'dans les 24h suivant la réservation' },
+      { label: 'Remboursement partiel', percentage: 50, color: 'orange', icon: '⚠️', description: 'Annulez au moins 7 jours avant votre arrivée pour recevoir 50% du montant. Frais de service non remboursés.', deadlineText: 'au moins 7 jours avant l\'arrivée' },
+      { label: 'Aucun remboursement', percentage: 0, color: 'red', icon: '❌', description: 'Annulation moins de 7 jours avant l\'arrivée : aucun remboursement.', deadlineText: 'moins de 7 jours avant l\'arrivée' }
+    ];
+  };
 
   const getPropertyImages = (property: any): string[] => {
     if (property.images && Array.isArray(property.images) && property.images.length > 0) return property.images;
@@ -2914,6 +2808,9 @@ const handleAuthenticatedAction = (action: () => void, intent: string) => {
   };
 
   const images = getPropertyImages(property);
+  const nightlyPrice = property.priceNumber || property.price || 0;
+  
+  const longDescription = property.longDescription || property.description;
   const amenities = property.amenities || ["Wi-Fi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
   const testimonials = [
     { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
@@ -2921,29 +2818,57 @@ const handleAuthenticatedAction = (action: () => void, intent: string) => {
     { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
   ];
 
-  const handleReserveClick = () => {
-    if (!isAuthenticated) {
-      localStorage.setItem('redirect_intent', 'booking');
-      localStorage.setItem('redirect_property_id', property.id.toString());
-      onNavigate?.({ name: 'auth', search: `redirect=booking&property=${property.id}` });
-      return;
-    }
-    setShowBookingForm(true);
-    setShowPaymentStep(false);
-  };
+  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
+  const subtotal = nightlyPrice * nights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+  
+  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
+  const subtotalFormatted = formatCurrency(subtotal);
+  const serviceFeeFormatted = formatCurrency(serviceFee);
+  const totalFormatted = formatCurrency(total);
+  const payment50Formatted = formatCurrency(Math.floor(total * 0.5));
+  
+  const getPaymentAmount = () => Math.floor(total * 0.5); // Paiement 50% par défaut
 
-  const handleChatWithAuth = () => {
-    if (!isAuthenticated) {
-      onNavigate?.({ name: 'auth', search: `redirect=chat&property=${property.id}` });
-    } else if (onChat) {
-      onChat(hostId);
-    }
-  };
+  // NOUVELLE FONCTION : Redirection vers la page de réservation/confirmation
+  const handleReservationClick = () => {
+  if (availabilityStatus !== 'available') {
+    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+    return;
+  }
 
-  const handleBackToDetails = () => {
-    setShowBookingForm(false);
-    setShowPaymentStep(false);
-  };
+  // ✅ Sauvegarder TOUTES les données avant redirection
+  localStorage.setItem('redirect_intent', 'booking');
+  localStorage.setItem('redirect_property_id', property.id.toString());
+  localStorage.setItem('redirect_property_title', property.title);
+  localStorage.setItem('redirect_property_location', property.location);
+  localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+  localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+  localStorage.setItem('temp_booking_check_in', checkIn);
+  localStorage.setItem('temp_booking_check_out', checkOut);
+  localStorage.setItem('temp_booking_guests', totalGuests.toString());
+  localStorage.setItem('temp_booking_nights', nights.toString());
+  
+  console.log('💾 Données sauvegardées avant redirection:', {
+    intent: 'booking',
+    propertyId: property.id,
+    checkIn,
+    checkOut,
+    guests: totalGuests,
+    nights
+  });
+
+  // Rediriger vers la page d'auth
+  if (onNavigate) {
+    onNavigate({ 
+      name: 'auth', 
+      search: `redirect=booking&property=${property.id}`
+    });
+  } else {
+    window.location.href = `/auth?redirect=booking&property=${property.id}`;
+  }
+};
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -2951,367 +2876,158 @@ const handleAuthenticatedAction = (action: () => void, intent: string) => {
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
-  // Vue du formulaire de réservation (Résumé + Paiement)
-  if (showBookingForm) {
-    return (
-      <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm overflow-y-auto">
-        <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 pb-24 sm:pb-32">
-          <div className="relative w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden animate-fadeInUp mx-3 sm:mx-0">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-5 z-20">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <button onClick={handleBackToDetails} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full hover:bg-gray-100 flex items-center justify-center">
-                    <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-                  </button>
-                  <div>
-                    <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-[#0F2940] to-[#00c9a7] bg-clip-text text-transparent">
-                      {!showPaymentStep ? 'Résumé de votre réservation' : 'Paiement sécurisé'}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      {!showPaymentStep ? 'Vérifiez vos informations' : 'Finalisez votre réservation'}
-                    </p>
+  const cancellationRules = getCancellationRules();
+
+  // Modal Politique d'annulation
+  const CancellationModal = () => (
+    <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
+      <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" /><h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2></div>
+          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /></button>
+        </div>
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
+          <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3"><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /><span className="font-medium">Vos dates</span></div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Départ</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Nuits</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p></div>
+            </div>
+          </div>
+          <div className="space-y-2 sm:space-y-3">
+            <p className="text-xs sm:text-sm font-medium text-gray-700 px-1">📋 Conditions d'annulation</p>
+            {cancellationRules.map((rule, index) => (
+              <div key={index} className={`rounded-xl p-3 sm:p-4 border-l-4 transition-all hover:shadow-md ${rule.color === 'green' ? 'bg-green-50 border-green-500' : rule.color === 'orange' ? 'bg-orange-50 border-orange-500' : 'bg-red-50 border-red-500'}`}>
+                <div className="flex items-start gap-2 sm:gap-3">
+                  <span className="text-lg sm:text-xl">{rule.icon}</span>
+                  <div className="flex-1">
+                    <h3 className={`font-semibold text-sm sm:text-base ${rule.color === 'green' ? 'text-green-700' : rule.color === 'orange' ? 'text-orange-700' : 'text-red-700'}`}>{rule.label}</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">{rule.description}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-1 sm:mt-2">{rule.percentage === 100 ? `✓ Annulation ${rule.deadlineText}` : rule.percentage === 50 ? `⚠️ Annulation ${rule.deadlineText}` : `❌ ${rule.deadlineText}`}</p>
                   </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="p-4 sm:p-6 max-h-[calc(100vh-200px)] overflow-y-auto pb-32">
-              {/* Étape 1: Résumé de la réservation */}
-              {!showPaymentStep && (
-                <div className="space-y-4 animate-fadeIn">
-                  {/* Logement */}
-                  <div className="bg-gradient-to-r from-[#00c9a7]/5 to-[#0F2940]/5 rounded-xl p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
-                        <img src={images[0]} alt={property.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900">{property.title}</h3>
-                        <p className="text-sm text-gray-500">{property.location}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-                          <span className="text-sm">{property.rating}</span>
-                          <span className="text-gray-400 text-sm">({property.reviews} avis)</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="border-b pb-3">
-                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <CalendarIcon className="w-4 h-4 text-[#00c9a7]" />
-                      Dates
-                    </h4>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Arrivée</span>
-                      <span className="font-medium">{new Date(checkIn).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-gray-600">Départ</span>
-                      <span className="font-medium">{new Date(checkOut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-1">
-                      <span className="text-gray-600">Durée</span>
-                      <span className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-
-                  {/* Voyageurs */}
-                  <div className="border-b pb-3">
-                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <Users className="w-4 h-4 text-[#00c9a7]" />
-                      Voyageurs
-                    </h4>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Adultes</span>
-                      <span className="font-medium">{adults}</span>
-                    </div>
-                    {children > 0 && (
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-gray-600">Enfants</span>
-                        <span className="font-medium">{children}</span>
-                      </div>
-                    )}
-                    {babies > 0 && (
-                      <div className="flex justify-between text-sm mt-1">
-                        <span className="text-gray-600">Bébés</span>
-                        <span className="font-medium">{babies}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Prix */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                      <Receipt className="w-4 h-4 text-[#00c9a7]" />
-                      Détail des prix
-                    </h4>
-                    <div className="bg-gradient-to-br from-[#0F2940] to-[#1a3a5c] rounded-xl p-4 text-white">
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-white/70">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
-                          <div className="text-right">
-                            <div>{subtotalFormatted.fCFA}</div>
-                            <div className="text-xs text-white/50">{subtotalFormatted.euro}</div>
-                          </div>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/70">Frais de service (10%)</span>
-                          <div className="text-right">
-                            <div>{serviceFeeFormatted.fCFA}</div>
-                            <div className="text-xs text-white/50">{serviceFeeFormatted.euro}</div>
-                          </div>
-                        </div>
-                        <div className="border-t border-white/20 pt-2 mt-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-semibold">Total à payer</span>
-                            <div className="text-right">
-                              <div className="text-xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</div>
-                              <div className="text-xs text-white/50">{totalFormatted.euro}</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Étape 2: Paiement */}
-              {showPaymentStep && (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
-                    <p className="text-sm text-gray-600">Montant à payer</p>
-                    <p className="text-3xl font-bold text-[#00c9a7]">{totalFormatted.fCFA}</p>
-                    <p className="text-xs text-gray-500 mt-1">{totalFormatted.euro}</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Méthode de paiement</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button 
-                        onClick={() => { setPaymentMethod('mobile_money'); setPaymentError(''); }} 
-                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}
-                      >
-                        <Smartphone className={`w-6 h-6 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                        <span className="text-sm font-medium">Mobile Money</span>
-                      </button>
-                      <button 
-                        onClick={() => { setPaymentMethod('card'); setPaymentError(''); }} 
-                        className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}
-                      >
-                        <CreditCard className={`w-6 h-6 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                        <span className="text-sm font-medium">Carte bancaire</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {paymentMethod === 'mobile_money' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                            <button 
-                              key={provider} 
-                              onClick={() => { setMobileProvider(provider); setPaymentError(''); }} 
-                              className={`py-3 rounded-xl border-2 transition-all ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200'}`}
-                            >
-                              {provider}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
-                        <input 
-                          type="tel" 
-                          value={mobileMoneyNumber} 
-                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setPaymentError(''); }} 
-                          placeholder="97 00 00 00" 
-                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
-                        />
-                        <p className="text-xs text-gray-400 mt-1">Vous recevrez une demande de paiement sur ce numéro</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'card' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
-                        <input 
-                          type="text" 
-                          value={cardNumber} 
-                          onChange={handleCardNumberChange} 
-                          placeholder="1234 5678 9012 3456" 
-                          maxLength={19} 
-                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Expiration</label>
-                          <input 
-                            type="text" 
-                            value={cardExpiry} 
-                            onChange={handleExpiryChange} 
-                            placeholder="MM/AA" 
-                            maxLength={5} 
-                            className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                          <div className="relative">
-                            <input 
-                              type={showCvv ? 'text' : 'password'} 
-                              value={cardCvv} 
-                              onChange={(e) => setCardCvv(e.target.value)} 
-                              placeholder="123" 
-                              maxLength={4} 
-                              className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] pr-10" 
-                            />
-                            <button 
-                              type="button" 
-                              onClick={() => setShowCvv(!showCvv)} 
-                              className="absolute right-3 top-1/2 -translate-y-1/2"
-                            >
-                              {showCvv ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
-                        <input 
-                          type="text" 
-                          value={cardName} 
-                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
-                          placeholder="JEAN DUPONT" 
-                          className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7] uppercase" 
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentError && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 text-center">
-                      {paymentError}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-              <div className="flex gap-3">
-                {!showPaymentStep && (
-                  <button 
-                    onClick={handleShowPayment} 
-                    disabled={availabilityStatus !== 'available'} 
-                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold disabled:opacity-50"
-                  >
-                    Confirmer et payer
-                  </button>
-                )}
-                {showPaymentStep && (
-                  <>
-                    <button 
-                      onClick={handleBackToSummary} 
-                      className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
-                    >
-                      Retour
-                    </button>
-                    <button 
-                      onClick={handleConfirmPayment} 
-                      disabled={isPaying} 
-                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold disabled:opacity-50"
-                    >
-                      {isPaying ? (
-                        <div className="flex justify-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Paiement...
-                        </div>
-                      ) : `Payer ${totalFormatted.fCFA}`}
-                    </button>
-                  </>
-                )}
-              </div>
-              <div className="flex items-center justify-center gap-4 text-xs text-gray-400 mt-3">
-                <div className="flex items-center gap-1"><Lock className="w-3 h-3" /><span>Paiement sécurisé</span></div>
-                <div className="flex items-center gap-1"><Shield className="w-3 h-3" /><span>Garantie BF-Immo</span></div>
-              </div>
-            </div>
+            ))}
+          </div>
+          <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
+            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Vue détaillée
-  return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <div className="min-h-screen pb-20">
-        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm">
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft className="w-5 h-5 text-[#0F2940]" /></button>
-          <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100"><Heart className="w-5 h-5" /></button></div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-xl overflow-hidden mb-4">
-            <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover" /></div>
-            {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover" /></div>))}
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-6">
-            <div className="flex-1 space-y-5">
-              <div><div className="text-xs text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div><h1 className="text-xl sm:text-2xl font-semibold text-[#0F2940] mt-2">{property.title}</h1><div className="flex items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="text-sm font-medium">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm">· Superhôte</span>}</div></div>
-              <div className="flex gap-4"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
-              <div className="text-sm text-gray-700 leading-relaxed">{property.description}</div>
-              <div><div className="flex justify-between mb-4"><h3 className="font-semibold">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
-            </div>
-
-            <div className="lg:w-96">
-              <div className="sticky top-24 bg-white border rounded-xl p-4 shadow-xl">
-                <div className="flex justify-between mb-4"><div><div className="flex items-baseline gap-2"><span className="text-2xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div></div><div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div></div>
-
-                <div className="border rounded-xl mb-4 overflow-hidden">
-                  <div className="grid grid-cols-2 border-b"><div className="p-3"><div className="text-xs font-bold text-gray-500">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm mt-1 border-0 p-0 focus:ring-0" /></div><div className="p-3 border-l"><div className="text-xs font-bold text-gray-500">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm mt-1 border-0 p-0 focus:ring-0" /></div></div>
-                  {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
-                  {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
-                  <div className="p-3"><div className="text-xs font-bold text-gray-500 mb-2">Voyageurs</div>
-                    <div className="flex justify-between py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
-                    <div className="flex justify-between py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
-                    <div className="flex justify-between py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border flex items-center justify-center">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border flex items-center justify-center">+</button></div></div>
-                    <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-sm"><span>{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><span>{subtotalFormatted.fCFA}</span></div>
-                  <div className="flex justify-between text-sm"><span>Frais de service (10%)</span><span>{serviceFeeFormatted.fCFA}</span></div>
-                  <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><span className="text-[#00c9a7]">{totalFormatted.fCFA}</span></div>
-                </div>
-
-                <button onClick={handleReserveClick} disabled={availabilityStatus !== 'available'} className={`w-full py-3 rounded-xl font-bold transition-all ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
-                  {availabilityStatus === 'available' ? 'Réserver' : 'Non disponible'}
-                </button>
-                
-                {onChat && hostId && (
-                  <button onClick={handleChatWithAuth} className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full mt-2">
-                    <MessageCircle className="w-5 h-5" /> Discutez avec l'hôte
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
+          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">Fermer</button>
         </div>
       </div>
     </div>
   );
+
+  // Vue détaillée (le formulaire a été complètement supprimé)
+  return (
+    <>
+      {showCancellationModal && <CancellationModal />}
+      
+      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+        <div className="min-h-screen pb-20">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all"><ArrowLeft className="w-5 h-5" /></button>
+            <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5" /></button></div>
+          </div>
+          
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
+              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>
+              {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>))}
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              <div className="flex-1 space-y-6 sm:space-y-8">
+                <div className="border-b pb-4">
+                  <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="font-medium text-sm">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}</div>
+                </div>
+                {property.rating >= 4.8 && (<div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center"><Crown className="w-8 h-8 text-[#00c9a7]" /><div><div className="font-semibold">Coup de cœur</div><div className="text-sm text-gray-600">Logement préféré des voyageurs</div></div></div>)}
+                <div className="flex gap-4 items-start"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
+                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
+                <div className="border-t pt-4"><div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-lg">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm text-gray-700"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
+                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5"><h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#00c9a7]" />Ce que nos clients disent</h3><div className="flex flex-col sm:flex-row gap-4 items-start"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" /><div><div className="font-semibold">{testimonials[currentTestimonial]?.name}</div><p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p></div></div></div>
+              </div>
+
+              <div className="lg:w-96 xl:w-[400px]">
+                <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <div className="flex items-baseline gap-2"><span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div>
+                      <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
+                    </div>
+                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div>
+                  </div>
+
+                  <div className="border rounded-xl mb-4 overflow-hidden">
+                    <div className="grid grid-cols-2 border-b">
+                      <div className="p-3"><div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                      <div className="p-3 border-l"><div className="text-xs font-bold text-gray-500 uppercase">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                    </div>
+                    {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
+                    {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
+                    <div className="p-3">
+                      <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
+                      <div className="flex justify-between items-center py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-gray-400">{subtotalFormatted.euro}</div></div></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div></div></div>
+                    <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><div className="text-right"><div className="text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div></div>
+                  </div>
+
+                  <button onClick={() => setShowCancellationModal(true)} className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline">Voir la politique d'annulation</button>
+                  
+                  {/* BOUTON RÉSERVER MODIFIÉ - Redirection vers BookingPage */}
+                  <button 
+                    onClick={handleReservationClick} 
+                    disabled={availabilityStatus !== 'available'} 
+                    className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  >
+                    {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
+                  </button>
+
+                  {onChat && hostId && (
+                    <button
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        params.set('property', property.id.toString());
+                        
+                        if (checkIn && checkOut) {
+                          params.set('check_in', checkIn);
+                          params.set('check_out', checkOut);
+                        }
+                        if (totalGuests > 0) {
+                          params.set('guests', totalGuests.toString());
+                        }
+                        
+                        window.location.href = `/messages/inquiry?${params.toString()}`;
+                      }}
+                      className="border border-[#00c9a7] text-[#00c9a7] rounded-xl px-6 py-3 font-medium hover:bg-[#00c9a7]/10 transition-colors flex items-center justify-center gap-2 w-full mt-3"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      Discutez avec l'hôte
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 };
+
 
 // Composant manquant
 const Receipt = ({ className }: { className?: string }) => (
@@ -4997,7 +4713,6 @@ const handleChatClick = () => {
     />
   );
 }
-
 
 // components/CancellationPolicy.tsx
 interface CancellationPolicyProps {
@@ -13898,7 +13613,6 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
-
 interface Route {
   name: string;
   id?: string;
@@ -13960,93 +13674,189 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
-  // ✅ Fonction pour sauvegarder les données de réservation complètes
-  const saveCompleteBookingData = () => {
-    const checkIn = localStorage.getItem('temp_booking_check_in');
-    const checkOut = localStorage.getItem('temp_booking_check_out');
-    const guests = localStorage.getItem('temp_booking_guests');
-    const nights = localStorage.getItem('temp_booking_nights');
+  // ✅ Fonction pour sauvegarder les données de réservation pour BookingPage
+  const saveBookingDataForProfile = () => {
     const propertyId = localStorage.getItem('redirect_property_id');
     const propertyTitle = localStorage.getItem('redirect_property_title');
     const propertyLocation = localStorage.getItem('redirect_property_location');
     const propertyPrice = localStorage.getItem('redirect_property_price');
     const propertyImage = localStorage.getItem('redirect_property_image');
+    const checkIn = localStorage.getItem('temp_booking_check_in');
+    const checkOut = localStorage.getItem('temp_booking_check_out');
+    const guests = localStorage.getItem('temp_booking_guests');
+    const nights = localStorage.getItem('temp_booking_nights');
 
     if (propertyId && checkIn && checkOut) {
+      // Construire les données au format attendu par BookingPage
       const bookingData = {
-        propertyId: parseInt(propertyId),
-        propertyTitle: propertyTitle,
-        propertyLocation: propertyLocation,
-        propertyImage: propertyImage,
-        pricePerNight: parseFloat(propertyPrice || '0'),
-        checkIn: checkIn,
-        checkOut: checkOut,
+        property_id: parseInt(propertyId),
+        check_in: checkIn,
+        check_out: checkOut,
         guests: parseInt(guests || '1'),
         nights: parseInt(nights || '1'),
-        timestamp: Date.now()
+        guest_details: {
+          full_name: '',
+          email: '',
+          phone: '',
+          address: ''
+        },
+        totalAmount: 0,
+        paymentAmount: 0
       };
-      localStorage.setItem('complete_booking_data', JSON.stringify(bookingData));
-      console.log('💾 Données de réservation sauvegardées:', bookingData);
+      
+      // Sauvegarder dans sessionStorage pour BookingPage
+      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+      console.log('💾 Données sauvegardées pour BookingPage:', bookingData);
       return bookingData;
     }
     return null;
   };
 
-  // ✅ Redirection vers la page de paiement après connexion
-  const redirectToPayment = () => {
-    const bookingData = saveCompleteBookingData();
-    if (bookingData) {
-      const params = new URLSearchParams();
-      params.set('property', bookingData.propertyId.toString());
-      params.set('check_in', bookingData.checkIn);
-      params.set('check_out', bookingData.checkOut);
-      params.set('guests', bookingData.guests.toString());
-      params.set('nights', bookingData.nights.toString());
+  // ✅ Redirection vers BookingPage après connexion
+  const redirectToBookingPage = () => {
+    const propertyId = localStorage.getItem('redirect_property_id');
+    const checkIn = localStorage.getItem('temp_booking_check_in');
+    const checkOut = localStorage.getItem('temp_booking_check_out');
+    const guests = localStorage.getItem('temp_booking_guests');
+    const nights = localStorage.getItem('temp_booking_nights');
+
+    if (propertyId && checkIn && checkOut) {
+      // Sauvegarder les données
+      saveBookingDataForProfile();
       
-      // Calculer le total approximatif
-      const pricePerNight = bookingData.pricePerNight || 0;
-      const subtotal = pricePerNight * bookingData.nights;
-      const serviceFee = subtotal * 0.10;
-      const total = subtotal + serviceFee;
-      params.set('total', total.toString());
+      // Construire les paramètres URL
+      const params = new URLSearchParams();
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+      params.set('guests', guests || '1');
+      params.set('nights', nights || '1');
       
       // Nettoyer les données temporaires
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('redirect_property_title');
+      localStorage.removeItem('redirect_property_location');
+      localStorage.removeItem('redirect_property_price');
+      localStorage.removeItem('redirect_property_image');
       localStorage.removeItem('temp_booking_check_in');
       localStorage.removeItem('temp_booking_check_out');
       localStorage.removeItem('temp_booking_guests');
       localStorage.removeItem('temp_booking_nights');
       
+      // Rediriger vers BookingPage
       if (onNavigate) {
         onNavigate({ 
-          name: 'payment', 
-          id: bookingData.propertyId.toString(),
-          search: params.toString()
+          name: 'booking', 
+          id: propertyId,
+          search: `?${params.toString()}`
         });
       } else {
-        window.location.href = `/payment/${bookingData.propertyId}?${params.toString()}`;
+        window.location.href = `/booking/${propertyId}?${params.toString()}`;
       }
+      return true;
     }
+    return false;
   };
 
-  const handleSuccessfulAuth = (userData: any) => {
-    console.log('✅ Authentification réussie');
-    
-    // ✅ PRIORITÉ 1: Vérifier l'intention de réservation (booking)
+ // ✅ Modifiez la fonction handleSuccessfulAuth pour utiliser un délai et vérifier les données
+const handleSuccessfulAuth = (userData: any) => {
+  console.log('✅ Authentification réussie');
+  console.log('🔍 Vérification des intentions:', {
+    redirect_intent: localStorage.getItem('redirect_intent'),
+    property_id: localStorage.getItem('redirect_property_id'),
+    check_in: localStorage.getItem('temp_booking_check_in'),
+  });
+  
+  // Sauvegarder l'utilisateur
+  if (userData) {
+    localStorage.setItem('user', JSON.stringify(userData));
+  }
+  
+  // ✅ Attendre un peu pour que tout soit bien sauvegardé
+  setTimeout(() => {
+    // ✅ Vérifier l'intention de réservation (booking)
     const bookingIntent = localStorage.getItem('redirect_intent');
-    const propertyId = localStorage.getItem('redirect_property_id');
     
-    if (bookingIntent === 'booking' && propertyId) {
-      console.log('🏠 Intention de réservation détectée - Redirection vers le paiement');
+    if (bookingIntent === 'booking') {
+      console.log('🏠 Intention de réservation - Redirection vers BookingPage');
       
-      // Nettoyer l'intention
-      localStorage.removeItem('redirect_intent');
-      
-      // Rediriger directement vers le paiement
-      redirectToPayment();
-      return;
+      const propertyId = localStorage.getItem('redirect_property_id');
+      const checkIn = localStorage.getItem('temp_booking_check_in');
+      const checkOut = localStorage.getItem('temp_booking_check_out');
+      const guests = localStorage.getItem('temp_booking_guests');
+      const nights = localStorage.getItem('temp_booking_nights');
+
+      console.log('📦 Données pour redirection:', {
+        propertyId,
+        checkIn,
+        checkOut,
+        guests,
+        nights
+      });
+
+      if (propertyId && checkIn && checkOut) {
+        // Construire les données au format attendu par BookingPage
+        const bookingData = {
+          property_id: parseInt(propertyId),
+          check_in: checkIn,
+          check_out: checkOut,
+          guests: parseInt(guests || '1'),
+          nights: parseInt(nights || '1'),
+          guest_details: {
+            full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+            email: userData?.email || '',
+            phone: userData?.phone || '',
+            address: ''
+          },
+          totalAmount: 0,
+          paymentAmount: 0
+        };
+        
+        // Sauvegarder dans sessionStorage pour BookingPage
+        sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+        console.log('💾 Données sauvegardées dans sessionStorage:', bookingData);
+        
+        // Construire les paramètres URL
+        const params = new URLSearchParams();
+        params.set('check_in', checkIn);
+        params.set('check_out', checkOut);
+        params.set('guests', guests || '1');
+        params.set('nights', nights || '1');
+        
+        // Nettoyer les données temporaires
+        localStorage.removeItem('redirect_intent');
+        localStorage.removeItem('redirect_property_id');
+        localStorage.removeItem('redirect_property_title');
+        localStorage.removeItem('redirect_property_location');
+        localStorage.removeItem('redirect_property_price');
+        localStorage.removeItem('redirect_property_image');
+        localStorage.removeItem('temp_booking_check_in');
+        localStorage.removeItem('temp_booking_check_out');
+        localStorage.removeItem('temp_booking_guests');
+        localStorage.removeItem('temp_booking_nights');
+        
+        // Rediriger vers BookingPage
+        console.log('🚀 Redirection vers BookingPage...');
+        if (onNavigate) {
+          onNavigate({ 
+            name: 'booking', 
+            id: propertyId,
+            search: `?${params.toString()}`
+          });
+        } else {
+          window.location.href = `/booking/${propertyId}?${params.toString()}`;
+        }
+        return;
+      } else {
+        console.error('❌ Données de réservation manquantes:', {
+          propertyId,
+          checkIn,
+          checkOut
+        });
+      }
     }
     
-    // ✅ PRIORITÉ 2: Vérifier l'intention de chat
+    // ✅ Vérifier l'intention de chat
     const chatIntent = localStorage.getItem('redirect_intent');
     const chatPropertyId = localStorage.getItem('redirect_property_id');
     const savedChatParams = localStorage.getItem('pendingChatParams');
@@ -14072,8 +13882,8 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
       return;
     }
     
-    // ✅ Redirection par défaut
-    console.log('➡️ Redirection par défaut vers le profil');
+    // ✅ Redirection par défaut vers le profil
+    console.log('➡️ Aucune intention trouvée, redirection vers le profil');
     if (onAuthSuccess) {
       onAuthSuccess(userData);
     } else if (onNavigate) {
@@ -14081,7 +13891,8 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     } else {
       window.location.href = '/profile';
     }
-  };
+  }, 500); // Attendre 500ms pour que tout soit bien sauvegardé
+};
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -14117,57 +13928,105 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    setSuccessMessage('');
-    
-    const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setErrors({});
+  setSuccessMessage('');
+  
+  const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
+  if (Object.keys(validationErrors).length > 0) {
+    setErrors(validationErrors);
+    return;
+  }
 
-    setLoading(true);
-    try {
-      if (mode === 'signup') {
-        const payload = {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          password_confirmation: formData.confirmPassword,
-          user_type: 'voyageur',
-        };
-        const response = await register(payload);
-        setSuccessMessage('Inscription réussie ! Redirection...');
-        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
-      } else if (mode === 'login') {
-        const response = await login(formData.email, formData.password);
-        setSuccessMessage('Connexion réussie !');
-        setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
-      }
-    } catch (err: any) {
-      console.error('Erreur:', err);
+  setLoading(true);
+  try {
+    let response;
+    if (mode === 'signup') {
+      const payload = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+        user_type: 'voyageur',
+      };
+      response = await register(payload);
       
-      if (err.response?.data?.errors) {
-        const apiErrors = err.response.data.errors;
-        const errorMessages: string[] = [];
-        Object.values(apiErrors).forEach((msgs: any) => {
-          if (Array.isArray(msgs)) errorMessages.push(...msgs);
-          else errorMessages.push(msgs);
-        });
-        setErrors({ general: errorMessages.join(', ') });
-      } else if (err.response?.data?.message) {
-        setErrors({ general: err.response.data.message });
-      } else {
-        setErrors({ general: err.message || 'Erreur, veuillez réessayer' });
+      setSuccessMessage('Inscription réussie ! Redirection...');
+      
+      // ✅ Mettre à jour les données utilisateur avant la redirection
+      if (response?.user) {
+        const userWithDetails = {
+          ...response.user,
+          first_name: response.user.first_name || formData.firstName,
+          last_name: response.user.last_name || formData.lastName,
+          email: response.user.email || formData.email,
+          phone: response.user.phone || formData.phone
+        };
+        localStorage.setItem('user', JSON.stringify(userWithDetails));
+        
+        // ✅ Mettre à jour les guest_details avec les infos utilisateur
+        const savedData = sessionStorage.getItem('bookingFormData');
+        if (savedData) {
+          const bookingData = JSON.parse(savedData);
+          bookingData.guest_details = {
+            full_name: `${formData.firstName} ${formData.lastName}`,
+            email: formData.email,
+            phone: formData.phone || '',
+            address: ''
+          };
+          sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+        }
       }
-    } finally {
-      setLoading(false);
+      
+      setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
+    } else if (mode === 'login') {
+      response = await login(formData.email, formData.password);
+      
+      setSuccessMessage('Connexion réussie !');
+      
+      // ✅ Mettre à jour les données utilisateur avant la redirection
+      if (response?.user) {
+        localStorage.setItem('user', JSON.stringify(response.user));
+        
+        // ✅ Mettre à jour les guest_details avec les infos utilisateur
+        const savedData = sessionStorage.getItem('bookingFormData');
+        if (savedData) {
+          const bookingData = JSON.parse(savedData);
+          bookingData.guest_details = {
+            full_name: `${response.user.first_name || ''} ${response.user.last_name || ''}`.trim() || response.user.email?.split('@')[0] || '',
+            email: response.user.email || formData.email,
+            phone: response.user.phone || '',
+            address: ''
+          };
+          sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+        }
+      }
+      
+      setTimeout(() => handleSuccessfulAuth(response?.user), 1500);
     }
-  };
+  } catch (err: any) {
+    console.error('Erreur:', err);
+    
+    if (err.response?.data?.errors) {
+      const apiErrors = err.response.data.errors;
+      const errorMessages: string[] = [];
+      Object.values(apiErrors).forEach((msgs: any) => {
+        if (Array.isArray(msgs)) errorMessages.push(...msgs);
+        else errorMessages.push(msgs);
+      });
+      setErrors({ general: errorMessages.join(', ') });
+    } else if (err.response?.data?.message) {
+      setErrors({ general: err.response.data.message });
+    } else {
+      setErrors({ general: err.message || 'Erreur, veuillez réessayer' });
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
@@ -14245,7 +14104,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
                     
                     {(redirectTo === 'booking' || localStorage.getItem('redirect_intent') === 'booking') && (
                       <div className="mt-3 p-2 bg-amber-50 rounded-lg">
-                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé vers le paiement</p>
+                        <p className="text-xs text-amber-700">🔄 Après connexion, vous serez redirigé vers la page de confirmation et paiement</p>
                       </div>
                     )}
                     
@@ -14320,7 +14179,7 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
 
                     {mode === 'signup' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone (optionnel)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                           <input
