@@ -13196,7 +13196,7 @@ export function BecomeHost({ onNavigate }: PageProps) {
   if (showAuthPage) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden relative">
           <button
             onClick={() => {
               setShowAuthPage(false);
@@ -13208,7 +13208,7 @@ export function BecomeHost({ onNavigate }: PageProps) {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           
-          <div className="flex border-b border-gray-200">
+          <div className="flex border-b border-gray-200 mt-2">
             <button
               onClick={() => {
                 setAuthMode('login');
@@ -13237,7 +13237,7 @@ export function BecomeHost({ onNavigate }: PageProps) {
             </button>
           </div>
           
-          <div className="p-8">
+          <div className="p-6 sm:p-8">
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
                 {error}
@@ -13378,29 +13378,31 @@ export function BecomeHost({ onNavigate }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
-      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-5 py-4">
+      <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-4">
         <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-3 flex items-center gap-2 hover:text-[#00c9a7] transition-colors group">
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Retour
         </button>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#0F2940]">Devenir hôte</h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Partagez votre espace et créez des revenus supplémentaires</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#0F2940]">Devenir hôte</h1>
+        <p className="text-sm text-gray-500 mt-1">Partagez votre espace et créez des revenus supplémentaires</p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8 md:py-12">
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0f2940] to-[#1a3a52] p-6 sm:p-8 md:p-12 mb-8 sm:mb-12 text-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        {/* Bannière hero */}
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#0f2940] to-[#1a3a52] p-8 sm:p-12 mb-12 text-center">
           <div className="relative z-10">
-            <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[#00ffdb] mb-2 sm:mb-3">Hébergeurs</p>
-            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-4">Rejoignez la communauté</h2>
-            <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-2xl mx-auto">
+            <p className="text-sm uppercase tracking-[0.2em] text-[#00ffdb] mb-3">Hébergeurs</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4">Rejoignez la communauté</h2>
+            <p className="text-white/80 text-sm md:text-base max-w-2xl mx-auto">
               Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs.
             </p>
           </div>
         </div>
 
-        <div className="mb-8 sm:mb-12">
-          <div className="text-center mb-6 sm:mb-8">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Comment souhaitez-vous contribuer ?</h3>
-            <p className="text-gray-500 text-xs sm:text-sm">Choisissez le type d'offre que vous voulez proposer</p>
+        {/* Section choix du type d'offre */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h3 className="text-xl sm:text-2xl font-semibold text-[#0F2940] mb-2">Comment souhaitez-vous contribuer ?</h3>
+            <p className="text-gray-500 text-sm">Choisissez le type d'offre que vous voulez proposer</p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
@@ -13410,22 +13412,22 @@ export function BecomeHost({ onNavigate }: PageProps) {
                 <button
                   key={option.id}
                   onClick={() => handleOptionSelect(option.id)}
-                  className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+                  className="group relative overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 text-center transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                 >
                   <div className={`absolute inset-0 bg-gradient-to-r ${option.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                  <div className="relative z-10">
-                    <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-r ${option.color} text-white flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="w-6 h-6 md:w-7 md:h-7" />
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-r ${option.color} text-white flex items-center justify-center mb-3 sm:mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7" />
                     </div>
-                    <h3 className="text-base md:text-lg font-semibold text-[#0F2940] mb-2 group-hover:text-[#00c9a7] transition-colors">
+                    <h3 className="text-base sm:text-lg font-semibold text-[#0F2940] mb-1 sm:mb-2 group-hover:text-[#00c9a7] transition-colors">
                       {option.title}
                     </h3>
-                    <p className="text-xs md:text-sm text-gray-500 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
                       {option.description}
                     </p>
-                    <div className="mt-4 flex items-center gap-2 text-sm font-medium text-[#00c9a7] opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
+                    <div className="mt-3 sm:mt-4 flex items-center gap-2 text-sm font-medium text-[#00c9a7] opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
                       <span>Commencer</span>
-                      <ArrowLeft className="w-4 h-4 rotate-180" />
+                      <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 rotate-180" />
                     </div>
                   </div>
                 </button>
@@ -13434,10 +13436,11 @@ export function BecomeHost({ onNavigate }: PageProps) {
           </div>
         </div>
 
-        <div className="mb-8 sm:mb-12">
-          <div className="text-center mb-6 sm:mb-8">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-semibold text-[#0F2940] mb-2">Pourquoi devenir hôte ?</h3>
-            <p className="text-gray-500 text-xs sm:text-sm">Des avantages conçus pour vous accompagner</p>
+        {/* Section avantages */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h3 className="text-xl sm:text-2xl font-semibold text-[#0F2940] mb-2">Pourquoi devenir hôte ?</h3>
+            <p className="text-gray-500 text-sm">Des avantages conçus pour vous accompagner</p>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
@@ -13456,6 +13459,7 @@ export function BecomeHost({ onNavigate }: PageProps) {
           </div>
         </div>
 
+        {/* Bouton d'action */}
         <div className="flex justify-center pt-6 sm:pt-8 border-t border-slate-200">
           <button
             onClick={handleStart}
