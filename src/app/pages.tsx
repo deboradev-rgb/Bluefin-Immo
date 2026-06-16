@@ -14,6 +14,8 @@ import { Navbar } from './components/Navbar';
 import { useFavorites } from './hooks/useFavorites';
 import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
 import { useInquiryMessages } from './hooks/useInquiryMessages';
+import { PaymentInfoModal } from './components/PaymentInfoModal';
+
 import { IdentityVerification } from './components/IdentityVerification';
 // import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
 
@@ -3084,11 +3086,13 @@ const Receipt = ({ className }: { className?: string }) => (
 // pages.tsx - Version complète de HomePage
 
 
-// HomePage.tsx - Version finale avec les couleurs du site et prix en euros
-
-
-
-export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }) {
+export function HomePage({ 
+  onNavigate, 
+  activeTab = 'home' 
+}: { 
+  onNavigate?: (route: any) => void; 
+  activeTab?: string;
+}) {
   // États pour le tri (desktop)
   const [selectedFilter, setSelectedFilter] = useState('Tous');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -3296,68 +3300,127 @@ export function HomePage({ onNavigate }: { onNavigate?: (route: Route) => void }
           </div>
         </div>
       )}
+{/* Barre de navigation responsive : onglets mobiles / tri desktop */}
+<div className="border-b border-gray-200 sticky top-0 bg-white z-30 w-full">
+  <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
+    <div className="max-w-[1440px] mx-auto">
+      <div className="flex items-center justify-between">
+        {/* Mobile : trois onglets centrés avec icônes */}
+        <div className="flex flex-1 justify-center items-center gap-4 lg:hidden">
+          <button 
+            onClick={() => onNavigate?.({ name: 'home' })} 
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'home' || activeTab === 'search-logements' || activeTab === 'popular'
+                ? 'bg-[#00c9a7] text-white' 
+                : 'border border-gray-300 text-[#0F2940] hover:border-gray-400'
+            }`}
+          >
+            <img 
+              src="/hebergement.png" 
+              alt="Logements" 
+              className="w-5 h-5 object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <span>Logements</span>
+          </button>
+          <button 
+            onClick={() => onNavigate?.({ name: 'experience' })} 
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'experience'
+                ? 'bg-[#00c9a7] text-white' 
+                : 'border border-gray-300 text-[#0F2940] hover:border-gray-400'
+            }`}
+          >
+            <img 
+              src="/experience.jpeg" 
+              alt="Expériences" 
+              className="w-5 h-5 object-contain rounded-full"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <span>Expériences</span>
+          </button>
+          <button 
+            onClick={() => onNavigate?.({ name: 'services' })} 
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              activeTab === 'services'
+                ? 'bg-[#00c9a7] text-white' 
+                : 'border border-gray-300 text-[#0F2940] hover:border-gray-400'
+            }`}
+          >
+            <img 
+              src="/services.png" 
+              alt="Services" 
+              className="w-5 h-5 object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <span>Services</span>
+          </button>
+        </div>
 
-      {/* Barre de navigation responsive : onglets mobiles / tri desktop */}
-      <div className="border-b border-gray-200 sticky top-0 bg-white z-30 w-full">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-3">
-          <div className="max-w-[1440px] mx-auto">
-            <div className="flex items-center justify-between">
-              {/* Mobile : trois onglets centrés */}
-              <div className="flex flex-1 justify-center items-center gap-3 lg:hidden">
-                <button onClick={() => onNavigate?.({ name: 'home' })} className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#00c9a7] text-white whitespace-nowrap">
-                  Logements
-                </button>
-                <button onClick={() => onNavigate?.({ name: 'experience' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
-                  Expériences
-                </button>
-                <button onClick={() => onNavigate?.({ name: 'services' })} className="px-3 py-1.5 rounded-full text-xs font-medium border border-gray-300 text-[#0F2940] hover:border-gray-400 whitespace-nowrap">
-                  Services
-                </button>
+        {/* Desktop : dropdown Trier par */}
+        <div className="hidden lg:block relative">
+          <button 
+            onClick={() => setShowFilterDropdown(!showFilterDropdown)} 
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors whitespace-nowrap"
+          >
+            <Filter className="w-4 h-4 text-[#00c9a7]" />
+            <span className="text-sm text-[#0F2940]">Trier par</span>
+            <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          {showFilterDropdown && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
+              <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-2">
+                {filtersList.map(filter => (
+                  <button
+                    key={filter}
+                    onClick={() => {
+                      setSelectedFilter(filter);
+                      setShowFilterDropdown(false);
+                    }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f4fffe] ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
+                  >
+                    {filter}
+                  </button>
+                ))}
               </div>
+            </>
+          )}
+        </div>
 
-              {/* Desktop : dropdown Trier par */}
-              <div className="hidden lg:block relative">
-                <button onClick={() => setShowFilterDropdown(!showFilterDropdown)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 hover:border-gray-400 transition-colors whitespace-nowrap">
-                  <Filter className="w-4 h-4 text-[#00c9a7]" />
-                  <span className="text-sm text-[#0F2940]">Trier par</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform text-[#0F2940] ${showFilterDropdown ? 'rotate-180' : ''}`} />
-                </button>
-                {showFilterDropdown && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
-                    <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 py-2">
-                      {filtersList.map(filter => (
-                        <button
-                          key={filter}
-                          onClick={() => {
-                            setSelectedFilter(filter);
-                            setShowFilterDropdown(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-[#f4fffe] ${selectedFilter === filter ? 'text-[#00c9a7] font-medium' : 'text-gray-700'}`}
-                        >
-                          {filter}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Compteur TOTAL (logements normaux + hôtels promus) */}
-              <div className="hidden lg:block text-sm text-[#0F2940] whitespace-nowrap">
-                {!isLoading ? (
-                  `${allProperties.length + hotelsProperties.length} logement${allProperties.length + hotelsProperties.length > 1 ? 's' : ''} disponible${allProperties.length + hotelsProperties.length > 1 ? 's' : ''}`
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
-                    <span>Chargement...</span>
-                  </div>
-                )}
-              </div>
+        {/* Compteur TOTAL */}
+        <div className="hidden lg:block text-sm text-[#0F2940] whitespace-nowrap">
+          {!isLoading ? (
+            <span className="flex items-center gap-2">
+              <img 
+                src="/hebergement.png" 
+                alt="Total logements" 
+                className="w-5 h-5 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              <span className="font-medium">
+                {allProperties.length + hotelsProperties.length} logement{allProperties.length + hotelsProperties.length > 1 ? 's' : ''} disponible{allProperties.length + hotelsProperties.length > 1 ? 's' : ''}
+              </span>
+            </span>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-[#00c9a7] border-t-transparent rounded-full animate-spin"></div>
+              <span>Chargement...</span>
             </div>
-          </div>
+          )}
         </div>
       </div>
+    </div>
+  </div>
+</div>
 
       {/* Main Content */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -6034,8 +6097,444 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
     </div>
   );
 }
+
+
+// ==================== COMPOSANT MODAL PAIEMENT ====================
+
+interface PaymentMethodModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+export function PaymentMethodModal({ isOpen, onClose, onSuccess }: PaymentMethodModalProps) {
+  const { user } = useAuth();
+  const [paymentMethod, setPaymentMethod] = useState<'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL'>('MOBILE_MONEY');
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phoneNumber: '',
+    mobileProvider: '',
+    bankName: '',
+    accountHolder: '',
+    iban: '',
+    bic: '',
+    paypalEmail: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Vérifier que l'utilisateur est connecté
+      if (!user?.id) {
+        toast.error('❌ Vous devez être connecté');
+        return;
+      }
+
+      // Préparer les données pour l'API
+      const payload = {
+        paymentMethod: paymentMethod,
+        fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber || undefined,
+        mobileProvider: formData.mobileProvider as 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE' | undefined,
+        bankName: formData.bankName || undefined,
+        accountHolder: formData.accountHolder || undefined,
+        iban: formData.iban || undefined,
+        bic: formData.bic || undefined,
+        paypalEmail: formData.paypalEmail || undefined,
+      };
+
+      // Appel API pour sauvegarder les infos de paiement
+      const response = await hostService.updateMyPaymentInfo(payload);
+      
+      if (response.success) {
+        setSuccess(true);
+        toast.success('✅ Moyen de paiement enregistré avec succès !');
+        
+        setTimeout(() => {
+          setSuccess(false);
+          onClose();
+          if (onSuccess) onSuccess();
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('Erreur lors de l\'enregistrement:', error);
+      toast.error(`❌ ${error?.response?.data?.message || 'Erreur lors de l\'enregistrement'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderPaymentForm = () => {
+    switch (paymentMethod) {
+      case 'BANK_TRANSFER':
+        return (
+          <div className="space-y-4">
+            <div className="bg-[#f0fdfb] p-4 rounded-xl border border-[#00c9a7]/20">
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Nom du bénéficiaire <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-[#6b7280] mb-2">
+                👤 Ce nom apparaîtra sur les virements reçus
+              </p>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] bg-white"
+                placeholder="Ex: Jean Dupont"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Nom de la banque <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.bankName}
+                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                placeholder="Ex: Société Générale"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Titulaire du compte <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.accountHolder}
+                onChange={(e) => setFormData({ ...formData, accountHolder: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                placeholder="Nom complet du titulaire"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                IBAN <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.iban}
+                onChange={(e) => setFormData({ ...formData, iban: e.target.value.toUpperCase() })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] uppercase"
+                placeholder="FR76 1234 5678 9012 3456 7890 123"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                BIC / SWIFT <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.bic}
+                onChange={(e) => setFormData({ ...formData, bic: e.target.value.toUpperCase() })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] uppercase"
+                placeholder="Ex: SOGEFRPP"
+                required
+              />
+            </div>
+          </div>
+        );
+
+      case 'MOBILE_MONEY':
+        return (
+          <div className="space-y-4">
+            <div className="bg-[#f0fdfb] p-4 rounded-xl border border-[#00c9a7]/20">
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Nom du bénéficiaire <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-[#6b7280] mb-2">
+                👤 Ce nom apparaîtra sur les transactions Mobile Money
+              </p>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] bg-white"
+                placeholder="Ex: Jean Dupont"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Numéro de téléphone <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                placeholder="+229 61 12 34 56"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Opérateur Mobile Money <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.mobileProvider}
+                onChange={(e) => setFormData({ ...formData, mobileProvider: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] bg-white"
+                required
+              >
+                <option value="">Sélectionnez un opérateur</option>
+                <option value="ORANGE">🟧 Orange Money</option>
+                <option value="MTN">🟨 MTN Mobile Money</option>
+                <option value="MOOV">🟦 Moov Money</option>
+                <option value="WAVE">🟩 Wave</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'PAYPAL':
+        return (
+          <div className="space-y-4">
+            <div className="bg-[#f0fdfb] p-4 rounded-xl border border-[#00c9a7]/20">
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Nom du bénéficiaire <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-[#6b7280] mb-2">
+                👤 Ce nom apparaîtra sur les transactions PayPal
+              </p>
+              <input
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7] bg-white"
+                placeholder="Ex: Jean Dupont"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[#0f2940] mb-1">
+                Email PayPal <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                value={formData.paypalEmail}
+                onChange={(e) => setFormData({ ...formData, paypalEmail: e.target.value })}
+                className="w-full px-4 py-2 border border-[#e2f5f2] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                placeholder="exemple@paypal.com"
+                required
+              />
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      {/* Overlay */}
+      <div 
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold text-[#0f2940]">
+            Moyens de paiement
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {success ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8 text-green-600" />
+            </div>
+            <p className="text-lg font-semibold text-[#0f2940]">
+              Moyen de paiement enregistré !
+            </p>
+            <p className="text-sm text-[#6b7280] mt-2">
+              Vous recevrez vos paiements chaque lundi
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {/* Sélection du type de paiement */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-[#0f2940] mb-2">
+                Choisissez votre méthode de réception
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { value: 'MOBILE_MONEY', label: 'Mobile Money', icon: '📱' },
+                  { value: 'BANK_TRANSFER', label: 'Virement', icon: '🏦' },
+                  { value: 'PAYPAL', label: 'PayPal', icon: '💳' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(option.value as any)}
+                    className={`p-3 rounded-xl border-2 text-center transition-all ${
+                      paymentMethod === option.value
+                        ? 'border-[#00c9a7] bg-[#f0fdfb] shadow-sm'
+                        : 'border-[#e2f5f2] hover:border-[#00c9a7]'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">{option.icon}</div>
+                    <span className="text-xs font-medium text-[#0f2940] block">
+                      {option.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Formulaire selon la méthode choisie */}
+            {renderPaymentForm()}
+
+            {/* Résumé des infos */}
+            <div className="mt-4 p-3 bg-[#f0fdfb] rounded-xl border border-[#00c9a7]/20">
+              <p className="text-xs text-[#6b7280]">
+                <span className="font-semibold">💡 Information :</span> Vous recevrez le transfert de vos réservations 
+                <span className="font-medium text-[#0f2940]"> chaque lundi</span> sur le moyen de paiement sélectionné.
+              </p>
+            </div>
+
+            {/* Boutons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-[#e2f5f2] rounded-xl text-[#6b7280] hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || !formData.fullName}
+                className="flex-1 px-4 py-2 bg-[#00c9a7] text-white rounded-xl hover:bg-[#00b898] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Enregistrement...
+                  </>
+                ) : (
+                  'Enregistrer'
+                )}
+              </button>
+            </div>
+
+            <p className="text-xs text-[#6b7280] text-center mt-4">
+              🔒 Vos informations sont sécurisées et ne seront utilisées que pour les paiements.
+            </p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 // ==================== ACCOUNT PAGE ====================
 export function AccountPage({ onNavigate }: PageProps) {
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const { user } = useAuth();
+
+  // Récupérer les informations de paiement de l'hôte
+  const fetchPaymentInfo = async () => {
+    if (!user?.id) return;
+    
+    setLoading(true);
+    try {
+      const response = await hostService.getMyPaymentInfo();
+      if (response.success) {
+        setPaymentInfo(response.data);
+        setShowPaymentInfoModal(true);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des infos de paiement:', error);
+      toast.error('❌ Impossible de récupérer vos informations de paiement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Récupérer l'historique des paiements
+  const fetchPaymentHistory = async () => {
+    if (!user?.id) return;
+    
+    setLoadingHistory(true);
+    try {
+      const response = await hostService.getMyPaymentHistory(12);
+      if (response.success) {
+        setPaymentHistory(response.data || []);
+        return response.data || [];
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'historique:', error);
+      toast.error('❌ Impossible de récupérer l\'historique des paiements');
+      return [];
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Ouvrir le modal avec l'historique préchargé
+  const openPaymentInfoModal = async () => {
+    if (!user?.id) return;
+    
+    setLoading(true);
+    try {
+      // Charger les infos et l'historique en parallèle
+      const [infoResponse, historyResponse] = await Promise.all([
+        hostService.getMyPaymentInfo(),
+        hostService.getMyPaymentHistory(12)
+      ]);
+      
+      if (infoResponse.success) {
+        setPaymentInfo(infoResponse.data);
+      }
+      
+      if (historyResponse.success) {
+        setPaymentHistory(historyResponse.data || []);
+      }
+      
+      setShowPaymentInfoModal(true);
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('❌ Impossible de récupérer vos informations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Vérifier si l'utilisateur est un hôte
+  const isHost = user?.user_type === 'hote' || user?.user_type === 'host';
+
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -6051,6 +6550,7 @@ export function AccountPage({ onNavigate }: PageProps) {
               </div>
               <p className="text-sm text-[#6b7280]">Voir l'historique de vos voyages et les prochaines séjours.</p>
             </button>
+            
             <button
               onClick={() => onNavigate?.({ name: 'favorites' })}
               className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
@@ -6061,6 +6561,48 @@ export function AccountPage({ onNavigate }: PageProps) {
               </div>
               <p className="text-sm text-[#6b7280]">Retrouvez vos annonces sauvegardées et préparez votre prochaine réservation.</p>
             </button>
+
+            {/* 👇 BOUTON MOYENS DE PAIEMENT (AJOUTER/MODIFIER) */}
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <CreditCard className="w-5 h-5 text-[#00c9a7]" />
+                <h3 className="text-xl font-semibold text-[#0f2940]">Moyens de paiement</h3>
+              </div>
+              <p className="text-sm text-[#6b7280]">Configurez comment recevoir vos paiements.</p>
+            </button>
+
+            {/* 👇 BOUTON VOIR/MODIFIER SES DONNÉES DE PAIEMENT (UNIQUEMENT POUR LES HÔTES) */}
+            {isHost && (
+              <button
+                onClick={openPaymentInfoModal}
+                disabled={loading}
+                className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow relative"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <Wallet className="w-5 h-5 text-[#00c9a7]" />
+                  <h3 className="text-xl font-semibold text-[#0f2940]">Mes paiements reçus</h3>
+                  {loading && (
+                    <div className="absolute top-4 right-4">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#00c9a7]"></div>
+                    </div>
+                  )}
+                </div>
+                <p className="text-sm text-[#6b7280]">
+                  {paymentInfo?.totalAllTime > 0 
+                    ? `💰 Total reçu: ${paymentInfo.totalAllTime.toLocaleString()} FCFA`
+                    : 'Consultez vos gains et vos paiements'}
+                </p>
+                {paymentInfo?.totalWeekAmount > 0 && (
+                  <span className="inline-block mt-2 text-xs bg-[#00c9a7] text-white px-3 py-1 rounded-full">
+                    + {paymentInfo.totalWeekAmount.toLocaleString()} FCFA cette semaine
+                  </span>
+                )}
+              </button>
+            )}
+
             <button
               onClick={() => onNavigate?.({ name: 'help' })}
               className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
@@ -6074,12 +6616,48 @@ export function AccountPage({ onNavigate }: PageProps) {
           </div>
         </PageSection>
       </div>
+
+      {/* 👇 MODAL DES MOYENS DE PAIEMENT (AJOUTER/MODIFIER) */}
+      <PaymentMethodModal 
+        isOpen={showPaymentModal} 
+        onClose={() => setShowPaymentModal(false)}
+        onSuccess={() => {
+          // Rafraîchir les infos de paiement après enregistrement
+          if (isHost) {
+            fetchPaymentInfo();
+          }
+        }}
+      />
+
+      {/* 👇 MODAL POUR VOIR LES INFORMATIONS DE PAIEMENT AVEC HISTORIQUE */}
+      {showPaymentInfoModal && paymentInfo && (
+        <PaymentInfoModal
+          isOpen={showPaymentInfoModal}
+          onClose={() => {
+            setShowPaymentInfoModal(false);
+            setPaymentInfo(null);
+            setPaymentHistory([]);
+          }}
+          paymentInfo={paymentInfo}
+          paymentHistory={paymentHistory}
+          loadingHistory={loadingHistory}
+          onEdit={() => {
+            setShowPaymentInfoModal(false);
+            setShowPaymentModal(true);
+          }}
+          onRefresh={async () => {
+            const response = await hostService.getMyPaymentHistory(12);
+            if (response.success) {
+              setPaymentHistory(response.data || []);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // ==================== ACCOUNT RESERVATIONS PAGE ====================
-
 
 
 interface PageProps {
@@ -10849,7 +11427,7 @@ const getTravelerContent = () => ({
             <h3 class="font-semibold text-lg mb-3">Comment puis-je payer ma réservation ?</h3>
             <p>Les paiements sont traités via des prestataires de paiement sécurisés tiers. Bluefin Immo accepte les principaux moyens de paiement disponibles :</p>
             <div class="grid grid-cols-2 gap-3 mt-3">
-              <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Mobile Money (Wave, Orange Money, MTN)</div>
+              <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Mobile Money</div>
               <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Carte bancaire (Visa, Mastercard)</div>
               <div class="bg-[#f4fffe] rounded-xl p-3 text-center border border-[#e2f5f2]"> Virement bancaire</div>
             </div>
@@ -11163,7 +11741,7 @@ const getHostContent = () => ({
           <div>
             <h3 class="font-semibold text-[#0F2940] mb-3">Quels modes de paiement sont acceptés ?</h3>
             <div class="flex flex-wrap gap-3">
-              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">📱 Mobile Money (Wave, Orange Money, MTN)</div>
+              <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">📱 Mobile Money </div>
               <div class="bg-gray-100 rounded-lg px-4 py-2 text-sm">💳 Carte bancaire (Visa, Mastercard)</div>
             </div>
           </div>
@@ -14928,8 +15506,7 @@ export function CityPage({ onNavigate, city }: { onNavigate?: (route: Route) => 
 // pages/admin/AdminDashboardPage.tsx
 
 
-
-const COLORS = ['#00c9a7', '#0f2940', '#ff6b6b', '#f5a623', '#4a90e2', '#9013fe'];
+const COLORS = ['#00c9a7', '#0f2940', '#ff6b6b', '#f5a623', '#4a90e2'];
 
 export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
   const { data, isLoading, error, refetch } = useQuery({
@@ -14940,13 +15517,20 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [animatedCards, setAnimatedCards] = useState<Record<string, boolean>>({});
+  const { logout } = useAuth();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setAnimatedCards({ all: true }), 100);
-    return () => clearTimeout(timer);
-  }, []);
+  // ✅ Fonction de déconnexion
+  const handleLogout = async () => {
+    if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
+      try {
+        await logout();
+        onNavigate?.({ name: 'home' });
+        toast.success('Déconnexion réussie');
+      } catch (error) {
+        toast.error('Erreur lors de la déconnexion');
+      }
+    }
+  };
 
   if (isLoading) return <LoadingSkeleton />;
   if (error) return <ErrorMessage onRetry={() => refetch()} />;
@@ -14962,7 +15546,6 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
     revenue: chartData.revenue[idx] / 1000,
     bookings: chartData.bookings[idx],
     users: chartData.users[idx],
-    averageValue: chartData.revenue[idx] / (chartData.bookings[idx] || 1),
   }));
 
   const conversionRate = stats.properties ? 
@@ -14975,300 +15558,267 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
     { city: 'Porto-Novo', count: 89, revenue: 12300000 },
     { city: 'Parakou', count: 56, revenue: 7800000 },
     { city: 'Abomey', count: 45, revenue: 6700000 },
-    { city: 'Grand-Popo', count: 34, revenue: 5100000 },
   ];
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête responsive */}
-      <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-3 mb-6">
-        <div className="w-full xs:w-auto">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
-            Tableau de bord
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">Aperçu global de la plateforme</p>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full xs:w-auto">
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value as any)}
-            className="flex-1 xs:flex-none bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-          >
-            <option value="week">7 jours</option>
-            <option value="month">30 jours</option>
-            <option value="year">12 mois</option>
-          </select>
-          <button
-            onClick={() => refetch()}
-            className="bg-white border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50 transition"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <div className="relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 pb-10">
+      <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        {/* En-tête épuré */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-emerald-500" />
+              Tableau de bord
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">Vue d'ensemble de votre plateforme</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="bg-white border border-gray-200 rounded-xl p-2 hover:bg-gray-50 transition relative"
+              onClick={() => refetch()}
+              className="p-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-200"
             >
-              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
+              <RefreshCw className="w-4 h-4 text-slate-500" />
             </button>
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-xl border z-50">
-                <div className="p-3 border-b font-semibold text-sm">Notifications</div>
-                <div className="max-h-80 overflow-y-auto">
-                  {activities.slice(0, 5).map((act: any, idx: number) => (
-                    <div key={idx} className="p-3 hover:bg-gray-50 border-b text-sm">
-                      <p className="text-sm">{act.title || act.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{act.time}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Cartes stats - Grille responsive */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 mb-6">
-        <StatsCard
-          icon={<Users className="w-5 h-5 sm:w-6 sm:h-6" />}
-          title="Utilisateurs"
-          value={stats.users?.total || 0}
-          subValue={`+${stats.users?.new_today || 0} aujourd'hui`}
-          trend={stats.users?.growth || 12}
-          color="blue"
-          animated={animatedCards.all}
-        />
-        <StatsCard
-          icon={<Home className="w-5 h-5 sm:w-6 sm:h-6" />}
-          title="Propriétés"
-          value={stats.properties?.total || 0}
-          subValue={`${stats.properties?.pending || 0} en attente`}
-          trend={stats.properties?.growth || 8}
-          color="green"
-          animated={animatedCards.all}
-        />
-        <StatsCard
-          icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />}
-          title="Chiffre d'affaires"
-          value={`${(stats.payments?.total_amount || 0).toLocaleString()} FCFA`}
-          subValue={`+${(stats.payments?.today_amount || 0).toLocaleString()} FCFA`}
-          trend={stats.payments?.growth || 15}
-          color="purple"
-          animated={animatedCards.all}
-        />
-        <StatsCard
-          icon={<Calendar className="w-5 h-5 sm:w-6 sm:h-6" />}
-          title="Réservations"
-          value={stats.bookings?.confirmed || 0}
-          subValue={`${stats.bookings?.pending_payment || 0} en attente`}
-          trend={stats.bookings?.growth || 10}
-          color="orange"
-          animated={animatedCards.all}
-        />
-      </div>
-
-      {/* Deuxième ligne stats - responsive */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
-        <MetricCard
-          title="Taux de conversion"
-          value={`${conversionRate}%`}
-          subtitle="Propriétés approuvées"
-          color="indigo"
-          icon={<Activity className="w-5 h-5" />}
-        />
-        <MetricCard
-          title="Satisfaction"
-          value="4.9/5"
-          subtitle="Moyenne des notes"
-          color="emerald"
-          icon={<Star className="w-5 h-5" />}
-          stars
-        />
-        <MetricCard
-          title="Taux de réussite"
-          value={`${bookingSuccessRate}%`}
-          subtitle="Réservations complétées"
-          color="rose"
-          icon={<CheckCircle className="w-5 h-5" />}
-        />
-        <MetricCard
-          title="Panier moyen"
-          value={`${((stats.payments?.total_amount || 0) / (stats.bookings?.confirmed || 1)).toLocaleString()} FCFA`}
-          subtitle="par réservation"
-          color="amber"
-          icon={<Wallet className="w-5 h-5" />}
-        />
-      </div>
-
-      {/* Graphiques - Stack responsives */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6">
-        <ChartCard title="Évolution du CA" icon={<TrendingUp className="w-5 h-5" />}>
-          <ResponsiveContainer width="100%" height={250}>
-            <ComposedChart data={revenueChartData}>
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#00c9a7" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#00c9a7" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={window.innerWidth < 640 ? 2 : 0} />
-              <YAxis tickFormatter={(value) => `${value}k`} tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-              <Area type="monotone" dataKey="revenue" stroke="#00c9a7" fill="url(#revenueGradient)" name="CA (k FCFA)" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Réservations vs Utilisateurs" icon={<BarChart3 className="w-5 h-5" />}>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={revenueChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={window.innerWidth < 640 ? 2 : 0} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px' }} />
-              <Legend wrapperStyle={{ fontSize: '12px' }} />
-              <Bar dataKey="bookings" fill="#0f2940" name="Réservations" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="users" fill="#00c9a7" name="Nouveaux users" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Destinations et répartition - responsive */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
-        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg lg:col-span-1">
-          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[#00c9a7]" />
-            Top Destinations
-          </h3>
-          <div className="space-y-3">
-            {topDestinations.slice(0, 4).map((dest, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-xl transition">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold">
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">{dest.city}</p>
-                    <p className="text-xs text-gray-400">{dest.count} réservations</p>
-                  </div>
-                </div>
-                <p className="font-semibold text-[#00c9a7] text-sm">{(dest.revenue / 1000000).toFixed(1)}M FCFA</p>
-              </div>
-            ))}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-200"
+            >
+              <LogOut className="w-4 h-4 text-red-500" />
+              <span className="text-sm font-medium text-red-600">Déconnexion</span>
+            </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg lg:col-span-2">
-          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-[#00c9a7]" />
-            Répartition des propriétés
-          </h3>
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <ResponsiveContainer width="100%" height={200}>
-              <RePieChart>
-                <Pie
-                  data={[
-                    { name: 'Appartements', value: 45, color: '#00c9a7' },
-                    { name: 'Villas', value: 25, color: '#0f2940' },
-                    { name: 'Studios', value: 15, color: '#ff6b6b' },
-                    { name: 'Maisons', value: 10, color: '#f5a623' },
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {[
-                    { name: 'Appartements', value: 45, color: '#00c9a7' },
-                    { name: 'Villas', value: 25, color: '#0f2940' },
-                    { name: 'Studios', value: 15, color: '#ff6b6b' },
-                    { name: 'Maisons', value: 10, color: '#f5a623' },
-                  ].map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </RePieChart>
+        {/* 4 Cartes principales */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard
+            icon={Users}
+            title="Utilisateurs"
+            value={stats.users?.total || 0}
+            change={`+${stats.users?.new_today || 0} aujourd'hui`}
+            color="blue"
+          />
+          <StatCard
+            icon={Home}
+            title="Propriétés"
+            value={stats.properties?.total || 0}
+            change={`${stats.properties?.pending || 0} en attente`}
+            color="emerald"
+          />
+          <StatCard
+            icon={DollarSign}
+            title="Chiffre d'affaires"
+            value={`${((stats.payments?.total_amount || 0) / 1000000).toFixed(1)}M FCFA`}
+            change={`+${((stats.payments?.today_amount || 0) / 1000).toFixed(0)}k aujourd'hui`}
+            color="purple"
+          />
+          <StatCard
+            icon={Calendar}
+            title="Réservations"
+            value={stats.bookings?.confirmed || 0}
+            change={`${stats.bookings?.pending_payment || 0} en attente`}
+            color="orange"
+          />
+        </div>
+
+        {/* Métriques secondaires */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <MetricCard
+            title="Conversion"
+            value={`${conversionRate}%`}
+            subtitle="Propriétés approuvées"
+            icon={Activity}
+            color="indigo"
+          />
+          <MetricCard
+            title="Satisfaction"
+            value="4.9/5"
+            subtitle="Note moyenne"
+            icon={Star}
+            color="emerald"
+          />
+          <MetricCard
+            title="Succès"
+            value={`${bookingSuccessRate}%`}
+            subtitle="Réservations complétées"
+            icon={CheckCircle}
+            color="rose"
+          />
+          <MetricCard
+            title="Panier moyen"
+            value={`${Math.round(((stats.payments?.total_amount || 0) / (stats.bookings?.confirmed || 1)) / 1000)}k FCFA`}
+            subtitle="par réservation"
+            icon={Wallet}
+            color="amber"
+          />
+        </div>
+
+        {/* Graphiques */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <ChartCard title="Évolution du chiffre d'affaires">
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={revenueChartData}>
+                <defs>
+                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tickFormatter={(v) => `${v}k`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  formatter={(v: number) => [`${v}k FCFA`, 'CA']}
+                />
+                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#revenueGradient)" name="CA (k FCFA)" />
+              </ComposedChart>
             </ResponsiveContainer>
-            <div className="flex flex-wrap gap-3 justify-center">
-              {[
-                { label: 'Appartements', value: 45, color: '#00c9a7' },
-                { label: 'Villas', value: 25, color: '#0f2940' },
-                { label: 'Studios', value: 15, color: '#ff6b6b' },
-                { label: 'Maisons', value: 10, color: '#f5a623' },
-              ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs">{item.label}</span>
-                  <span className="text-xs font-semibold">{item.value}%</span>
+          </ChartCard>
+
+          <ChartCard title="Réservations vs Utilisateurs">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={revenueChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="bookings" fill="#0f2940" name="Réservations" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="users" fill="#10b981" name="Nouveaux utilisateurs" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+
+        {/* Destinations + Répartition */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-emerald-500" />
+              Destinations populaires
+            </h3>
+            <div className="space-y-3">
+              {topDestinations.map((dest, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition">
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                      {idx + 1}
+                    </span>
+                    <div>
+                      <p className="font-medium text-sm text-slate-700">{dest.city}</p>
+                      <p className="text-xs text-slate-400">{dest.count} réservations</p>
+                    </div>
+                  </div>
+                  <p className="font-semibold text-emerald-600 text-sm">{(dest.revenue / 1000000).toFixed(1)}M FCFA</p>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Activités et alertes - responsive */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg">
-          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#00c9a7]" />
-            Activités récentes
-          </h3>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {activities.slice(0, 8).map((act: any, idx: number) => (
-              <div key={idx} className="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50 transition text-sm">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                  {act.type === 'property_submitted' && <Home className="w-4 h-4 text-orange-500" />}
-                  {act.type === 'payment_received' && <CreditCard className="w-4 h-4 text-green-500" />}
-                  {act.type === 'user_registered' && <UserPlus className="w-4 h-4 text-blue-500" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm truncate">{act.title || act.message}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{act.time}</p>
-                </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 lg:col-span-2">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-emerald-500" />
+              Répartition des propriétés
+            </h3>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <ResponsiveContainer width="100%" height={200}>
+                <RePieChart>
+                  <Pie
+                    data={[
+                      { name: 'Appartements', value: 45 },
+                      { name: 'Villas', value: 25 },
+                      { name: 'Studios', value: 15 },
+                      { name: 'Maisons', value: 10 },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={75}
+                    paddingAngle={4}
+                    dataKey="value"
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {COLORS.map((color, i) => (
+                      <Cell key={i} fill={color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: 12, border: 'none' }} />
+                </RePieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap justify-center gap-3">
+                {[
+                  { label: 'Appartements', value: 45, color: '#00c9a7' },
+                  { label: 'Villas', value: 25, color: '#0f2940' },
+                  { label: 'Studios', value: 15, color: '#ff6b6b' },
+                  { label: 'Maisons', value: 10, color: '#f5a623' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
+                    <span className="text-sm text-slate-600">{item.label}</span>
+                    <span className="text-sm font-semibold text-slate-800">{item.value}%</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 md:p-5 shadow-lg">
-          <h3 className="font-semibold text-base md:text-lg mb-3 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-[#00c9a7]" />
-            Actions rapides
-          </h3>
-          <div className="space-y-3">
-            <ActionCard
-              title="Propriétés en attente"
-              count={stats.properties?.pending || 0}
-              color="yellow"
-              icon={<Home className="w-5 h-5" />}
-              action={() => onNavigate?.({ name: 'admin-properties' })}
-            />
-            <ActionCard
-              title="Paiements en attente"
-              count={stats.bookings?.pending_payment || 0}
-              color="red"
-              icon={<CreditCard className="w-5 h-5" />}
-              action={() => onNavigate?.({ name: 'admin-payments' })}
-            />
-            <ActionCard
-              title="Utilisateurs à vérifier"
-              count={stats.users?.pending_verification || 0}
-              color="green"
-              icon={<Users className="w-5 h-5" />}
-              action={() => onNavigate?.({ name: 'admin-users' })}
-            />
+        {/* Activités + Actions rapides */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-500" />
+              Activités récentes
+            </h3>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {activities.slice(0, 6).map((act: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                    {act.type === 'property_submitted' && <Home className="w-4 h-4 text-orange-500" />}
+                    {act.type === 'payment_received' && <CreditCard className="w-4 h-4 text-emerald-500" />}
+                    {act.type === 'user_registered' && <UserPlus className="w-4 h-4 text-blue-500" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 truncate">{act.title || act.message}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{act.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-emerald-500" />
+              Actions rapides
+            </h3>
+            <div className="space-y-3">
+              <QuickAction
+                title="Propriétés en attente"
+                count={stats.properties?.pending || 0}
+                icon={Home}
+                color="amber"
+                onClick={() => onNavigate?.({ name: 'admin-properties' })}
+              />
+              <QuickAction
+                title="Paiements en attente"
+                count={stats.bookings?.pending_payment || 0}
+                icon={CreditCard}
+                color="rose"
+                onClick={() => onNavigate?.({ name: 'admin-payments' })}
+              />
+              <QuickAction
+                title="Utilisateurs à vérifier"
+                count={stats.users?.pending_verification || 0}
+                icon={Users}
+                color="blue"
+                onClick={() => onNavigate?.({ name: 'admin-users' })}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -15276,108 +15826,107 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   );
 }
 
-// Composants auxiliaires responsives
-const StatsCard = ({ icon, title, value, subValue, trend, color, animated }: any) => {
-  const colorClasses = {
+// ===== COMPOSANTS =====
+
+const StatCard = ({ icon: Icon, title, value, change, color }: any) => {
+  const colors = {
     blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
+    emerald: 'from-emerald-500 to-emerald-600',
     purple: 'from-purple-500 to-purple-600',
     orange: 'from-orange-500 to-orange-600',
   };
 
   return (
-    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 text-white transform transition-all duration-500 hover:scale-105`}>
-      <div className="flex justify-between items-start">
-        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5`}>
+      <div className="flex items-center justify-between">
+        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+          <Icon className="w-5 h-5" />
         </div>
-        {trend && <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-full">↑ {trend}%</span>}
+        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">↑ 12%</span>
       </div>
-      <p className="text-white/80 text-xs sm:text-sm mt-2">{title}</p>
-      <p className="text-lg sm:text-xl md:text-2xl font-bold mt-0.5">{value}</p>
-      <p className="text-white/60 text-xs mt-1 truncate">{subValue}</p>
+      <p className="text-white/80 text-xs mt-3">{title}</p>
+      <p className="text-2xl font-bold mt-0.5">{value}</p>
+      <p className="text-white/60 text-xs mt-1">{change}</p>
     </div>
   );
 };
 
-const MetricCard = ({ title, value, subtitle, color, icon, stars }: any) => {
-  const colorClasses = {
-    indigo: 'from-indigo-500 to-indigo-600',
-    emerald: 'from-emerald-500 to-emerald-600',
-    rose: 'from-rose-500 to-rose-600',
-    amber: 'from-amber-500 to-amber-600',
+const MetricCard = ({ title, value, subtitle, icon: Icon, color }: any) => {
+  const colors = {
+    indigo: 'from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700',
+    emerald: 'from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700',
+    rose: 'from-rose-50 to-rose-100 border-rose-200 text-rose-700',
+    amber: 'from-amber-50 to-amber-100 border-amber-200 text-amber-700',
   };
 
   return (
-    <div className={`bg-gradient-to-br ${colorClasses[color]} rounded-xl p-3 sm:p-4 text-white hover:scale-105 transition-all duration-300`}>
-      <div className="flex justify-between items-start">
-        <div>{icon}</div>
-        {stars && (
-          <div className="flex gap-0.5">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star key={star} className="w-3 h-3 fill-yellow-300 text-yellow-300" />
-            ))}
-          </div>
-        )}
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 border shadow-sm`}>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-white/60 flex items-center justify-center">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <p className="text-lg font-bold">{value}</p>
+          <p className="text-xs opacity-80">{title}</p>
+          <p className="text-xs opacity-60">{subtitle}</p>
+        </div>
       </div>
-      <p className="text-white/80 text-xs mt-2">{title}</p>
-      <p className="text-xl sm:text-2xl font-bold mt-0.5">{value}</p>
-      <p className="text-white/60 text-xs mt-1">{subtitle}</p>
     </div>
   );
 };
 
-const ChartCard = ({ title, icon, children }: any) => (
-  <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-lg">
-    <div className="flex items-center gap-2 mb-3">
-      <div className="text-[#00c9a7]">{icon}</div>
-      <h3 className="font-semibold text-sm sm:text-base">{title}</h3>
-    </div>
+const ChartCard = ({ title, children }: any) => (
+  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+    <h3 className="font-semibold text-slate-800 mb-4">{title}</h3>
     {children}
   </div>
 );
 
-const ActionCard = ({ title, count, color, icon, action }: any) => {
-  const colorClasses = {
-    yellow: 'from-yellow-50 to-yellow-100 border-yellow-200',
-    red: 'from-red-50 to-red-100 border-red-200',
-    green: 'from-green-50 to-green-100 border-green-200',
+const QuickAction = ({ title, count, icon: Icon, color, onClick }: any) => {
+  const colors = {
+    amber: 'bg-amber-50 border-amber-200 hover:bg-amber-100',
+    rose: 'bg-rose-50 border-rose-200 hover:bg-rose-100',
+    blue: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
   };
 
   const textColors = {
-    yellow: 'text-yellow-800',
-    red: 'text-red-800',
-    green: 'text-green-800',
+    amber: 'text-amber-700',
+    rose: 'text-rose-700',
+    blue: 'text-blue-700',
   };
 
   return (
-    <div className={`bg-gradient-to-r ${colorClasses[color]} rounded-xl p-3 flex items-center justify-between border`}>
+    <div 
+      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${colors[color]}`}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full bg-white/50 flex items-center justify-center`}>
-          {icon}
-        </div>
-        <div>
-          <p className={`font-medium text-sm ${textColors[color]}`}>{title}</p>
-          <p className={`text-xs ${textColors[color]} opacity-75`}>{count} élément(s)</p>
-        </div>
+        <Icon className={`w-5 h-5 ${textColors[color]}`} />
+        <span className={`text-sm font-medium ${textColors[color]}`}>{title}</span>
       </div>
-      <button
-        onClick={action}
-        className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium hover:shadow transition"
-      >
-        Voir
-      </button>
+      <div className="flex items-center gap-3">
+        <span className={`text-sm font-bold ${textColors[color]}`}>{count}</span>
+        <ChevronRight className={`w-4 h-4 ${textColors[color]}`} />
+      </div>
     </div>
   );
 };
 
+
+
 const ErrorMessage = ({ onRetry }: { onRetry: () => void }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen p-4">
+  <div className="flex flex-col items-center justify-center min-h-screen p-6">
     <div className="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
-    <p className="text-gray-600 text-sm text-center mb-6">Impossible de charger les données</p>
-    <button onClick={onRetry} className="px-6 py-2 bg-[#00c9a7] text-white rounded-full">Réessayer</button>
+    <p className="text-slate-600 text-center mb-6">Impossible de charger les données du tableau de bord</p>
+    <button 
+      onClick={onRetry} 
+      className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition font-medium"
+    >
+      Réessayer
+    </button>
   </div>
 );
+
 
 // pages/admin/AdminPropertiesPage.tsx
 
@@ -16722,27 +17271,7 @@ const MessageDetail = ({ message, onClose }: any) => {
   );
 };
 
-// Composant de carte statistique
-const StatCard = ({ icon, label, value, color }: any) => {
-  const colors = {
-    blue: 'from-blue-500 to-blue-600',
-    yellow: 'from-yellow-500 to-yellow-600',
-    red: 'from-red-500 to-red-600',
-    green: 'from-green-500 to-green-600',
-  };
 
-  return (
-    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-3 text-white`}>
-      <div className="flex justify-between items-center">
-        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
-        </div>
-        <span className="text-xl font-bold">{value}</span>
-      </div>
-      <p className="text-white/80 text-xs mt-2">{label}</p>
-    </div>
-  );
-};
 
 // Bouton de filtre
 const FilterButton = ({ active, onClick, label }: any) => (

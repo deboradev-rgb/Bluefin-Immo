@@ -1,4 +1,3 @@
-// src/app/router.ts
 export type Page =
   | 'home'
   | 'search-logements'
@@ -38,6 +37,7 @@ export type Page =
   | 'admin-users'
   | 'admin-bookings'
   | 'admin-payments'
+  | 'admin-host-payments'  // 👈 AJOUTÉ
   | 'admin-messages'
   | 'admin-reports'
   | 'admin-login';
@@ -142,8 +142,6 @@ export function parseRoute(path: string): Route {
     return { name: 'host-dashboard', search };
   }
 
-  
-
   // Routes admin
   if (segments[0] === 'admin') {
     const sub = segments[1];
@@ -152,6 +150,7 @@ export function parseRoute(path: string): Route {
     if (sub === 'users') return { name: 'admin-users', search };
     if (sub === 'bookings') return { name: 'admin-bookings', search };
     if (sub === 'payments') return { name: 'admin-payments', search };
+    if (sub === 'host-payments') return { name: 'admin-host-payments', search };  // 👈 AJOUTÉ
     if (sub === 'messages') return { name: 'admin-messages', search };
     if (sub === 'reports') return { name: 'admin-reports', search };
     return { name: 'admin-dashboard', search };
@@ -204,13 +203,12 @@ export function routeToPath(route: Route): string {
     case 'host-reservations': path = '/hote/reservations'; break;
     case 'host-messages': path = route.id ? `/hote/messages/${route.id}` : '/hote/messages'; break;
     case 'host-favorites': path = '/hote/favoris'; break;
-            case 'messages':
-            // Construire le chemin avec l'id et les paramètres
-            path = `/messages/${route.id || ''}`;
-            if (route.search) {
-                path += `?${route.search}`;
-            }
-            break;
+    case 'messages':
+      path = `/messages/${route.id || ''}`;
+      if (route.search) {
+        path += `?${route.search}`;
+      }
+      break;
     case 'favorites': path = '/favoris'; break;
     case 'publish': path = '/publier-annonce'; break;
     case 'admin-dashboard': path = '/admin/dashboard'; break;
@@ -218,6 +216,7 @@ export function routeToPath(route: Route): string {
     case 'admin-users': path = '/admin/users'; break;
     case 'admin-bookings': path = '/admin/bookings'; break;
     case 'admin-payments': path = '/admin/payments'; break;
+    case 'admin-host-payments': path = '/admin/host-payments'; break;  // 👈 AJOUTÉ
     case 'admin-messages': path = '/admin/messages'; break;
     case 'admin-reports': path = '/admin/reports'; break;
     case 'admin-login': path = '/admin-login'; break;
@@ -247,7 +246,7 @@ export function tabFromPage(page: Page): 'explore' | 'favorites' | 'trips' | 'me
     return 'explore';
   }
   
-  // Favoris - ✅ Inclut host-favorites
+  // Favoris
   if (page === 'favorites' || page === 'host-favorites') {
     return 'favorites';
   }
@@ -257,7 +256,7 @@ export function tabFromPage(page: Page): 'explore' | 'favorites' | 'trips' | 'me
     return 'trips';
   }
   
-  // Messages - ✅ Inclut host-messages
+  // Messages
   if (page === 'messages' || page === 'host-messages') {
     return 'messages';
   }

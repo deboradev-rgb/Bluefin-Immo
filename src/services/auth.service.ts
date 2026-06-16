@@ -383,6 +383,14 @@ class AuthService {
             throw error;
         }
     }
+
+/**
+ * Récupère les informations de paiement complètes d'un hôte
+ */
+async getHostPaymentInfo(hostId: string): Promise<{ data: any }> {
+  const response = await v1Api.get(`/admin/hosts/${hostId}/payment-info`);
+  return response.data;
+}
 }
 
 export default new AuthService();

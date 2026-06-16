@@ -79,6 +79,82 @@ export interface SummaryReport {
   total_revenue: number;
 }
 
+// ==================== INTERFACES PAIEMENTS HÔTES ====================
+export interface HostPaymentInfo {
+  id: string;
+  hostId: string;
+  host?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
+  paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
+  fullName: string;
+  phoneNumber?: string;
+  mobileProvider?: 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE';
+  bankName?: string;
+  accountHolder?: string;
+  iban?: string;
+  bic?: string;
+  paypalEmail?: string;
+  totalWeekAmount: number;
+  totalMonthAmount: number;
+  totalAllTime: number;
+  weeklyReservations: number;
+  monthlyReservations: number;
+  lastPayoutDate?: string;
+  nextPayoutDate?: string;
+  isPaid: boolean;
+  paidAt?: string;
+  paidBy?: string;
+  paymentReference?: string;
+  createdAt: string;
+  updatedAt: string;
+  payments: HostPaymentHistory[];
+}
+
+export interface HostPaymentHistory {
+  id: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  amount: number;
+  reservationsCount: number;
+  isPaid: boolean;
+  paidAt?: string;
+  paidBy?: string;
+  paymentReference?: string;
+}
+
+export interface HostPaymentStats {
+  total_pending: number;
+  total_paid_this_month: number;
+  total_hosts: number;
+  active_hosts: number;
+  total_revenue: number;
+  overdue_hosts: number;
+  weekly_stats: Array<{
+    week: string;
+    total_amount: number;
+    total_reservations: number;
+    paid_count: number;
+    unpaid_count: number;
+  }>;
+  recent_payments: Array<{
+    host_name: string;
+    amount: number;
+    payment_method: string;
+    reservations_count: number;
+    week: string;
+    is_paid: boolean;
+  }>;
+}
+
+export interface HostPaymentListResponse {
+  data: HostPaymentInfo[];
+  stats: HostPaymentStats;
+}
+
 class AdminService {
   // ==================== AUTHENTIFICATION ====================
   async login(email: string, password: string) {
@@ -121,7 +197,6 @@ class AdminService {
       
       console.log('✅ Réponse API complète:', response.data);
       
-      // ✅ Extraction robuste des données
       let properties: any[] = [];
       let stats = { total_pending: 0, pending_today: 0 };
       
@@ -134,7 +209,6 @@ class AdminService {
       } else if (Array.isArray(response.data)) {
         properties = response.data;
       } else if (response.data?.data && typeof response.data.data === 'object') {
-        // Si data est un objet (comme une pagination)
         if (response.data.data.data && Array.isArray(response.data.data.data)) {
           properties = response.data.data.data;
         }
@@ -142,8 +216,6 @@ class AdminService {
       }
       
       console.log('✅ Propriétés extraites:', properties.length);
-      console.log('✅ Première propriété:', properties[0]);
-      console.log('✅ Photos de la première:', properties[0]?.photos);
       
       return { data: properties, stats };
       
@@ -158,25 +230,21 @@ class AdminService {
     return response.data;
   }
 
-// Met à jour la méthode approve pour inclure is_hotel_promoted
-async approveProperty(id: number, notes?: string, featured?: boolean, isHotelPromoted?: boolean) {
+  async approveProperty(id: number, notes?: string, featured?: boolean, isHotelPromoted?: boolean) {
     const response = await v1Api.post(`/admin/properties/${id}/approve`, { 
-        notes, 
-        featured,
-        is_hotel_promoted: isHotelPromoted 
+      notes, 
+      featured,
+      is_hotel_promoted: isHotelPromoted 
     });
     return response.data;
-}
-// services/admin.service.ts
+  }
 
-async toggleHotelPromotion(id: number, isHotelPromoted: boolean) {
+  async toggleHotelPromotion(id: number, isHotelPromoted: boolean) {
     const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
-        is_hotel_promoted: isHotelPromoted 
+      is_hotel_promoted: isHotelPromoted 
     });
     return response.data;
-}
-
-
+  }
 
   async rejectProperty(id: number, reason: string, notes?: string) {
     const response = await v1Api.post(`/admin/properties/${id}/reject`, { reason, notes });
@@ -347,16 +415,216 @@ async toggleHotelPromotion(id: number, isHotelPromoted: boolean) {
     return response.data;
   }
 
-  // services/admin.service.ts
+  async updatePropertyPromotion(id: number, isHotelPromoted: boolean) {
+    const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
+      is_hotel_promoted: isHotelPromoted 
+    });
+    return response.data;
+  }
 
-async updatePropertyPromotion(id: number, isHotelPromoted: boolean) {
-  const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
-    is_hotel_promoted: isHotelPromoted 
-  });
-  return response.data;
-}
+  // ==================== PAIEMENTS HÔTES ====================
 
+  /**
+   * Récupère les statistiques des paiements des hôtes
+   */
+  async getHostPaymentStats(): Promise<{ data: HostPaymentStats }> {
+    const response = await v1Api.get('/admin/hosts/payments/stats');
+    return response.data;
+  }
 
+  /**
+   * Récupère tous les paiements des hôtes avec filtres
+   */
+  async getAllHostPayments(params?: {
+    status?: 'all' | 'paid' | 'unpaid';
+    search?: string;
+    start_date?: string;
+    end_date?: string;
+    per_page?: number;
+  }): Promise<{ data: { data: HostPaymentInfo[]; stats: HostPaymentStats } }> {
+    const queryParams = new URLSearchParams();
+    if (params?.status && params.status !== 'all') {
+      queryParams.append('status', params.status);
+    }
+    if (params?.search) {
+      queryParams.append('search', params.search);
+    }
+    if (params?.start_date) {
+      queryParams.append('start_date', params.start_date);
+    }
+    if (params?.end_date) {
+      queryParams.append('end_date', params.end_date);
+    }
+    if (params?.per_page) {
+      queryParams.append('per_page', params.per_page.toString());
+    }
+    
+    const response = await v1Api.get(`/admin/hosts/payments?${queryParams.toString()}`);
+    return response.data;
+  }
+
+  /**
+   * Récupère les informations de paiement d'un hôte spécifique
+   */
+  async getHostPaymentInfo(hostId: string): Promise<{ data: HostPaymentInfo }> {
+    const response = await v1Api.get(`/admin/hosts/${hostId}/payment-info`);
+    return response.data;
+  }
+
+  /**
+   * Sauvegarde ou met à jour les informations de paiement d'un hôte
+   */
+  async saveHostPaymentInfo(hostId: string, data: {
+    paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
+    fullName: string;
+    phoneNumber?: string;
+    mobileProvider?: 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE';
+    bankName?: string;
+    accountHolder?: string;
+    iban?: string;
+    bic?: string;
+    paypalEmail?: string;
+  }): Promise<{ success: boolean; data: HostPaymentInfo; message: string }> {
+    const response = await v1Api.post(`/admin/hosts/${hostId}/payment-info`, data);
+    return response.data;
+  }
+
+  /**
+   * Met à jour tous les paiements hebdomadaires (pour tous les hôtes)
+   */
+  async updateAllWeeklyPayments(): Promise<{ 
+    success: boolean; 
+    updated: number; 
+    total_amount: number;
+    message: string;
+    week_start: string;
+    week_end: string;
+  }> {
+    const response = await v1Api.post('/admin/hosts/payments/update-weekly');
+    return response.data;
+  }
+
+  /**
+   * Met à jour les paiements hebdomadaires d'un hôte spécifique
+   */
+  async updateHostWeeklyPayments(hostId: string): Promise<{ success: boolean; data: HostPaymentInfo }> {
+    const response = await v1Api.post(`/admin/hosts/${hostId}/payments/update-weekly`);
+    return response.data;
+  }
+
+  /**
+   * Marque un paiement comme payé
+   */
+  async markPaymentAsPaid(historyId: string, paymentReference: string): Promise<{ 
+    success: boolean; 
+    data: HostPaymentHistory; 
+    message: string 
+  }> {
+    const response = await v1Api.put(`/admin/hosts/payments/${historyId}/mark-paid`, {
+      payment_reference: paymentReference
+    });
+    return response.data;
+  }
+
+  /**
+   * Marque tous les paiements d'une semaine comme payés pour un hôte
+   */
+  async markAllPaymentsAsPaid(hostId: string, weekStartDate: string, paymentReference: string): Promise<{ 
+    success: boolean; 
+    message: string 
+  }> {
+    const response = await v1Api.put(`/admin/hosts/${hostId}/payments/mark-all-paid`, {
+      week_start_date: weekStartDate,
+      payment_reference: paymentReference
+    });
+    return response.data;
+  }
+
+  /**
+   * Annule un paiement marqué comme payé (si erreur)
+   */
+  async undoHostPayment(historyId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    const response = await v1Api.post(`/admin/hosts/payments/${historyId}/undo`, { reason });
+    return response.data;
+  }
+
+  /**
+   * Récupère l'historique des paiements d'un hôte
+   */
+  async getHostPaymentHistory(hostId: string, limit?: number): Promise<{ data: HostPaymentHistory[] }> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    const response = await v1Api.get(`/admin/hosts/${hostId}/payments/history?${params.toString()}`);
+    return response.data;
+  }
+
+  /**
+   * Récupère les paiements en retard (plus de 7 jours)
+   */
+  async getOverduePayments(): Promise<{ data: HostPaymentInfo[] }> {
+    const response = await v1Api.get('/admin/hosts/payments/overdue');
+    return response.data;
+  }
+
+  /**
+   * Envoie un rappel de paiement à un hôte
+   */
+  async sendPaymentReminder(hostId: string): Promise<{ success: boolean; message: string }> {
+    const response = await v1Api.post(`/admin/hosts/${hostId}/payments/reminder`);
+    return response.data;
+  }
+
+  /**
+   * Envoie des rappels de paiement à tous les hôtes concernés
+   */
+  async sendBulkPaymentReminders(): Promise<{ success: boolean; sent: number; message: string }> {
+    const response = await v1Api.post('/admin/hosts/payments/send-reminders');
+    return response.data;
+  }
+
+  /**
+   * Exporte les paiements des hôtes en CSV
+   */
+  async exportHostPayments(params?: {
+    status?: 'all' | 'paid' | 'unpaid';
+    start_date?: string;
+    end_date?: string;
+  }): Promise<Blob> {
+    const queryParams = new URLSearchParams();
+    if (params?.status && params.status !== 'all') {
+      queryParams.append('status', params.status);
+    }
+    if (params?.start_date) {
+      queryParams.append('start_date', params.start_date);
+    }
+    if (params?.end_date) {
+      queryParams.append('end_date', params.end_date);
+    }
+    
+    const response = await v1Api.get(`/admin/hosts/payments/export?${queryParams.toString()}`, {
+      responseType: 'blob'
+    });
+    return response.data;
+  }
+
+  /**
+   * Récupère un résumé des paiements pour un hôte spécifique
+   */
+  async getHostPaymentSummary(hostId: string): Promise<{ 
+    data: {
+      total_all_time: number;
+      total_week_amount: number;
+      total_month_amount: number;
+      weekly_reservations: number;
+      monthly_reservations: number;
+      is_paid: boolean;
+      next_payout_date: string | null;
+      last_payout_date: string | null;
+    }
+  }> {
+    const response = await v1Api.get(`/admin/hosts/${hostId}/payments/summary`);
+    return response.data;
+  }
 }
 
 export default new AdminService();

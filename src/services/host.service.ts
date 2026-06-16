@@ -281,6 +281,52 @@ async sendInquiryReply(guestId: number, data: { message: string }) {
         return response.data;
     }
 
+    
+  /**
+   * Récupère les informations de paiement de l'hôte connecté
+   */
+  async getMyPaymentInfo() {
+    const response = await v1Api.get('/host/payments/info');
+    return response.data;
+  }
+
+  /**
+   * Met à jour les informations de paiement de l'hôte connecté
+   */
+  async updateMyPaymentInfo(data: {
+    paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
+    fullName: string;
+    phoneNumber?: string;
+    mobileProvider?: 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE';
+    bankName?: string;
+    accountHolder?: string;
+    iban?: string;
+    bic?: string;
+    paypalEmail?: string;
+  }) {
+    const response = await v1Api.post('/host/payments/info', data);
+    return response.data;
+  }
+
+  /**
+   * Récupère l'historique des paiements de l'hôte connecté
+   */
+  async getMyPaymentHistory(limit?: number) {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    const response = await v1Api.get(`/host/payments/history?${params.toString()}`);
+    return response.data;
+  }
+
+  /**
+   * Récupère les statistiques de paiement de l'hôte connecté
+   */
+  async getMyPaymentStats() {
+    const response = await v1Api.get('/host/payments/stats');
+    return response.data;
+  }
+
+
     async updatePaymentInfo(data: any) {
         const response = await v1Api.put('/host/profile/payment-info', data);
         return response.data;

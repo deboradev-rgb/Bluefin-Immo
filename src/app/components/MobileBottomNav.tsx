@@ -104,7 +104,7 @@ export function MobileBottomNav({ active: propActive, onNavigate }: MobileBottom
     ];
     
     const authTab = [
-      { id: 'auth' as Tab, icon: LogIn, label: 'Connexion' },
+      { id: 'auth' as Tab, icon: LogIn, label: 'Compte' },
     ];
     
     if (isAuthenticated) {

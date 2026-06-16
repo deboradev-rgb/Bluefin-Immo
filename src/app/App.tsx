@@ -54,9 +54,10 @@ import { AdminSidebar } from './components/AdminSidebar';
 import { AdminHeader } from './components/AdminHeader';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { WhatsAppButton } from './components/WhatsAppButton';
-// Dans App.tsx, ajoutez l'import
 import { BookingSummaryPage } from '../app/pages/BookingSummaryPage';
 
+// 👇 IMPORTER LA PAGE DES PAIEMENTS HÔTES
+import { AdminHostPaymentsPage } from './pages/admin/AdminHostPaymentsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -285,14 +286,25 @@ function AppContent() {
   if (route.name.startsWith('admin-') && user?.user_type === 'admin') {
     const renderAdminPage = () => {
       switch (route.name) {
-        case 'admin-dashboard': return <AdminDashboardPage onNavigate={navigate} />;
-        case 'admin-properties': return <AdminPropertiesPage onNavigate={navigate} />;
-        case 'admin-users': return <AdminUsersPage onNavigate={navigate} />;
-        case 'admin-bookings': return <AdminBookingsPage onNavigate={navigate} />;
-        case 'admin-payments': return <AdminPaymentsPage onNavigate={navigate} />;
-        case 'admin-messages': return <AdminMessagesPage onNavigate={navigate} />;
-        case 'admin-reports': return <AdminReportsPage onNavigate={navigate} />;
-        default: return <AdminDashboardPage onNavigate={navigate} />;
+        case 'admin-dashboard': 
+          return <AdminDashboardPage onNavigate={navigate} />;
+        case 'admin-properties': 
+          return <AdminPropertiesPage onNavigate={navigate} />;
+        case 'admin-users': 
+          return <AdminUsersPage onNavigate={navigate} />;
+        case 'admin-bookings': 
+          return <AdminBookingsPage onNavigate={navigate} />;
+        case 'admin-payments': 
+          return <AdminPaymentsPage onNavigate={navigate} />;
+        case 'admin-messages': 
+          return <AdminMessagesPage onNavigate={navigate} />;
+        case 'admin-reports': 
+          return <AdminReportsPage onNavigate={navigate} />;
+        // 👇 NOUVEAU: Page des paiements des hôtes
+        case 'admin-host-payments': 
+          return <AdminHostPaymentsPage onNavigate={navigate} />;
+        default: 
+          return <AdminDashboardPage onNavigate={navigate} />;
       }
     };
     
@@ -324,7 +336,7 @@ function AppContent() {
       <WhatsAppButton />
 
       {/* Routes */}
-      {route.name === 'home' && <HomePage onNavigate={navigate} />}
+      {route.name === 'home' && <HomePage onNavigate={navigate} currentPage={route.name} />}
       {route.name === 'search-logements' && <SearchPage mode="logements" onNavigate={navigate} />}
       {route.name === 'search-hotels' && <SearchPage mode="hotels" onNavigate={navigate} />}
       {route.name === 'listing' && <ListingPage onNavigate={navigate} id={route.id} />}
@@ -363,7 +375,6 @@ function AppContent() {
       {route.name === 'company-info' && <CompanyInfoPage onNavigate={navigate} />}
       {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
       {route.name === 'booking-summary' && <BookingSummaryPage onNavigate={navigate} id={route.id} search={route.search} />}
-
 
       <Footer onNavigate={navigate} />
       <div className="lg:hidden">

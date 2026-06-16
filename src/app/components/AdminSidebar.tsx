@@ -7,6 +7,8 @@ import {
   CreditCard,
   MessageSquare,
   BarChart3,
+  Wallet,
+  TrendingUp,
 } from 'lucide-react';
 
 const menuItems = [
@@ -15,6 +17,8 @@ const menuItems = [
   { to: '/admin/users', icon: Users, label: 'Utilisateurs' },
   { to: '/admin/bookings', icon: Calendar, label: 'Réservations' },
   { to: '/admin/payments', icon: CreditCard, label: 'Paiements' },
+  // 👇 NOUVEAU: Section Paiements Hôtes
+  { to: '/admin/host-payments', icon: Wallet, label: 'Paiements Hôtes' },
   { to: '/admin/messages', icon: MessageSquare, label: 'Messages' },
   { to: '/admin/reports', icon: BarChart3, label: 'Rapports' },
 ];
