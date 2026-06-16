@@ -44,7 +44,7 @@ import {
   UserPlus,CheckCircle, XCircle, Clock,Flag ,
   DollarSign,ArrowUp ,Activity ,Wallet ,Ban , AlertTriangle , 
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
-  Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,
+  Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,ZoomIn,
   Settings,  Calendar as CalendarIcon, Plus,
   Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
   AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
@@ -2635,6 +2635,7 @@ export default PropertyCard;
 // PropertyDetailModal.tsx
 
 
+
 interface PropertyDetailModalProps {
   property: any;
   onClose: () => void;
@@ -2648,7 +2649,6 @@ const formatCurrency = (amount: number) => {
   const euro = `${(amount / 655.957).toFixed(2)} €`;
   return { fCFA, euro };
 };
-
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
@@ -2669,6 +2669,13 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   
   // États pour les modales
   const [showCancellationModal, setShowCancellationModal] = useState(false);
+  
+  // États pour la galerie d'images
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
   
   // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
@@ -2832,11 +2839,10 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const totalFormatted = formatCurrency(total);
   const payment50Formatted = formatCurrency(Math.floor(total * 0.5));
   
-  const getPaymentAmount = () => Math.floor(total * 0.5); // Paiement 50% par défaut
+  const getPaymentAmount = () => Math.floor(total * 0.5);
 
-  // NOUVELLE FONCTION : Redirection vers la page de réservation/confirmation
-  // Dans PropertyDetailModal - fonction handleReservationClick
-const handleReservationClick = () => {
+  // Fonction de réservation
+  const handleReservationClick = () => {
     if (availabilityStatus !== 'available') {
         alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
         return;
@@ -2914,11 +2920,17 @@ const handleReservationClick = () => {
             window.location.href = `/booking/${property.id}?${params.toString()}`;
         }
     }
-};
+  };
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
-    const interval = setInterval(() => { setAnimate(true); setTimeout(() => { setCurrentTestimonial((prev) => (prev + 1) % testimonials.length); setAnimate(false); }, 300); }, 5000);
+    const interval = setInterval(() => { 
+      setAnimate(true); 
+      setTimeout(() => { 
+        setCurrentTestimonial((prev) => (prev + 1) % testimonials.length); 
+        setAnimate(false); 
+      }, 300); 
+    }, 5000);
     return () => clearInterval(interval);
   }, [testimonials.length]);
 
@@ -2929,16 +2941,33 @@ const handleReservationClick = () => {
     <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
       <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" /><h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2></div>
-          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /></button>
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" />
+            <h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2>
+          </div>
+          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          </button>
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3"><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /><span className="font-medium">Vos dates</span></div>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
+              <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
+              <span className="font-medium">Vos dates</span>
+            </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p></div>
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Départ</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p></div>
-              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Nuits</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Départ</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p>
+              </div>
+              <div className="bg-white rounded-lg p-2 shadow-sm">
+                <p className="text-[10px] sm:text-xs text-gray-500">Nuits</p>
+                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p>
+              </div>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3">
@@ -2957,32 +2986,250 @@ const handleReservationClick = () => {
             ))}
           </div>
           <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
-            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
+            <div className="flex items-start gap-2">
+              <Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p>
+            </div>
           </div>
         </div>
         <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">Fermer</button>
+          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">
+            Fermer
+          </button>
         </div>
       </div>
     </div>
   );
 
-  // Vue détaillée (le formulaire a été complètement supprimé)
+ // Composant Galerie d'images - Version améliorée avec swipe fonctionnel
+const GalleryModal = () => {
+  const [touchStartX, setTouchStartX] = useState(0);
+  const [touchEndX, setTouchEndX] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const galleryRef = useRef<HTMLDivElement>(null);
+
+  // Empêcher le scroll de la page quand la galerie est ouverte
+  useEffect(() => {
+    if (isGalleryOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isGalleryOpen]);
+
+  // Gestion du swipe tactile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+    setTouchEndX(e.touches[0].clientX);
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    setTouchEndX(e.touches[0].clientX);
+    
+    // Empêcher le scroll vertical pendant le swipe horizontal
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (element) {
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isSwiping) return;
+    setIsSwiping(false);
+    
+    const swipeDistance = touchStartX - touchEndX;
+    const minSwipeDistance = 50; // Distance minimale pour déclencher le swipe
+
+    if (Math.abs(swipeDistance) > minSwipeDistance) {
+      if (swipeDistance > 0 && galleryIndex < images.length - 1) {
+        // Swipe vers la gauche -> image suivante
+        setGalleryIndex(galleryIndex + 1);
+      } else if (swipeDistance < 0 && galleryIndex > 0) {
+        // Swipe vers la droite -> image précédente
+        setGalleryIndex(galleryIndex - 1);
+      }
+    }
+  };
+
+  // Gestion du clavier
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isGalleryOpen) return;
+      if (e.key === 'ArrowLeft' && galleryIndex > 0) {
+        setGalleryIndex(galleryIndex - 1);
+      } else if (e.key === 'ArrowRight' && galleryIndex < images.length - 1) {
+        setGalleryIndex(galleryIndex + 1);
+      } else if (e.key === 'Escape') {
+        setIsGalleryOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isGalleryOpen, galleryIndex, images.length]);
+
+  return (
+    <div 
+      className="fixed inset-0 z-[200] bg-black flex flex-col"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setIsGalleryOpen(false);
+      }}
+    >
+      {/* En-tête */}
+      <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
+        <button 
+          onClick={() => setIsGalleryOpen(false)} 
+          className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm"
+        >
+          <X className="w-6 h-6" />
+        </button>
+        <div className="text-white text-sm bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm font-medium">
+          {galleryIndex + 1} / {images.length}
+        </div>
+        <button className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm">
+          <Share2 className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Conteneur du carrousel avec swipe amélioré */}
+      <div 
+        ref={galleryRef}
+        className="flex-1 relative overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Image actuelle avec animation */}
+        <div 
+          className="w-full h-full flex items-center justify-center p-4 transition-transform duration-300 ease-out"
+          style={{ 
+            transform: `translateX(${isSwiping ? -(touchStartX - touchEndX) : 0}px)`,
+          }}
+        >
+          <img 
+            src={images[galleryIndex]} 
+            alt={`${property.title} - ${galleryIndex + 1}`}
+            className="max-w-full max-h-full object-contain select-none"
+            draggable={false}
+          />
+        </div>
+
+        {/* Indicateur de défilement */}
+        {images.length > 1 && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+            {images.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setGalleryIndex(idx)}
+                className={`transition-all duration-300 rounded-full ${
+                  idx === galleryIndex 
+                    ? 'w-3 h-3 bg-white' 
+                    : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Boutons de navigation - visibles sur desktop et en hover */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setGalleryIndex(Math.max(0, galleryIndex - 1))}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
+                galleryIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
+              }`}
+              disabled={galleryIndex === 0}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={() => setGalleryIndex(Math.min(images.length - 1, galleryIndex + 1))}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
+                galleryIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
+              }`}
+              disabled={galleryIndex === images.length - 1}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Pied de page avec infos */}
+      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+        <div className="text-center text-white/90 text-sm font-medium">
+          {property.title}
+        </div>
+        <div className="text-center text-white/60 text-xs mt-1">
+          Glissez pour voir les autres photos
+        </div>
+      </div>
+    </div>
+  );
+};
+
+  // Rendu principal
   return (
     <>
       {showCancellationModal && <CancellationModal />}
+      {isGalleryOpen && <GalleryModal />}
       
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
         <div className="min-h-screen pb-20">
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
-            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all"><ArrowLeft className="w-5 h-5" /></button>
-            <div className="flex gap-2"><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Share2 className="w-5 h-5" /></button><button className="p-2 rounded-full hover:bg-gray-100 transition-all"><Heart className="w-5 h-5" /></button></div>
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex gap-2">
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Share2 className="w-5 h-5" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Heart className="w-5 h-5" />
+              </button>
+            </div>
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6">
-              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3]"><img src={images[0]} alt={property.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>
-              {images.slice(1, 5).map((img, i) => (<div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block"><img src={img} alt={`${property.title} - ${i + 2}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" /></div>))}
+            {/* SECTION IMAGES AVEC GALERIE AU CLIC */}
+            <div 
+              className="relative grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 cursor-pointer"
+              onClick={() => setIsGalleryOpen(true)}
+            >
+              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3] relative">
+                <img 
+                  src={images[0]} 
+                  alt={property.title} 
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" 
+                />
+                {/* Badge "Voir toutes les photos" */}
+                <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs sm:text-sm px-3 py-1.5 rounded-lg backdrop-blur-sm flex items-center gap-1.5">
+                  <span>📸</span>
+                  <span className="hidden xs:inline">{images.length} photos</span>
+                </div>
+              </div>
+              {images.slice(1, 5).map((img, i) => (
+                <div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block">
+                  <img 
+                    src={img} 
+                    alt={`${property.title} - ${i + 2}`} 
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" 
+                  />
+                </div>
+              ))}
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
@@ -2990,54 +3237,189 @@ const handleReservationClick = () => {
                 <div className="border-b pb-4">
                   <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
                   <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
-                  <div className="flex flex-wrap items-center gap-2 mt-2"><Star className="w-4 h-4 fill-current text-[#00c9a7]" /><span className="font-medium text-sm">{property.rating}</span><span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>{superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}</div>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
+                    <span className="font-medium text-sm">{property.rating}</span>
+                    <span className="text-gray-500 text-sm">· {property.reviews} commentaires</span>
+                    {superhost && <span className="text-[#00c9a7] text-sm font-medium">· Superhôte</span>}
+                  </div>
                 </div>
-                {property.rating >= 4.8 && (<div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center"><Crown className="w-8 h-8 text-[#00c9a7]" /><div><div className="font-semibold">Coup de cœur</div><div className="text-sm text-gray-600">Logement préféré des voyageurs</div></div></div>)}
-                <div className="flex gap-4 items-start"><img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" /><div><div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>{superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}<div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div></div></div>
+                
+                {property.rating >= 4.8 && (
+                  <div className="bg-[#00c9a7]/10 rounded-xl p-4 flex gap-3 items-center">
+                    <Crown className="w-8 h-8 text-[#00c9a7]" />
+                    <div>
+                      <div className="font-semibold">Coup de cœur</div>
+                      <div className="text-sm text-gray-600">Logement préféré des voyageurs</div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-4 items-start">
+                  <img src={hostAvatarUrl} alt={host} className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-[#00c9a7]" />
+                  <div>
+                    <div className="font-semibold text-base sm:text-xl">Hôte : {host}</div>
+                    {superhost && <div className="text-sm text-[#00c9a7]">⭐ Superhôte · {hostSince}</div>}
+                    <div className="text-xs text-gray-600">Taux de réponse {responseRate}%</div>
+                  </div>
+                </div>
+                
                 <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
-                <div className="border-t pt-4"><div className="flex justify-between items-center mb-4"><h3 className="font-semibold text-lg">Équipements</h3><button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">Voir tout</button></div><div className="grid grid-cols-2 gap-3">{(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (<div key={i} className="flex items-center gap-2 text-sm text-gray-700"><Check className="w-4 h-4 text-[#00c9a7]" />{a}</div>))}</div></div>
-                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5"><h3 className="font-semibold text-lg mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-[#00c9a7]" />Ce que nos clients disent</h3><div className="flex flex-col sm:flex-row gap-4 items-start"><img src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" /><div><div className="font-semibold">{testimonials[currentTestimonial]?.name}</div><p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p></div></div></div>
+                
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-lg">Équipements</h3>
+                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
+                      Voir tout
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
+                      <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                        <Check className="w-4 h-4 text-[#00c9a7]" />
+                        {a}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5">
+                  <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-[#00c9a7]" />
+                    Ce que nos clients disent
+                  </h3>
+                  <div className="flex flex-col sm:flex-row gap-4 items-start">
+                    <img 
+                      src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
+                      className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" 
+                    />
+                    <div>
+                      <div className="font-semibold">{testimonials[currentTestimonial]?.name}</div>
+                      <p className="text-gray-600 text-sm mt-1">"{testimonials[currentTestimonial]?.text}"</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="lg:w-96 xl:w-[400px]">
                 <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
                   <div className="flex justify-between items-center mb-4">
                     <div>
-                      <div className="flex items-baseline gap-2"><span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span><span className="text-gray-500 text-sm">/ nuit</span></div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
+                        <span className="text-gray-500 text-sm">/ nuit</span>
+                      </div>
                       <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full"><Star className="w-4 h-4 fill-current text-[#00c9a7]" />{property.rating}</div>
+                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                      <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
+                      {property.rating}
+                    </div>
                   </div>
 
                   <div className="border rounded-xl mb-4 overflow-hidden">
                     <div className="grid grid-cols-2 border-b">
-                      <div className="p-3"><div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
-                      <div className="p-3 border-l"><div className="text-xs font-bold text-gray-500 uppercase">Départ</div><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} min={checkIn} className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" /></div>
+                      <div className="p-3">
+                        <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
+                        <input 
+                          type="date" 
+                          value={checkIn} 
+                          onChange={(e) => setCheckIn(e.target.value)} 
+                          min={new Date().toISOString().split('T')[0]} 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                        />
+                      </div>
+                      <div className="p-3 border-l">
+                        <div className="text-xs font-bold text-gray-500 uppercase">Départ</div>
+                        <input 
+                          type="date" 
+                          value={checkOut} 
+                          onChange={(e) => setCheckOut(e.target.value)} 
+                          min={checkIn} 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                        />
+                      </div>
                     </div>
-                    {availabilityStatus === 'available' && <div className="p-2 bg-green-50 text-center text-xs text-green-600"><CheckCircle className="inline w-3 h-3 mr-1" />Disponible</div>}
-                    {availabilityStatus === 'unavailable' && <div className="p-2 bg-red-50 text-center text-xs text-red-600"><AlertCircle className="inline w-3 h-3 mr-1" />Non disponible</div>}
+                    {availabilityStatus === 'available' && (
+                      <div className="p-2 bg-green-50 text-center text-xs text-green-600">
+                        <CheckCircle className="inline w-3 h-3 mr-1" />Disponible
+                      </div>
+                    )}
+                    {availabilityStatus === 'unavailable' && (
+                      <div className="p-2 bg-red-50 text-center text-xs text-red-600">
+                        <AlertCircle className="inline w-3 h-3 mr-1" />Non disponible
+                      </div>
+                    )}
                     <div className="p-3">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
-                      <div className="flex justify-between items-center py-1"><span className="text-sm">Adultes</span><div className="flex gap-3"><button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{adults}</span><button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
-                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Enfants</span><div className="flex gap-3"><button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{children}</span><button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
-                      <div className="flex justify-between items-center py-1 border-t"><span className="text-sm">Bébés</span><div className="flex gap-3"><button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button><span>{babies}</span><button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button></div></div>
+                      <div className="flex justify-between items-center py-1">
+                        <span className="text-sm">Adultes</span>
+                        <div className="flex gap-3">
+                          <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <span>{adults}</span>
+                          <button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-t">
+                        <span className="text-sm">Enfants</span>
+                        <div className="flex gap-3">
+                          <button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <span>{children}</span>
+                          <button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-t">
+                        <span className="text-sm">Bébés</span>
+                        <div className="flex gap-3">
+                          <button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <span>{babies}</span>
+                          <button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                        </div>
+                      </div>
                       <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span><div className="text-right"><div>{subtotalFormatted.fCFA}</div><div className="text-xs text-gray-400">{subtotalFormatted.euro}</div></div></div>
-                    <div className="flex justify-between text-sm"><span className="text-gray-600">Frais de service (10%)</span><div className="text-right"><div>{serviceFeeFormatted.fCFA}</div><div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div></div></div>
-                    <div className="flex justify-between font-bold pt-2 border-t"><span>Total</span><div className="text-right"><div className="text-[#00c9a7]">{totalFormatted.fCFA}</div><div className="text-xs text-gray-500">{totalFormatted.euro}</div></div></div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{nightlyPrice.toLocaleString()} FCFA × {nights} nuits</span>
+                      <div className="text-right">
+                        <div>{subtotalFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-400">{subtotalFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Frais de service (10%)</span>
+                      <div className="text-right">
+                        <div>{serviceFeeFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between font-bold pt-2 border-t">
+                      <span>Total</span>
+                      <div className="text-right">
+                        <div className="text-[#00c9a7]">{totalFormatted.fCFA}</div>
+                        <div className="text-xs text-gray-500">{totalFormatted.euro}</div>
+                      </div>
+                    </div>
                   </div>
 
-                  <button onClick={() => setShowCancellationModal(true)} className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline">Voir la politique d'annulation</button>
+                  <button 
+                    onClick={() => setShowCancellationModal(true)} 
+                    className="w-full text-center text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition-colors mb-2 underline"
+                  >
+                    Voir la politique d'annulation
+                  </button>
                   
-                  {/* BOUTON RÉSERVER MODIFIÉ - Redirection vers BookingPage */}
+                  {/* BOUTON RÉSERVER */}
                   <button 
                     onClick={handleReservationClick} 
                     disabled={availabilityStatus !== 'available'} 
-                    className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${availabilityStatus === 'available' ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                    className={`w-full py-3 rounded-xl font-bold text-sm sm:text-base transition-all transform ${
+                      availabilityStatus === 'available' 
+                        ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-105' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   >
                     {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
                   </button>
@@ -3073,15 +3455,6 @@ const handleReservationClick = () => {
     </>
   );
 };
-
-
-// Composant manquant
-const Receipt = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-  </svg>
-);
-
 
 // pages.tsx - Version complète de HomePage
 
@@ -10386,6 +10759,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     max_guests: '1',
     price_per_night: '0',
     min_stay: '1',
+    // Équipements de base
     has_wifi: true,
     has_air_conditioning: false,
     has_generator: false,
@@ -10405,6 +10779,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_hangers: false,
     has_closet: false,
     has_iron: false,
+    // Équipements cuisine
     has_basic_kitchen_equipment: false,
     has_dishes_cutlery: false,
     has_coffee_maker: false,
@@ -10417,26 +10792,56 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_wine_glasses: false,
     has_toaster: false,
     has_blender: false,
+    // Divertissement
     has_smart_tv: false,
     has_streaming: false,
     has_bluetooth_speaker: false,
     has_books: false,
+    // Sécurité
     has_smoke_detector: false,
     has_first_aid_kit: false,
     has_fire_extinguisher: false,
     has_cctv: false,
     has_electric_fence: false,
+    // Services
     has_breakfast: false,
     has_housekeeping: false,
     has_ironing_service: false,
     has_airport_shuttle: false,
     has_free_parking: false,
     has_luggage_storage: false,
+    // Extérieur
     has_balcony: false,
     has_garden: false,
     has_bbq: false,
     has_pool: false,
     has_loungers: false,
+    // Nouveaux équipements d'après les images
+    has_washing_machine: false,
+    has_dryer: false,
+    has_clothes_rack: false,
+    has_portable_fan: false,
+    has_central_heating: false,
+    has_dedicated_workspace: false,
+    has_self_check_in: false,
+    has_key_box: false,
+    has_keys_by_host: false,
+    has_exterior_cameras: false,
+    has_elevator: false,
+    has_ev_charging: false,
+    has_laundry_nearby: false,
+    has_outdoor_dining: false,
+    has_free_parking_on_site: false,
+    has_shampoo: false,
+    has_body_soap: false,
+    has_shower_gel: false,
+    has_cleaning_products: false,
+    has_coffee: false,
+    has_expresso_machine: false,
+    has_extra_pillows_blankets: false,
+    has_cotton_linen: false,
+    has_hangers: false,
+    has_ironing_board: false,
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -10600,6 +11005,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
       await hostService.addPhotos(propertyId, photos);
       
       const amenities = {
+        // Équipements existants
         has_wifi: formData.has_wifi,
         has_air_conditioning: formData.has_air_conditioning,
         has_generator: formData.has_generator,
@@ -10651,6 +11057,31 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
         has_bbq: formData.has_bbq,
         has_pool: formData.has_pool,
         has_loungers: formData.has_loungers,
+        // Nouveaux équipements
+        has_washing_machine: formData.has_washing_machine,
+        has_dryer: formData.has_dryer,
+        has_clothes_rack: formData.has_clothes_rack,
+        has_portable_fan: formData.has_portable_fan,
+        has_central_heating: formData.has_central_heating,
+        has_dedicated_workspace: formData.has_dedicated_workspace,
+        has_self_check_in: formData.has_self_check_in,
+        has_key_box: formData.has_key_box,
+        has_keys_by_host: formData.has_keys_by_host,
+        has_exterior_cameras: formData.has_exterior_cameras,
+        has_elevator: formData.has_elevator,
+        has_ev_charging: formData.has_ev_charging,
+        has_laundry_nearby: formData.has_laundry_nearby,
+        has_outdoor_dining: formData.has_outdoor_dining,
+        has_free_parking_on_site: formData.has_free_parking_on_site,
+        has_shampoo: formData.has_shampoo,
+        has_body_soap: formData.has_body_soap,
+        has_shower_gel: formData.has_shower_gel,
+        has_cleaning_products: formData.has_cleaning_products,
+        has_coffee: formData.has_coffee,
+        has_expresso_machine: formData.has_expresso_machine,
+        has_extra_pillows_blankets: formData.has_extra_pillows_blankets,
+        has_cotton_linen: formData.has_cotton_linen,
+        has_ironing_board: formData.has_ironing_board,
       };
       await hostService.updateAmenities(propertyId, amenities);
       
@@ -10695,6 +11126,31 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     onNavigate?.({ name: 'host-annonces' });
   };
 
+  // Composant pour les cases à cocher d'équipements
+  const AmenityCheckbox = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) => (
+    <label className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-[#f4fffe] transition cursor-pointer group">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 w-5 h-5 rounded border-[#e2f5f2] text-[#00c9a7] focus:ring-[#00c9a7] focus:ring-2 focus:ring-offset-2 cursor-pointer flex-shrink-0"
+      />
+      <span className="text-sm text-[#0F2940] font-medium group-hover:text-[#00c9a7] transition">{label}</span>
+    </label>
+  );
+
+  // Section d'équipements avec titre
+  const AmenitySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="mb-6 last:mb-0">
+      <h4 className="text-sm font-semibold text-[#0F2940] mb-3 pb-2 border-b border-[#e2f5f2] flex items-center gap-2">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+        {children}
+      </div>
+    </div>
+  );
+
   if (checkingAuth) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -10732,7 +11188,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
         <PageSection title="Publier une annonce" subtitle="Remplissez les détails de votre logement puis soumettez-le à l'administration pour publication.">
           <div className="rounded-[2rem] bg-white border border-[#e2f5f2] p-8 space-y-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Informations de base - inchangé */}
+              {/* Informations de base */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Titre</label>
@@ -10834,7 +11290,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                 ))}
               </div>
 
-              {/* Tarification avec double devise - CORRIGÉ */}
+              {/* Tarification avec double devise */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Prix par nuit</label>
@@ -10918,9 +11374,372 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                 </div>
               </div>
 
-              {/* Équipements - Gardez votre code existant */}
-              <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5">
-                {/* Votre code d'équipements ici */}
+              {/* Équipements disponibles - NOUVELLE SECTION COMPLÈTE */}
+              <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-6">
+                <h3 className="text-lg font-semibold text-[#0F2940] mb-2 flex items-center gap-2">
+                  <Home className="w-5 h-5 text-[#00c9a7]" />
+                  Ce que propose ce logement
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">Cochez tous les équipements disponibles dans votre logement</p>
+
+                {/* Salle de bain */}
+                <AmenitySection title="🛁 Salle de bain">
+                  <AmenityCheckbox 
+                    label="Sèche-cheveux"
+                    checked={formData.has_hair_dryer}
+                    onChange={(value) => handleInputChange('has_hair_dryer', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Produits de nettoyage"
+                    checked={formData.has_cleaning_products}
+                    onChange={(value) => handleInputChange('has_cleaning_products', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Shampoing"
+                    checked={formData.has_shampoo}
+                    onChange={(value) => handleInputChange('has_shampoo', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Savon pour le corps"
+                    checked={formData.has_body_soap}
+                    onChange={(value) => handleInputChange('has_body_soap', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Eau chaude"
+                    checked={formData.has_hot_water}
+                    onChange={(value) => handleInputChange('has_hot_water', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Gel douche"
+                    checked={formData.has_shower_gel}
+                    onChange={(value) => handleInputChange('has_shower_gel', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Baignoire"
+                    checked={formData.has_bathtub}
+                    onChange={(value) => handleInputChange('has_bathtub', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Douche"
+                    checked={formData.has_shower}
+                    onChange={(value) => handleInputChange('has_shower', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Serviettes"
+                    checked={formData.has_towels}
+                    onChange={(value) => handleInputChange('has_towels', value)}
+                  />
+                </AmenitySection>
+
+                {/* Chambre et linge */}
+                <AmenitySection title="🛏️ Chambre et linge">
+                  <AmenityCheckbox 
+                    label="Lave-linge"
+                    checked={formData.has_washing_machine}
+                    onChange={(value) => handleInputChange('has_washing_machine', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Sèche-linge"
+                    checked={formData.has_dryer}
+                    onChange={(value) => handleInputChange('has_dryer', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Produits de base (serviettes, draps, savon)"
+                    checked={formData.has_toiletries}
+                    onChange={(value) => handleInputChange('has_toiletries', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Cintres"
+                    checked={formData.has_hangers}
+                    onChange={(value) => handleInputChange('has_hangers', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Linge de lit en coton"
+                    checked={formData.has_cotton_linen}
+                    onChange={(value) => handleInputChange('has_cotton_linen', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Oreillers et couvertures supplémentaires"
+                    checked={formData.has_extra_pillows_blankets}
+                    onChange={(value) => handleInputChange('has_extra_pillows_blankets', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Fer à repasser"
+                    checked={formData.has_iron}
+                    onChange={(value) => handleInputChange('has_iron', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Planche à repasser"
+                    checked={formData.has_ironing_board}
+                    onChange={(value) => handleInputChange('has_ironing_board', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Étendoir à linge"
+                    checked={formData.has_clothes_rack}
+                    onChange={(value) => handleInputChange('has_clothes_rack', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Espace de rangement (armoire)"
+                    checked={formData.has_closet}
+                    onChange={(value) => handleInputChange('has_closet', value)}
+                  />
+                </AmenitySection>
+
+                {/* Divertissement */}
+                <AmenitySection title="📺 Divertissement">
+                  <AmenityCheckbox 
+                    label="Télévision"
+                    checked={formData.has_tv}
+                    onChange={(value) => handleInputChange('has_tv', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Smart TV"
+                    checked={formData.has_smart_tv}
+                    onChange={(value) => handleInputChange('has_smart_tv', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Streaming"
+                    checked={formData.has_streaming}
+                    onChange={(value) => handleInputChange('has_streaming', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Enceinte Bluetooth"
+                    checked={formData.has_bluetooth_speaker}
+                    onChange={(value) => handleInputChange('has_bluetooth_speaker', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Livres"
+                    checked={formData.has_books}
+                    onChange={(value) => handleInputChange('has_books', value)}
+                  />
+                </AmenitySection>
+
+                {/* Chauffage et climatisation */}
+                <AmenitySection title="🌡️ Chauffage et climatisation">
+                  <AmenityCheckbox 
+                    label="Climatisation"
+                    checked={formData.has_air_conditioning}
+                    onChange={(value) => handleInputChange('has_air_conditioning', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Ventilateurs portables"
+                    checked={formData.has_portable_fan}
+                    onChange={(value) => handleInputChange('has_portable_fan', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Chauffage central"
+                    checked={formData.has_central_heating}
+                    onChange={(value) => handleInputChange('has_central_heating', value)}
+                  />
+                </AmenitySection>
+
+                {/* Internet et bureau */}
+                <AmenitySection title="🌐 Internet et bureau">
+                  <AmenityCheckbox 
+                    label="Wi-Fi"
+                    checked={formData.has_wifi}
+                    onChange={(value) => handleInputChange('has_wifi', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Espace de travail dédié"
+                    checked={formData.has_dedicated_workspace}
+                    onChange={(value) => handleInputChange('has_dedicated_workspace', value)}
+                  />
+                </AmenitySection>
+
+                {/* Cuisine et salle à manger */}
+                <AmenitySection title="🍳 Cuisine et salle à manger">
+                  <AmenityCheckbox 
+                    label="Cuisine (espace pour cuisiner)"
+                    checked={formData.has_kitchen}
+                    onChange={(value) => handleInputChange('has_kitchen', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Réfrigérateur"
+                    checked={formData.has_refrigerator}
+                    onChange={(value) => handleInputChange('has_refrigerator', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Équipements de cuisine de base"
+                    checked={formData.has_basic_kitchen_equipment}
+                    onChange={(value) => handleInputChange('has_basic_kitchen_equipment', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Vaisselle et couverts"
+                    checked={formData.has_dishes_cutlery}
+                    onChange={(value) => handleInputChange('has_dishes_cutlery', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Bouilloire électrique"
+                    checked={formData.has_kettle}
+                    onChange={(value) => handleInputChange('has_kettle', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Cafetière"
+                    checked={formData.has_coffee_maker}
+                    onChange={(value) => handleInputChange('has_coffee_maker', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Machine à expresso"
+                    checked={formData.has_expresso_machine}
+                    onChange={(value) => handleInputChange('has_expresso_machine', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Café"
+                    checked={formData.has_coffee}
+                    onChange={(value) => handleInputChange('has_coffee', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Grille-pain"
+                    checked={formData.has_toaster}
+                    onChange={(value) => handleInputChange('has_toaster', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Four"
+                    checked={formData.has_oven}
+                    onChange={(value) => handleInputChange('has_oven', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Micro-ondes"
+                    checked={formData.has_microwave}
+                    onChange={(value) => handleInputChange('has_microwave', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Congélateur"
+                    checked={formData.has_freezer}
+                    onChange={(value) => handleInputChange('has_freezer', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Table à manger"
+                    checked={formData.has_dining_table}
+                    onChange={(value) => handleInputChange('has_dining_table', value)}
+                  />
+                </AmenitySection>
+
+                {/* Services et arrivée */}
+                <AmenitySection title="🔑 Services et arrivée">
+                  <AmenityCheckbox 
+                    label="Arrivée autonome"
+                    checked={formData.has_self_check_in}
+                    onChange={(value) => handleInputChange('has_self_check_in', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Boîte à clé sécurisée"
+                    checked={formData.has_key_box}
+                    onChange={(value) => handleInputChange('has_key_box', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Clés remises par l'hôte"
+                    checked={formData.has_keys_by_host}
+                    onChange={(value) => handleInputChange('has_keys_by_host', value)}
+                  />
+                </AmenitySection>
+
+                {/* Parking et installations */}
+                <AmenitySection title="🅿️ Parking et installations">
+                  <AmenityCheckbox 
+                    label="Stationnement gratuit sur place"
+                    checked={formData.has_free_parking_on_site}
+                    onChange={(value) => handleInputChange('has_free_parking_on_site', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Parking gratuit"
+                    checked={formData.has_free_parking}
+                    onChange={(value) => handleInputChange('has_free_parking', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Ascenseur"
+                    checked={formData.has_elevator}
+                    onChange={(value) => handleInputChange('has_elevator', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Station de recharge pour véhicules électriques"
+                    checked={formData.has_ev_charging}
+                    onChange={(value) => handleInputChange('has_ev_charging', value)}
+                  />
+                </AmenitySection>
+
+                {/* Extérieur */}
+                <AmenitySection title="🌳 Extérieur">
+                  <AmenityCheckbox 
+                    label="Espace repas en plein air"
+                    checked={formData.has_outdoor_dining}
+                    onChange={(value) => handleInputChange('has_outdoor_dining', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Jardin"
+                    checked={formData.has_garden}
+                    onChange={(value) => handleInputChange('has_garden', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Balcon"
+                    checked={formData.has_balcony}
+                    onChange={(value) => handleInputChange('has_balcony', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Barbecue"
+                    checked={formData.has_bbq}
+                    onChange={(value) => handleInputChange('has_bbq', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Piscine"
+                    checked={formData.has_pool}
+                    onChange={(value) => handleInputChange('has_pool', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Transats"
+                    checked={formData.has_loungers}
+                    onChange={(value) => handleInputChange('has_loungers', value)}
+                  />
+                </AmenitySection>
+
+                {/* Caractéristiques de l'emplacement */}
+                <AmenitySection title="📍 Caractéristiques de l'emplacement">
+                  <AmenityCheckbox 
+                    label="Laverie automatique à proximité"
+                    checked={formData.has_laundry_nearby}
+                    onChange={(value) => handleInputChange('has_laundry_nearby', value)}
+                  />
+                </AmenitySection>
+
+                {/* Sécurité */}
+                <AmenitySection title="🔒 Sécurité">
+                  <AmenityCheckbox 
+                    label="Caméras de surveillance extérieures"
+                    checked={formData.has_exterior_cameras}
+                    onChange={(value) => handleInputChange('has_exterior_cameras', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Détecteur de fumée"
+                    checked={formData.has_smoke_detector}
+                    onChange={(value) => handleInputChange('has_smoke_detector', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Détecteur de monoxyde de carbone"
+                    checked={formData.has_smoke_detector} // On utilise le même champ
+                    onChange={(value) => handleInputChange('has_smoke_detector', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Trousse de premiers secours"
+                    checked={formData.has_first_aid_kit}
+                    onChange={(value) => handleInputChange('has_first_aid_kit', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Extincteur"
+                    checked={formData.has_fire_extinguisher}
+                    onChange={(value) => handleInputChange('has_fire_extinguisher', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="CCTV / Vidéosurveillance"
+                    checked={formData.has_cctv}
+                    onChange={(value) => handleInputChange('has_cctv', value)}
+                  />
+                  <AmenityCheckbox 
+                    label="Clôture électrique"
+                    checked={formData.has_electric_fence}
+                    onChange={(value) => handleInputChange('has_electric_fence', value)}
+                  />
+                </AmenitySection>
               </div>
 
               {/* Photos */}
@@ -10973,12 +11792,12 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
 
               {/* Informations */}
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
-                <p className="font-semibold text-[#0F2940] mb-2"> Frais de service</p>
+                <p className="font-semibold text-[#0F2940] mb-2">💰 Frais de service</p>
                 <p>Une commission de 10% sera automatiquement appliquée sur chaque réservation. Aucun frais de ménage n'est facturé.</p>
               </div>
 
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
-                <p className="font-semibold text-[#0F2940] mb-2">Attention</p>
+                <p className="font-semibold text-[#0F2940] mb-2">⚠️ Attention</p>
                 <p>Après soumission, une équipe admin examinera votre annonce. Si tout est conforme, elle sera publiée sur la page d'accueil.</p>
               </div>
 
