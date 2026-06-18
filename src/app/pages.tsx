@@ -2634,8 +2634,6 @@ export default PropertyCard;
 
 // PropertyDetailModal.tsx
 
-
-
 interface PropertyDetailModalProps {
   property: any;
   onClose: () => void;
@@ -2648,6 +2646,51 @@ const formatCurrency = (amount: number) => {
   const fCFA = `${amount.toLocaleString()} FCFA`;
   const euro = `${(amount / 655.957).toFixed(2)} €`;
   return { fCFA, euro };
+};
+
+// ✅ Composant d'affichage des équipements - Design moderne sans icônes
+const AmenitiesDisplay = ({ amenities, showAll, onToggle }: { amenities: string[]; showAll: boolean; onToggle: () => void }) => {
+  if (amenities.length === 0) {
+    return (
+      <div className="text-center py-8 bg-gray-50 rounded-xl">
+        <p className="text-gray-400 text-sm font-medium">Aucun équipement renseigné</p>
+        <p className="text-gray-300 text-xs mt-1">L'hôte n'a pas encore ajouté d'équipements</p>
+      </div>
+    );
+  }
+
+  const displayedAmenities = showAll ? amenities : amenities.slice(0, 8);
+  const hasMore = amenities.length > 8;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {displayedAmenities.map((amenity, index) => (
+          <div
+            key={index}
+            className="flex items-center px-4 py-3 bg-white border border-gray-100 rounded-xl hover:border-[#00c9a7]/30 hover:shadow-md transition-all duration-200 group"
+          >
+            <span className="text-sm text-gray-700 group-hover:text-[#0F2940] transition-colors font-medium">
+              {amenity}
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {hasMore && (
+        <button
+          onClick={onToggle}
+          className="w-full py-3 text-sm text-[#00c9a7] font-semibold bg-gray-50 rounded-xl hover:bg-[#f0fdf4] transition-colors flex items-center justify-center gap-2"
+        >
+          {showAll ? (
+            <>Voir moins</>
+          ) : (
+            <>Voir tout ({amenities.length - 8} équipements supplémentaires)</>
+          )}
+        </button>
+      )}
+    </div>
+  );
 };
 
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
@@ -2673,9 +2716,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   // États pour la galerie d'images
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
   
   // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
@@ -2718,7 +2758,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
-  // ✅ Calcul des constantes AVANT le useEffect qui les utilise
+  // ✅ Calcul des constantes
   const host = property.host || 'Hôte vérifié';
   const hostId = property.hostId ?? property.id;
   const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
@@ -2726,7 +2766,117 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const superhost = property.superhost ?? true;
   const responseRate = property.responseRate || 95;
 
-  // ✅ Fonction pour gérer la redirection si non connecté
+  // ✅ Récupération des images
+  const getPropertyImages = (property: any): string[] => {
+    const images: string[] = [];
+    
+    const addImage = (url: string) => {
+      if (!url) return;
+      
+      let cleanUrl = url;
+      
+      if (cleanUrl.includes('hstgr.io') || cleanUrl.includes('srv2197-files')) {
+        const filename = cleanUrl.split('/').pop();
+        if (filename && property.id) {
+          cleanUrl = `https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`;
+        }
+      } else if (cleanUrl.startsWith('/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      } else if (cleanUrl.startsWith('/api/public/storage')) {
+        cleanUrl = `https://api.bluefin-immo.com${cleanUrl}`;
+      } else if (!cleanUrl.startsWith('http')) {
+        cleanUrl = `https://api.bluefin-immo.com/storage/${cleanUrl}`;
+      }
+      
+      if (!images.includes(cleanUrl) && !cleanUrl.includes('undefined')) {
+        images.push(cleanUrl);
+      }
+    };
+
+    if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+      for (const img of property.images) {
+        if (typeof img === 'string') {
+          addImage(img);
+        } else if (typeof img === 'object' && img.url) {
+          addImage(img.url);
+        }
+      }
+      if (images.length > 0) return images;
+    }
+
+    if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
+      for (const photo of property.photos) {
+        if (photo.photo_url) {
+          addImage(photo.photo_url);
+        } else if (photo.full_url) {
+          addImage(photo.full_url);
+        } else if (photo.photo_path) {
+          const filename = photo.photo_path.split('/').pop();
+          if (filename) {
+            addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+          }
+        } else if (photo.url) {
+          addImage(photo.url);
+        } else if (typeof photo === 'string') {
+          addImage(photo);
+        }
+      }
+      if (images.length > 0) return images;
+    }
+
+    if (property.cover_photo) {
+      if (typeof property.cover_photo === 'object') {
+        if (property.cover_photo.photo_url) {
+          addImage(property.cover_photo.photo_url);
+        } else if (property.cover_photo.full_url) {
+          addImage(property.cover_photo.full_url);
+        } else if (property.cover_photo.photo_path) {
+          const filename = property.cover_photo.photo_path.split('/').pop();
+          if (filename) {
+            addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+          }
+        }
+      } else if (typeof property.cover_photo === 'string') {
+        addImage(property.cover_photo);
+      }
+    }
+
+    if (property.image) {
+      addImage(property.image);
+    }
+
+    if (images.length === 0) {
+      images.push(`https://picsum.photos/seed/${property.id}/800/600`);
+      images.push(`https://picsum.photos/seed/${property.id}-2/800/600`);
+      images.push(`https://picsum.photos/seed/${property.id}-3/800/600`);
+    }
+
+    return images;
+  };
+
+  const images = getPropertyImages(property);
+  const nightlyPrice = property.priceNumber || property.price || 0;
+  
+  const longDescription = property.longDescription || property.description;
+  const amenities = property.amenities || [];
+  
+  const testimonials = [
+    { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
+    { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
+    { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
+  ];
+
+  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
+  const subtotal = nightlyPrice * nights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+  
+  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
+  const subtotalFormatted = formatCurrency(subtotal);
+  const serviceFeeFormatted = formatCurrency(serviceFee);
+  const totalFormatted = formatCurrency(total);
+
+  // Fonction pour gérer la redirection si non connecté
   const handleAuthenticatedAction = (action: () => void, intent: string) => {
     if (!isAuthenticated) {
       localStorage.setItem('redirect_intent', intent);
@@ -2746,7 +2896,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
   };
 
-  // ✅ Vérifier si l'utilisateur vient d'être redirigé après connexion
+  // Vérifier si l'utilisateur vient d'être redirigé après connexion
   useEffect(() => {
     const redirectIntent = localStorage.getItem('redirect_intent');
     const propertyId = localStorage.getItem('redirect_property_id');
@@ -2808,40 +2958,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     ];
   };
 
-  const getPropertyImages = (property: any): string[] => {
-    if (property.images && Array.isArray(property.images) && property.images.length > 0) return property.images;
-    const baseImage = property.image;
-    const imageVariants = [baseImage, 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80', 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&q=80', 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80'];
-    const uniqueImages = [...new Set(imageVariants)];
-    while (uniqueImages.length < 5) uniqueImages.push(baseImage);
-    return uniqueImages.slice(0, 5);
-  };
-
-  const images = getPropertyImages(property);
-  const nightlyPrice = property.priceNumber || property.price || 0;
-  
-  const longDescription = property.longDescription || property.description;
-  const amenities = property.amenities || ["Wi-Fi", "Climatisation", "TV", "Parking", "Eau chaude", "Petit déjeuner"];
-  const testimonials = [
-    { name: "Marie", date: "mars 2026", text: "Excellent séjour, hôtel magnifique !", rating: 5 },
-    { name: "Jean", date: "février 2026", text: "Très bien situé, personnel accueillant.", rating: 4.8 },
-    { name: "Sophie", date: "janvier 2026", text: "Je recommande vivement, rapport qualité-prix exceptionnel.", rating: 4.9 }
-  ];
-
-  const nights = Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
-  const subtotal = nightlyPrice * nights;
-  const serviceFee = subtotal * 0.10;
-  const total = subtotal + serviceFee;
-  
-  const nightlyPriceFormatted = formatCurrency(nightlyPrice);
-  const subtotalFormatted = formatCurrency(subtotal);
-  const serviceFeeFormatted = formatCurrency(serviceFee);
-  const totalFormatted = formatCurrency(total);
-  const payment50Formatted = formatCurrency(Math.floor(total * 0.5));
-  
-  const getPaymentAmount = () => Math.floor(total * 0.5);
-
-  // Fonction de réservation
   const handleReservationClick = () => {
     if (availabilityStatus !== 'available') {
         alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
@@ -2852,7 +2968,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     const isLoggedIn = !!token;
 
     if (!isLoggedIn) {
-        // Non connecté - sauvegarder et rediriger vers auth
         localStorage.setItem('redirect_intent', 'booking');
         localStorage.setItem('redirect_property_id', property.id.toString());
         localStorage.setItem('redirect_property_title', property.title);
@@ -2870,10 +2985,8 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             window.location.href = '/auth?redirect=booking';
         }
     } else {
-        // ✅ DÉJÀ CONNECTÉ - Redirection directe vers BookingPage
         console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
         
-        // Récupérer l'utilisateur
         const userStr = localStorage.getItem('user');
         let userData = null;
         try {
@@ -2882,7 +2995,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             console.error('Erreur parsing user:', e);
         }
         
-        // Construire les données pour BookingPage
         const bookingData = {
             property_id: property.id,
             check_in: checkIn,
@@ -2895,21 +3007,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 phone: userData?.phone || '',
                 address: ''
             },
-            totalAmount: 0,
-            paymentAmount: 0
+            totalAmount: total,
+            paymentAmount: Math.floor(total * 0.5)
         };
         
-        // Sauvegarder dans sessionStorage
         sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
         
-        // Construire les paramètres URL
         const params = new URLSearchParams();
         params.set('check_in', checkIn);
         params.set('check_out', checkOut);
         params.set('guests', totalGuests.toString());
         params.set('nights', nights.toString());
         
-        // Rediriger vers BookingPage
         if (onNavigate) {
             onNavigate({ 
                 name: 'booking', 
@@ -2936,38 +3045,188 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const cancellationRules = getCancellationRules();
 
+  // Composant Galerie d'images
+  const GalleryModal = () => {
+    const [touchStartX, setTouchStartX] = useState(0);
+    const [touchEndX, setTouchEndX] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const galleryRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      if (isGalleryOpen) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+      } else {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+      }
+      return () => {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+      };
+    }, [isGalleryOpen]);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+      setTouchStartX(e.touches[0].clientX);
+      setTouchEndX(e.touches[0].clientX);
+      setIsSwiping(true);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+      if (!isSwiping) return;
+      setTouchEndX(e.touches[0].clientX);
+      const touch = e.touches[0];
+      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (element) {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isSwiping) return;
+      setIsSwiping(false);
+      
+      const swipeDistance = touchStartX - touchEndX;
+      const minSwipeDistance = 50;
+
+      if (Math.abs(swipeDistance) > minSwipeDistance) {
+        if (swipeDistance > 0 && galleryIndex < images.length - 1) {
+          setGalleryIndex(galleryIndex + 1);
+        } else if (swipeDistance < 0 && galleryIndex > 0) {
+          setGalleryIndex(galleryIndex - 1);
+        }
+      }
+    };
+
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (!isGalleryOpen) return;
+        if (e.key === 'ArrowLeft' && galleryIndex > 0) {
+          setGalleryIndex(galleryIndex - 1);
+        } else if (e.key === 'ArrowRight' && galleryIndex < images.length - 1) {
+          setGalleryIndex(galleryIndex + 1);
+        } else if (e.key === 'Escape') {
+          setIsGalleryOpen(false);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isGalleryOpen, galleryIndex, images.length]);
+
+    return (
+      <div 
+        className="fixed inset-0 z-[200] bg-black flex flex-col"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setIsGalleryOpen(false);
+        }}
+      >
+        <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
+          <button 
+            onClick={() => setIsGalleryOpen(false)} 
+            className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="text-white text-sm bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm font-medium">
+            {galleryIndex + 1} / {images.length}
+          </div>
+          <button className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm">
+            <Share2 className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div 
+          ref={galleryRef}
+          className="flex-1 relative overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div 
+            className="w-full h-full flex items-center justify-center p-4 transition-transform duration-300 ease-out"
+            style={{ 
+              transform: `translateX(${isSwiping ? -(touchStartX - touchEndX) : 0}px)`,
+            }}
+          >
+            <img 
+              src={images[galleryIndex]} 
+              alt={`${property.title} - ${galleryIndex + 1}`}
+              className="max-w-full max-h-full object-contain select-none"
+              draggable={false}
+            />
+          </div>
+
+          {images.length > 1 && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setGalleryIndex(idx)}
+                  className={`transition-all duration-300 rounded-full ${
+                    idx === galleryIndex 
+                      ? 'w-3 h-3 bg-white' 
+                      : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/60'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={() => setGalleryIndex(Math.max(0, galleryIndex - 1))}
+                className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
+                  galleryIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
+                }`}
+                disabled={galleryIndex === 0}
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => setGalleryIndex(Math.min(images.length - 1, galleryIndex + 1))}
+                className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
+                  galleryIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
+                }`}
+                disabled={galleryIndex === images.length - 1}
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
+          <div className="text-center text-white/90 text-sm font-medium">
+            {property.title}
+          </div>
+          <div className="text-center text-white/60 text-xs mt-1">
+            Glissez pour voir les autres photos
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Modal Politique d'annulation
   const CancellationModal = () => (
     <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setShowCancellationModal(false)}>
       <div className="bg-white rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden shadow-2xl animate-fadeInUp" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-gradient-to-r from-[#0F2940] to-[#1a3a5c] px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" />
-            <h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2>
-          </div>
-          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors">
-            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </button>
+          <div className="flex items-center gap-2"><CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#00c9a7]" /><h2 className="text-base sm:text-xl font-bold text-white">Politique d'annulation</h2></div>
+          <button onClick={() => setShowCancellationModal(false)} className="p-1.5 sm:p-2 rounded-full hover:bg-white/10 transition-colors"><X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /></button>
         </div>
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(85vh-70px)] space-y-3 sm:space-y-4">
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
-              <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" />
-              <span className="font-medium">Vos dates</span>
-            </div>
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3"><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 text-[#00c9a7]" /><span className="font-medium">Vos dates</span></div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Départ</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p>
-              </div>
-              <div className="bg-white rounded-lg p-2 shadow-sm">
-                <p className="text-[10px] sm:text-xs text-gray-500">Nuits</p>
-                <p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p>
-              </div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Arrivée</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkIn) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Départ</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{formatDisplayFromIso(checkOut) || '—'}</p></div>
+              <div className="bg-white rounded-lg p-2 shadow-sm"><p className="text-[10px] sm:text-xs text-gray-500">Nuits</p><p className="font-semibold text-gray-900 text-xs sm:text-sm">{nights}</p></div>
             </div>
           </div>
           <div className="space-y-2 sm:space-y-3">
@@ -2986,200 +3245,15 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             ))}
           </div>
           <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
-            <div className="flex items-start gap-2">
-              <Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p>
-            </div>
+            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
           </div>
         </div>
         <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
-          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">
-            Fermer
-          </button>
+          <button onClick={() => setShowCancellationModal(false)} className="w-full py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white font-semibold text-sm sm:text-base hover:shadow-lg transition-all transform hover:scale-[1.02]">Fermer</button>
         </div>
       </div>
     </div>
   );
-
- // Composant Galerie d'images - Version améliorée avec swipe fonctionnel
-const GalleryModal = () => {
-  const [touchStartX, setTouchStartX] = useState(0);
-  const [touchEndX, setTouchEndX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const galleryRef = useRef<HTMLDivElement>(null);
-
-  // Empêcher le scroll de la page quand la galerie est ouverte
-  useEffect(() => {
-    if (isGalleryOpen) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-    } else {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-    };
-  }, [isGalleryOpen]);
-
-  // Gestion du swipe tactile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-    setTouchEndX(e.touches[0].clientX);
-    setIsSwiping(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping) return;
-    setTouchEndX(e.touches[0].clientX);
-    
-    // Empêcher le scroll vertical pendant le swipe horizontal
-    const touch = e.touches[0];
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (element) {
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (!isSwiping) return;
-    setIsSwiping(false);
-    
-    const swipeDistance = touchStartX - touchEndX;
-    const minSwipeDistance = 50; // Distance minimale pour déclencher le swipe
-
-    if (Math.abs(swipeDistance) > minSwipeDistance) {
-      if (swipeDistance > 0 && galleryIndex < images.length - 1) {
-        // Swipe vers la gauche -> image suivante
-        setGalleryIndex(galleryIndex + 1);
-      } else if (swipeDistance < 0 && galleryIndex > 0) {
-        // Swipe vers la droite -> image précédente
-        setGalleryIndex(galleryIndex - 1);
-      }
-    }
-  };
-
-  // Gestion du clavier
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isGalleryOpen) return;
-      if (e.key === 'ArrowLeft' && galleryIndex > 0) {
-        setGalleryIndex(galleryIndex - 1);
-      } else if (e.key === 'ArrowRight' && galleryIndex < images.length - 1) {
-        setGalleryIndex(galleryIndex + 1);
-      } else if (e.key === 'Escape') {
-        setIsGalleryOpen(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGalleryOpen, galleryIndex, images.length]);
-
-  return (
-    <div 
-      className="fixed inset-0 z-[200] bg-black flex flex-col"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setIsGalleryOpen(false);
-      }}
-    >
-      {/* En-tête */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
-        <button 
-          onClick={() => setIsGalleryOpen(false)} 
-          className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm"
-        >
-          <X className="w-6 h-6" />
-        </button>
-        <div className="text-white text-sm bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm font-medium">
-          {galleryIndex + 1} / {images.length}
-        </div>
-        <button className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm">
-          <Share2 className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Conteneur du carrousel avec swipe amélioré */}
-      <div 
-        ref={galleryRef}
-        className="flex-1 relative overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Image actuelle avec animation */}
-        <div 
-          className="w-full h-full flex items-center justify-center p-4 transition-transform duration-300 ease-out"
-          style={{ 
-            transform: `translateX(${isSwiping ? -(touchStartX - touchEndX) : 0}px)`,
-          }}
-        >
-          <img 
-            src={images[galleryIndex]} 
-            alt={`${property.title} - ${galleryIndex + 1}`}
-            className="max-w-full max-h-full object-contain select-none"
-            draggable={false}
-          />
-        </div>
-
-        {/* Indicateur de défilement */}
-        {images.length > 1 && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-            {images.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setGalleryIndex(idx)}
-                className={`transition-all duration-300 rounded-full ${
-                  idx === galleryIndex 
-                    ? 'w-3 h-3 bg-white' 
-                    : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/60'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Boutons de navigation - visibles sur desktop et en hover */}
-        {images.length > 1 && (
-          <>
-            <button
-              onClick={() => setGalleryIndex(Math.max(0, galleryIndex - 1))}
-              className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
-                galleryIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
-              }`}
-              disabled={galleryIndex === 0}
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button
-              onClick={() => setGalleryIndex(Math.min(images.length - 1, galleryIndex + 1))}
-              className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${
-                galleryIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'
-              }`}
-              disabled={galleryIndex === images.length - 1}
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Pied de page avec infos */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="text-center text-white/90 text-sm font-medium">
-          {property.title}
-        </div>
-        <div className="text-center text-white/60 text-xs mt-1">
-          Glissez pour voir les autres photos
-        </div>
-      </div>
-    </div>
-  );
-};
 
   // Rendu principal
   return (
@@ -3204,7 +3278,7 @@ const GalleryModal = () => {
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            {/* SECTION IMAGES AVEC GALERIE AU CLIC */}
+            {/* SECTION IMAGES */}
             <div 
               className="relative grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 cursor-pointer"
               onClick={() => setIsGalleryOpen(true)}
@@ -3215,7 +3289,6 @@ const GalleryModal = () => {
                   alt={property.title} 
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" 
                 />
-                {/* Badge "Voir toutes les photos" */}
                 <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs sm:text-sm px-3 py-1.5 rounded-lg backdrop-blur-sm flex items-center gap-1.5">
                   <span>📸</span>
                   <span className="hidden xs:inline">{images.length} photos</span>
@@ -3266,26 +3339,29 @@ const GalleryModal = () => {
                 
                 <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
                 
-                <div className="border-t pt-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-lg">Équipements</h3>
-                    <button onClick={() => setShowAllAmenities(!showAllAmenities)} className="text-[#00c9a7] text-sm underline">
-                      Voir tout
-                    </button>
+                {/* ✅ SECTION ÉQUIPEMENTS - MODERNE SANS ICÔNES */}
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg text-[#0F2940]">Équipements</h3>
+                      {amenities.length > 0 && (
+                        <span className="text-xs bg-[#00c9a7]/10 text-[#00c9a7] px-2.5 py-0.5 rounded-full font-medium">
+                          {amenities.length}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(showAllAmenities ? amenities : amenities.slice(0, 6)).map((a, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
-                        <Check className="w-4 h-4 text-[#00c9a7]" />
-                        {a}
-                      </div>
-                    ))}
-                  </div>
+                  
+                  <AmenitiesDisplay 
+                    amenities={amenities}
+                    showAll={showAllAmenities}
+                    onToggle={() => setShowAllAmenities(!showAllAmenities)}
+                  />
                 </div>
                 
                 <div className="bg-gradient-to-r from-[#0F2940]/5 to-[#00c9a7]/5 rounded-xl p-5">
                   <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-[#00c9a7]" />
+                    <span className="text-[#00c9a7]">✨</span>
                     Ce que nos clients disent
                   </h3>
                   <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -3411,7 +3487,6 @@ const GalleryModal = () => {
                     Voir la politique d'annulation
                   </button>
                   
-                  {/* BOUTON RÉSERVER */}
                   <button 
                     onClick={handleReservationClick} 
                     disabled={availabilityStatus !== 'available'} 
@@ -5050,6 +5125,7 @@ export function PopularPage({ onNavigate }: { onNavigate?: (route: Route) => voi
 }
 
 // ==================== LISTING PAGE ====================
+
 interface ListingPageProps {
   onNavigate?: (route: any) => void;
   id?: string;
@@ -5064,8 +5140,9 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
   console.log("=== ListingPage (option 2) ===");
   console.log("ID reçu:", id);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['property', id],
+  // ✅ 1. Récupérer les détails COMPLETS de la propriété (incluant les équipements)
+  const { data: propertyData, isLoading: propertyLoading, error: propertyError } = useQuery({
+    queryKey: ['property-details', id],
     queryFn: async () => {
       const response = await propertyService.getById(parseInt(id || '0'));
       return response.data;
@@ -5073,69 +5150,158 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
     enabled: !!id,
   });
 
-  if (!id) {
-    return <div className="p-8 text-center">ID manquant</div>;
-  }
+  // ✅ 2. Récupérer la disponibilité
+  const { data: availabilityData, isLoading: availabilityLoading } = useQuery({
+    queryKey: ['property-availability', id],
+    queryFn: async () => {
+      // Récupérer les dates depuis l'URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const checkIn = urlParams.get('check_in') || new Date().toISOString().split('T')[0];
+      const checkOut = urlParams.get('check_out') || (() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+      })();
+      const guests = parseInt(urlParams.get('guests') || '1');
+      
+      const response = await propertyService.checkAvailability(
+        parseInt(id || '0'),
+        checkIn,
+        checkOut,
+        guests
+      );
+      return response.data;
+    },
+    enabled: !!id,
+  });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
-      </div>
-    );
-  }
+  const isLoading = propertyLoading || availabilityLoading;
+  const error = propertyError;
 
-  if (error) {
-    console.error(error);
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center p-8 max-w-md">
-          <div className="text-6xl mb-4">🏠</div>
-          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Erreur de chargement</h1>
-          <p className="text-gray-500 mb-4">Impossible de récupérer les annonces.</p>
-          <button 
-            onClick={() => onNavigate({ name: 'home' })} 
-            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
-          >
-            Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ✅ 3. Fonction pour extraire les équipements
+  const getAmenitiesFromProperty = (property: any): string[] => {
+    const amenitiesMap: { [key: string]: string } = {
+      // Équipements de base
+      has_wifi: 'Wi-Fi',
+      has_air_conditioning: 'Climatisation',
+      has_generator: 'Générateur',
+      has_water_tank: 'Citerne d\'eau',
+      has_parking: 'Parking',
+      has_pool: 'Piscine',
+      has_kitchen: 'Cuisine équipée',
+      has_tv: 'Télévision',
+      has_breakfast: 'Petit-déjeuner',
+      has_elevator: 'Ascenseur',
+      has_security_guard: 'Gardien',
+      has_restaurant: 'Restaurant',
+      has_bar: 'Bar',
+      has_gym: 'Salle de sport',
+      has_spa: 'Spa',
+      has_laundry: 'Buanderie',
+      has_cctv: 'Caméras de surveillance',
+      has_electric_fence: 'Clôture électrique',
+      
+      // Salle de bain
+      has_towels: 'Serviettes de bain',
+      has_toiletries: 'Gel douche / Shampoing',
+      has_hair_dryer: 'Sèche-cheveux',
+      has_hot_water: 'Eau chaude',
+      has_bathtub: 'Baignoire',
+      has_shower: 'Douche',
+      has_shampoo: 'Shampoing',
+      has_body_soap: 'Savon pour le corps',
+      has_shower_gel: 'Gel douche',
+      has_cleaning_products: 'Produits de nettoyage',
+      
+      // Chambre et linge
+      has_bed_linen: 'Draps',
+      has_pillows: 'Oreillers',
+      has_blankets: 'Couvertures',
+      has_hangers: 'Cintres',
+      has_closet: 'Espace de rangement',
+      has_iron: 'Fer à repasser',
+      has_ironing_board: 'Planche à repasser',
+      has_washing_machine: 'Lave-linge',
+      has_dryer: 'Sèche-linge',
+      has_clothes_rack: 'Étendoir à linge',
+      has_cotton_linen: 'Linge de lit en coton',
+      has_extra_pillows_blankets: 'Oreillers supplémentaires',
+      
+      // Cuisine
+      has_basic_kitchen_equipment: 'Équipement de cuisine de base',
+      has_dishes_cutlery: 'Vaisselle et couverts',
+      has_coffee_maker: 'Cafetière',
+      has_kettle: 'Bouilloire électrique',
+      has_oven: 'Four',
+      has_microwave: 'Micro-ondes',
+      has_freezer: 'Congélateur',
+      has_refrigerator: 'Réfrigérateur',
+      has_dining_table: 'Table à manger',
+      has_wine_glasses: 'Verres à vin',
+      has_toaster: 'Grille-pain',
+      has_blender: 'Blender',
+      has_expresso_machine: 'Machine à expresso',
+      has_coffee: 'Café',
+      
+      // Divertissement
+      has_smart_tv: 'Smart TV',
+      has_streaming: 'Netflix / Streaming',
+      has_bluetooth_speaker: 'Enceinte Bluetooth',
+      has_books: 'Livres',
+      
+      // Chauffage et climatisation
+      has_portable_fan: 'Ventilateur portable',
+      has_central_heating: 'Chauffage central',
+      
+      // Internet et bureau
+      has_dedicated_workspace: 'Espace de travail dédié',
+      
+      // Services et arrivée
+      has_self_check_in: 'Arrivée autonome',
+      has_key_box: 'Boîte à clé sécurisée',
+      has_keys_by_host: 'Clés remises par l\'hôte',
+      has_free_parking_on_site: 'Stationnement gratuit sur place',
+      
+      // Services
+      has_ironing_service: 'Service de repassage',
+      has_free_parking: 'Parking gratuit',
+      has_luggage_storage: 'Local à bagages',
+      
+      // Extérieur
+      has_balcony: 'Balcon / Terrasse',
+      has_garden: 'Jardin',
+      has_bbq: 'Barbecue',
+      has_loungers: 'Transats',
+      has_outdoor_dining: 'Espace repas en plein air',
+      
+      // Caractéristiques de l'emplacement
+      has_laundry_nearby: 'Laverie automatique à proximité',
+      
+      // Sécurité
+      has_smoke_detector: 'Détecteur de fumée',
+      has_first_aid_kit: 'Trousse de premiers secours',
+      has_fire_extinguisher: 'Extincteur',
+      has_exterior_cameras: 'Caméras de surveillance extérieures',
+      
+      // Services supplémentaires
+      airport_shuttle: 'Navette aéroport',
+      housekeeping: 'Ménage quotidien',
+      room_service: 'Service en chambre',
+      wheelchair_accessible: 'Accessible en fauteuil roulant',
+    };
 
+    const amenities: string[] = [];
+    for (const [key, label] of Object.entries(amenitiesMap)) {
+      if (property[key] === true) {
+        amenities.push(label);
+      }
+    }
+    return amenities;
+  };
 
-
-  const rawProperty = data?.data || data;
-
-  if (!rawProperty) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center p-8 max-w-md">
-          <div className="text-6xl mb-4">🏠</div>
-          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Logement non trouvé</h1>
-          <p className="text-gray-500 mb-4">
-            Aucun logement ne correspond à l'ID <strong>{id}</strong>
-          </p>
-          <p className="text-sm text-gray-400 mb-6">
-            Vérifiez que l'URL est correcte ou retournez à l'accueil.
-          </p>
-          <button 
-            onClick={() => onNavigate({ name: 'home' })} 
-            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
-          >
-            Retour à l'accueil
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ Fonction pour récupérer les images
+  // ✅ 4. Fonction pour récupérer les images
   const getPropertyImages = (property: any): string[] => {
     const images: string[] = [];
-
-
     
     const addImage = (url: string) => {
       if (!url) return;
@@ -5159,7 +5325,20 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
         images.push(cleanUrl);
       }
     };
-    
+
+    // 1. Récupérer depuis property.images
+    if (property.images && Array.isArray(property.images) && property.images.length > 0) {
+      for (const img of property.images) {
+        if (typeof img === 'string') {
+          addImage(img);
+        } else if (typeof img === 'object' && img.url) {
+          addImage(img.url);
+        }
+      }
+      if (images.length > 0) return images;
+    }
+
+    // 2. Récupérer depuis property.photos
     if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
       for (const photo of property.photos) {
         if (photo.photo_url) {
@@ -5171,95 +5350,118 @@ export function ListingPage({ onNavigate, id }: ListingPageProps) {
           if (filename) {
             addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
           }
+        } else if (photo.url) {
+          addImage(photo.url);
+        } else if (typeof photo === 'string') {
+          addImage(photo);
         }
       }
+      if (images.length > 0) return images;
     }
-    
-    if (property.cover_photo && typeof property.cover_photo === 'object') {
-      if (property.cover_photo.photo_url) {
-        addImage(property.cover_photo.photo_url);
-      } else if (property.cover_photo.full_url) {
-        addImage(property.cover_photo.full_url);
-      } else if (property.cover_photo.photo_path) {
-        const filename = property.cover_photo.photo_path.split('/').pop();
-        if (filename) {
-          addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+
+    // 3. Récupérer depuis property.cover_photo
+    if (property.cover_photo) {
+      if (typeof property.cover_photo === 'object') {
+        if (property.cover_photo.photo_url) {
+          addImage(property.cover_photo.photo_url);
+        } else if (property.cover_photo.full_url) {
+          addImage(property.cover_photo.full_url);
+        } else if (property.cover_photo.photo_path) {
+          const filename = property.cover_photo.photo_path.split('/').pop();
+          if (filename) {
+            addImage(`https://api.bluefin-immo.com/api/property-image/${property.id}/${filename}`);
+          }
         }
+      } else if (typeof property.cover_photo === 'string') {
+        addImage(property.cover_photo);
       }
     }
-    
+
+    // 4. Récupérer depuis property.image
+    if (property.image) {
+      addImage(property.image);
+    }
+
+    // 5. Fallback
     if (images.length === 0) {
-      images.push(`https://picsum.photos/seed/${property.id}/400/300`);
+      images.push(`https://picsum.photos/seed/${property.id}/800/600`);
+      images.push(`https://picsum.photos/seed/${property.id}-2/800/600`);
+      images.push(`https://picsum.photos/seed/${property.id}-3/800/600`);
     }
-    
+
     return images;
   };
 
-  
+  if (!id) {
+    return <div className="p-8 text-center">ID manquant</div>;
+  }
 
-  // ✅ Fonction de réservation
-  const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
-    console.log('🔍 Réservation déclenchée avec:', dates);
-    
-    setSelectedCheckIn(dates.checkIn);
-    setSelectedCheckOut(dates.checkOut);
-    setSelectedGuests(dates.guests);
-    setSelectedNights(dates.nights);
-    
-    const searchParams = new URLSearchParams({
-        check_in: dates.checkIn,
-        check_out: dates.checkOut,
-        guests: dates.guests.toString(),
-        nights: dates.nights.toString()
-    });
-    
-    const url = `/booking/${rawProperty.id}?${searchParams.toString()}`;
-    console.log('🔍 Navigation vers:', url);
-    
-    if (onNavigate) {
-        onNavigate({ 
-            name: 'booking', 
-            id: rawProperty.id.toString(),
-            search: searchParams.toString()
-        });
-    } else {
-        window.location.href = url;
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
+      </div>
+    );
+  }
 
- // Dans ListingPage.tsx
-const handleChatClick = () => {
-    console.log('🔍 handleChatClick - property.id:', property.id);
-    
-    // Construire les paramètres
-    const params = new URLSearchParams();
-    params.set('property', property.id.toString());
-    
-    if (selectedCheckIn && selectedCheckOut) {
-        params.set('check_in', selectedCheckIn);
-        params.set('check_out', selectedCheckOut);
-    }
-    if (selectedGuests && selectedGuests > 0) {
-        params.set('guests', selectedGuests.toString());
-    }
-    
-    const searchString = params.toString();
-    const fullUrl = `/messages/inquiry?${searchString}`;
-    console.log('🔗 Navigation vers:', fullUrl);
-    
-    // Utiliser window.location pour une navigation directe
-    window.location.href = fullUrl;
-};
+  if (error) {
+    console.error(error);
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center p-8 max-w-md">
+          <div className="text-6xl mb-4">🏠</div>
+          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Erreur de chargement</h1>
+          <p className="text-gray-500 mb-4">Impossible de récupérer les annonces.</p>
+          <button 
+            onClick={() => onNavigate?.({ name: 'home' })} 
+            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  // ✅ Récupérer toutes les images
+  // ✅ 5. Récupérer les données
+  const rawProperty = propertyData?.data || propertyData;
+  const availability = availabilityData;
+
+  if (!rawProperty) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center p-8 max-w-md">
+          <div className="text-6xl mb-4">🏠</div>
+          <h1 className="text-2xl font-semibold text-[#0F2940] mb-2">Logement non trouvé</h1>
+          <p className="text-gray-500 mb-4">
+            Aucun logement ne correspond à l'ID <strong>{id}</strong>
+          </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Vérifiez que l'URL est correcte ou retournez à l'accueil.
+          </p>
+          <button 
+            onClick={() => onNavigate?.({ name: 'home' })} 
+            className="px-6 py-3 bg-[#00c9a7] text-[#0F2940] rounded-full font-semibold hover:bg-[#00b892] transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ 6. Récupérer les images
   const propertyImages = getPropertyImages(rawProperty);
   const firstImage = propertyImages[0] || '/placeholder.jpg';
 
-  // ✅ Transformation des données
+  // ✅ 7. Récupérer les équipements
+  const amenities = getAmenitiesFromProperty(rawProperty);
+
+  // ✅ 8. Transformer les données
   const property = {
     id: rawProperty.id,
     title: rawProperty.title,
-    location: `${rawProperty.district}, ${rawProperty.city}`,
+    location: `${rawProperty.district || ''}, ${rawProperty.city || ''}`.replace(/^,\s/, ''),
     price: rawProperty.price_per_night,
     priceNumber: parseFloat(rawProperty.price_per_night),
     priceDisplay: `${parseInt(rawProperty.price_per_night).toLocaleString()} FCFA / nuit`,
@@ -5271,29 +5473,119 @@ const handleChatClick = () => {
     baths: rawProperty.bathrooms || 0,
     description: rawProperty.description,
     longDescription: rawProperty.description,
-    amenities: [
-      rawProperty.has_wifi && 'Wi-Fi',
-      rawProperty.has_air_conditioning && 'Climatisation',
-      rawProperty.has_parking && 'Parking gratuit',
-      rawProperty.has_pool && 'Piscine',
-      rawProperty.has_kitchen && 'Cuisine équipée',
-      rawProperty.has_tv && 'Télévision',
-      rawProperty.has_breakfast && 'Petit-déjeuner',
-      rawProperty.has_generator && 'Générateur',
-      rawProperty.has_water_tank && 'Réservoir d\'eau',
-      rawProperty.has_gym && 'Salle de sport',
-      rawProperty.has_spa && 'Spa',
-      rawProperty.has_elevator && 'Ascenseur',
-      rawProperty.has_laundry && 'Lave-linge',
-      rawProperty.has_cctv && 'Caméras de surveillance',
-      rawProperty.has_electric_fence && 'Clôture électrique',
-      rawProperty.allows_pets && 'Animaux acceptés',
-      rawProperty.allows_children && 'Enfants acceptés',
-      rawProperty.airport_shuttle && 'Navette aéroport',
-      rawProperty.housekeeping && 'Ménage inclus',
-      rawProperty.room_service && 'Service en chambre',
-      rawProperty.wheelchair_accessible && 'Accessible fauteuil roulant',
-    ].filter(Boolean),
+    
+    // ✅ Équipements sous forme de liste
+    amenities: amenities,
+    
+    // ✅ Tous les champs d'équipements pour le PropertyDetailModal
+    has_wifi: rawProperty.has_wifi || false,
+    has_air_conditioning: rawProperty.has_air_conditioning || false,
+    has_generator: rawProperty.has_generator || false,
+    has_water_tank: rawProperty.has_water_tank || false,
+    has_parking: rawProperty.has_parking || false,
+    has_pool: rawProperty.has_pool || false,
+    has_kitchen: rawProperty.has_kitchen || false,
+    has_tv: rawProperty.has_tv || false,
+    has_breakfast: rawProperty.has_breakfast || false,
+    has_elevator: rawProperty.has_elevator || false,
+    has_security_guard: rawProperty.has_security_guard || false,
+    has_restaurant: rawProperty.has_restaurant || false,
+    has_bar: rawProperty.has_bar || false,
+    has_gym: rawProperty.has_gym || false,
+    has_spa: rawProperty.has_spa || false,
+    has_laundry: rawProperty.has_laundry || false,
+    has_cctv: rawProperty.has_cctv || false,
+    has_electric_fence: rawProperty.has_electric_fence || false,
+    
+    // Salle de bain
+    has_towels: rawProperty.has_towels || false,
+    has_toiletries: rawProperty.has_toiletries || false,
+    has_hair_dryer: rawProperty.has_hair_dryer || false,
+    has_hot_water: rawProperty.has_hot_water || false,
+    has_bathtub: rawProperty.has_bathtub || false,
+    has_shower: rawProperty.has_shower || false,
+    has_shampoo: rawProperty.has_shampoo || false,
+    has_body_soap: rawProperty.has_body_soap || false,
+    has_shower_gel: rawProperty.has_shower_gel || false,
+    has_cleaning_products: rawProperty.has_cleaning_products || false,
+    
+    // Chambre et linge
+    has_bed_linen: rawProperty.has_bed_linen || false,
+    has_pillows: rawProperty.has_pillows || false,
+    has_blankets: rawProperty.has_blankets || false,
+    has_hangers: rawProperty.has_hangers || false,
+    has_closet: rawProperty.has_closet || false,
+    has_iron: rawProperty.has_iron || false,
+    has_ironing_board: rawProperty.has_ironing_board || false,
+    has_washing_machine: rawProperty.has_washing_machine || false,
+    has_dryer: rawProperty.has_dryer || false,
+    has_clothes_rack: rawProperty.has_clothes_rack || false,
+    has_cotton_linen: rawProperty.has_cotton_linen || false,
+    has_extra_pillows_blankets: rawProperty.has_extra_pillows_blankets || false,
+    
+    // Cuisine
+    has_basic_kitchen_equipment: rawProperty.has_basic_kitchen_equipment || false,
+    has_dishes_cutlery: rawProperty.has_dishes_cutlery || false,
+    has_coffee_maker: rawProperty.has_coffee_maker || false,
+    has_kettle: rawProperty.has_kettle || false,
+    has_oven: rawProperty.has_oven || false,
+    has_microwave: rawProperty.has_microwave || false,
+    has_freezer: rawProperty.has_freezer || false,
+    has_refrigerator: rawProperty.has_refrigerator || false,
+    has_dining_table: rawProperty.has_dining_table || false,
+    has_wine_glasses: rawProperty.has_wine_glasses || false,
+    has_toaster: rawProperty.has_toaster || false,
+    has_blender: rawProperty.has_blender || false,
+    has_expresso_machine: rawProperty.has_expresso_machine || false,
+    has_coffee: rawProperty.has_coffee || false,
+    
+    // Divertissement
+    has_smart_tv: rawProperty.has_smart_tv || false,
+    has_streaming: rawProperty.has_streaming || false,
+    has_bluetooth_speaker: rawProperty.has_bluetooth_speaker || false,
+    has_books: rawProperty.has_books || false,
+    
+    // Chauffage et climatisation
+    has_portable_fan: rawProperty.has_portable_fan || false,
+    has_central_heating: rawProperty.has_central_heating || false,
+    
+    // Internet et bureau
+    has_dedicated_workspace: rawProperty.has_dedicated_workspace || false,
+    
+    // Services et arrivée
+    has_self_check_in: rawProperty.has_self_check_in || false,
+    has_key_box: rawProperty.has_key_box || false,
+    has_keys_by_host: rawProperty.has_keys_by_host || false,
+    has_free_parking_on_site: rawProperty.has_free_parking_on_site || false,
+    
+    // Services
+    has_ironing_service: rawProperty.has_ironing_service || false,
+    has_free_parking: rawProperty.has_free_parking || false,
+    has_luggage_storage: rawProperty.has_luggage_storage || false,
+    
+    // Extérieur
+    has_balcony: rawProperty.has_balcony || false,
+    has_garden: rawProperty.has_garden || false,
+    has_bbq: rawProperty.has_bbq || false,
+    has_loungers: rawProperty.has_loungers || false,
+    has_outdoor_dining: rawProperty.has_outdoor_dining || false,
+    
+    // Caractéristiques de l'emplacement
+    has_laundry_nearby: rawProperty.has_laundry_nearby || false,
+    
+    // Sécurité
+    has_smoke_detector: rawProperty.has_smoke_detector || false,
+    has_first_aid_kit: rawProperty.has_first_aid_kit || false,
+    has_fire_extinguisher: rawProperty.has_fire_extinguisher || false,
+    has_exterior_cameras: rawProperty.has_exterior_cameras || false,
+    
+    // Services supplémentaires
+    airport_shuttle: rawProperty.airport_shuttle || false,
+    housekeeping: rawProperty.housekeeping || false,
+    room_service: rawProperty.room_service || false,
+    wheelchair_accessible: rawProperty.wheelchair_accessible || false,
+    
+    // Hôte
     host: (() => {
       const userName = [rawProperty.user?.first_name, rawProperty.user?.last_name].filter(Boolean).join(' ');
       const hostName = [rawProperty.host?.first_name, rawProperty.host?.last_name].filter(Boolean).join(' ');
@@ -5328,10 +5620,6 @@ const handleChatClick = () => {
     responseTime: 'quelques heures',
     property_type: rawProperty.property_type,
     bluefin_certified: rawProperty.bluefin_certified || false,
-    has_generator: rawProperty.has_generator || false,
-    has_wifi: rawProperty.has_wifi || false,
-    has_air_conditioning: rawProperty.has_air_conditioning || false,
-    has_water_tank: rawProperty.has_water_tank || false,
     cancellation_policy: rawProperty.cancellation_policy || 'moderate',
     instant_booking: rawProperty.instant_booking || false,
     check_in_time: '15:00',
@@ -5352,19 +5640,73 @@ const handleChatClick = () => {
     firstImage: property.image,
     host: property.host,
     hostId: property.hostId,
+    amenitiesCount: property.amenities.length,
   });
 
-  // ✅ Retour du modal avec toutes les props
+  // ✅ 9. Fonction de réservation
+  const handleReserve = (dates: { checkIn: string; checkOut: string; guests: number; nights: number }) => {
+    console.log('🔍 Réservation déclenchée avec:', dates);
+    
+    setSelectedCheckIn(dates.checkIn);
+    setSelectedCheckOut(dates.checkOut);
+    setSelectedGuests(dates.guests);
+    setSelectedNights(dates.nights);
+    
+    const searchParams = new URLSearchParams({
+      check_in: dates.checkIn,
+      check_out: dates.checkOut,
+      guests: dates.guests.toString(),
+      nights: dates.nights.toString()
+    });
+    
+    const url = `/booking/${property.id}?${searchParams.toString()}`;
+    console.log('🔍 Navigation vers:', url);
+    
+    if (onNavigate) {
+      onNavigate({ 
+        name: 'booking', 
+        id: property.id.toString(),
+        search: searchParams.toString()
+      });
+    } else {
+      window.location.href = url;
+    }
+  };
+
+  // ✅ 10. Fonction pour le chat
+  const handleChatClick = () => {
+    console.log('🔍 handleChatClick - property.id:', property.id);
+    
+    const params = new URLSearchParams();
+    params.set('property', property.id.toString());
+    
+    if (selectedCheckIn && selectedCheckOut) {
+      params.set('check_in', selectedCheckIn);
+      params.set('check_out', selectedCheckOut);
+    }
+    if (selectedGuests && selectedGuests > 0) {
+      params.set('guests', selectedGuests.toString());
+    }
+    
+    const searchString = params.toString();
+    const fullUrl = `/messages/inquiry?${searchString}`;
+    console.log('🔗 Navigation vers:', fullUrl);
+    
+    window.location.href = fullUrl;
+  };
+
+  // ✅ 11. Rendu
   return (
     <PropertyDetailModal
       property={property}
-      onClose={() => onNavigate({ name: 'home' })}
+      onClose={() => onNavigate?.({ name: 'home' })}
       onNavigate={onNavigate}
       onReserve={handleReserve}
       onChat={handleChatClick}
       selectedCheckIn={selectedCheckIn}
       selectedCheckOut={selectedCheckOut}
       selectedGuests={selectedGuests}
+      availability={availability}
     />
   );
 }
@@ -6828,6 +7170,11 @@ export function PaymentMethodModal({ isOpen, onClose, onSuccess }: PaymentMethod
 
 
 // ==================== ACCOUNT PAGE ====================
+
+interface PageProps {
+  onNavigate?: (route: any) => void;
+}
+
 export function AccountPage({ onNavigate }: PageProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentInfoModal, setShowPaymentInfoModal] = useState(false);
@@ -6913,6 +7260,7 @@ export function AccountPage({ onNavigate }: PageProps) {
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
         <PageSection title="Mon compte" subtitle="Gestion de votre profil, réservations et préférences.">
           <div className="grid gap-6 lg:grid-cols-3">
+            {/* Mes réservations */}
             <button
               onClick={() => onNavigate?.({ name: 'account-reservations' })}
               className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
@@ -6924,6 +7272,7 @@ export function AccountPage({ onNavigate }: PageProps) {
               <p className="text-sm text-[#6b7280]">Voir l'historique de vos voyages et les prochaines séjours.</p>
             </button>
             
+            {/* Favoris */}
             <button
               onClick={() => onNavigate?.({ name: 'favorites' })}
               className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
@@ -6935,47 +7284,49 @@ export function AccountPage({ onNavigate }: PageProps) {
               <p className="text-sm text-[#6b7280]">Retrouvez vos annonces sauvegardées et préparez votre prochaine réservation.</p>
             </button>
 
-            {/* 👇 BOUTON MOYENS DE PAIEMENT (AJOUTER/MODIFIER) */}
-            <button
-              onClick={() => setShowPaymentModal(true)}
-              className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <CreditCard className="w-5 h-5 text-[#00c9a7]" />
-                <h3 className="text-xl font-semibold text-[#0f2940]">Moyens de paiement</h3>
-              </div>
-              <p className="text-sm text-[#6b7280]">Configurez comment recevoir vos paiements.</p>
-            </button>
-
-            {/* 👇 BOUTON VOIR/MODIFIER SES DONNÉES DE PAIEMENT (UNIQUEMENT POUR LES HÔTES) */}
+            {/* ✅ MOYENS DE PAIEMENT - UNIQUEMENT POUR LES HÔTES */}
             {isHost && (
-              <button
-                onClick={openPaymentInfoModal}
-                disabled={loading}
-                className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow relative"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <Wallet className="w-5 h-5 text-[#00c9a7]" />
-                  <h3 className="text-xl font-semibold text-[#0f2940]">Mes paiements reçus</h3>
-                  {loading && (
-                    <div className="absolute top-4 right-4">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#00c9a7]"></div>
-                    </div>
+              <>
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <CreditCard className="w-5 h-5 text-[#00c9a7]" />
+                    <h3 className="text-xl font-semibold text-[#0f2940]">Moyens de paiement</h3>
+                  </div>
+                  <p className="text-sm text-[#6b7280]">Configurez comment recevoir vos paiements.</p>
+                </button>
+
+                <button
+                  onClick={openPaymentInfoModal}
+                  disabled={loading}
+                  className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow relative"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <Wallet className="w-5 h-5 text-[#00c9a7]" />
+                    <h3 className="text-xl font-semibold text-[#0f2940]">Mes paiements reçus</h3>
+                    {loading && (
+                      <div className="absolute top-4 right-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#00c9a7]"></div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-[#6b7280]">
+                    {paymentInfo?.totalAllTime > 0 
+                      ? `💰 Total reçu: ${paymentInfo.totalAllTime.toLocaleString()} FCFA`
+                      : 'Consultez vos gains et vos paiements'}
+                  </p>
+                  {paymentInfo?.totalWeekAmount > 0 && (
+                    <span className="inline-block mt-2 text-xs bg-[#00c9a7] text-white px-3 py-1 rounded-full">
+                      + {paymentInfo.totalWeekAmount.toLocaleString()} FCFA cette semaine
+                    </span>
                   )}
-                </div>
-                <p className="text-sm text-[#6b7280]">
-                  {paymentInfo?.totalAllTime > 0 
-                    ? `💰 Total reçu: ${paymentInfo.totalAllTime.toLocaleString()} FCFA`
-                    : 'Consultez vos gains et vos paiements'}
-                </p>
-                {paymentInfo?.totalWeekAmount > 0 && (
-                  <span className="inline-block mt-2 text-xs bg-[#00c9a7] text-white px-3 py-1 rounded-full">
-                    + {paymentInfo.totalWeekAmount.toLocaleString()} FCFA cette semaine
-                  </span>
-                )}
-              </button>
+                </button>
+              </>
             )}
 
+            {/* Aide & support - Visible pour tous */}
             <button
               onClick={() => onNavigate?.({ name: 'help' })}
               className="rounded-3xl bg-white p-6 border border-[#e2f5f2] text-left hover:shadow-lg transition-shadow"
@@ -6990,20 +7341,22 @@ export function AccountPage({ onNavigate }: PageProps) {
         </PageSection>
       </div>
 
-      {/* 👇 MODAL DES MOYENS DE PAIEMENT (AJOUTER/MODIFIER) */}
-      <PaymentMethodModal 
-        isOpen={showPaymentModal} 
-        onClose={() => setShowPaymentModal(false)}
-        onSuccess={() => {
-          // Rafraîchir les infos de paiement après enregistrement
-          if (isHost) {
-            fetchPaymentInfo();
-          }
-        }}
-      />
+      {/* ✅ MODAL DES MOYENS DE PAIEMENT - UNIQUEMENT POUR LES HÔTES */}
+      {isHost && (
+        <PaymentMethodModal 
+          isOpen={showPaymentModal} 
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={() => {
+            // Rafraîchir les infos de paiement après enregistrement
+            if (isHost) {
+              fetchPaymentInfo();
+            }
+          }}
+        />
+      )}
 
-      {/* 👇 MODAL POUR VOIR LES INFORMATIONS DE PAIEMENT AVEC HISTORIQUE */}
-      {showPaymentInfoModal && paymentInfo && (
+      {/* ✅ MODAL POUR VOIR LES INFORMATIONS DE PAIEMENT - UNIQUEMENT POUR LES HÔTES */}
+      {isHost && showPaymentInfoModal && paymentInfo && (
         <PaymentInfoModal
           isOpen={showPaymentInfoModal}
           onClose={() => {
@@ -7873,7 +8226,6 @@ interface Route {
 // HostListingsPage.tsx - Version complète avec gestion des images
 
 
-
 interface Route {
   name: string;
   id?: string;
@@ -7890,20 +8242,7 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
   // État pour la modale de modification
   const [editingProperty, setEditingProperty] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    title: '',
-    description: '',
-    property_type: '',
-    city: '',
-    district: '',
-    address: '',
-    bedrooms: 0,
-    beds: 0,
-    bathrooms: 0,
-    max_guests: 0,
-    price_per_night: 0,
-    min_stay: 1,
-  });
+  const [editFormData, setEditFormData] = useState<any>({});
   
   // États pour les images
   const [newPhotos, setNewPhotos] = useState<File[]>([]);
@@ -7983,7 +8322,7 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     },
   });
 
-  // État pour la modale de confirmation de suppression
+  // États pour les modales de confirmation
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     show: boolean;
     propertyId: number | null;
@@ -7994,7 +8333,6 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     propertyTitle: '',
   });
 
-  // État pour la modale de confirmation de suppression de photo
   const [photoDeleteConfirmation, setPhotoDeleteConfirmation] = useState<{
     show: boolean;
     propertyId: number | null;
@@ -8007,7 +8345,6 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     photoUrl: '',
   });
 
-  // État pour la modale de confirmation de soumission
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
@@ -8065,12 +8402,13 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     return priceFCFA * XAF_TO_EUR;
   };
 
-  // Ouvrir la modale de modification
+  // Ouvrir la modale de modification avec TOUS les champs
   const handleEdit = (property: any) => {
     console.log('🖊️ Modification de la propriété:', property);
     
     setEditingProperty(property);
     setEditFormData({
+      // Informations de base
       title: property.title || '',
       description: property.description || '',
       property_type: property.property_type || '',
@@ -8083,6 +8421,70 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
       max_guests: property.max_guests || 0,
       price_per_night: property.price_per_night || 0,
       min_stay: property.min_stay || 1,
+      
+      // Équipements
+      has_wifi: property.has_wifi || false,
+      has_air_conditioning: property.has_air_conditioning || false,
+      has_generator: property.has_generator || false,
+      has_water_tank: property.has_water_tank || false,
+      has_parking: property.has_parking || false,
+      has_pool: property.has_pool || false,
+      has_kitchen: property.has_kitchen || false,
+      has_tv: property.has_tv || false,
+      has_breakfast: property.has_breakfast || false,
+      has_elevator: property.has_elevator || false,
+      
+      // Salle de bain
+      has_towels: property.has_towels || false,
+      has_toiletries: property.has_toiletries || false,
+      has_hair_dryer: property.has_hair_dryer || false,
+      has_hot_water: property.has_hot_water !== undefined ? property.has_hot_water : true,
+      has_bathtub: property.has_bathtub || false,
+      has_shower: property.has_shower !== undefined ? property.has_shower : true,
+      
+      // Chambre et linge
+      has_bed_linen: property.has_bed_linen !== undefined ? property.has_bed_linen : true,
+      has_pillows: property.has_pillows !== undefined ? property.has_pillows : true,
+      has_blankets: property.has_blankets !== undefined ? property.has_blankets : true,
+      has_hangers: property.has_hangers || false,
+      has_closet: property.has_closet || false,
+      has_iron: property.has_iron || false,
+      
+      // Cuisine
+      has_basic_kitchen_equipment: property.has_basic_kitchen_equipment || false,
+      has_dishes_cutlery: property.has_dishes_cutlery || false,
+      has_coffee_maker: property.has_coffee_maker || false,
+      has_kettle: property.has_kettle || false,
+      has_oven: property.has_oven || false,
+      has_microwave: property.has_microwave || false,
+      has_freezer: property.has_freezer || false,
+      has_refrigerator: property.has_refrigerator !== undefined ? property.has_refrigerator : true,
+      has_dining_table: property.has_dining_table || false,
+      has_wine_glasses: property.has_wine_glasses || false,
+      has_toaster: property.has_toaster || false,
+      has_blender: property.has_blender || false,
+      
+      // Divertissement
+      has_smart_tv: property.has_smart_tv || false,
+      has_streaming: property.has_streaming || false,
+      has_bluetooth_speaker: property.has_bluetooth_speaker || false,
+      has_books: property.has_books || false,
+      
+      // Sécurité
+      has_smoke_detector: property.has_smoke_detector || false,
+      has_first_aid_kit: property.has_first_aid_kit || false,
+      has_fire_extinguisher: property.has_fire_extinguisher || false,
+      
+      // Services
+      has_ironing_service: property.has_ironing_service || false,
+      has_free_parking: property.has_free_parking || false,
+      has_luggage_storage: property.has_luggage_storage || false,
+      
+      // Extérieur
+      has_balcony: property.has_balcony || false,
+      has_garden: property.has_garden || false,
+      has_bbq: property.has_bbq || false,
+      has_loungers: property.has_loungers || false,
     });
     setNewPhotos([]);
     setNewPhotoPreviews([]);
@@ -8119,7 +8521,7 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     setUploadingPhotos(true);
     
     try {
-      // 1. Mettre à jour les informations de base
+      // 1. Mettre à jour les informations de base et les équipements
       const updateData = {
         title: editFormData.title,
         description: editFormData.description,
@@ -8133,6 +8535,70 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
         max_guests: editFormData.max_guests,
         price_per_night: editFormData.price_per_night,
         min_stay: editFormData.min_stay,
+        
+        // Équipements
+        has_wifi: editFormData.has_wifi,
+        has_air_conditioning: editFormData.has_air_conditioning,
+        has_generator: editFormData.has_generator,
+        has_water_tank: editFormData.has_water_tank,
+        has_parking: editFormData.has_parking,
+        has_pool: editFormData.has_pool,
+        has_kitchen: editFormData.has_kitchen,
+        has_tv: editFormData.has_tv,
+        has_breakfast: editFormData.has_breakfast,
+        has_elevator: editFormData.has_elevator,
+        
+        // Salle de bain
+        has_towels: editFormData.has_towels,
+        has_toiletries: editFormData.has_toiletries,
+        has_hair_dryer: editFormData.has_hair_dryer,
+        has_hot_water: editFormData.has_hot_water,
+        has_bathtub: editFormData.has_bathtub,
+        has_shower: editFormData.has_shower,
+        
+        // Chambre et linge
+        has_bed_linen: editFormData.has_bed_linen,
+        has_pillows: editFormData.has_pillows,
+        has_blankets: editFormData.has_blankets,
+        has_hangers: editFormData.has_hangers,
+        has_closet: editFormData.has_closet,
+        has_iron: editFormData.has_iron,
+        
+        // Cuisine
+        has_basic_kitchen_equipment: editFormData.has_basic_kitchen_equipment,
+        has_dishes_cutlery: editFormData.has_dishes_cutlery,
+        has_coffee_maker: editFormData.has_coffee_maker,
+        has_kettle: editFormData.has_kettle,
+        has_oven: editFormData.has_oven,
+        has_microwave: editFormData.has_microwave,
+        has_freezer: editFormData.has_freezer,
+        has_refrigerator: editFormData.has_refrigerator,
+        has_dining_table: editFormData.has_dining_table,
+        has_wine_glasses: editFormData.has_wine_glasses,
+        has_toaster: editFormData.has_toaster,
+        has_blender: editFormData.has_blender,
+        
+        // Divertissement
+        has_smart_tv: editFormData.has_smart_tv,
+        has_streaming: editFormData.has_streaming,
+        has_bluetooth_speaker: editFormData.has_bluetooth_speaker,
+        has_books: editFormData.has_books,
+        
+        // Sécurité
+        has_smoke_detector: editFormData.has_smoke_detector,
+        has_first_aid_kit: editFormData.has_first_aid_kit,
+        has_fire_extinguisher: editFormData.has_fire_extinguisher,
+        
+        // Services
+        has_ironing_service: editFormData.has_ironing_service,
+        has_free_parking: editFormData.has_free_parking,
+        has_luggage_storage: editFormData.has_luggage_storage,
+        
+        // Extérieur
+        has_balcony: editFormData.has_balcony,
+        has_garden: editFormData.has_garden,
+        has_bbq: editFormData.has_bbq,
+        has_loungers: editFormData.has_loungers,
       };
       
       console.log('📤 Mise à jour de la propriété:', updateData);
@@ -8152,6 +8618,8 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
       }
       
       toast.success('Toutes les modifications ont été enregistrées');
+      setShowEditModal(false);
+      setEditingProperty(null);
       
     } catch (error) {
       console.error('❌ Erreur lors de l\'enregistrement:', error);
@@ -8165,18 +8633,41 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
     setShowSuccessModal(false);
   };
 
-  // Fonction pour vérifier si une propriété peut être modifiée
   const canEdit = (property: any) => {
     return property.status !== 'pending';
   };
 
-  // Fonction pour obtenir le message d'outil pour le bouton modifier
   const getEditButtonTooltip = (property: any) => {
     if (property.status === 'pending') {
       return 'Cette annonce est en cours de validation, vous ne pouvez pas la modifier pour le moment';
     }
     return 'Modifier l\'annonce';
   };
+
+  // Composant pour les cases à cocher d'équipements
+  const AmenityCheckbox = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) => (
+    <label className="flex items-start gap-3 p-2 rounded-lg hover:bg-[#f4fffe] transition cursor-pointer group">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 w-4 h-4 rounded border-[#e2f5f2] text-[#00c9a7] focus:ring-[#00c9a7] focus:ring-2 focus:ring-offset-2 cursor-pointer flex-shrink-0"
+      />
+      <span className="text-sm text-[#0F2940] font-medium group-hover:text-[#00c9a7] transition">{label}</span>
+    </label>
+  );
+
+  // Section d'équipements avec titre
+  const AmenitySection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="mb-4 last:mb-0">
+      <h4 className="text-sm font-semibold text-[#0F2940] mb-2 pb-1 border-b border-[#e2f5f2] flex items-center gap-2">
+        {title}
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
+        {children}
+      </div>
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -8260,220 +8751,512 @@ export function HostListingsPage({ onNavigate }: HostListingsPageProps) {
         </div>
       </div>
 
-      {/* MODALE DE MODIFICATION */}
+      {/* MODALE DE MODIFICATION COMPLÈTE */}
       {showEditModal && editingProperty && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeInUp">
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeInUp">
+            <div className="sticky top-0 z-10 bg-white border-b px-6 py-4 flex justify-between items-center">
               <h3 className="text-xl font-semibold text-[#0F2940]">Modifier l'annonce</h3>
               <button onClick={() => setShowEditModal(false)} className="p-2 rounded-full hover:bg-gray-100 transition"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Photos existantes */}
-              {editingProperty.photos && editingProperty.photos.length > 0 && (
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <label className="block text-sm font-medium text-gray-700">Photos actuelles</label>
-                    <p className="text-xs text-gray-400">Cliquez sur la poubelle pour supprimer une photo</p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {editingProperty.photos.map((photo: any) => {
-                      const imageUrl = getImageUrl(photo.photo_url || photo.photo_path);
-                      const isDeleting = deletingPhotoId === photo.id;
-                      
-                      return (
-                        <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                          <img src={imageUrl} alt="Photo" className="w-full h-28 object-cover" />
-                          <button
-                            onClick={() => confirmDeletePhoto(editingProperty.id, photo.id, imageUrl)}
-                            disabled={isDeleting}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md disabled:opacity-50"
-                            title="Supprimer cette photo"
-                          >
-                            {isDeleting ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                          </button>
-                          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full">
-                            Photo
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Ajout de nouvelles photos */}
+              {/* ===== PHOTOS ===== */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Ajouter des photos</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handlePhotoChange}
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00c9a7] file:text-white hover:file:bg-[#00b892] transition"
-                />
+                <h4 className="text-sm font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
+                  <Camera className="w-4 h-4" /> Photos
+                </h4>
                 
-                {newPhotoPreviews.length > 0 && (
-                  <div className="mt-4">
-                    <p className="text-xs font-medium text-gray-500 mb-2">Nouvelles photos à ajouter ({newPhotoPreviews.length})</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {newPhotoPreviews.map((preview, index) => (
-                        <div key={index} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                          <img src={preview} alt={`Nouvelle photo ${index + 1}`} className="w-full h-28 object-cover" />
-                          <button
-                            onClick={() => handleRemoveNewPhoto(index)}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                          <div className="absolute bottom-2 left-2 bg-[#00c9a7] text-white text-xs px-2 py-0.5 rounded-full">
-                            Nouvelle
+                {/* Photos existantes */}
+                {editingProperty.photos && editingProperty.photos.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm text-gray-600">Photos actuelles</label>
+                      <p className="text-xs text-gray-400">Cliquez sur la poubelle pour supprimer</p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {editingProperty.photos.map((photo: any) => {
+                        const imageUrl = getImageUrl(photo.photo_url || photo.photo_path);
+                        const isDeleting = deletingPhotoId === photo.id;
+                        
+                        return (
+                          <div key={photo.id} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square">
+                            <img src={imageUrl} alt="Photo" className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => confirmDeletePhoto(editingProperty.id, photo.id, imageUrl)}
+                              disabled={isDeleting}
+                              className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md disabled:opacity-50"
+                            >
+                              {isDeleting ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-2">Formats acceptés : JPG, PNG. Taille max : 5MB par photo.</p>
-              </div>
 
-              {/* Informations de base */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Ajout de nouvelles photos */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.title} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" 
+                  <label className="block text-sm text-gray-600 mb-2">Ajouter des photos</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotoChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#00c9a7] file:text-white hover:file:bg-[#00b892] transition"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété *</label>
-                  <select 
-                    value={editFormData.property_type} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, property_type: e.target.value }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]"
-                  >
-                    <option value="appartement">Appartement</option>
-                    <option value="chambre_habitant">Chambre chez l'habitant</option>
-                    <option value="villa">Villa</option>
-                    <option value="hotel">Hôtel</option>
-                    <option value="motel">Motel</option>
-                    <option value="auberge">Auberge</option>
-                    <option value="maison_hotes">Maison d'hôtes</option>
-                    <option value="ecolodge">Ecolodge</option>
-                    <option value="residence_hoteliere">Résidence hôtelière</option>
-                    <option value="immeuble_entier">Immeuble entier</option>
-                  </select>
+                  
+                  {newPhotoPreviews.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs font-medium text-gray-500 mb-2">Nouvelles photos ({newPhotoPreviews.length})</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        {newPhotoPreviews.map((preview, index) => (
+                          <div key={index} className="relative group rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square">
+                            <img src={preview} alt={`Nouvelle photo ${index + 1}`} className="w-full h-full object-cover" />
+                            <button
+                              onClick={() => handleRemoveNewPhoto(index)}
+                              className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full hover:bg-red-600 transition-all shadow-md"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                            <div className="absolute bottom-2 left-2 bg-[#00c9a7] text-white text-xs px-2 py-0.5 rounded-full">Nouvelle</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 mt-2">Formats : JPG, PNG. Max : 5MB par photo.</p>
                 </div>
               </div>
 
+              {/* ===== INFORMATIONS DE BASE ===== */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <textarea 
-                  value={editFormData.description} 
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))} 
-                  rows={4} 
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7]" 
-                />
-              </div>
+                <h4 className="text-sm font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
+                  <Home className="w-4 h-4" /> Informations générales
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Titre *</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.title} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, title: e.target.value }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Type de propriété *</label>
+                    <select 
+                      value={editFormData.property_type} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, property_type: e.target.value }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                    >
+                      <option value="appartement">Appartement</option>
+                      <option value="chambre_habitant">Chambre chez l'habitant</option>
+                      <option value="villa">Villa</option>
+                      <option value="hotel">Hôtel</option>
+                      <option value="motel">Motel</option>
+                      <option value="auberge">Auberge</option>
+                      <option value="maison_hotes">Maison d'hôtes</option>
+                      <option value="ecolodge">Ecolodge</option>
+                      <option value="residence_hoteliere">Résidence hôtelière</option>
+                      <option value="immeuble_entier">Immeuble entier</option>
+                    </select>
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.city} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                  <textarea 
+                    value={editFormData.description} 
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))} 
+                    rows={4} 
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quartier *</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.district} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, district: e.target.value }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
-                  <input 
-                    type="text" 
-                    value={editFormData.address} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label>
-                  <input 
-                    type="number" 
-                    min={0} 
-                    value={editFormData.bedrooms} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, bedrooms: parseInt(e.target.value) || 0 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lits</label>
-                  <input 
-                    type="number" 
-                    min={1} 
-                    value={editFormData.beds} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, beds: parseInt(e.target.value) || 1 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label>
-                  <input 
-                    type="number" 
-                    min={1} 
-                    value={editFormData.bathrooms} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, bathrooms: parseInt(e.target.value) || 1 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacité max</label>
-                  <input 
-                    type="number" 
-                    min={1} 
-                    value={editFormData.max_guests} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, max_guests: parseInt(e.target.value) || 1 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ville *</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.city} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, city: e.target.value }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quartier *</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.district} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, district: e.target.value }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                    <input 
+                      type="text" 
+                      value={editFormData.address} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, address: e.target.value }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
-                  <input 
-                    type="number" 
-                    min={0} 
-                    value={editFormData.price_per_night} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, price_per_night: parseInt(e.target.value) || 0 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
-                  <p className="text-xs text-gray-500 mt-1">≈ {convertToEuro(editFormData.price_per_night).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</p>
+              {/* ===== CAPACITÉ ET TARIFICATION ===== */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Capacité et tarification
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Chambres</label>
+                    <input 
+                      type="number" 
+                      min={0} 
+                      value={editFormData.bedrooms} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, bedrooms: parseInt(e.target.value) || 0 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lits</label>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      value={editFormData.beds} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, beds: parseInt(e.target.value) || 1 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Salles de bain</label>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      value={editFormData.bathrooms} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, bathrooms: parseInt(e.target.value) || 1 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Capacité max</label>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      value={editFormData.max_guests} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, max_guests: parseInt(e.target.value) || 1 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Séjour minimum (nuits)</label>
-                  <input 
-                    type="number" 
-                    min={1} 
-                    value={editFormData.min_stay} 
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, min_stay: parseInt(e.target.value) || 1 }))} 
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3" 
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Prix par nuit (FCFA)</label>
+                    <input 
+                      type="number" 
+                      min={0} 
+                      value={editFormData.price_per_night} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, price_per_night: parseInt(e.target.value) || 0 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                    <p className="text-xs text-gray-500 mt-1">≈ {convertToEuro(editFormData.price_per_night).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Séjour minimum (nuits)</label>
+                    <input 
+                      type="number" 
+                      min={1} 
+                      value={editFormData.min_stay} 
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, min_stay: parseInt(e.target.value) || 1 }))} 
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ===== ÉQUIPEMENTS ===== */}
+              <div>
+                <h4 className="text-sm font-semibold text-[#0F2940] mb-3 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#00c9a7]" /> Équipements
+                </h4>
+                <div className="rounded-xl border border-[#e2f5f2] bg-[#f4fffe] p-4">
+                  {/* Équipements de base */}
+                  <AmenitySection title="🏠 Équipements de base">
+                    <AmenityCheckbox 
+                      label="Wi-Fi"
+                      checked={editFormData.has_wifi}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_wifi: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Climatisation"
+                      checked={editFormData.has_air_conditioning}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_air_conditioning: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Générateur"
+                      checked={editFormData.has_generator}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_generator: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Citerne d'eau"
+                      checked={editFormData.has_water_tank}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_water_tank: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Parking"
+                      checked={editFormData.has_parking}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_parking: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Piscine"
+                      checked={editFormData.has_pool}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_pool: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Cuisine équipée"
+                      checked={editFormData.has_kitchen}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_kitchen: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Télévision"
+                      checked={editFormData.has_tv}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_tv: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Petit-déjeuner"
+                      checked={editFormData.has_breakfast}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_breakfast: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Ascenseur"
+                      checked={editFormData.has_elevator}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_elevator: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Salle de bain */}
+                  <AmenitySection title="🛁 Salle de bain">
+                    <AmenityCheckbox 
+                      label="Serviettes"
+                      checked={editFormData.has_towels}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_towels: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Gel douche / Shampoing"
+                      checked={editFormData.has_toiletries}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_toiletries: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Sèche-cheveux"
+                      checked={editFormData.has_hair_dryer}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_hair_dryer: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Eau chaude"
+                      checked={editFormData.has_hot_water}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_hot_water: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Baignoire"
+                      checked={editFormData.has_bathtub}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_bathtub: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Douche"
+                      checked={editFormData.has_shower}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_shower: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Chambre et linge */}
+                  <AmenitySection title="🛏️ Chambre et linge">
+                    <AmenityCheckbox 
+                      label="Draps"
+                      checked={editFormData.has_bed_linen}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_bed_linen: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Oreillers"
+                      checked={editFormData.has_pillows}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_pillows: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Couvertures"
+                      checked={editFormData.has_blankets}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_blankets: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Cintres"
+                      checked={editFormData.has_hangers}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_hangers: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Espace de rangement"
+                      checked={editFormData.has_closet}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_closet: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Fer à repasser"
+                      checked={editFormData.has_iron}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_iron: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Cuisine */}
+                  <AmenitySection title="🍳 Cuisine">
+                    <AmenityCheckbox 
+                      label="Équipement de base"
+                      checked={editFormData.has_basic_kitchen_equipment}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_basic_kitchen_equipment: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Vaisselle et couverts"
+                      checked={editFormData.has_dishes_cutlery}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_dishes_cutlery: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Cafetière"
+                      checked={editFormData.has_coffee_maker}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_coffee_maker: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Bouilloire"
+                      checked={editFormData.has_kettle}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_kettle: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Four"
+                      checked={editFormData.has_oven}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_oven: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Micro-ondes"
+                      checked={editFormData.has_microwave}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_microwave: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Congélateur"
+                      checked={editFormData.has_freezer}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_freezer: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Réfrigérateur"
+                      checked={editFormData.has_refrigerator}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_refrigerator: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Table à manger"
+                      checked={editFormData.has_dining_table}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_dining_table: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Verres à vin"
+                      checked={editFormData.has_wine_glasses}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_wine_glasses: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Grille-pain"
+                      checked={editFormData.has_toaster}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_toaster: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Blender"
+                      checked={editFormData.has_blender}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_blender: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Divertissement */}
+                  <AmenitySection title="📺 Divertissement">
+                    <AmenityCheckbox 
+                      label="Smart TV"
+                      checked={editFormData.has_smart_tv}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_smart_tv: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Streaming"
+                      checked={editFormData.has_streaming}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_streaming: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Enceinte Bluetooth"
+                      checked={editFormData.has_bluetooth_speaker}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_bluetooth_speaker: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Livres"
+                      checked={editFormData.has_books}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_books: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Sécurité */}
+                  <AmenitySection title="🔒 Sécurité">
+                    <AmenityCheckbox 
+                      label="Détecteur de fumée"
+                      checked={editFormData.has_smoke_detector}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_smoke_detector: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Trousse de premiers secours"
+                      checked={editFormData.has_first_aid_kit}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_first_aid_kit: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Extincteur"
+                      checked={editFormData.has_fire_extinguisher}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_fire_extinguisher: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Services */}
+                  <AmenitySection title="🤝 Services">
+                    <AmenityCheckbox 
+                      label="Service de repassage"
+                      checked={editFormData.has_ironing_service}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_ironing_service: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Parking gratuit"
+                      checked={editFormData.has_free_parking}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_free_parking: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Local à bagages"
+                      checked={editFormData.has_luggage_storage}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_luggage_storage: value }))}
+                    />
+                  </AmenitySection>
+
+                  {/* Extérieur */}
+                  <AmenitySection title="🌳 Extérieur">
+                    <AmenityCheckbox 
+                      label="Balcon / Terrasse"
+                      checked={editFormData.has_balcony}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_balcony: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Jardin"
+                      checked={editFormData.has_garden}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_garden: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Barbecue"
+                      checked={editFormData.has_bbq}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_bbq: value }))}
+                    />
+                    <AmenityCheckbox 
+                      label="Transats"
+                      checked={editFormData.has_loungers}
+                      onChange={(value) => setEditFormData(prev => ({ ...prev, has_loungers: value }))}
+                    />
+                  </AmenitySection>
                 </div>
               </div>
             </div>
@@ -10738,13 +11521,16 @@ export function FavoritesPage({ onNavigate }: PageProps) {
 }
 // ==================== PUBLISH LISTING PAGE ====================
 
-export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+interface PublishListingPageProps {
+  onNavigate?: (route: any) => void;
+}
+
+export function PublishListingPage({ onNavigate }: PublishListingPageProps) {
   const [isHost, setIsHost] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   
-  // État pour la devise
+  // ✅ État pour la devise - juste pour l'affichage
   const [currency, setCurrency] = useState<'XAF' | 'EUR'>('XAF');
-  const [priceInEuro, setPriceInEuro] = useState('');
   
   const initialForm = {
     title: '',
@@ -10757,7 +11543,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     beds: '1',
     bathrooms: '1',
     max_guests: '1',
-    price_per_night: '0',
+    price_per_night: '0', // ✅ TOUJOURS en FCFA
     min_stay: '1',
     // Équipements de base
     has_wifi: true,
@@ -10816,7 +11602,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_bbq: false,
     has_pool: false,
     has_loungers: false,
-    // Nouveaux équipements d'après les images
+    // Nouveaux équipements
     has_washing_machine: false,
     has_dryer: false,
     has_clothes_rack: false,
@@ -10840,7 +11626,6 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
     has_expresso_machine: false,
     has_extra_pillows_blankets: false,
     has_cotton_linen: false,
-    has_hangers: false,
     has_ironing_board: false,
   };
 
@@ -10850,53 +11635,24 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Taux de conversion exacts (sans arrondis flottants)
-  // 1 EUR = 655.957 XAF (taux fixe officiel)
-  const XAF_TO_EUR = 1 / 655.957;
+  // ✅ Taux de conversion pour l'affichage uniquement
   const EUR_TO_XAF = 655.957;
 
-  // Fonctions de conversion avec préservation de la valeur exacte
+  // ✅ Fonction de conversion pour l'affichage
   const convertXAFtoEUR = (xaf: number): string => {
+    if (!xaf || xaf <= 0) return '0';
     const eur = xaf / EUR_TO_XAF;
     return eur.toFixed(0);
   };
 
-  const convertEURtoXAF = (eur: number): number => {
-    return Math.round(eur * EUR_TO_XAF);
-  };
-
-  // Gestionnaire pour le changement de devise
+  // ✅ Gestionnaire pour le changement de devise (NE CONVERTIT PAS le prix)
   const handleCurrencyChange = (newCurrency: 'XAF' | 'EUR') => {
-    const currentXAF = parseInt(formData.price_per_night) || 0;
-    
-    if (newCurrency === 'EUR') {
-      // Convertir XAF -> EUR pour affichage
-      const eurValue = convertXAFtoEUR(currentXAF);
-      setPriceInEuro(eurValue);
-    } else {
-      // Convertir EUR -> XAF pour stockage
-      const currentEUR = parseInt(priceInEuro) || 0;
-      const xafValue = convertEURtoXAF(currentEUR);
-      setFormData(prev => ({ ...prev, price_per_night: xafValue.toString() }));
-    }
     setCurrency(newCurrency);
   };
 
-  // Gestionnaire pour le changement de prix en XAF
-  const handleXAFPriceChange = (value: string) => {
+  // ✅ Gestionnaire pour le changement de prix (TOUJOURS en FCFA)
+  const handlePriceChange = (value: string) => {
     const xafPrice = parseInt(value) || 0;
-    setFormData(prev => ({ ...prev, price_per_night: xafPrice.toString() }));
-    // Mettre à jour l'affichage Euro
-    const eurValue = convertXAFtoEUR(xafPrice);
-    setPriceInEuro(eurValue);
-  };
-
-  // Gestionnaire pour le changement de prix en EUR
-  const handleEURPriceChange = (value: string) => {
-    const eurPrice = parseInt(value) || 0;
-    setPriceInEuro(eurPrice.toString());
-    // Convertir en XAF pour stockage
-    const xafPrice = convertEURtoXAF(eurPrice);
     setFormData(prev => ({ ...prev, price_per_night: xafPrice.toString() }));
   };
 
@@ -10967,25 +11723,75 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
         throw new Error('Veuillez sélectionner au moins 3 photos pour l\'annonce.');
       }
 
+      // ✅ Vérifier le prix
+      const pricePerNight = parseFloat(formData.price_per_night);
+      if (isNaN(pricePerNight) || pricePerNight <= 0) {
+        throw new Error('Veuillez entrer un prix valide (minimum 5000 FCFA)');
+      }
+
+      // ✅ Construire le payload - prix TOUJOURS en FCFA
       const payload = {
-        title: formData.title,
-        description: formData.description,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         property_type: formData.property_type,
-        city: formData.city,
-        district: formData.district,
-        address: formData.address,
+        city: formData.city.trim(),
+        district: formData.district.trim(),
+        address: formData.address?.trim() || '',
         bedrooms: parseInt(formData.bedrooms, 10),
         beds: parseInt(formData.beds, 10),
         bathrooms: parseInt(formData.bathrooms, 10),
         max_guests: parseInt(formData.max_guests, 10),
-        price_per_night: parseFloat(formData.price_per_night),
+        price_per_night: pricePerNight, // ✅ TOUJOURS en FCFA
         cleaning_fee: 0,
         min_stay: parseInt(formData.min_stay, 10),
       };
 
+      console.log('💰 Prix envoyé (FCFA):', payload.price_per_night);
+      console.log('💰 Équivalent Euro:', convertXAFtoEUR(payload.price_per_night));
+
+      // ✅ Vérifier les champs requis
+      const requiredFields = ['title', 'description', 'property_type', 'city', 'district', 'bedrooms', 'beds', 'bathrooms', 'max_guests', 'price_per_night', 'min_stay'];
+      const missingFields = requiredFields.filter(field => {
+        const value = payload[field as keyof typeof payload];
+        return value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value));
+      });
+
+      if (missingFields.length > 0) {
+        throw new Error(`Champs manquants ou invalides: ${missingFields.join(', ')}`);
+      }
+
       console.log('📤 Création de la propriété avec prix:', payload.price_per_night);
       
-      const propertyResponse = await hostService.createProperty(payload);
+      // ✅ Créer la propriété
+      let propertyResponse;
+      try {
+        propertyResponse = await hostService.createProperty(payload);
+      } catch (apiError: any) {
+        console.error('❌ Erreur API détaillée:', {
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+        });
+        
+        if (apiError.response?.status === 422) {
+          const errors = apiError.response?.data?.errors;
+          const message = apiError.response?.data?.message || 'Données invalides';
+          
+          if (errors) {
+            const errorList = Object.entries(errors).map(([field, msgs]) => {
+              const fieldName = field.replace(/_/g, ' ');
+              const messages = Array.isArray(msgs) ? msgs.join(', ') : msgs;
+              return `• ${fieldName}: ${messages}`;
+            }).join('\n');
+            
+            toast.error(`❌ ${message}\n${errorList}`);
+          } else {
+            toast.error(`❌ ${message}`);
+          }
+          throw apiError;
+        }
+        throw apiError;
+      }
       
       let cleanResponse = propertyResponse;
       if (typeof cleanResponse === 'string') {
@@ -10998,94 +11804,128 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
       
       let propertyId = cleanResponse?.data?.id || cleanResponse?.id || null;
       
+      console.log('📥 Réponse de création:', cleanResponse);
+      console.log('🏠 Property ID:', propertyId);
+      
       if (!propertyId) {
         throw new Error('Impossible de récupérer l\'ID de la propriété.');
       }
       
-      await hostService.addPhotos(propertyId, photos);
+      // ✅ Ajouter les photos
+      if (photos.length > 0) {
+        try {
+          await hostService.addPhotos(propertyId, photos);
+          console.log(`📸 ${photos.length} photos ajoutées`);
+        } catch (photoError) {
+          console.error('❌ Erreur lors de l\'ajout des photos:', photoError);
+          toast.warning('La propriété a été créée mais les photos n\'ont pas pu être ajoutées.');
+        }
+      }
       
-      const amenities = {
-        // Équipements existants
-        has_wifi: formData.has_wifi,
-        has_air_conditioning: formData.has_air_conditioning,
-        has_generator: formData.has_generator,
-        has_water_tank: formData.has_water_tank,
-        has_parking: formData.has_parking,
-        has_kitchen: formData.has_kitchen,
-        has_tv: formData.has_tv,
-        has_towels: formData.has_towels,
-        has_toiletries: formData.has_toiletries,
-        has_hair_dryer: formData.has_hair_dryer,
-        has_hot_water: formData.has_hot_water,
-        has_bathtub: formData.has_bathtub,
-        has_shower: formData.has_shower,
-        has_bed_linen: formData.has_bed_linen,
-        has_pillows: formData.has_pillows,
-        has_blankets: formData.has_blankets,
-        has_hangers: formData.has_hangers,
-        has_closet: formData.has_closet,
-        has_iron: formData.has_iron,
-        has_basic_kitchen_equipment: formData.has_basic_kitchen_equipment,
-        has_dishes_cutlery: formData.has_dishes_cutlery,
-        has_coffee_maker: formData.has_coffee_maker,
-        has_kettle: formData.has_kettle,
-        has_oven: formData.has_oven,
-        has_microwave: formData.has_microwave,
-        has_freezer: formData.has_freezer,
-        has_refrigerator: formData.has_refrigerator,
-        has_dining_table: formData.has_dining_table,
-        has_wine_glasses: formData.has_wine_glasses,
-        has_toaster: formData.has_toaster,
-        has_blender: formData.has_blender,
-        has_smart_tv: formData.has_smart_tv,
-        has_streaming: formData.has_streaming,
-        has_bluetooth_speaker: formData.has_bluetooth_speaker,
-        has_books: formData.has_books,
-        has_smoke_detector: formData.has_smoke_detector,
-        has_first_aid_kit: formData.has_first_aid_kit,
-        has_fire_extinguisher: formData.has_fire_extinguisher,
-        has_cctv: formData.has_cctv,
-        has_electric_fence: formData.has_electric_fence,
-        has_breakfast: formData.has_breakfast,
-        has_housekeeping: formData.has_housekeeping,
-        has_ironing_service: formData.has_ironing_service,
-        has_airport_shuttle: formData.has_airport_shuttle,
-        has_free_parking: formData.has_free_parking,
-        has_luggage_storage: formData.has_luggage_storage,
-        has_balcony: formData.has_balcony,
-        has_garden: formData.has_garden,
-        has_bbq: formData.has_bbq,
-        has_pool: formData.has_pool,
-        has_loungers: formData.has_loungers,
-        // Nouveaux équipements
-        has_washing_machine: formData.has_washing_machine,
-        has_dryer: formData.has_dryer,
-        has_clothes_rack: formData.has_clothes_rack,
-        has_portable_fan: formData.has_portable_fan,
-        has_central_heating: formData.has_central_heating,
-        has_dedicated_workspace: formData.has_dedicated_workspace,
-        has_self_check_in: formData.has_self_check_in,
-        has_key_box: formData.has_key_box,
-        has_keys_by_host: formData.has_keys_by_host,
-        has_exterior_cameras: formData.has_exterior_cameras,
-        has_elevator: formData.has_elevator,
-        has_ev_charging: formData.has_ev_charging,
-        has_laundry_nearby: formData.has_laundry_nearby,
-        has_outdoor_dining: formData.has_outdoor_dining,
-        has_free_parking_on_site: formData.has_free_parking_on_site,
-        has_shampoo: formData.has_shampoo,
-        has_body_soap: formData.has_body_soap,
-        has_shower_gel: formData.has_shower_gel,
-        has_cleaning_products: formData.has_cleaning_products,
-        has_coffee: formData.has_coffee,
-        has_expresso_machine: formData.has_expresso_machine,
-        has_extra_pillows_blankets: formData.has_extra_pillows_blankets,
-        has_cotton_linen: formData.has_cotton_linen,
-        has_ironing_board: formData.has_ironing_board,
+      // ✅ Mettre à jour les équipements
+      const amenitiesData = {
+        // Équipements de base
+        has_generator: formData.has_generator || false,
+        has_water_tank: formData.has_water_tank || false,
+        has_air_conditioning: formData.has_air_conditioning || false,
+        has_wifi: formData.has_wifi || false,
+        has_parking: formData.has_parking || false,
+        has_pool: formData.has_pool || false,
+        has_kitchen: formData.has_kitchen || false,
+        has_tv: formData.has_tv || false,
+        
+        // Salle de bain
+        has_towels: formData.has_towels || false,
+        has_toiletries: formData.has_toiletries || false,
+        has_hair_dryer: formData.has_hair_dryer || false,
+        has_hot_water: formData.has_hot_water || false,
+        has_bathtub: formData.has_bathtub || false,
+        has_shower: formData.has_shower || false,
+        
+        // Chambre et linge
+        has_bed_linen: formData.has_bed_linen || false,
+        has_pillows: formData.has_pillows || false,
+        has_blankets: formData.has_blankets || false,
+        has_hangers: formData.has_hangers || false,
+        has_closet: formData.has_closet || false,
+        has_iron: formData.has_iron || false,
+        
+        // Cuisine
+        has_basic_kitchen_equipment: formData.has_basic_kitchen_equipment || false,
+        has_dishes_cutlery: formData.has_dishes_cutlery || false,
+        has_coffee_maker: formData.has_coffee_maker || false,
+        has_kettle: formData.has_kettle || false,
+        has_oven: formData.has_oven || false,
+        has_microwave: formData.has_microwave || false,
+        has_freezer: formData.has_freezer || false,
+        has_refrigerator: formData.has_refrigerator || false,
+        has_dining_table: formData.has_dining_table || false,
+        has_wine_glasses: formData.has_wine_glasses || false,
+        has_toaster: formData.has_toaster || false,
+        has_blender: formData.has_blender || false,
+        
+        // Divertissement
+        has_smart_tv: formData.has_smart_tv || false,
+        has_streaming: formData.has_streaming || false,
+        has_bluetooth_speaker: formData.has_bluetooth_speaker || false,
+        has_books: formData.has_books || false,
+        
+        // Sécurité
+        has_smoke_detector: formData.has_smoke_detector || false,
+        has_first_aid_kit: formData.has_first_aid_kit || false,
+        has_fire_extinguisher: formData.has_fire_extinguisher || false,
+        has_cctv: formData.has_cctv || false,
+        has_electric_fence: formData.has_electric_fence || false,
+        
+        // Services
+        has_breakfast: formData.has_breakfast || false,
+        has_ironing_service: formData.has_ironing_service || false,
+        has_free_parking: formData.has_free_parking || false,
+        has_luggage_storage: formData.has_luggage_storage || false,
+        
+        // Extérieur
+        has_balcony: formData.has_balcony || false,
+        has_garden: formData.has_garden || false,
+        has_bbq: formData.has_bbq || false,
+        has_loungers: formData.has_loungers || false,
       };
-      await hostService.updateAmenities(propertyId, amenities);
+
+      console.log('📤 Équipements à envoyer:', amenitiesData);
+
+      try {
+        await hostService.updateAmenities(propertyId, amenitiesData);
+        console.log('✅ Équipements mis à jour avec succès');
+      } catch (amenitiesError: any) {
+        console.error('❌ Erreur lors de la mise à jour des équipements:', amenitiesError);
+        
+        if (amenitiesError.response?.status === 422) {
+          console.error('📋 Détails de l\'erreur 422:', amenitiesError.response?.data);
+          const errors = amenitiesError.response?.data?.errors;
+          if (errors) {
+            const errorList = Object.entries(errors).map(([field, msgs]) => {
+              return `• ${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`;
+            }).join('\n');
+            toast.warning(`⚠️ Les équipements n'ont pas pu être sauvegardés:\n${errorList}`);
+          }
+        }
+      }
       
-      await hostService.submitForReview(propertyId);
+      // ✅ Soumettre pour révision
+      try {
+        await hostService.submitForReview(propertyId);
+        console.log('✅ Soumis pour révision');
+      } catch (submitError: any) {
+        console.error('❌ Erreur lors de la soumission:', submitError);
+        
+        if (submitError.response?.status === 422) {
+          const missingFields = submitError.response?.data?.missing_fields;
+          if (missingFields && missingFields.length > 0) {
+            toast.warning(`⚠️ Champs manquants: ${missingFields.join(', ')}`);
+          } else {
+            toast.warning('La propriété a été créée mais n\'a pas pu être soumise pour révision.');
+          }
+        }
+      }
       
       toast.success('Votre annonce a bien été soumise.');
       setFormData(initialForm);
@@ -11098,19 +11938,27 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
       
       let errorMessage = 'Erreur lors de la soumission';
       
-      if (error.response?.status === 401) {
+      if (error.response?.status === 422) {
+        const errors = error.response?.data?.errors;
+        const message = error.response?.data?.message || 'Données invalides';
+        
+        if (errors) {
+          const errorList = Object.entries(errors).map(([field, msgs]) => {
+            const fieldName = field.replace(/_/g, ' ');
+            const messages = Array.isArray(msgs) ? msgs.join(', ') : msgs;
+            return `• ${fieldName}: ${messages}`;
+          }).join('\n');
+          
+          toast.error(`❌ ${message}\n${errorList}`);
+        } else {
+          toast.error(`❌ ${message}`);
+        }
+      } else if (error.response?.status === 401) {
         errorMessage = 'Votre session a expiré. Veuillez vous reconnecter.';
+        toast.error(errorMessage);
         setTimeout(() => onNavigate?.({ name: 'auth' }), 2000);
       } else if (error.response?.status === 403) {
         errorMessage = error.response?.data?.message || 'Vous n\'avez pas les droits pour créer une annonce.';
-        toast.error(errorMessage);
-      } else if (error.response?.status === 422) {
-        const errors = error.response?.data?.errors;
-        if (errors) {
-          errorMessage = Object.values(errors).flat().join(', ');
-        } else {
-          errorMessage = error.response?.data?.message || 'Données invalides';
-        }
         toast.error(errorMessage);
       } else {
         errorMessage = error?.response?.data?.message || error?.message || 'Erreur lors de la soumission';
@@ -11290,12 +12138,12 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                 ))}
               </div>
 
-              {/* Tarification avec double devise */}
+              {/* ✅ Tarification avec double devise - AFFICHAGE SEULEMENT */}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-[#0F2940]">Prix par nuit</label>
                   
-                  {/* Sélecteur de devise */}
+                  {/* Sélecteur de devise - change juste l'affichage */}
                   <div className="flex gap-2 mb-3">
                     <button
                       type="button"
@@ -11321,40 +12169,28 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                     </button>
                   </div>
                   
-                  {/* Champ de prix selon la devise sélectionnée */}
-                  {currency === 'XAF' ? (
-                    <div>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1000}
-                        value={formData.price_per_night}
-                        onChange={(e) => handleXAFPriceChange(e.target.value)}
-                        className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                        placeholder="Prix en FCFA"
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-2">
-                        ≈ {priceInEuro || convertXAFtoEUR(parseInt(formData.price_per_night) || 0)} €
-                      </p>
+                  {/* ✅ Champ de prix - TOUJOURS en FCFA pour le stockage */}
+                  <div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={formData.price_per_night}
+                      onChange={(e) => handlePriceChange(e.target.value)}
+                      className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+                      placeholder="Prix en FCFA"
+                      required
+                    />
+                    {/* ✅ AFFICHAGE de l'équivalent Euro */}
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-xs text-gray-500">
+                        ≈ {convertXAFtoEUR(parseInt(formData.price_per_night) || 0)} €
+                      </span>
+                      <span className="text-xs text-[#00c9a7] font-medium">
+                        💰 Le prix est stocké en FCFA
+                      </span>
                     </div>
-                  ) : (
-                    <div>
-                      <input
-                        type="number"
-                        min={0}
-                        step={5}
-                        value={priceInEuro}
-                        onChange={(e) => handleEURPriceChange(e.target.value)}
-                        className="w-full rounded-3xl border border-[#e2f5f2] px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-                        placeholder="Prix en Euros"
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-2">
-                        ≈ {convertEURtoXAF(parseInt(priceInEuro) || 0).toLocaleString('fr-FR')} FCFA
-                      </p>
-                    </div>
-                  )}
+                  </div>
                   
                   <p className="text-xs text-gray-500 mt-1">
                     Une commission de 10% sera appliquée sur chaque réservation
@@ -11374,7 +12210,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                 </div>
               </div>
 
-              {/* Équipements disponibles - NOUVELLE SECTION COMPLÈTE */}
+              {/* Équipements disponibles */}
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-6">
                 <h3 className="text-lg font-semibold text-[#0F2940] mb-2 flex items-center gap-2">
                   <Home className="w-5 h-5 text-[#00c9a7]" />
@@ -11716,7 +12552,7 @@ export function PublishListingPage({ onNavigate }: { onNavigate?: (route: any) =
                   />
                   <AmenityCheckbox 
                     label="Détecteur de monoxyde de carbone"
-                    checked={formData.has_smoke_detector} // On utilise le même champ
+                    checked={formData.has_smoke_detector}
                     onChange={(value) => handleInputChange('has_smoke_detector', value)}
                   />
                   <AmenityCheckbox 
