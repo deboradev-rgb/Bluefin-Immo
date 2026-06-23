@@ -2971,78 +2971,88 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     ];
   };
 
-  const handleReservationClick = () => {
-    if (availabilityStatus !== 'available') {
-        alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
-        return;
-    }
+ const handleReservationClick = () => {
+  if (availabilityStatus !== 'available') {
+    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+    return;
+  }
 
-    const token = localStorage.getItem('token');
-    const isLoggedIn = !!token;
+  const token = localStorage.getItem('token');
+  const isLoggedIn = !!token;
 
-    if (!isLoggedIn) {
-        localStorage.setItem('redirect_intent', 'booking');
-        localStorage.setItem('redirect_property_id', property.id.toString());
-        localStorage.setItem('redirect_property_title', property.title);
-        localStorage.setItem('redirect_property_location', property.location);
-        localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-        localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-        localStorage.setItem('temp_booking_check_in', checkIn);
-        localStorage.setItem('temp_booking_check_out', checkOut);
-        localStorage.setItem('temp_booking_guests', totalGuests.toString());
-        localStorage.setItem('temp_booking_nights', nights.toString());
-        
-        if (onNavigate) {
-            onNavigate({ name: 'auth', search: 'redirect=booking' });
-        } else {
-            window.location.href = '/auth?redirect=booking';
-        }
+  if (!isLoggedIn) {
+    localStorage.setItem('redirect_intent', 'booking');
+    localStorage.setItem('redirect_property_id', property.id.toString());
+    localStorage.setItem('redirect_property_title', property.title);
+    localStorage.setItem('redirect_property_location', property.location);
+    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+    localStorage.setItem('temp_booking_check_in', checkIn);
+    localStorage.setItem('temp_booking_check_out', checkOut);
+    localStorage.setItem('temp_booking_guests', totalGuests.toString());
+    localStorage.setItem('temp_booking_nights', nights.toString());
+    // ✅ Sauvegarder les détails des voyageurs
+    localStorage.setItem('temp_booking_adults', adults.toString());
+    localStorage.setItem('temp_booking_children', children.toString());
+    localStorage.setItem('temp_booking_babies', babies.toString());
+    
+    if (onNavigate) {
+      onNavigate({ name: 'auth', search: 'redirect=booking' });
     } else {
-        console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
-        
-        const userStr = localStorage.getItem('user');
-        let userData = null;
-        try {
-            userData = userStr ? JSON.parse(userStr) : null;
-        } catch (e) {
-            console.error('Erreur parsing user:', e);
-        }
-        
-        const bookingData = {
-            property_id: property.id,
-            check_in: checkIn,
-            check_out: checkOut,
-            guests: totalGuests,
-            nights: nights,
-            guest_details: {
-                full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
-                email: userData?.email || '',
-                phone: userData?.phone || '',
-                address: ''
-            },
-            totalAmount: total,
-            paymentAmount: Math.floor(total * 0.5)
-        };
-        
-        sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-        
-        const params = new URLSearchParams();
-        params.set('check_in', checkIn);
-        params.set('check_out', checkOut);
-        params.set('guests', totalGuests.toString());
-        params.set('nights', nights.toString());
-        
-        if (onNavigate) {
-            onNavigate({ 
-                name: 'booking', 
-                id: property.id.toString(),
-                search: `?${params.toString()}`
-            });
-        } else {
-            window.location.href = `/booking/${property.id}?${params.toString()}`;
-        }
+      window.location.href = '/auth?redirect=booking';
     }
-  };
+  } else {
+    console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
+    
+    const userStr = localStorage.getItem('user');
+    let userData = null;
+    try {
+      userData = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      console.error('Erreur parsing user:', e);
+    }
+    
+    const bookingData = {
+      property_id: property.id,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests: totalGuests,
+      adults: adults,        // ✅ Ajout des adultes
+      children: children,    // ✅ Ajout des enfants
+      babies: babies,        // ✅ Ajout des bébés
+      nights: nights,
+      guest_details: {
+        full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+        email: userData?.email || '',
+        phone: userData?.phone || '',
+        address: ''
+      },
+      totalAmount: total,
+      paymentAmount: Math.floor(total * 0.5)
+    };
+    
+    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+    
+    const params = new URLSearchParams();
+    params.set('check_in', checkIn);
+    params.set('check_out', checkOut);
+    params.set('guests', totalGuests.toString());
+    params.set('nights', nights.toString());
+    params.set('adults', adults.toString());      // ✅ Ajout dans l'URL
+    params.set('children', children.toString());  // ✅ Ajout dans l'URL
+    params.set('babies', babies.toString());      // ✅ Ajout dans l'URL
+    
+    if (onNavigate) {
+      onNavigate({ 
+        name: 'booking', 
+        id: property.id.toString(),
+        search: `?${params.toString()}`
+      });
+    } else {
+      window.location.href = `/booking/${property.id}?${params.toString()}`;
+    }
+  }
+};
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -4000,6 +4010,7 @@ interface BookingData {
   special_requests?: string;
 }
 
+
 export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const params = useParams<{ id: string }>();
   const propertyId = id || params.id;
@@ -4030,6 +4041,11 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const [editedBabies, setEditedBabies] = useState(0);
   const [showGuestDetails, setShowGuestDetails] = useState(false);
   
+  // États pour les valeurs actuelles des voyageurs
+  const [currentAdults, setCurrentAdults] = useState(1);
+  const [currentChildren, setCurrentChildren] = useState(0);
+  const [currentBabies, setCurrentBabies] = useState(0);
+  
   // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
@@ -4043,9 +4059,12 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         setBookingFormData(parsed);
         setEditedCheckIn(parsed.check_in || '');
         setEditedCheckOut(parsed.check_out || '');
-        setEditedGuests(parsed.guests || 1);
+        setEditedGuests(parsed.adults || parsed.guests || 1);
         setEditedChildren(parsed.children || 0);
         setEditedBabies(parsed.babies || 0);
+        setCurrentAdults(parsed.adults || parsed.guests || 1);
+        setCurrentChildren(parsed.children || 0);
+        setCurrentBabies(parsed.babies || 0);
         console.log('📋 Données du formulaire chargées:', parsed);
       } catch (e) {
         console.error('Erreur lors du chargement des données:', e);
@@ -4060,6 +4079,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const initialCheckIn = searchParams.get('check_in') || bookingFormData?.check_in || '';
   const initialCheckOut = searchParams.get('check_out') || bookingFormData?.check_out || '';
   const initialGuests = searchParams.get('guests') ? parseInt(searchParams.get('guests')!) : (bookingFormData?.guests || 1);
+  const initialAdults = searchParams.get('adults') ? parseInt(searchParams.get('adults')!) : (bookingFormData?.adults || initialGuests);
+  const initialChildren = searchParams.get('children') ? parseInt(searchParams.get('children')!) : (bookingFormData?.children || 0);
+  const initialBabies = searchParams.get('babies') ? parseInt(searchParams.get('babies')!) : (bookingFormData?.babies || 0);
   const initialNights = searchParams.get('nights') ? parseInt(searchParams.get('nights')!) : (bookingFormData?.nights || 0);
   
   const [currentCheckIn, setCurrentCheckIn] = useState(initialCheckIn);
@@ -4073,6 +4095,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       setCurrentCheckOut(bookingFormData.check_out || initialCheckOut);
       setCurrentGuests(bookingFormData.guests || initialGuests);
       setCurrentNights(bookingFormData.nights || initialNights);
+      setCurrentAdults(bookingFormData.adults || initialAdults || bookingFormData.guests || initialGuests);
+      setCurrentChildren(bookingFormData.children || initialChildren || 0);
+      setCurrentBabies(bookingFormData.babies || initialBabies || 0);
     }
   }, [bookingFormData]);
 
@@ -4178,12 +4203,16 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       setCurrentCheckOut(editedCheckOut);
       setCurrentGuests(totalTravelers);
       setCurrentNights(newNights);
+      setCurrentAdults(editedGuests);
+      setCurrentChildren(editedChildren);
+      setCurrentBabies(editedBabies);
       
       const updatedBookingData = {
         ...bookingFormData,
         check_in: editedCheckIn,
         check_out: editedCheckOut,
         guests: totalTravelers,
+        adults: editedGuests,
         children: editedChildren,
         babies: editedBabies,
         nights: newNights
@@ -4210,8 +4239,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       check_in: currentCheckIn,
       check_out: currentCheckOut,
       guests: currentGuests,
-      children: bookingFormData?.children || 0,
-      babies: bookingFormData?.babies || 0,
+      adults: currentAdults,
+      children: currentChildren,
+      babies: currentBabies,
       nights: currentNights,
       totalAmount: total,
       price_per_night: pricePerNight,
@@ -4290,8 +4320,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         check_in: currentCheckIn,
         check_out: currentCheckOut,
         guests_count: currentGuests,
-        children: bookingFormData?.children || 0,
-        babies: bookingFormData?.babies || 0,
+        adults: currentAdults,
+        children: currentChildren,
+        babies: currentBabies,
         payment_method: 'fedapay' as const,
         guest_details: guestDetails,
         payment_option: '100' as const,
@@ -4394,8 +4425,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         check_in: currentCheckIn,
         check_out: currentCheckOut,
         guests: currentGuests,
-        children: bookingFormData?.children || 0,
-        babies: bookingFormData?.babies || 0,
+        adults: currentAdults,
+        children: currentChildren,
+        babies: currentBabies,
         nights: currentNights,
         guest_details: bookingFormData?.guest_details || {}
       };
@@ -4407,6 +4439,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       localStorage.setItem('temp_booking_check_out', currentCheckOut);
       localStorage.setItem('temp_booking_guests', currentGuests.toString());
       localStorage.setItem('temp_booking_nights', currentNights.toString());
+      localStorage.setItem('temp_booking_adults', currentAdults.toString());
+      localStorage.setItem('temp_booking_children', currentChildren.toString());
+      localStorage.setItem('temp_booking_babies', currentBabies.toString());
       
       if (onNavigate) {
         onNavigate({ name: 'auth', search: 'redirect=booking' });
@@ -4596,10 +4631,15 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                   <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
                   <span className="text-gray-300">•</span>
                   <span className="text-gray-500">{totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}</span>
-                  {bookingFormData?.children > 0 && (
+                  {currentChildren > 0 && (
                     <span className="text-gray-400 text-xs">
-                      ({bookingFormData.children} enf.
-                      {bookingFormData.babies > 0 ? `, ${bookingFormData.babies} bébé${bookingFormData.babies > 1 ? 's' : ''}` : ''})
+                      ({currentChildren} enf.
+                      {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''})
+                    </span>
+                  )}
+                  {currentChildren === 0 && currentBabies > 0 && (
+                    <span className="text-gray-400 text-xs">
+                      ({currentBabies} bébé{currentBabies > 1 ? 's' : ''})
                     </span>
                   )}
                 </div>
@@ -4627,9 +4667,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                         setIsEditingDates(true);
                         setEditedCheckIn(currentCheckIn);
                         setEditedCheckOut(currentCheckOut);
-                        setEditedGuests(bookingFormData?.adults || currentGuests);
-                        setEditedChildren(bookingFormData?.children || 0);
-                        setEditedBabies(bookingFormData?.babies || 0);
+                        setEditedGuests(currentAdults || currentGuests);
+                        setEditedChildren(currentChildren || 0);
+                        setEditedBabies(currentBabies || 0);
                         setError('');
                       }}
                       className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
@@ -4806,9 +4846,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                           setIsEditingDates(false);
                           setEditedCheckIn(currentCheckIn);
                           setEditedCheckOut(currentCheckOut);
-                          setEditedGuests(bookingFormData?.adults || currentGuests);
-                          setEditedChildren(bookingFormData?.children || 0);
-                          setEditedBabies(bookingFormData?.babies || 0);
+                          setEditedGuests(currentAdults || currentGuests);
+                          setEditedChildren(currentChildren || 0);
+                          setEditedBabies(currentBabies || 0);
                           setShowGuestDetails(false);
                           setError('');
                           setAvailabilityStatus('idle');
@@ -4837,10 +4877,15 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                       <p className="text-gray-500 text-xs">Voyageurs</p>
                       <p className="font-medium text-sm">
                         {totalTravelers} pers.
-                        {bookingFormData?.children > 0 && (
+                        {currentChildren > 0 && (
                           <span className="text-xs text-gray-400 ml-1">
-                            ({bookingFormData.children} enf.
-                            {bookingFormData.babies > 0 ? `, ${bookingFormData.babies} bébé${bookingFormData.babies > 1 ? 's' : ''}` : ''})
+                            ({currentChildren} enf.
+                            {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''})
+                          </span>
+                        )}
+                        {currentChildren === 0 && currentBabies > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            ({currentBabies} bébé{currentBabies > 1 ? 's' : ''})
                           </span>
                         )}
                       </p>
@@ -9713,11 +9758,16 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockRange, setBlockRange] = useState({ start: '', end: '', reason: '' });
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  
+  // ✅ Nouvel état pour la modale de déblocage
+  const [showUnblockModal, setShowUnblockModal] = useState(false);
+  const [unblockDate, setUnblockDate] = useState<string | null>(null);
+  const [unblockReason, setUnblockReason] = useState('');
 
-  // ✅ Fonction showToast
+  // ✅ Fonction showToast améliorée
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToastMessage({ type, message });
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // Récupérer le calendrier
@@ -9734,15 +9784,19 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     mutationFn: ({ start, end, status, price, reason }: any) =>
       hostService.updateAvailability(propertyId!, start, end, status, price, reason),
     onSuccess: (response) => {
-      console.log(' Mise à jour réussie:', response);
-      showToast('success', 'Disponibilité mise à jour avec succès');
+      console.log('✅ Mise à jour réussie:', response);
+      const statusMessage = status === 'available' ? 'débloquée' : 'bloquée';
+      showToast('success', `Date ${statusMessage} avec succès !`);
       refetch();
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
       setShowBlockModal(false);
+      setShowUnblockModal(false);
+      setUnblockDate(null);
+      setUnblockReason('');
       setSelectedRange({ start: null, end: null });
     },
     onError: (error: any) => {
-      console.error(' Erreur mise à jour:', error);
+      console.error('❌ Erreur mise à jour:', error);
       const message = error.response?.data?.message || 'Erreur lors de la mise à jour';
       showToast('error', message);
     },
@@ -9753,34 +9807,60 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     mutationFn: ({ start, end, price }: any) =>
       hostService.updateSpecialPrice(propertyId!, start, end, price),
     onSuccess: () => {
-      showToast('success', 'Prix spécial défini avec succès');
+      showToast('success', '✅ Prix spécial défini avec succès');
       refetch();
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
     },
     onError: (error: any) => {
-      console.error(' Erreur prix spécial:', error);
+      console.error('❌ Erreur prix spécial:', error);
       showToast('error', error.response?.data?.message || 'Erreur lors de la définition du prix spécial');
     },
   });
 
+  // ✅ Nouvelle fonction pour ouvrir la modale de déblocage
+  const handleUnblockClick = (date: string) => {
+    setUnblockDate(date);
+    setUnblockReason('');
+    setShowUnblockModal(true);
+  };
+
+  // ✅ Fonction pour confirmer le déblocage
+  const handleConfirmUnblock = async () => {
+    if (!unblockDate) return;
+    
+    await updateAvailabilityMutation.mutateAsync({
+      start: unblockDate,
+      end: unblockDate,
+      status: 'available',
+      price: null,
+      reason: unblockReason || 'Débloqué par l\'hôte'
+    });
+  };
+
   const handleDayClick = async (day: any) => {
-    console.log(' Jour cliqué:', day);
+    console.log('📅 Jour cliqué:', day);
     
     if (day.status === 'booked') {
-      showToast('error', 'Cette date est déjà réservée, vous ne pouvez pas la modifier');
+      showToast('error', '❌ Cette date est déjà réservée, vous ne pouvez pas la modifier');
+      return;
+    }
+    
+    // ✅ Si la date est bloquée, ouvrir la modale de déblocage
+    if (day.status === 'blocked') {
+      handleUnblockClick(day.date);
       return;
     }
     
     // Si on est en mode sélection de plage
     if (selectedRange.start === null) {
       setSelectedRange({ start: day.date, end: null });
-      showToast('success', `Date de début sélectionnée: ${day.date}`);
+      showToast('success', `📌 Date de début sélectionnée: ${day.date}`);
       return;
     } 
     
     if (selectedRange.start && selectedRange.end === null) {
       if (day.date < selectedRange.start) {
-        showToast('error', 'La date de fin doit être après la date de début');
+        showToast('error', '❌ La date de fin doit être après la date de début');
         setSelectedRange({ start: null, end: null });
         return;
       }
@@ -9803,53 +9883,28 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       return;
     }
     
-    // Mode simple
-    setIsUpdating(true);
-    try {
-      if (day.status === 'blocked') {
-        if (confirm(`Voulez-vous débloquer le ${day.date} ?`)) {
-          await updateAvailabilityMutation.mutateAsync({
-            start: day.date,
-            end: day.date,
-            status: 'available',
-            price: null,
-            reason: null
-          });
-        }
-      } else if (day.status === 'available') {
-        const setSpecialPrice = confirm(`Voulez-vous définir un prix spécial pour le ${day.date} ?`);
-        let specialPrice = null;
-        
-        if (setSpecialPrice) {
-          const price = prompt('Entrez le prix spécial (en FCFA):', day.special_price?.toString() || '');
-          if (price && !isNaN(parseInt(price))) {
-            specialPrice = parseInt(price);
-            await specialPriceMutation.mutateAsync({
-              start: day.date,
-              end: day.date,
-              price: specialPrice
-            });
-          }
-        }
-        
-        if (confirm(`Voulez-vous bloquer le ${day.date} ?`)) {
-          await updateAvailabilityMutation.mutateAsync({
-            start: day.date,
-            end: day.date,
-            status: 'blocked',
-            price: specialPrice,
-            reason: 'Bloqué par l\'hôte'
-          });
-        }
+    // Mode simple pour les dates disponibles
+    if (day.status === 'available') {
+      const action = confirm(
+        `Voulez-vous bloquer le ${day.date} ?\n\n` +
+        `Cliquez sur "OK" pour bloquer cette date.`
+      );
+      
+      if (action) {
+        await updateAvailabilityMutation.mutateAsync({
+          start: day.date,
+          end: day.date,
+          status: 'blocked',
+          price: null,
+          reason: 'Bloqué par l\'hôte'
+        });
       }
-    } finally {
-      setIsUpdating(false);
     }
   };
 
   const handleBlockRangeSubmit = async () => {
     if (!blockRange.start || !blockRange.end) {
-      showToast('error', 'Veuillez sélectionner une plage de dates');
+      showToast('error', '❌ Veuillez sélectionner une plage de dates');
       return;
     }
     
@@ -9864,7 +9919,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
 
   const cancelRangeSelection = () => {
     setSelectedRange({ start: null, end: null });
-    showToast('info', 'Sélection de plage annulée');
+    showToast('info', 'ℹ️ Sélection de plage annulée');
   };
 
   if (!propertyId) {
@@ -9895,7 +9950,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
         {/* Toast notification */}
         {toastMessage && (
-          <div className={`fixed top-20 right-4 z-50 p-4 rounded-xl shadow-lg ${
+          <div className={`fixed top-20 right-4 z-50 p-4 rounded-xl shadow-lg max-w-md ${
             toastMessage.type === 'success' ? 'bg-green-500 text-white' : 
             toastMessage.type === 'error' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
           }`}>
@@ -9912,28 +9967,28 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                 onClick={cancelRangeSelection}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition"
               >
-                 Annuler la sélection
+                ❌ Annuler la sélection
               </button>
             ) : (
               <button
                 onClick={() => setShowBlockModal(true)}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 transition"
               >
-                 Bloquer une plage de dates
+                🚫 Bloquer une plage de dates
               </button>
             )}
             <button
               onClick={() => refetch()}
               className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition"
             >
-              Rafraîchir
+              🔄 Rafraîchir
             </button>
           </div>
 
           {selectedRange.start !== null && selectedRange.end === null && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-center">
               <p className="text-sm text-blue-700">
-                 Date de début sélectionnée: <strong>{selectedRange.start}</strong>
+                📌 Date de début sélectionnée: <strong>{selectedRange.start}</strong>
                 <br />
                 Cliquez sur une date de fin pour bloquer la plage.
               </p>
@@ -9973,12 +10028,19 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                 const isInRange = selectedRange.start && selectedRange.end === null && day.date > selectedRange.start;
                 
                 let bgColor = '';
+                let hoverEffect = '';
+                let cursor = 'cursor-pointer';
+                
                 if (dayStatus === 'booked') {
-                  bgColor = 'bg-red-100 text-red-700 cursor-not-allowed opacity-60';
+                  bgColor = 'bg-red-100 text-red-700';
+                  cursor = 'cursor-not-allowed';
+                  hoverEffect = '';
                 } else if (dayStatus === 'blocked') {
-                  bgColor = 'bg-orange-100 text-orange-700 hover:bg-orange-200';
+                  bgColor = 'bg-orange-100 text-orange-700';
+                  hoverEffect = 'hover:bg-orange-200 hover:scale-105';
                 } else {
-                  bgColor = 'bg-green-50 hover:bg-green-100 hover:scale-105';
+                  bgColor = 'bg-green-50 text-green-700';
+                  hoverEffect = 'hover:bg-green-100 hover:scale-105';
                 }
                 
                 if (isSelectedStart) {
@@ -9991,8 +10053,8 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                 return (
                   <div
                     key={idx}
-                    className={`p-2 border rounded-xl text-center cursor-pointer transition-all duration-200 ${bgColor}`}
-                    onClick={() => !isUpdating && handleDayClick(day)}
+                    className={`p-2 border rounded-xl text-center transition-all duration-200 ${bgColor} ${hoverEffect} ${cursor}`}
+                    onClick={() => !isUpdating && dayStatus !== 'booked' && handleDayClick(day)}
                   >
                     <div className="text-sm font-medium">{day.day}</div>
                     {day.special_price && (
@@ -10003,7 +10065,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                     <div className="text-xs mt-1">
                       {dayStatus === 'booked' && '📅 Réservé'}
                       {dayStatus === 'blocked' && '🚫 Bloqué'}
-                      {dayStatus === 'available' && '✓ Dispo'}
+                      {dayStatus === 'available' && '✅ Dispo'}
                     </div>
                   </div>
                 );
@@ -10012,10 +10074,10 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
 
             {/* Légende */}
             <div className="mt-6 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border border-gray-200 rounded"></div> Disponible</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div> Bloqué par l'hôte</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> Réservé</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-[#00c9a7] rounded"></div> Date sélectionnée</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border border-gray-200 rounded"></div> ✅ Disponible</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div> 🚫 Bloqué par l'hôte</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> 📅 Réservé</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-[#00c9a7] rounded"></div> 📌 Date sélectionnée</div>
             </div>
 
             {/* Indicateur de chargement */}
@@ -10034,8 +10096,8 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       {/* Modal pour bloquer une plage de dates */}
       {showBlockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Bloquer une plage de dates</h3>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-[#0F2940] mb-4">🚫 Bloquer une plage de dates</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
@@ -10043,7 +10105,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                   type="date"
                   value={blockRange.start}
                   onChange={(e) => setBlockRange({ ...blockRange, start: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
                   min={new Date().toISOString().split('T')[0]}
                 />
               </div>
@@ -10053,7 +10115,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                   type="date"
                   value={blockRange.end}
                   onChange={(e) => setBlockRange({ ...blockRange, end: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
                   min={blockRange.start || new Date().toISOString().split('T')[0]}
                 />
               </div>
@@ -10064,7 +10126,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                   value={blockRange.reason}
                   onChange={(e) => setBlockRange({ ...blockRange, reason: e.target.value })}
                   placeholder="Travaux, indisponibilité, etc."
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
                 />
               </div>
               <div className="flex gap-3 pt-4">
@@ -10080,6 +10142,69 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                   className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition disabled:opacity-50"
                 >
                   {updateAvailabilityMutation.isPending ? 'Blocage...' : 'Bloquer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NOUVELLE MODALE : Débloquer une date */}
+      {showUnblockModal && unblockDate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fadeInUp">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-[#0F2940]">Débloquer la date</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Êtes-vous sûr de vouloir débloquer le <strong className="text-[#0F2940]">{unblockDate}</strong> ?
+              <br />
+              <span className="text-sm text-gray-400">Cette date redeviendra disponible pour les réservations.</span>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Raison du déblocage (optionnel)</label>
+                <input
+                  type="text"
+                  value={unblockReason}
+                  onChange={(e) => setUnblockReason(e.target.value)}
+                  placeholder="Indisponibilité terminée, etc."
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowUnblockModal(false);
+                    setUnblockDate(null);
+                    setUnblockReason('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleConfirmUnblock}
+                  disabled={updateAvailabilityMutation.isPending}
+                  className="flex-1 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {updateAvailabilityMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Déblocage...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Débloquer
+                    </>
+                  )}
                 </button>
               </div>
             </div>
