@@ -1,6 +1,6 @@
-// src/app/App.tsx
+// src/app/App.tsx (version finale corrigée)
 import { useEffect, useState } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation, useNavigate as useRouterNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Navbar } from './components/Navbar';
@@ -9,6 +9,7 @@ import { MobileBookingSheet } from './components/MobileBookingSheet';
 import { Footer } from './components/Footer';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import {
   HomePage,
   SearchPage,
@@ -55,9 +56,9 @@ import { AdminHeader } from './components/AdminHeader';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { BookingSummaryPage } from '../app/pages/BookingSummaryPage';
-
-// 👇 IMPORTER LA PAGE DES PAIEMENTS HÔTES
 import { AdminHostPaymentsPage } from './pages/admin/AdminHostPaymentsPage';
+import { FedapayPaymentPage } from './pages/FedapayPaymentPage';
+import { FedapayCallbackPage } from './pages/FedapayCallbackPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,101 @@ const queryClient = new QueryClient({
   },
 });
 
+// ============================================
+// COMPOSANT ADMIN LAYOUT - CORRIGÉ AVEC useLocation
+// ============================================
+function AdminLayoutContent() {
+  const { isDark } = useTheme();
+  const { user } = useAuth();
+  const location = useLocation();
+  const routerNavigate = useRouterNavigate();
+  
+  // ✅ Utiliser location directement pour la route actuelle
+  const currentPath = location.pathname + location.search;
+  
+  // ✅ Fonction pour déterminer la page à afficher
+  const getPageName = (path: string) => {
+    if (path.includes('/admin/dashboard')) return 'admin-dashboard';
+    if (path.includes('/admin/properties')) return 'admin-properties';
+    if (path.includes('/admin/users')) return 'admin-users';
+    if (path.includes('/admin/bookings')) return 'admin-bookings';
+    if (path.includes('/admin/payments')) return 'admin-payments';
+    if (path.includes('/admin/host-payments')) return 'admin-host-payments';
+    if (path.includes('/admin/messages')) return 'admin-messages';
+    if (path.includes('/admin/reports')) return 'admin-reports';
+    if (path.includes('/admin/settings')) return 'admin-settings';
+    return 'admin-dashboard';
+  };
+
+  const currentPage = getPageName(currentPath);
+
+  const navigate = (to: Route | string) => {
+    let routeObject: Route;
+    if (typeof to === 'string') {
+      routeObject = { name: to as Page };
+    } else {
+      routeObject = to;
+    }
+    const path = routeToPath(routeObject);
+    routerNavigate(path);
+  };
+
+  // ✅ Rendu de la page admin en fonction de la route actuelle
+  const renderAdminPage = () => {
+    console.log('🔄 Rendu page admin:', currentPage, 'Path:', currentPath);
+    
+    // Utiliser un key basé sur la page pour forcer le re-rendu
+    const pageKey = currentPage + '-' + Date.now();
+    
+    switch (currentPage) {
+      case 'admin-dashboard': 
+        return <AdminDashboardPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-properties': 
+        return <AdminPropertiesPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-users': 
+        return <AdminUsersPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-bookings': 
+        return <AdminBookingsPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-payments': 
+        return <AdminPaymentsPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-host-payments': 
+        return <AdminHostPaymentsPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-messages': 
+        return <AdminMessagesPage key={pageKey} onNavigate={navigate} />;
+      case 'admin-reports': 
+        return <AdminReportsPage key={pageKey} onNavigate={navigate} />;
+      default: 
+        return <AdminDashboardPage key={pageKey} onNavigate={navigate} />;
+    }
+  };
+
+  return (
+    <div className={`flex h-screen ${isDark ? 'bg-slate-900' : 'bg-gray-100'} transition-colors duration-300 overflow-hidden`}>
+      <AdminSidebar />
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
+        <AdminHeader />
+        <main className={`flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gray-100'} transition-colors duration-300`}>
+          {renderAdminPage()}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// WRAPPER ADMIN - AVEC ROUTER ET THEME
+// ============================================
+function AdminLayoutWrapper() {
+  return (
+    <ThemeProvider>
+      <AdminLayoutContent />
+    </ThemeProvider>
+  );
+}
+
+// ============================================
+// COMPOSANT CONTENU PRINCIPAL
+// ============================================
 function AppContent() {
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname + window.location.search));
   const [mobileNavActive, setMobileNavActive] = useState<'explore' | 'favorites' | 'trips' | 'messages' | 'profile'>(
@@ -117,7 +213,7 @@ function AppContent() {
     setMobileNavActive(tabFromPage(route.name));
   }, [route.name]);
 
-  // ✅ Écouter les changements d'authentification
+  // Écouter les changements d'authentification
   useEffect(() => {
     const handleAuthChange = () => {
       console.log('🔄 Changement d\'authentification détecté');
@@ -135,7 +231,7 @@ function AppContent() {
     return () => window.removeEventListener('authChange', handleAuthChange);
   }, [isAuthenticated, user]);
 
-  // ✅ Écouter les données de réservation temporaire
+  // Écouter les données de réservation temporaire
   useEffect(() => {
     const handleBookingData = (event: CustomEvent) => {
       const data = event.detail;
@@ -164,23 +260,21 @@ function AppContent() {
     };
   }, [navigate]);
 
-  // ✅ Vérifier les intentions de chat au chargement (URL directe)
+  // Vérifier les intentions de chat au chargement (URL directe)
   useEffect(() => {
     const currentPath = window.location.pathname;
     const currentSearch = window.location.search;
     
-    // Si on est sur /messages/inquiry sans être authentifié
     if (currentPath.includes('/messages/inquiry') && !isAuthenticated && !loading) {
       console.log('🔗 Accès direct à /messages/inquiry sans auth, sauvegarde intention');
       
-      const params = currentSearch.substring(1); // Enlever le ?
       const urlParams = new URLSearchParams(currentSearch);
       const propertyId = urlParams.get('property');
       
       if (propertyId) {
         localStorage.setItem('redirect_intent', 'chat');
         localStorage.setItem('redirect_property_id', propertyId);
-        localStorage.setItem('pendingChatParams', params);
+        localStorage.setItem('pendingChatParams', currentSearch.substring(1));
         localStorage.setItem('chatIntent', JSON.stringify({
           propertyId: propertyId,
           checkIn: urlParams.get('check_in'),
@@ -190,7 +284,6 @@ function AppContent() {
         }));
       }
       
-      // Rediriger vers auth
       navigate({ name: 'auth', search: `redirect=chat&property=${propertyId}` });
     }
   }, [window.location.pathname, window.location.search, isAuthenticated, loading]);
@@ -207,9 +300,8 @@ function AppContent() {
   };
 
   const isRouteAllowed = (route: Route): boolean => {
-    // ✅ Routes de messagerie - autorisées même sans auth (seront redirigées vers auth)
     if (route.name === 'messages') {
-      return true; // Toujours autorisé, on gère l'auth dans le rendu
+      return true;
     }
     
     const protectedRoutes: Page[] = [
@@ -244,11 +336,10 @@ function AppContent() {
     );
   }
 
-  // ✅ Cas spécial : messages sans authentification
+  // Cas spécial : messages sans authentification
   if (route.name === 'messages' && !isAuthenticated) {
     console.log('💬 Messages sans auth, redirection vers login avec intention');
     
-    // Sauvegarder l'intention
     const params = route.search || '';
     const urlParams = new URLSearchParams(params);
     const propertyId = urlParams.get('property');
@@ -266,7 +357,6 @@ function AppContent() {
       }));
     }
     
-    // Afficher la page d'auth avec intention
     return <AuthPage onNavigate={navigate} />;
   }
 
@@ -282,41 +372,9 @@ function AppContent() {
     return <AdminLoginPage onNavigate={navigate} />;
   }
 
-  // Routes admin protégées
+  // ✅ Routes admin protégées
   if (route.name.startsWith('admin-') && user?.user_type === 'admin') {
-    const renderAdminPage = () => {
-      switch (route.name) {
-        case 'admin-dashboard': 
-          return <AdminDashboardPage onNavigate={navigate} />;
-        case 'admin-properties': 
-          return <AdminPropertiesPage onNavigate={navigate} />;
-        case 'admin-users': 
-          return <AdminUsersPage onNavigate={navigate} />;
-        case 'admin-bookings': 
-          return <AdminBookingsPage onNavigate={navigate} />;
-        case 'admin-payments': 
-          return <AdminPaymentsPage onNavigate={navigate} />;
-        case 'admin-messages': 
-          return <AdminMessagesPage onNavigate={navigate} />;
-        case 'admin-reports': 
-          return <AdminReportsPage onNavigate={navigate} />;
-        // 👇 NOUVEAU: Page des paiements des hôtes
-        case 'admin-host-payments': 
-          return <AdminHostPaymentsPage onNavigate={navigate} />;
-        default: 
-          return <AdminDashboardPage onNavigate={navigate} />;
-      }
-    };
-    
-    return (
-      <div className="flex h-screen bg-gray-100">
-        <AdminSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <AdminHeader />
-          <main className="flex-1 overflow-y-auto p-6">{renderAdminPage()}</main>
-        </div>
-      </div>
-    );
+    return <AdminLayoutWrapper />;
   }
 
   // Routes publiques et protégées classiques
@@ -335,7 +393,7 @@ function AppContent() {
 
       <WhatsAppButton />
 
-      {/* Routes */}
+      {/* Routes principales */}
       {route.name === 'home' && <HomePage onNavigate={navigate} currentPage={route.name} />}
       {route.name === 'search-logements' && <SearchPage mode="logements" onNavigate={navigate} />}
       {route.name === 'search-hotels' && <SearchPage mode="hotels" onNavigate={navigate} />}
@@ -376,6 +434,22 @@ function AppContent() {
       {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
       {route.name === 'booking-summary' && <BookingSummaryPage onNavigate={navigate} id={route.id} search={route.search} />}
 
+      {/* ROUTES FEDAPAY */}
+      {route.name === 'fedapay-payment' && (
+        <FedapayPaymentPage 
+          onNavigate={navigate} 
+          bookingData={route.params?.bookingData}
+        />
+      )}
+      {route.name === 'fedapay-callback' && (
+        <FedapayCallbackPage 
+          onNavigate={navigate}
+          transactionId={route.params?.transactionId}
+          status={route.params?.status}
+          bookingId={route.params?.bookingId}
+        />
+      )}
+
       <Footer onNavigate={navigate} />
       <div className="lg:hidden">
         <MobileBottomNav active={mobileNavActive} onNavigate={handleMobileNavigate} />
@@ -386,6 +460,9 @@ function AppContent() {
   );
 }
 
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export default function App() {
   return (
     <BrowserRouter>

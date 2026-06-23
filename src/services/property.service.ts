@@ -61,31 +61,64 @@ class PropertyService {
         return response.data;
     }
 
-    async checkAvailability(propertyId: number, checkIn: string, checkOut: string) {
-        try {
-            const response = await v1Api.post(`/properties/${propertyId}/availability`, {
-                check_in: checkIn,
-                check_out: checkOut
-            });
-            
-            return {
-                data: {
-                    available: response.data?.available ?? response.data?.data?.available ?? false,
-                    message: response.data?.message || response.data?.data?.message || '',
-                    price: response.data?.price || response.data?.data?.price || null
-                }
-            };
-        } catch (error: any) {
-            console.error('Erreur checkAvailability:', error);
-            return {
-                data: {
-                    available: false,
-                    message: error.response?.data?.message || 'Impossible de vérifier la disponibilité',
-                    price: null
-                }
-            };
-        }
+    
+    // services/property.service.ts
+
+
+   // services/property.service.ts - Version améliorée
+
+async checkAvailability(propertyId: number, checkIn: string, checkOut: string, guests: number = 1) {
+    try {
+        const cleanCheckIn = checkIn.split('T')[0];
+        const cleanCheckOut = checkOut.split('T')[0];
+        
+        console.log('📤 checkAvailability:', {
+            propertyId,
+            checkIn: cleanCheckIn,
+            checkOut: cleanCheckOut,
+            guests
+        });
+
+        const response = await v1Api.post(`/properties/${propertyId}/availability`, {
+            check_in: cleanCheckIn,
+            check_out: cleanCheckOut,
+            guests_count: guests
+        });
+
+        console.log('📥 Réponse checkAvailability:', response.data);
+        
+        // ✅ Récupérer la disponibilité depuis différentes structures possibles
+        const data = response.data;
+        const isAvailable = data.available === true || 
+                           data.data?.available === true || 
+                           data.availability === true ||
+                           data.is_available === true;
+        
+        return {
+            success: data.success !== false,
+            available: isAvailable,
+            price_details: data.price_details || data.data?.price_details || null,
+            unavailable_dates: data.unavailable_dates || data.data?.unavailable_dates || [],
+            property: data.property || data.data?.property || null,
+            message: data.message || (isAvailable ? 'Dates disponibles' : 'Dates non disponibles')
+        };
+    } catch (error: any) {
+        console.error('❌ Erreur checkAvailability:', error);
+        console.error('❌ Détails:', error.response?.data);
+        
+        // ✅ Retourner une structure cohérente même en cas d'erreur
+        return {
+            success: false,
+            available: false,
+            price_details: null,
+            unavailable_dates: [],
+            property: null,
+            message: error.response?.data?.message || error.message || 'Erreur de vérification'
+        };
     }
+}
+
+
 
     // ✅ RECHERCHE AVANCÉE COMPLÈTE
     async searchWithFilters(filters: {

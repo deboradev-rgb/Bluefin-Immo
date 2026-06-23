@@ -1,4 +1,3 @@
-// src/app/pages/admin/AdminPaymentsPage.tsx
 import { useQuery } from '@tanstack/react-query';
 import { 
   CreditCard, Wallet, TrendingUp, Calendar, Search, 
@@ -56,14 +55,14 @@ export function AdminPaymentsPage() {
         <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez et gérez toutes les transactions financières</p>
       </div>
 
-      {/* Statistiques */}
+      {/* Statistiques - ✅ CORRECTION : Passer le composant, pas un élément JSX */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard icon={<CreditCard className="w-5 h-5" />} label="Transactions" value={stats.total} color="blue" />
-        <StatCard icon={<Wallet className="w-5 h-5" />} label="Volume total" value={`${(stats.totalAmount / 1000000).toFixed(1)}M`} color="purple" subValue="FCFA" />
-        <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Succès" value={stats.success} color="green" />
-        <StatCard icon={<Clock className="w-5 h-5" />} label="En attente" value={stats.pending} color="yellow" />
-        <StatCard icon={<XCircle className="w-5 h-5" />} label="Échouées" value={stats.failed} color="red" />
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Taux succès" value={`${successRate}%`} color="emerald" />
+        <StatCard icon={CreditCard} label="Transactions" value={stats.total} color="blue" />
+        <StatCard icon={Wallet} label="Volume total" value={`${(stats.totalAmount / 1000000).toFixed(1)}M`} color="purple" subValue="FCFA" />
+        <StatCard icon={CheckCircle} label="Succès" value={stats.success} color="green" />
+        <StatCard icon={Clock} label="En attente" value={stats.pending} color="yellow" />
+        <StatCard icon={XCircle} label="Échouées" value={stats.failed} color="red" />
+        <StatCard icon={TrendingUp} label="Taux succès" value={`${successRate}%`} color="emerald" />
       </div>
 
       {/* Résumé quotidien */}
@@ -254,8 +253,9 @@ const DetailRow = ({ label, value, status }: any) => (
   </div>
 );
 
-// Composant de carte statistique
-const StatCard = ({ icon, label, value, color, subValue }: any) => {
+// ✅ Composant de carte statistique CORRIGÉ
+// Accepte un composant Icon et le rend avec className
+const StatCard = ({ icon: Icon, label, value, color, subValue }: any) => {
   const colors = {
     blue: 'from-blue-500 to-blue-600',
     purple: 'from-purple-500 to-purple-600',
@@ -269,7 +269,7 @@ const StatCard = ({ icon, label, value, color, subValue }: any) => {
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-3 text-white`}>
       <div className="flex justify-between items-center">
         <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          {icon}
+          <Icon className="w-5 h-5" />  {/* ✅ Renderisez le composant avec className */}
         </div>
         <span className="text-xl font-bold">{value}</span>
       </div>

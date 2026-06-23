@@ -15,6 +15,10 @@ import { useFavorites } from './hooks/useFavorites';
 import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
 import { useInquiryMessages } from './hooks/useInquiryMessages';
 import { PaymentInfoModal } from './components/PaymentInfoModal';
+import { fedapayService } from '../services/fedapay.service';
+
+import { useTheme } from '../contexts/ThemeContext';
+
 
 import { IdentityVerification } from './components/IdentityVerification';
 // import {AdminBookingsPage} from './pages/admin/AdminBookingsPage';
@@ -25,12 +29,13 @@ import api  from '../services/api';
 // import { PropertyDetailModal } from './components/PropertyDetailModal';
 
 // import { PropertyCard } from '../components/PropertyCard';
-import bookingService, { type BookingData } from '../services/booking.service';
+
 import propertyService from '../services/property.service';
 import authService from '../services/auth.service';
 import adminService from '../services/admin.service';
 import { PageSection } from './components/PageSection';
 import hostService from '../services/host.service';
+import bookingService from '../services/booking.service';
 import temporaryBookingService from '../services/temporaryBooking.service';
 
 import { toast } from 'react-hot-toast';
@@ -45,10 +50,10 @@ import {
   DollarSign,ArrowUp ,Activity ,Wallet ,Ban , AlertTriangle , 
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
   Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,ZoomIn,
-  Settings,  Calendar as CalendarIcon, Plus,
+  Settings,  Calendar as CalendarIcon, Plus,Banknote,
   Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
   AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
-  X as CloseIcon, ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
+   ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
   MapPin, Bath, Bed, Filter, ChevronDown, Share2, Award, Crown, Key, Smartphone, Phone, Camera, Image
 } from 'lucide-react';
 
@@ -2920,19 +2925,25 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
   }, [isAuthenticated, property.id, hostId, onChat, onNavigate]);
 
+  
   const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
     if (!checkInDate || !checkOutDate) return;
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
     try {
         const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-        const isAvailable = response?.data?.available === true;
+        
+        // ✅ CORRECTION : Utiliser response.available
+        const isAvailable = response?.available === true;
+        
+        console.log('📊 Disponibilité PropertyDetailModal:', { isAvailable, response });
+        
         if (isAvailable) {
             setAvailabilityStatus('available');
             setAvailabilityMessage('✓ Ces dates sont disponibles !');
         } else {
             setAvailabilityStatus('unavailable');
-            setAvailabilityMessage(response?.data?.message || '❌ Ces dates ne sont pas disponibles.');
+            setAvailabilityMessage(response?.message || '❌ Ces dates ne sont pas disponibles.');
         }
     } catch (error) {
         console.error('Erreur vérification:', error);
@@ -2941,7 +2952,9 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     } finally {
         setIsCheckingAvailability(false);
     }
-  };
+};
+
+
 
   useEffect(() => {
     if (checkIn && checkOut) {
@@ -3957,846 +3970,1203 @@ export function HomePage({
 
 // pages/BookingPage.tsx
 
-
 interface BookingPageProps {
-    onNavigate?: (route: any) => void;
-    id?: string;
-    search?: string;
+  onNavigate?: (route: any) => void;
+  id?: string;
+  search?: string;
 }
 
 interface BookingData {
-    property_id: number;
-    check_in: string;
-    check_out: string;
-    guests_count: number;
-    payment_method: 'mobile_money' | 'card';
-    mobile_money_provider?: 'MTN' | 'Moov' | 'Orange';
-    mobile_money_number?: string;
-    guest_details: {
-        full_name: string;
-        email: string;
-        phone: string;
-        address: string;
-        nationality?: string;
-        id_type?: string;
-        id_number?: string;
-    };
-    payment_option: string;
-    total_amount: number;
-    payment_amount: number;
-    nights: number;
-    special_requests?: string;
+  property_id: number;
+  check_in: string;
+  check_out: string;
+  guests_count: number;
+  payment_method: 'mobile_money' | 'card' | 'fedapay';
+  mobile_money_provider?: 'MTN' | 'Moov' | 'Orange';
+  mobile_money_number?: string;
+  guest_details: {
+    full_name: string;
+    email: string;
+    phone: string;
+    address?: string;
+    nationality?: string;
+    id_type?: string;
+    id_number?: string;
+  };
+  payment_option: '100';
+  total_amount: number;
+  payment_amount: number;
+  nights: number;
+  special_requests?: string;
 }
 
 export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
-    const params = useParams<{ id: string }>();
-    const propertyId = id || params.id;
-    const location = useLocation();
-    const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
-    const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
-    const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
-    const [cardNumber, setCardNumber] = useState('');
-    const [cardExpiry, setCardExpiry] = useState('');
-    const [cardCvv, setCardCvv] = useState('');
-    const [cardName, setCardName] = useState('');
-    const [showCvv, setShowCvv] = useState(false);
-    const [specialRequests, setSpecialRequests] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
-    const [bookingFormData, setBookingFormData] = useState<any>(null);
+  const params = useParams<{ id: string }>();
+  const propertyId = id || params.id;
+  const location = useLocation();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'fedapay'>('fedapay');
+  const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
+  const [bookingFormData, setBookingFormData] = useState<any>(null);
+  
+  // États pour l'édition des dates et voyageurs
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editedCheckIn, setEditedCheckIn] = useState('');
+  const [editedCheckOut, setEditedCheckOut] = useState('');
+  const [editedGuests, setEditedGuests] = useState(1);
+  const [editedChildren, setEditedChildren] = useState(0);
+  const [editedBabies, setEditedBabies] = useState(0);
+  const [showGuestDetails, setShowGuestDetails] = useState(false);
+  
+  // États pour la vérification de disponibilité
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
+
+  // Récupérer les données du formulaire depuis sessionStorage
+  useEffect(() => {
+    const savedData = sessionStorage.getItem('bookingFormData');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setBookingFormData(parsed);
+        setEditedCheckIn(parsed.check_in || '');
+        setEditedCheckOut(parsed.check_out || '');
+        setEditedGuests(parsed.guests || 1);
+        setEditedChildren(parsed.children || 0);
+        setEditedBabies(parsed.babies || 0);
+        console.log('📋 Données du formulaire chargées:', parsed);
+      } catch (e) {
+        console.error('Erreur lors du chargement des données:', e);
+      }
+    }
+  }, []);
+
+  // Récupérer les paramètres de l'URL
+  const queryString = search || location.search;
+  const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+  
+  const initialCheckIn = searchParams.get('check_in') || bookingFormData?.check_in || '';
+  const initialCheckOut = searchParams.get('check_out') || bookingFormData?.check_out || '';
+  const initialGuests = searchParams.get('guests') ? parseInt(searchParams.get('guests')!) : (bookingFormData?.guests || 1);
+  const initialNights = searchParams.get('nights') ? parseInt(searchParams.get('nights')!) : (bookingFormData?.nights || 0);
+  
+  const [currentCheckIn, setCurrentCheckIn] = useState(initialCheckIn);
+  const [currentCheckOut, setCurrentCheckOut] = useState(initialCheckOut);
+  const [currentGuests, setCurrentGuests] = useState(initialGuests);
+  const [currentNights, setCurrentNights] = useState(initialNights);
+
+  useEffect(() => {
+    if (bookingFormData) {
+      setCurrentCheckIn(bookingFormData.check_in || initialCheckIn);
+      setCurrentCheckOut(bookingFormData.check_out || initialCheckOut);
+      setCurrentGuests(bookingFormData.guests || initialGuests);
+      setCurrentNights(bookingFormData.nights || initialNights);
+    }
+  }, [bookingFormData]);
+
+  const { data: propertyData, isLoading } = useQuery({
+    queryKey: ['property', propertyId, currentCheckIn, currentCheckOut],
+    queryFn: () => propertyService.getById(parseInt(propertyId || '0')),
+    enabled: !!propertyId,
+  });
+
+  const property = propertyData?.data || propertyData;
+  const pricePerNight = property?.price_per_night || 0;
+  const maxGuests = property?.max_guests || 10;
+  
+  const subtotal = pricePerNight * currentNights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+  const paymentAmount = total;
+
+  // Vérifier la disponibilité des nouvelles dates
+  const checkNewAvailability = async () => {
+    if (!editedCheckIn || !editedCheckOut) return false;
     
-    // États pour l'édition des dates et voyageurs
-    const [isEditingDates, setIsEditingDates] = useState(false);
-    const [editedCheckIn, setEditedCheckIn] = useState('');
-    const [editedCheckOut, setEditedCheckOut] = useState('');
-    const [editedGuests, setEditedGuests] = useState(1);
+    setIsCheckingAvailability(true);
+    setAvailabilityStatus('checking');
     
-    // États pour la vérification de disponibilité après modification
-    const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
-    const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
+    try {
+      const formattedCheckIn = editedCheckIn.includes('T') ? editedCheckIn.split('T')[0] : editedCheckIn;
+      const formattedCheckOut = editedCheckOut.includes('T') ? editedCheckOut.split('T')[0] : editedCheckOut;
+      
+      // Total des voyageurs
+      const totalTravelers = editedGuests + editedChildren + editedBabies;
+      
+      console.log('🔍 Vérification disponibilité avec:', {
+        propertyId: parseInt(propertyId || '0'),
+        checkIn: formattedCheckIn,
+        checkOut: formattedCheckOut,
+        guests: totalTravelers,
+        adults: editedGuests,
+        children: editedChildren,
+        babies: editedBabies
+      });
 
-    // Récupérer les données du formulaire depuis sessionStorage
-    useEffect(() => {
-        const savedData = sessionStorage.getItem('bookingFormData');
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                setBookingFormData(parsed);
-                // Initialiser les valeurs modifiables avec les données sauvegardées
-                setEditedCheckIn(parsed.check_in || '');
-                setEditedCheckOut(parsed.check_out || '');
-                setEditedGuests(parsed.guests || 1);
-                console.log('📋 Données du formulaire chargées:', parsed);
-            } catch (e) {
-                console.error('Erreur lors du chargement des données:', e);
-            }
-        }
-    }, []);
-
-    // Récupérer les paramètres de l'URL si pas de données en sessionStorage
-    const queryString = search || location.search;
-    const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
-    
-    // Utiliser les données de sessionStorage ou celles de l'URL
-    const initialCheckIn = searchParams.get('check_in') || bookingFormData?.check_in || '';
-    const initialCheckOut = searchParams.get('check_out') || bookingFormData?.check_out || '';
-    const initialGuests = searchParams.get('guests') ? parseInt(searchParams.get('guests')!) : (bookingFormData?.guests || 1);
-    const initialNights = searchParams.get('nights') ? parseInt(searchParams.get('nights')!) : (bookingFormData?.nights || 0);
-    
-    // États principaux qui se mettent à jour après modification
-    const [currentCheckIn, setCurrentCheckIn] = useState(initialCheckIn);
-    const [currentCheckOut, setCurrentCheckOut] = useState(initialCheckOut);
-    const [currentGuests, setCurrentGuests] = useState(initialGuests);
-    const [currentNights, setCurrentNights] = useState(initialNights);
-
-    // Synchroniser avec bookingFormData au chargement
-    useEffect(() => {
-        if (bookingFormData) {
-            setCurrentCheckIn(bookingFormData.check_in || initialCheckIn);
-            setCurrentCheckOut(bookingFormData.check_out || initialCheckOut);
-            setCurrentGuests(bookingFormData.guests || initialGuests);
-            setCurrentNights(bookingFormData.nights || initialNights);
-        }
-    }, [bookingFormData]);
-
-    const { data: propertyData, isLoading, refetch } = useQuery({
-        queryKey: ['property', propertyId, currentCheckIn, currentCheckOut],
-        queryFn: () => propertyService.getById(parseInt(propertyId || '0')),
-        enabled: !!propertyId,
-    });
-
-    const property = propertyData?.data || propertyData;
-    const pricePerNight = property?.price_per_night || 0;
-    const maxGuests = property?.max_guests || 10;
-    
-    // Recalculer les prix
-    const subtotal = pricePerNight * currentNights;
-    const serviceFee = subtotal * 0.10;
-    const total = subtotal + serviceFee;
-    const paymentAmount = total;
-
-    // Vérifier la disponibilité des nouvelles dates
-    const checkNewAvailability = async () => {
-        if (!editedCheckIn || !editedCheckOut) return false;
-        setIsCheckingAvailability(true);
-        setAvailabilityStatus('checking');
-        try {
-            const response = await propertyService.checkAvailability(parseInt(propertyId || '0'), editedCheckIn, editedCheckOut);
-            const isAvailable = response?.data?.available === true;
-            if (isAvailable) {
-                setAvailabilityStatus('available');
-                return true;
-            } else {
-                setAvailabilityStatus('unavailable');
-                setError(response?.data?.message || '❌ Ces dates ne sont pas disponibles.');
-                return false;
-            }
-        } catch (error) {
-            console.error('Erreur vérification:', error);
-            setAvailabilityStatus('unavailable');
-            setError('❌ Impossible de vérifier la disponibilité.');
-            return false;
-        } finally {
-            setIsCheckingAvailability(false);
-        }
-    };
-
-    // Sauvegarder les modifications des dates et voyageurs
-    const handleSaveDatesAndGuests = async () => {
-        if (!editedCheckIn || !editedCheckOut) {
-            setError('Veuillez sélectionner des dates valides');
-            return;
-        }
-        
-        if (new Date(editedCheckIn) >= new Date(editedCheckOut)) {
-            setError('La date de départ doit être après la date d\'arrivée');
-            return;
-        }
-
-        // Vérifier la disponibilité
-        const isAvailable = await checkNewAvailability();
-        
-        if (!isAvailable) {
-            return;
-        }
-
-        // Calculer le nouveau nombre de nuits
-        const newNights = Math.max(1, Math.ceil((new Date(editedCheckOut).getTime() - new Date(editedCheckIn).getTime()) / (1000 * 60 * 60 * 24)));
-        
-        // Mettre à jour les états principaux
-        setCurrentCheckIn(editedCheckIn);
-        setCurrentCheckOut(editedCheckOut);
-        setCurrentGuests(editedGuests);
-        setCurrentNights(newNights);
-        
-        // Mettre à jour bookingFormData
-        const updatedBookingData = {
-            ...bookingFormData,
-            check_in: editedCheckIn,
-            check_out: editedCheckOut,
-            guests: editedGuests,
-            nights: newNights
-        };
-        
-        setBookingFormData(updatedBookingData);
-        sessionStorage.setItem('bookingFormData', JSON.stringify(updatedBookingData));
-        setIsEditingDates(false);
+      const response = await propertyService.checkAvailability(
+        parseInt(propertyId || '0'), 
+        formattedCheckIn, 
+        formattedCheckOut,
+        totalTravelers
+      );
+      
+      console.log('📥 Réponse disponibilité:', response);
+      
+      const isAvailable = response?.available === true;
+      
+      console.log('✅ isAvailable:', isAvailable);
+      
+      if (isAvailable) {
+        setAvailabilityStatus('available');
         setError('');
-        
-        console.log('✅ Dates et voyageurs mis à jour:', updatedBookingData);
-    };
-
-    const validatePaymentDetails = () => {
-        if (paymentMethod === 'mobile_money') {
-            if (!mobileProvider) {
-                setError('Veuillez sélectionner votre opérateur Mobile Money');
-                return false;
-            }
-            if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
-                setError('Veuillez entrer un numéro Mobile Money valide');
-                return false;
-            }
-        } else if (paymentMethod === 'card') {
-            const cleanCardNumber = cardNumber.replace(/\s/g, '');
-            if (!cardNumber || cleanCardNumber.length < 16) {
-                setError('Veuillez entrer un numéro de carte valide');
-                return false;
-            }
-            if (!cardExpiry || !cardExpiry.includes('/')) {
-                setError('Veuillez entrer une date d\'expiration valide (MM/AA)');
-                return false;
-            }
-            if (!cardCvv || cardCvv.length < 3) {
-                setError('Veuillez entrer un CVV valide');
-                return false;
-            }
-            if (!cardName) {
-                setError('Veuillez entrer le nom sur la carte');
-                return false;
-            }
-        }
+        toast.success('✅ Ces dates sont disponibles !');
         return true;
+      } else {
+        setAvailabilityStatus('unavailable');
+        const message = response?.message || '❌ Ces dates ne sont pas disponibles.';
+        setError(message);
+        toast.error(message);
+        return false;
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur vérification:', error);
+      console.error('❌ Détails réponse:', error.response?.data);
+      setAvailabilityStatus('unavailable');
+      setError(error.response?.data?.message || '❌ Impossible de vérifier la disponibilité.');
+      return false;
+    } finally {
+      setIsCheckingAvailability(false);
+    }
+  };
+
+  // Sauvegarder les modifications des dates et voyageurs
+  const handleSaveDatesAndGuests = async () => {
+    if (!editedCheckIn || !editedCheckOut) {
+      setError('Veuillez sélectionner des dates valides');
+      return;
+    }
+    
+    if (new Date(editedCheckIn) >= new Date(editedCheckOut)) {
+      setError('La date de départ doit être après la date d\'arrivée');
+      return;
+    }
+
+    const totalTravelers = editedGuests + editedChildren + editedBabies;
+    if (totalTravelers > maxGuests) {
+      setError(`Le nombre total de voyageurs (${totalTravelers}) dépasse la capacité maximale (${maxGuests})`);
+      return;
+    }
+
+    const isAvailable = await checkNewAvailability();
+    
+    if (isAvailable) {
+      const newNights = Math.max(1, Math.ceil((new Date(editedCheckOut).getTime() - new Date(editedCheckIn).getTime()) / (1000 * 60 * 60 * 24)));
+      
+      setCurrentCheckIn(editedCheckIn);
+      setCurrentCheckOut(editedCheckOut);
+      setCurrentGuests(totalTravelers);
+      setCurrentNights(newNights);
+      
+      const updatedBookingData = {
+        ...bookingFormData,
+        check_in: editedCheckIn,
+        check_out: editedCheckOut,
+        guests: totalTravelers,
+        children: editedChildren,
+        babies: editedBabies,
+        nights: newNights
+      };
+      
+      setBookingFormData(updatedBookingData);
+      sessionStorage.setItem('bookingFormData', JSON.stringify(updatedBookingData));
+      setIsEditingDates(false);
+      setShowGuestDetails(false);
+      setError('');
+      toast.success('✅ Dates mises à jour avec succès !');
+    } else {
+      setError('❌ Ces dates ne sont pas disponibles.');
+      toast.error('❌ Ces dates ne sont pas disponibles.');
+    }
+  };
+
+  // Redirection vers la page Fedapay
+  const handleFedapayRedirect = () => {
+    // Sauvegarder les données de réservation dans sessionStorage
+    const bookingDataToSave = {
+      property_id: parseInt(propertyId || '0'),
+      property_title: property?.title,
+      check_in: currentCheckIn,
+      check_out: currentCheckOut,
+      guests: currentGuests,
+      children: bookingFormData?.children || 0,
+      babies: bookingFormData?.babies || 0,
+      nights: currentNights,
+      totalAmount: total,
+      price_per_night: pricePerNight,
+      guest_details: bookingFormData?.guest_details || {},
+      special_requests: specialRequests || undefined
     };
+    
+    sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingDataToSave));
+    
+    // Rediriger vers la page Fedapay
+    if (onNavigate) {
+      onNavigate({ 
+        name: 'fedapay-payment', 
+        bookingData: bookingDataToSave 
+      });
+    } else {
+      window.location.href = `/payment/fedapay?data=${encodeURIComponent(JSON.stringify(bookingDataToSave))}`;
+    }
+  };
 
-    const processPayment = async (): Promise<boolean> => {
-        if (!validatePaymentDetails()) return false;
-        setIsProcessing(true);
-        setPaymentStep('processing');
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve(true);
-            }, 2000);
-        });
-    };
+  // Validation des données de paiement
+  const validatePaymentDetails = () => {
+    if (paymentMethod === 'fedapay') {
+      return true;
+    }
+    
+    if (paymentMethod === 'mobile_money') {
+      if (!mobileProvider) {
+        setError('Veuillez sélectionner votre opérateur Mobile Money');
+        return false;
+      }
+      if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
+        setError('Veuillez entrer un numéro Mobile Money valide');
+        return false;
+      }
+    } else if (paymentMethod === 'card') {
+      const cleanCardNumber = cardNumber.replace(/\s/g, '');
+      if (!cardNumber || cleanCardNumber.length < 16) {
+        setError('Veuillez entrer un numéro de carte valide');
+        return false;
+      }
+      if (!cardExpiry || !cardExpiry.includes('/')) {
+        setError('Veuillez entrer une date d\'expiration valide (MM/AA)');
+        return false;
+      }
+      if (!cardCvv || cardCvv.length < 3) {
+        setError('Veuillez entrer un CVV valide');
+        return false;
+      }
+      if (!cardName) {
+        setError('Veuillez entrer le nom sur la carte');
+        return false;
+      }
+    }
+    return true;
+  };
 
-    const {isAuthenticated } = useAuth();
+  // Paiement via Fedapay
+  const handleFedapayPayment = async () => {
+    setError('');
+    setIsProcessing(true);
+    setPaymentStep('processing');
 
-// Dans BookingPage, corrigez la fonction handleOpenPaymentModal
-const handleOpenPaymentModal = () => {
-    // Vérifier d'abord si l'utilisateur est connecté
+    try {
+      const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
+      const guestDetails = bookingFormData?.guest_details || {
+        full_name: `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || 'Voyageur',
+        email: userData?.email || '',
+        phone: userData?.phone || '',
+        address: ''
+      };
+
+      // ÉTAPE 1 : Créer la réservation
+      const bookingPayload = {
+        property_id: parseInt(propertyId || '0'),
+        check_in: currentCheckIn,
+        check_out: currentCheckOut,
+        guests_count: currentGuests,
+        children: bookingFormData?.children || 0,
+        babies: bookingFormData?.babies || 0,
+        payment_method: 'fedapay' as const,
+        guest_details: guestDetails,
+        payment_option: '100' as const,
+        total_amount: total,
+        payment_amount: paymentAmount,
+        nights: currentNights,
+        special_requests: specialRequests || undefined
+      };
+
+      console.log('📤 1. Création de la réservation:', bookingPayload);
+      
+      const bookingResponse = await bookingService.create(bookingPayload);
+      console.log('📥 Réponse création réservation:', bookingResponse);
+
+      const bookingId = bookingResponse?.data?.booking?.id 
+        || bookingResponse?.booking?.id 
+        || bookingResponse?.data?.id 
+        || bookingResponse?.id;
+
+      if (!bookingId) {
+        throw new Error('Impossible de récupérer l\'ID de la réservation');
+      }
+
+      console.log('✅ Réservation créée avec ID:', bookingId);
+
+      // ÉTAPE 2 : Initier le paiement Fedapay
+      const fedapayData = {
+        amount: Math.round(total),
+        currency: 'XAF' as const,
+        customer: {
+          firstname: guestDetails.full_name.split(' ')[0] || 'Client',
+          lastname: guestDetails.full_name.split(' ').slice(1).join(' ') || 'Non renseigné',
+          email: guestDetails.email || 'client@email.com',
+          phone: guestDetails.phone || '690000000'
+        },
+        description: `Réservation - ${property?.title || 'Logement'}`,
+        reference: `BOOK-${Date.now()}`,
+        booking_id: bookingId,
+        callback_url: `${window.location.origin}/payment/fedapay/callback`,
+        cancel_url: `${window.location.origin}/payment/fedapay/cancel`
+      };
+
+      console.log('📤 2. Initiation paiement Fedapay avec booking_id:', bookingId);
+      console.log('📤 Données Fedapay:', fedapayData);
+
+      const response = await fedapayService.initiatePayment(fedapayData);
+      console.log('📥 Réponse Fedapay:', response);
+      
+      if (response.success && response.data?.payment_url) {
+        setPaymentStep('success');
+        toast.success('✅ Redirection vers Fedapay...');
+        
+        sessionStorage.setItem('fedapay_booking_id', bookingId.toString());
+        sessionStorage.setItem('fedapay_transaction_id', response.data.id);
+        
+        setTimeout(() => {
+          window.location.href = response.data.payment_url;
+        }, 1500);
+      } else {
+        throw new Error(response.message || 'URL de paiement non reçue');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur Fedapay:', error);
+      console.error('❌ Détails:', error.response?.data);
+      setPaymentStep('error');
+      setError(error.message || 'Erreur lors du paiement');
+      toast.error('❌ ' + (error.message || 'Erreur de paiement'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Traitement du paiement (Mobile Money / Carte)
+  const processPayment = async (): Promise<boolean> => {
+    if (!validatePaymentDetails()) return false;
+    
+    if (paymentMethod === 'fedapay') {
+      await handleFedapayPayment();
+      return false;
+    }
+
+    setIsProcessing(true);
+    setPaymentStep('processing');
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true);
+      }, 2000);
+    });
+  };
+
+  // Ouverture du modal de paiement
+  const handleOpenPaymentModal = () => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     
-    console.log('🔍 Vérification connexion:', { 
-        hasToken: !!token, 
-        hasUser: !!storedUser,
-        authUser: user,
-        isAuthenticatedFromContext: isAuthenticated
-    });
-    
-    // Vérifier si l'utilisateur est connecté (token existe ET user existe)
     if (!token || !storedUser || !user) {
-        // Non connecté - rediriger vers auth
-        console.log('❌ Utilisateur non connecté, redirection vers auth');
-        
-        // Sauvegarder les données de réservation actuelles
-        const currentBookingData = {
-            property_id: parseInt(propertyId || '0'),
-            check_in: currentCheckIn,
-            check_out: currentCheckOut,
-            guests: currentGuests,
-            nights: currentNights,
-            guest_details: bookingFormData?.guest_details || {}
-        };
-        sessionStorage.setItem('bookingFormData', JSON.stringify(currentBookingData));
-        
-        // Sauvegarder l'intention de réservation
-        localStorage.setItem('redirect_intent', 'booking');
-        localStorage.setItem('redirect_property_id', propertyId || '');
-        localStorage.setItem('temp_booking_check_in', currentCheckIn);
-        localStorage.setItem('temp_booking_check_out', currentCheckOut);
-        localStorage.setItem('temp_booking_guests', currentGuests.toString());
-        localStorage.setItem('temp_booking_nights', currentNights.toString());
-        
-        // Rediriger vers auth
-        if (onNavigate) {
-            onNavigate({ name: 'auth', search: 'redirect=booking' });
-        } else {
-            window.location.href = '/auth?redirect=booking';
-        }
-        return;
+      const currentBookingData = {
+        property_id: parseInt(propertyId || '0'),
+        check_in: currentCheckIn,
+        check_out: currentCheckOut,
+        guests: currentGuests,
+        children: bookingFormData?.children || 0,
+        babies: bookingFormData?.babies || 0,
+        nights: currentNights,
+        guest_details: bookingFormData?.guest_details || {}
+      };
+      sessionStorage.setItem('bookingFormData', JSON.stringify(currentBookingData));
+      
+      localStorage.setItem('redirect_intent', 'booking');
+      localStorage.setItem('redirect_property_id', propertyId || '');
+      localStorage.setItem('temp_booking_check_in', currentCheckIn);
+      localStorage.setItem('temp_booking_check_out', currentCheckOut);
+      localStorage.setItem('temp_booking_guests', currentGuests.toString());
+      localStorage.setItem('temp_booking_nights', currentNights.toString());
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=booking' });
+      } else {
+        window.location.href = '/auth?redirect=booking';
+      }
+      return;
     }
     
-    // Connecté - ouvrir le modal de paiement
-    console.log('✅ Utilisateur connecté, ouverture du modal de paiement');
     setError('');
     setShowPaymentModal(true);
     setPaymentStep('form');
-};
+  };
 
-    const handlePaymentSubmit = async () => {
-        if (!validatePaymentDetails()) return;
-
-        const paymentSuccess = await processPayment();
-        if (!paymentSuccess) {
-            setPaymentStep('error');
-            setError('Le paiement a échoué. Veuillez réessayer.');
-            setIsProcessing(false);
-            return;
-        }
-
-        setPaymentStep('success');
-        
-        const guestDetails = bookingFormData?.guest_details || {
-            full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email?.split('@')[0] || 'Voyageur',
-            email: user?.email || '',
-            phone: user?.phone || '',
-            address: '',
-            nationality: '',
-            id_type: '',
-            id_number: ''
-        };
-
-        const bookingData: BookingData = {
-            property_id: parseInt(propertyId || '0'),
-            check_in: currentCheckIn,
-            check_out: currentCheckOut,
-            guests_count: currentGuests,
-            payment_method: paymentMethod,
-            mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
-            mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
-            guest_details: {
-                full_name: guestDetails.full_name,
-                email: guestDetails.email,
-                phone: guestDetails.phone,
-                address: guestDetails.address,
-                nationality: guestDetails.nationality,
-                id_type: guestDetails.id_type,
-                id_number: guestDetails.id_number
-            },
-            payment_option: '100',
-            total_amount: total,
-            payment_amount: paymentAmount,
-            nights: currentNights,
-            special_requests: specialRequests || undefined
-        };
-
-        console.log('📤 Envoi à l\'API:', bookingData);
-
-        try {
-            setLoading(true);
-            const response = await bookingService.create(bookingData);
-            const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id || response?.data?.id;
-            sessionStorage.removeItem('bookingFormData');
-            
-            if (bookingId) {
-                setTimeout(() => {
-                    setShowPaymentModal(false);
-                    setLoading(false);
-                    onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
-                }, 1500);
-            } else {
-                setPaymentStep('error');
-                setError("Erreur: Impossible de récupérer l'ID de la réservation");
-                setIsProcessing(false);
-                setLoading(false);
-            }
-        } catch (err: any) {
-            console.error('❌ Erreur:', err);
-            setPaymentStep('error');
-            setIsProcessing(false);
-            setLoading(false);
-            if (err.response?.data?.errors) {
-                const errors = err.response.data.errors;
-                const errorMessages = Object.values(errors).flat();
-                setError(errorMessages.join(', '));
-            } else if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else {
-                setError('Une erreur est survenue. Veuillez réessayer.');
-            }
-        }
-    };
-
-    const formatCardNumber = (value: string) => {
-        const cleaned = value.replace(/\s/g, '');
-        const groups = cleaned.match(/.{1,4}/g);
-        return groups ? groups.join(' ') : cleaned;
-    };
-
-    const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatCardNumber(e.target.value);
-        setCardNumber(formatted);
-    };
-
-    const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length >= 2) {
-            value = value.slice(0, 2) + '/' + value.slice(2, 4);
-        }
-        setCardExpiry(value);
-    };
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
-            </div>
-        );
+  // Soumission du paiement (hors Fedapay)
+  const handlePaymentSubmit = async () => {
+    if (paymentMethod === 'fedapay') {
+      await handleFedapayPayment();
+      return;
     }
 
-    if (!property) {
-        return (
-            <div className="min-h-screen flex justify-center items-center bg-[#f4fffe] p-4">
-                <div className="text-center bg-white rounded-2xl p-8 max-w-md">
-                    <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-red-500 mb-4">Propriété introuvable</p>
-                    <button onClick={() => onNavigate?.({ name: 'home' })} className="text-[#00c9a7] underline">Retour à l'accueil</button>
-                </div>
-            </div>
-        );
+    const paymentSuccess = await processPayment();
+    if (!paymentSuccess) {
+      setPaymentStep('error');
+      setError('Le paiement a échoué. Veuillez réessayer.');
+      setIsProcessing(false);
+      return;
     }
 
-    const guestInfo = bookingFormData?.guest_details || {};
-
-    // Formater les dates pour l'affichage
-    const formatDate = (dateString: string) => {
-        if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('fr-FR', { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
-        });
+    setPaymentStep('success');
+    
+    const guestDetails = bookingFormData?.guest_details || {
+      full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email?.split('@')[0] || 'Voyageur',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      address: '',
+      nationality: '',
+      id_type: '',
+      id_number: ''
     };
 
+    const bookingData: BookingData = {
+      property_id: parseInt(propertyId || '0'),
+      check_in: currentCheckIn,
+      check_out: currentCheckOut,
+      guests_count: currentGuests,
+      payment_method: paymentMethod,
+      mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+      mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
+      guest_details: {
+        full_name: guestDetails.full_name,
+        email: guestDetails.email,
+        phone: guestDetails.phone,
+        address: guestDetails.address,
+        nationality: guestDetails.nationality,
+        id_type: guestDetails.id_type,
+        id_number: guestDetails.id_number
+      },
+      payment_option: '100',
+      total_amount: total,
+      payment_amount: paymentAmount,
+      nights: currentNights,
+      special_requests: specialRequests || undefined
+    };
+
+    try {
+      setLoading(true);
+      const response = await bookingService.create(bookingData);
+      const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id || response?.data?.id;
+      sessionStorage.removeItem('bookingFormData');
+      
+      if (bookingId) {
+        setTimeout(() => {
+          setShowPaymentModal(false);
+          setLoading(false);
+          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+        }, 1500);
+      } else {
+        setPaymentStep('error');
+        setError("Erreur: Impossible de récupérer l'ID de la réservation");
+        setIsProcessing(false);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error('❌ Erreur:', err);
+      setPaymentStep('error');
+      setIsProcessing(false);
+      setLoading(false);
+      if (err.response?.data?.errors) {
+        const errors = err.response.data.errors;
+        const errorMessages = Object.values(errors).flat();
+        setError(errorMessages.join(', '));
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Une erreur est survenue. Veuillez réessayer.');
+      }
+    }
+  };
+
+  const formatCardNumber = (value: string) => {
+    const cleaned = value.replace(/\s/g, '');
+    const groups = cleaned.match(/.{1,4}/g);
+    return groups ? groups.join(' ') : cleaned;
+  };
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCardNumber(e.target.value);
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+      value = value.slice(0, 2) + '/' + value.slice(2, 4);
+    }
+    setCardExpiry(value);
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('fr-FR', { 
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
+  if (isLoading) {
     return (
-        <>
-            <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
-                {/* Header sticky */}
-                <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <button 
-                            onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
-                            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
-                        >
-                            <ArrowLeft className="w-5 h-5 text-gray-600" />
-                        </button>
-                        <div>
-                            <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
-                            <p className="text-xs text-gray-500">Vérifiez vos informations</p>
-                        </div>
-                    </div>
+      <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
+      </div>
+    );
+  }
+
+  if (!property) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-[#f4fffe] p-4">
+        <div className="text-center bg-white rounded-2xl p-8 max-w-md">
+          <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-red-500 mb-4">Propriété introuvable</p>
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="text-[#00c9a7] underline">Retour à l'accueil</button>
+        </div>
+      </div>
+    );
+  }
+
+  const guestInfo = bookingFormData?.guest_details || {};
+  const totalTravelers = currentGuests;
+
+  return (
+    <>
+      <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
+        {/* Header sticky */}
+        <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
+              className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div>
+              <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
+              <p className="text-xs text-gray-500">Vérifiez vos informations</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
+          {/* Carte récapitulative mobile */}
+          <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm border border-gray-100">
+            <div className="flex items-start gap-3">
+              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                <img 
+                  src={property.images?.[0] || property.image} 
+                  alt={property.title} 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{property.district}, {property.city}</p>
+                <div className="flex items-center gap-2 mt-2 text-xs">
+                  <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-gray-500">{totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}</span>
+                  {bookingFormData?.children > 0 && (
+                    <span className="text-gray-400 text-xs">
+                      ({bookingFormData.children} enf.
+                      {bookingFormData.babies > 0 ? `, ${bookingFormData.babies} bébé${bookingFormData.babies > 1 ? 's' : ''}` : ''})
+                    </span>
+                  )}
                 </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-[#00c9a7] text-sm">{total.toLocaleString()} FCFA</p>
+                <p className="text-xs text-gray-400">total</p>
+              </div>
+            </div>
+          </div>
 
-                <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
-                    {/* Carte récapitulative mobile - utilisant les valeurs actuelles */}
-                    <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm border border-gray-100">
-                        <div className="flex items-start gap-3">
-                            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                                <img 
-                                    src={property.images?.[0] || property.image} 
-                                    alt={property.title} 
-                                    className="w-full h-full object-cover" 
-                                    onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
-                                />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
-                                <p className="text-xs text-gray-500 mt-0.5">{property.district}, {property.city}</p>
-                                <div className="flex items-center gap-2 mt-2 text-xs">
-                                    <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
-                                    <span className="text-gray-300">•</span>
-                                    <span className="text-gray-500">{currentGuests} voyageur{currentGuests > 1 ? 's' : ''}</span>
-                                </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-bold text-[#00c9a7] text-sm">{total.toLocaleString()} FCFA</p>
-                                <p className="text-xs text-gray-400">total</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-                        {/* Colonne gauche - Informations */}
-                        <div className="flex-1 space-y-4">
-                            {/* Vos dates AVEC STYLO (édition) - utilisant les valeurs actuelles */}
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
-                                        <Calendar className="w-5 h-5 text-[#00c9a7]" />
-                                        Vos dates
-                                    </h2>
-                                    {!isEditingDates && (
-                                        <button 
-                                            onClick={() => {
-                                                setIsEditingDates(true);
-                                                setEditedCheckIn(currentCheckIn);
-                                                setEditedCheckOut(currentCheckOut);
-                                                setEditedGuests(currentGuests);
-                                                setError('');
-                                            }}
-                                            className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
-                                            title="Modifier les dates et le nombre de voyageurs"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                            </svg>
-                                        </button>
-                                    )}
-                                </div>
-                                
-                                {isEditingDates ? (
-                                    // Mode édition
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">Date d'arrivée</label>
-                                                <input 
-                                                    type="date" 
-                                                    value={editedCheckIn}
-                                                    min={new Date().toISOString().split('T')[0]}
-                                                    onChange={(e) => {
-                                                        setEditedCheckIn(e.target.value);
-                                                        setError('');
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-600 mb-1">Date de départ</label>
-                                                <input 
-                                                    type="date" 
-                                                    value={editedCheckOut}
-                                                    min={editedCheckIn || new Date().toISOString().split('T')[0]}
-                                                    onChange={(e) => {
-                                                        setEditedCheckOut(e.target.value);
-                                                        setError('');
-                                                    }}
-                                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de voyageurs (max {maxGuests})</label>
-                                            <div className="flex items-center gap-3">
-                                                <button 
-                                                    onClick={() => setEditedGuests(Math.max(1, editedGuests - 1))}
-                                                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
-                                                >
-                                                    -
-                                                </button>
-                                                <span className="font-medium text-base min-w-[40px] text-center">{editedGuests}</span>
-                                                <button 
-                                                    onClick={() => setEditedGuests(Math.min(maxGuests, editedGuests + 1))}
-                                                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
-                                                >
-                                                    +
-                                                </button>
-                                                <span className="text-xs text-gray-500 ml-2">max {maxGuests} pers.</span>
-                                            </div>
-                                        </div>
-                                        
-                                        {availabilityStatus === 'unavailable' && (
-                                            <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
-                                                ⚠️ Ces dates ne sont pas disponibles
-                                            </div>
-                                        )}
-                                        
-                                        {error && (
-                                            <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
-                                                {error}
-                                            </div>
-                                        )}
-                                        
-                                        <div className="flex gap-2 pt-2">
-                                            <button 
-                                                onClick={handleSaveDatesAndGuests}
-                                                disabled={isCheckingAvailability}
-                                                className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50"
-                                            >
-                                                {isCheckingAvailability ? 'Vérification...' : 'Enregistrer les modifications'}
-                                            </button>
-                                            <button 
-                                                onClick={() => {
-                                                    setIsEditingDates(false);
-                                                    setEditedCheckIn(currentCheckIn);
-                                                    setEditedCheckOut(currentCheckOut);
-                                                    setEditedGuests(currentGuests);
-                                                    setError('');
-                                                    setAvailabilityStatus('idle');
-                                                }}
-                                                className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-                                            >
-                                                Annuler
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    // Mode affichage - utilisant currentCheckIn, currentCheckOut, currentGuests, currentNights
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                        <div>
-                                            <p className="text-gray-500 text-xs">Arrivée</p>
-                                            <p className="font-medium text-sm">{formatDate(currentCheckIn)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500 text-xs">Départ</p>
-                                            <p className="font-medium text-sm">{formatDate(currentCheckOut)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500 text-xs">Durée</p>
-                                            <p className="font-medium text-sm">{currentNights} nuit{currentNights > 1 ? 's' : ''}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-gray-500 text-xs">Voyageurs</p>
-                                            <p className="font-medium text-sm">{currentGuests} pers.</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Vos informations */}
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                                    <User className="w-5 h-5 text-[#00c9a7]" />
-                                    Vos informations
-                                </h2>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex flex-wrap justify-between items-center py-1">
-                                        <span className="text-gray-500 text-xs">Nom complet</span>
-                                        <span className="font-medium text-sm">{guestInfo.full_name || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                                        <span className="text-gray-500 text-xs">Email</span>
-                                        <span className="font-medium text-sm break-all">{guestInfo.email || '-'}</span>
-                                    </div>
-                                    <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                                        <span className="text-gray-500 text-xs">Téléphone</span>
-                                        <span className="font-medium text-sm">{guestInfo.phone || '-'}</span>
-                                    </div>
-                                    {guestInfo.address && (
-                                        <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                                            <span className="text-gray-500 text-xs">Adresse</span>
-                                            <span className="font-medium text-sm">{guestInfo.address}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Demandes spéciales */}
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                                    <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
-                                    Demandes spéciales
-                                </h2>
-                                <textarea 
-                                    value={specialRequests} 
-                                    onChange={(e) => setSpecialRequests(e.target.value)} 
-                                    placeholder="Horaires d'arrivée, allergies, demandes particulières..." 
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
-                                    rows={3} 
-                                />
-                            </div>
-                        </div>
-
-                        {/* Colonne droite - Résumé et paiement - utilisant les valeurs actuelles */}
-                        <div className="lg:w-96 space-y-4">
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
-                                <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {currentNights} nuits</span>
-                                        <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Frais de service (10%)</span>
-                                        <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
-                                    </div>
-                                    <div className="border-t border-gray-200 pt-3 mt-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-semibold">Total</span>
-                                            <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <button 
-                                    onClick={handleOpenPaymentModal} 
-                                    disabled={loading} 
-                                    className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98]"
-                                >
-                                    {loading ? 'Traitement...' : 'Procéder au paiement'}
-                                </button>
-                                
-                                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
-                                    <div className="flex items-center gap-1">
-                                        <Lock className="w-3 h-3" />
-                                        <span>Paiement sécurisé</span>
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                        <Shield className="w-3 h-3" />
-                                        <span>Garantie BF-Immo</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Support */}
-                            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
-                                    <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
-                                    <p className="text-xs text-gray-500">Contactez notre support 24/7</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+          <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+            {/* Colonne gauche - Informations */}
+            <div className="flex-1 space-y-4">
+              {/* Vos dates avec édition */}
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                    <Calendar className="w-5 h-5 text-[#00c9a7]" />
+                    Vos dates
+                  </h2>
+                  {!isEditingDates && (
+                    <button 
+                      onClick={() => {
+                        setIsEditingDates(true);
+                        setEditedCheckIn(currentCheckIn);
+                        setEditedCheckOut(currentCheckOut);
+                        setEditedGuests(bookingFormData?.adults || currentGuests);
+                        setEditedChildren(bookingFormData?.children || 0);
+                        setEditedBabies(bookingFormData?.babies || 0);
+                        setError('');
+                      }}
+                      className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
+                      title="Modifier les dates et le nombre de voyageurs"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
+                
+                {isEditingDates ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Date d'arrivée</label>
+                        <input 
+                          type="date" 
+                          value={editedCheckIn}
+                          min={new Date().toISOString().split('T')[0]}
+                          onChange={(e) => {
+                            setEditedCheckIn(e.target.value);
+                            setError('');
+                          }}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Date de départ</label>
+                        <input 
+                          type="date" 
+                          value={editedCheckOut}
+                          min={editedCheckIn || new Date().toISOString().split('T')[0]}
+                          onChange={(e) => {
+                            setEditedCheckOut(e.target.value);
+                            setError('');
+                          }}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Section voyageurs avec Adultes, Enfants, Bébés */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowGuestDetails(!showGuestDetails)}
+                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-gray-700">
+                            {editedGuests + editedChildren + editedBabies} voyageur{(editedGuests + editedChildren + editedBabies) > 1 ? 's' : ''}
+                          </span>
+                          {(editedChildren > 0 || editedBabies > 0) && (
+                            <span className="text-xs text-gray-500">
+                              ({editedChildren > 0 ? `${editedChildren} enfant${editedChildren > 1 ? 's' : ''}` : ''}
+                              {editedChildren > 0 && editedBabies > 0 ? ', ' : ''}
+                              {editedBabies > 0 ? `${editedBabies} bébé${editedBabies > 1 ? 's' : ''}` : ''})
+                            </span>
+                          )}
+                        </div>
+                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDetails ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {showGuestDetails && (
+                        <div className="mt-3 space-y-3 bg-gray-50 rounded-lg p-4">
+                          {/* Adultes */}
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">Adultes</span>
+                              <p className="text-xs text-gray-400">À partir de 13 ans</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={() => setEditedGuests(Math.max(1, editedGuests - 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">-</span>
+                              </button>
+                              <span className="font-medium text-base min-w-[30px] text-center">{editedGuests}</span>
+                              <button 
+                                onClick={() => setEditedGuests(Math.min(maxGuests, editedGuests + 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">+</span>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {/* Enfants */}
+                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">Enfants</span>
+                              <p className="text-xs text-gray-400">De 2 à 12 ans</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={() => setEditedChildren(Math.max(0, editedChildren - 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">-</span>
+                              </button>
+                              <span className="font-medium text-base min-w-[30px] text-center">{editedChildren}</span>
+                              <button 
+                                onClick={() => setEditedChildren(Math.min(maxGuests - editedGuests - editedBabies, editedChildren + 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">+</span>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {/* Bébés */}
+                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">Bébés</span>
+                              <p className="text-xs text-gray-400">Moins de 2 ans</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={() => setEditedBabies(Math.max(0, editedBabies - 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">-</span>
+                              </button>
+                              <span className="font-medium text-base min-w-[30px] text-center">{editedBabies}</span>
+                              <button 
+                                onClick={() => setEditedBabies(Math.min(maxGuests - editedGuests - editedChildren, editedBabies + 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">+</span>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-2 mt-1">
+                            <span>Total voyageurs</span>
+                            <span className="font-medium">
+                              {editedGuests + editedChildren + editedBabies} / {maxGuests} max.
+                              {editedGuests + editedChildren + editedBabies > maxGuests && (
+                                <span className="text-red-500 ml-1">⚠️ Dépassement</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {availabilityStatus === 'unavailable' && (
+                      <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
+                        ⚠️ Ces dates ne sont pas disponibles
+                      </div>
+                    )}
+                    
+                    {error && (
+                      <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
+                        {error}
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2 pt-2">
+                      <button 
+                        onClick={handleSaveDatesAndGuests}
+                        disabled={isCheckingAvailability}
+                        className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50"
+                      >
+                        {isCheckingAvailability ? 'Vérification...' : 'Enregistrer les modifications'}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsEditingDates(false);
+                          setEditedCheckIn(currentCheckIn);
+                          setEditedCheckOut(currentCheckOut);
+                          setEditedGuests(bookingFormData?.adults || currentGuests);
+                          setEditedChildren(bookingFormData?.children || 0);
+                          setEditedBabies(bookingFormData?.babies || 0);
+                          setShowGuestDetails(false);
+                          setError('');
+                          setAvailabilityStatus('idle');
+                        }}
+                        className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs">Arrivée</p>
+                      <p className="font-medium text-sm">{formatDate(currentCheckIn)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Départ</p>
+                      <p className="font-medium text-sm">{formatDate(currentCheckOut)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Durée</p>
+                      <p className="font-medium text-sm">{currentNights} nuit{currentNights > 1 ? 's' : ''}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Voyageurs</p>
+                      <p className="font-medium text-sm">
+                        {totalTravelers} pers.
+                        {bookingFormData?.children > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            ({bookingFormData.children} enf.
+                            {bookingFormData.babies > 0 ? `, ${bookingFormData.babies} bébé${bookingFormData.babies > 1 ? 's' : ''}` : ''})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Vos informations */}
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                  <User className="w-5 h-5 text-[#00c9a7]" />
+                  Vos informations
+                </h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex flex-wrap justify-between items-center py-1">
+                    <span className="text-gray-500 text-xs">Nom complet</span>
+                    <span className="font-medium text-sm">{guestInfo.full_name || '-'}</span>
+                  </div>
+                  <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                    <span className="text-gray-500 text-xs">Email</span>
+                    <span className="font-medium text-sm break-all">{guestInfo.email || '-'}</span>
+                  </div>
+                  <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                    <span className="text-gray-500 text-xs">Téléphone</span>
+                    <span className="font-medium text-sm">{guestInfo.phone || '-'}</span>
+                  </div>
+                  {guestInfo.address && (
+                    <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                      <span className="text-gray-500 text-xs">Adresse</span>
+                      <span className="font-medium text-sm">{guestInfo.address}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Demandes spéciales */}
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                  <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                  Demandes spéciales
+                </h2>
+                <textarea 
+                  value={specialRequests} 
+                  onChange={(e) => setSpecialRequests(e.target.value)} 
+                  placeholder="Horaires d'arrivée, allergies, demandes particulières..." 
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
+                  rows={3} 
+                />
+              </div>
             </div>
 
-            {/* Modal de paiement (identique, gardé pour la complétion) */}
-            {showPaymentModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm" style={{ overflow: 'hidden' }}>
-                    {/* Contenu du modal identique à avant */}
-                    <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl" style={{ overflow: 'hidden' }}>
-                        <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
-                            <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
-                                {paymentStep === 'form' && 'Paiement sécurisé'}
-                                {paymentStep === 'processing' && 'Traitement en cours...'}
-                                {paymentStep === 'success' && 'Paiement réussi !'}
-                                {paymentStep === 'error' && 'Erreur de paiement'}
-                            </h3>
-                            <button onClick={() => { setShowPaymentModal(false); setPaymentStep('form'); setError(''); }} className="p-2 rounded-full hover:bg-gray-100 transition">
-                                <X className="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-                            {paymentStep === 'form' && (
-                                <div className="space-y-5">
-                                    <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
-                                        <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-3">Méthode de paiement</label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <button onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl ${paymentMethod === 'mobile_money' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}>
-                                                <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                                <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
-                                            </button>
-                                            <button onClick={() => { setPaymentMethod('card'); setError(''); }} className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl ${paymentMethod === 'card' ? 'border-[#00c9a7] bg-[#00c9a7]/5' : 'border-gray-200'}`}>
-                                                <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                                                <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {paymentMethod === 'mobile_money' && (
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
-                                                <div className="grid grid-cols-3 gap-2">
-                                                    {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                                                        <button key={provider} onClick={() => { setMobileProvider(provider); setError(''); }} className={`py-2 rounded-xl border-2 ${mobileProvider === provider ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' : 'border-gray-200'}`}>
-                                                            {provider}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
-                                                <input type="tel" value={mobileMoneyNumber} onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} placeholder="97 00 00 00" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {paymentMethod === 'card' && (
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
-                                                <input type="text" value={cardNumber} onChange={handleCardNumberChange} placeholder="1234 5678 9012 3456" maxLength={19} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
-                                                    <input type="text" value={cardExpiry} onChange={handleExpiryChange} placeholder="MM/AA" maxLength={5} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                                                    <div className="relative">
-                                                        <input type={showCvv ? 'text' : 'password'} value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} placeholder="123" maxLength={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm pr-10" />
-                                                        <button type="button" onClick={() => setShowCvv(!showCvv)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                            {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
-                                                <input type="text" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} placeholder="JEAN DUPONT" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm uppercase" />
-                                            </div>
-                                        </div>
-                                    )}
-                                    {error && (
-                                        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
-                                            <AlertCircle className="w-5 h-5 text-red-500" />
-                                            <p className="text-sm text-red-600">{error}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            {paymentStep === 'processing' && (
-                                <div className="text-center py-8">
-                                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
-                                    <p className="text-gray-600">Traitement du paiement en cours...</p>
-                                </div>
-                            )}
-                            {paymentStep === 'success' && (
-                                <div className="text-center py-8">
-                                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <CheckCircle className="w-8 h-8 text-green-500" />
-                                    </div>
-                                    <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
-                                    <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
-                                </div>
-                            )}
-                            {paymentStep === 'error' && (
-                                <div className="text-center py-8">
-                                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <AlertCircle className="w-8 h-8 text-red-500" />
-                                    </div>
-                                    <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
-                                    <p className="text-gray-500 mb-4">{error}</p>
-                                    <button onClick={() => { setPaymentStep('form'); setError(''); }} className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl">
-                                        Réessayer
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        {paymentStep === 'form' && (
-                            <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
-                                <button onClick={handlePaymentSubmit} disabled={isProcessing} className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold disabled:opacity-50">
-                                    {isProcessing ? 'Traitement...' : `Payer ${total.toLocaleString()} FCFA`}
-                                </button>
-                            </div>
-                        )}
+            {/* Colonne droite - Résumé et paiement */}
+            <div className="lg:w-96 space-y-4">
+              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
+                <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {currentNights} nuits</span>
+                    <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Frais de service (10%)</span>
+                    <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">Total</span>
+                      <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
                     </div>
+                  </div>
                 </div>
+                
+                {/* Bouton Fedapay */}
+                <button 
+                  onClick={handleFedapayRedirect} 
+                  disabled={loading} 
+                  className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  {loading ? 'Traitement...' : 'Payer avec Fedapay'}
+                </button>
+                
+                {/* Bouton Autres méthodes de paiement */}
+                <button 
+                  onClick={handleOpenPaymentModal} 
+                  disabled={loading} 
+                  className="w-full mt-2 py-2 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
+                >
+                  Autres méthodes de paiement
+                </button>
+                
+                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    <span>Paiement sécurisé</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    <span>Garantie BF-Immo</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Support */}
+              <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
+                </div>
+                <div>
+                  <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
+                  <p className="text-xs text-gray-500">Contactez notre support 24/7</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de paiement (pour Mobile Money et Carte) */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
+              <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
+                {paymentStep === 'form' && 'Choisissez votre paiement'}
+                {paymentStep === 'processing' && 'Traitement en cours...'}
+                {paymentStep === 'success' && 'Paiement réussi !'}
+                {paymentStep === 'error' && 'Erreur de paiement'}
+              </h3>
+              <button 
+                onClick={() => { 
+                  setShowPaymentModal(false); 
+                  setPaymentStep('form'); 
+                  setError(''); 
+                }} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {paymentStep === 'form' && (
+                <div className="space-y-5">
+                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'mobile_money' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
+                    </button>
+                    <button 
+                      onClick={() => { setPaymentMethod('card'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'card' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
+                    </button>
+                  </div>
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
+                            <button 
+                              key={provider} 
+                              onClick={() => { setMobileProvider(provider); setError(''); }} 
+                              className={`py-2 rounded-xl border-2 ${
+                                mobileProvider === provider 
+                                  ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' 
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              {provider}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
+                        <input 
+                          type="tel" 
+                          value={mobileMoneyNumber} 
+                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} 
+                          placeholder="97 00 00 00" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
+                        <input 
+                          type="text" 
+                          value={cardNumber} 
+                          onChange={handleCardNumberChange} 
+                          placeholder="1234 5678 9012 3456" 
+                          maxLength={19} 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
+                          <input 
+                            type="text" 
+                            value={cardExpiry} 
+                            onChange={handleExpiryChange} 
+                            placeholder="MM/AA" 
+                            maxLength={5} 
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                          <div className="relative">
+                            <input 
+                              type={showCvv ? 'text' : 'password'} 
+                              value={cardCvv} 
+                              onChange={(e) => setCardCvv(e.target.value)} 
+                              placeholder="123" 
+                              maxLength={4} 
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm pr-10" 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => setShowCvv(!showCvv)} 
+                              className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                              {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
+                        <input 
+                          type="text" 
+                          value={cardName} 
+                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
+                          placeholder="JEAN DUPONT" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm uppercase" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentStep === 'processing' && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Traitement du paiement en cours...</p>
+                </div>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
+                  <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
+                </div>
+              )}
+
+              {paymentStep === 'error' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
+                  <p className="text-gray-500 mb-4">{error}</p>
+                  <button 
+                    onClick={() => { setPaymentStep('form'); setError(''); }} 
+                    className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {paymentStep === 'form' && (
+              <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
+                <button 
+                  onClick={handlePaymentSubmit} 
+                  disabled={isProcessing} 
+                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                >
+                  {isProcessing ? 'Traitement...' : `Payer ${total.toLocaleString()} FCFA`}
+                </button>
+              </div>
             )}
-        </>
-    );
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 // Styles d'animation
 const style = document.createElement('style');
@@ -17164,6 +17534,7 @@ export function CityPage({ onNavigate, city }: { onNavigate?: (route: Route) => 
 const COLORS = ['#00c9a7', '#0f2940', '#ff6b6b', '#f5a623', '#4a90e2'];
 
 export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const { isDark } = useTheme();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: () => adminService.getDashboard(),
@@ -17174,7 +17545,6 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
   const { logout } = useAuth();
 
-  // ✅ Fonction de déconnexion
   const handleLogout = async () => {
     if (confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
       try {
@@ -17216,30 +17586,30 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30 pb-10">
+    <div className={`min-h-screen ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-slate-50 via-white to-emerald-50/30'} pb-10 transition-colors duration-300`}>
       <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
         {/* En-tête épuré */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 flex items-center gap-2">
+            <h1 className={`text-2xl md:text-3xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-800'}`}>
               <Sparkles className="w-6 h-6 text-emerald-500" />
               Tableau de bord
             </h1>
-            <p className="text-sm text-slate-500 mt-1">Vue d'ensemble de votre plateforme</p>
+            <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Vue d'ensemble de votre plateforme</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => refetch()}
-              className="p-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-slate-200"
+              className={`p-2 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white border-slate-200 text-slate-500'} rounded-xl shadow-sm hover:shadow-md transition-all border`}
             >
-              <RefreshCw className="w-4 h-4 text-slate-500" />
+              <RefreshCw className="w-4 h-4" />
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-200"
+              className={`flex items-center gap-2 px-4 py-2 ${isDark ? 'bg-red-900/30 hover:bg-red-900/50 border-red-800 text-red-400' : 'bg-red-50 hover:bg-red-100 border-red-200 text-red-600'} rounded-xl transition-colors border`}
             >
-              <LogOut className="w-4 h-4 text-red-500" />
-              <span className="text-sm font-medium text-red-600">Déconnexion</span>
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm font-medium">Déconnexion</span>
             </button>
           </div>
         </div>
@@ -17252,6 +17622,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             value={stats.users?.total || 0}
             change={`+${stats.users?.new_today || 0} aujourd'hui`}
             color="blue"
+            isDark={isDark}
           />
           <StatCard
             icon={Home}
@@ -17259,6 +17630,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             value={stats.properties?.total || 0}
             change={`${stats.properties?.pending || 0} en attente`}
             color="emerald"
+            isDark={isDark}
           />
           <StatCard
             icon={DollarSign}
@@ -17266,6 +17638,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             value={`${((stats.payments?.total_amount || 0) / 1000000).toFixed(1)}M FCFA`}
             change={`+${((stats.payments?.today_amount || 0) / 1000).toFixed(0)}k aujourd'hui`}
             color="purple"
+            isDark={isDark}
           />
           <StatCard
             icon={Calendar}
@@ -17273,6 +17646,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             value={stats.bookings?.confirmed || 0}
             change={`${stats.bookings?.pending_payment || 0} en attente`}
             color="orange"
+            isDark={isDark}
           />
         </div>
 
@@ -17284,6 +17658,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             subtitle="Propriétés approuvées"
             icon={Activity}
             color="indigo"
+            isDark={isDark}
           />
           <MetricCard
             title="Satisfaction"
@@ -17291,6 +17666,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             subtitle="Note moyenne"
             icon={Star}
             color="emerald"
+            isDark={isDark}
           />
           <MetricCard
             title="Succès"
@@ -17298,6 +17674,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             subtitle="Réservations complétées"
             icon={CheckCircle}
             color="rose"
+            isDark={isDark}
           />
           <MetricCard
             title="Panier moyen"
@@ -17305,12 +17682,13 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             subtitle="par réservation"
             icon={Wallet}
             color="amber"
+            isDark={isDark}
           />
         </div>
 
         {/* Graphiques */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <ChartCard title="Évolution du chiffre d'affaires">
+          <ChartCard title="Évolution du chiffre d'affaires" isDark={isDark}>
             <ResponsiveContainer width="100%" height={260}>
               <ComposedChart data={revenueChartData}>
                 <defs>
@@ -17319,11 +17697,11 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <YAxis tickFormatter={(v) => `${v}k`} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f1f5f9'} />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }} />
+                <YAxis tickFormatter={(v) => `${v}k`} tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: isDark ? '#1e293b' : '#fff', color: isDark ? '#fff' : '#000' }}
                   formatter={(v: number) => [`${v}k FCFA`, 'CA']}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#revenueGradient)" name="CA (k FCFA)" />
@@ -17331,16 +17709,16 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Réservations vs Utilisateurs">
+          <ChartCard title="Réservations vs Utilisateurs" isDark={isDark}>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={revenueChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f1f5f9'} />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }} />
+                <YAxis tick={{ fontSize: 11, fill: isDark ? '#94a3b8' : '#94a3b8' }} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', backgroundColor: isDark ? '#1e293b' : '#fff', color: isDark ? '#fff' : '#000' }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 12, color: isDark ? '#94a3b8' : '#000' }} />
                 <Bar dataKey="bookings" fill="#0f2940" name="Réservations" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="users" fill="#10b981" name="Nouveaux utilisateurs" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -17350,31 +17728,31 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
 
         {/* Destinations + Répartition */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-sm border transition-colors duration-300`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'} mb-4 flex items-center gap-2`}>
               <MapPin className="w-5 h-5 text-emerald-500" />
               Destinations populaires
             </h3>
             <div className="space-y-3">
               {topDestinations.map((dest, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition">
+                <div key={idx} className={`flex items-center justify-between p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'} transition`}>
                   <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
+                    <span className={`w-6 h-6 rounded-full ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-600'} flex items-center justify-center text-xs font-bold`}>
                       {idx + 1}
                     </span>
                     <div>
-                      <p className="font-medium text-sm text-slate-700">{dest.city}</p>
-                      <p className="text-xs text-slate-400">{dest.count} réservations</p>
+                      <p className={`font-medium text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>{dest.city}</p>
+                      <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{dest.count} réservations</p>
                     </div>
                   </div>
-                  <p className="font-semibold text-emerald-600 text-sm">{(dest.revenue / 1000000).toFixed(1)}M FCFA</p>
+                  <p className={`font-semibold text-sm ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{(dest.revenue / 1000000).toFixed(1)}M FCFA</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 lg:col-span-2">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-sm border lg:col-span-2 transition-colors duration-300`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'} mb-4 flex items-center gap-2`}>
               <PieChart className="w-5 h-5 text-emerald-500" />
               Répartition des propriétés
             </h3>
@@ -17401,7 +17779,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                       <Cell key={i} fill={color} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 12, border: 'none' }} />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: 'none', backgroundColor: isDark ? '#1e293b' : '#fff', color: isDark ? '#fff' : '#000' }} />
                 </RePieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap justify-center gap-3">
@@ -17413,8 +17791,8 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ background: item.color }} />
-                    <span className="text-sm text-slate-600">{item.label}</span>
-                    <span className="text-sm font-semibold text-slate-800">{item.value}%</span>
+                    <span className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{item.label}</span>
+                    <span className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-slate-800'}`}>{item.value}%</span>
                   </div>
                 ))}
               </div>
@@ -17424,30 +17802,30 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
 
         {/* Activités + Actions rapides */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-sm border transition-colors duration-300`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'} mb-4 flex items-center gap-2`}>
               <Clock className="w-5 h-5 text-emerald-500" />
               Activités récentes
             </h3>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {activities.slice(0, 6).map((act: any, idx: number) => (
-                <div key={idx} className="flex items-start gap-3 p-2 rounded-xl hover:bg-slate-50 transition">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                <div key={idx} className={`flex items-start gap-3 p-2 rounded-xl ${isDark ? 'hover:bg-slate-700' : 'hover:bg-slate-50'} transition`}>
+                  <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-slate-700' : 'bg-slate-100'} flex items-center justify-center shrink-0`}>
                     {act.type === 'property_submitted' && <Home className="w-4 h-4 text-orange-500" />}
                     {act.type === 'payment_received' && <CreditCard className="w-4 h-4 text-emerald-500" />}
                     {act.type === 'user_registered' && <UserPlus className="w-4 h-4 text-blue-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 truncate">{act.title || act.message}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{act.time}</p>
+                    <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-slate-700'} truncate`}>{act.title || act.message}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-400'} mt-0.5`}>{act.time}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-sm border transition-colors duration-300`}>
+            <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'} mb-4 flex items-center gap-2`}>
               <AlertCircle className="w-5 h-5 text-emerald-500" />
               Actions rapides
             </h3>
@@ -17457,6 +17835,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                 count={stats.properties?.pending || 0}
                 icon={Home}
                 color="amber"
+                isDark={isDark}
                 onClick={() => onNavigate?.({ name: 'admin-properties' })}
               />
               <QuickAction
@@ -17464,6 +17843,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                 count={stats.bookings?.pending_payment || 0}
                 icon={CreditCard}
                 color="rose"
+                isDark={isDark}
                 onClick={() => onNavigate?.({ name: 'admin-payments' })}
               />
               <QuickAction
@@ -17471,6 +17851,7 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
                 count={stats.users?.pending_verification || 0}
                 icon={Users}
                 color="blue"
+                isDark={isDark}
                 onClick={() => onNavigate?.({ name: 'admin-users' })}
               />
             </div>
@@ -17481,43 +17862,43 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
   );
 }
 
-// ===== COMPOSANTS =====
+// ===== COMPOSANTS AVEC MODE SOMBRE =====
 
-const StatCard = ({ icon: Icon, title, value, change, color }: any) => {
+// const StatCard = ({ icon: Icon, title, value, change, color, isDark }: any) => {
+//   const colors = {
+//     blue: 'from-blue-500 to-blue-600',
+//     emerald: 'from-emerald-500 to-emerald-600',
+//     purple: 'from-purple-500 to-purple-600',
+//     orange: 'from-orange-500 to-orange-600',
+//   };
+
+//   return (
+//     <div className={`bg-gradient-to-br ${colors[color]} rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5`}>
+//       <div className="flex items-center justify-between">
+//         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+//           <Icon className="w-5 h-5" />
+//         </div>
+//         <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">↑ 12%</span>
+//       </div>
+//       <p className="text-white/80 text-xs mt-3">{title}</p>
+//       <p className="text-2xl font-bold mt-0.5">{value}</p>
+//       <p className="text-white/60 text-xs mt-1">{change}</p>
+//     </div>
+//   );
+// };
+
+const MetricCard = ({ title, value, subtitle, icon: Icon, color, isDark }: any) => {
   const colors = {
-    blue: 'from-blue-500 to-blue-600',
-    emerald: 'from-emerald-500 to-emerald-600',
-    purple: 'from-purple-500 to-purple-600',
-    orange: 'from-orange-500 to-orange-600',
+    indigo: `from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700 ${isDark ? 'dark:from-indigo-900/30 dark:to-indigo-800/30 dark:border-indigo-700 dark:text-indigo-300' : ''}`,
+    emerald: `from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700 ${isDark ? 'dark:from-emerald-900/30 dark:to-emerald-800/30 dark:border-emerald-700 dark:text-emerald-300' : ''}`,
+    rose: `from-rose-50 to-rose-100 border-rose-200 text-rose-700 ${isDark ? 'dark:from-rose-900/30 dark:to-rose-800/30 dark:border-rose-700 dark:text-rose-300' : ''}`,
+    amber: `from-amber-50 to-amber-100 border-amber-200 text-amber-700 ${isDark ? 'dark:from-amber-900/30 dark:to-amber-800/30 dark:border-amber-700 dark:text-amber-300' : ''}`,
   };
 
   return (
-    <div className={`bg-gradient-to-br ${colors[color]} rounded-2xl p-5 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5`}>
-      <div className="flex items-center justify-between">
-        <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-          <Icon className="w-5 h-5" />
-        </div>
-        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">↑ 12%</span>
-      </div>
-      <p className="text-white/80 text-xs mt-3">{title}</p>
-      <p className="text-2xl font-bold mt-0.5">{value}</p>
-      <p className="text-white/60 text-xs mt-1">{change}</p>
-    </div>
-  );
-};
-
-const MetricCard = ({ title, value, subtitle, icon: Icon, color }: any) => {
-  const colors = {
-    indigo: 'from-indigo-50 to-indigo-100 border-indigo-200 text-indigo-700',
-    emerald: 'from-emerald-50 to-emerald-100 border-emerald-200 text-emerald-700',
-    rose: 'from-rose-50 to-rose-100 border-rose-200 text-rose-700',
-    amber: 'from-amber-50 to-amber-100 border-amber-200 text-amber-700',
-  };
-
-  return (
-    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 border shadow-sm`}>
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 border shadow-sm transition-colors duration-300`}>
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-white/60 flex items-center justify-center">
+        <div className={`w-9 h-9 rounded-full ${isDark ? 'bg-white/10' : 'bg-white/60'} flex items-center justify-center`}>
           <Icon className="w-4 h-4" />
         </div>
         <div>
@@ -17530,24 +17911,24 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color }: any) => {
   );
 };
 
-const ChartCard = ({ title, children }: any) => (
-  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-    <h3 className="font-semibold text-slate-800 mb-4">{title}</h3>
+const ChartCard = ({ title, children, isDark }: any) => (
+  <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'} rounded-2xl p-5 shadow-sm border transition-colors duration-300`}>
+    <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-slate-800'} mb-4`}>{title}</h3>
     {children}
   </div>
 );
 
-const QuickAction = ({ title, count, icon: Icon, color, onClick }: any) => {
+const QuickAction = ({ title, count, icon: Icon, color, isDark, onClick }: any) => {
   const colors = {
-    amber: 'bg-amber-50 border-amber-200 hover:bg-amber-100',
-    rose: 'bg-rose-50 border-rose-200 hover:bg-rose-100',
-    blue: 'bg-blue-50 border-blue-200 hover:bg-blue-100',
+    amber: `bg-amber-50 border-amber-200 hover:bg-amber-100 ${isDark ? 'dark:bg-amber-900/30 dark:border-amber-700 dark:hover:bg-amber-800/40' : ''}`,
+    rose: `bg-rose-50 border-rose-200 hover:bg-rose-100 ${isDark ? 'dark:bg-rose-900/30 dark:border-rose-700 dark:hover:bg-rose-800/40' : ''}`,
+    blue: `bg-blue-50 border-blue-200 hover:bg-blue-100 ${isDark ? 'dark:bg-blue-900/30 dark:border-blue-700 dark:hover:bg-blue-800/40' : ''}`,
   };
 
   const textColors = {
-    amber: 'text-amber-700',
-    rose: 'text-rose-700',
-    blue: 'text-blue-700',
+    amber: `${isDark ? 'text-amber-400' : 'text-amber-700'}`,
+    rose: `${isDark ? 'text-rose-400' : 'text-rose-700'}`,
+    blue: `${isDark ? 'text-blue-400' : 'text-blue-700'}`,
   };
 
   return (
@@ -17566,31 +17947,145 @@ const QuickAction = ({ title, count, icon: Icon, color, onClick }: any) => {
     </div>
   );
 };
+// src/app/pages/admin/AdminPropertiesPage.tsx - Version complète corrigée
+// ============================================
+// STAT CARD - CORRIGÉ (accepte un composant)
+// ============================================
+const StatCard = ({ icon: Icon, label, value, color }: any) => {
+  const colors = {
+    yellow: 'from-yellow-500 to-yellow-600',
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-green-600',
+    purple: 'from-purple-500 to-purple-600',
+  };
 
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-3 text-white`}>
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+          <Icon className="w-5 h-5" />
+        </div>
+        <span className="text-xl font-bold">{value}</span>
+      </div>
+      <p className="text-white/80 text-xs mt-1">{label}</p>
+    </div>
+  );
+};
 
-
-const ErrorMessage = ({ onRetry }: { onRetry: () => void }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen p-6">
-    <div className="text-red-500 text-xl mb-4">⚠️ Erreur de chargement</div>
-    <p className="text-slate-600 text-center mb-6">Impossible de charger les données du tableau de bord</p>
-    <button 
-      onClick={onRetry} 
-      className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition font-medium"
-    >
-      Réessayer
-    </button>
+// ============================================
+// LOADING SKELETON - AVEC MODE SOMBRE
+// ============================================
+const LoadingSkeleton = ({ isDark }: { isDark: boolean }) => (
+  <div className="p-3 sm:p-4 md:p-6">
+    <div className="animate-pulse">
+      <div className={`h-6 sm:h-8 ${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded w-48 mb-4`}></div>
+      <div className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl h-12 mb-6`}></div>
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {[...Array(4)].map((_, i) => <div key={i} className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl h-20`}></div>)}
+      </div>
+      <div className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl h-80 mb-6`}></div>
+    </div>
   </div>
 );
 
+// ============================================
+// ADMIN PROPERTY CARD - AVEC MODE SOMBRE
+// ============================================
+const AdminPropertyCard = ({ property, isDark, onView, onApprove, onReject }: any) => {
+  const getFirstImage = () => {
+    if (property.photos && property.photos.length > 0) {
+      const photo = property.photos[0];
+      return photo.photo_url || photo.url || photo.path || '';
+    }
+    if (property.cover_photo) {
+      if (typeof property.cover_photo === 'string') return property.cover_photo;
+      return property.cover_photo.photo_url || property.cover_photo.url || '';
+    }
+    return '';
+  };
 
-// pages/admin/AdminPropertiesPage.tsx
+  const imageUrl = getFirstImage();
 
+  return (
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border`}>
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Image */}
+        <div className="w-full sm:w-32 h-48 sm:h-32 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={property.title} 
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Home className={`w-8 h-8 ${isDark ? 'text-slate-600' : 'text-gray-400'}`} />
+            </div>
+          )}
+        </div>
 
+        {/* Infos */}
+        <div className="flex-1 min-w-0">
+          <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'} text-lg`}>{property.title}</h3>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700'}`}>
+              En attente
+            </span>
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>• {property.city}, {property.district}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mt-2 text-sm">
+            <div className={`flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+              <User className="w-4 h-4" />
+              <span>{property.user?.full_name || 'Hôte'}</span>
+            </div>
+            <div className={`flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+              <DollarSign className="w-4 h-4" />
+              <span>{property.price_per_night?.toLocaleString()} FCFA/nuit</span>
+            </div>
+            <div className={`flex items-center gap-1 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+              <CalendarIcon className="w-4 h-4" />
+              <span>Soumis le {new Date(property.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-row sm:flex-col gap-2 justify-end">
+          <button
+            onClick={onView}
+            className={`p-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-lg transition`}
+            title="Voir les détails"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onApprove}
+            className="p-2 bg-green-100 hover:bg-green-200 text-green-600 rounded-lg transition"
+            title="Approuver"
+          >
+            <CheckCircle className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onReject}
+            className="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition"
+            title="Rejeter"
+          >
+            <XCircle className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// ADMIN PROPERTIES PAGE PRINCIPALE - AVEC MODE SOMBRE
+// ============================================
 export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) => void }) {
+  const { isDark } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
-  const [showImageViewer, setShowImageViewer] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-pending-properties'],
@@ -17603,34 +18098,32 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
     mutationFn: ({ id, notes, featured }: { id: number; notes?: string; featured?: boolean }) =>
       adminService.approveProperty(id, notes, featured),
     onSuccess: () => {
-      toast.success('Propriété approuvée avec succès');
+      toast.success('✅ Propriété approuvée avec succès');
       queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
       setSelectedProperty(null);
       refetch();
     },
-    onError: () => toast.error('Erreur lors de l’approbation'),
+    onError: () => toast.error('❌ Erreur lors de l’approbation'),
   });
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) =>
       adminService.rejectProperty(id, reason),
     onSuccess: () => {
-      toast.success('Propriété rejetée');
+      toast.success('✅ Propriété rejetée');
       queryClient.invalidateQueries({ queryKey: ['admin-pending-properties'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
       setSelectedProperty(null);
       refetch();
     },
-    onError: () => toast.error('Erreur lors du rejet'),
+    onError: () => toast.error('❌ Erreur lors du rejet'),
   });
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
   
   const payload = data ?? {};
-  const properties = Array.isArray(payload)
-    ? payload
-    : payload.data ?? payload.data?.data ?? [];
+  const properties = Array.isArray(payload) ? payload : payload.data ?? payload.data?.data ?? [];
   const stats = payload.stats ?? payload.data?.stats ?? { total_pending: 0, pending_today: 0 };
   
   const filteredProperties = properties.filter((property: any) => {
@@ -17650,42 +18143,44 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
     if (reason && reason.length >= 10) {
       rejectMutation.mutate({ id: property.id, reason });
     } else if (reason) {
-      toast.error('La raison doit contenir au moins 10 caractères');
+      toast.error('❌ La raison doit contenir au moins 10 caractères');
     }
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       {/* En-tête */}
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
           Modération des propriétés
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Validez ou rejetez les annonces en attente</p>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Validez ou rejetez les annonces en attente
+        </p>
       </div>
 
-      {/* Statistiques */}
+      {/* Statistiques - ✅ CORRECTION : passage des composants, pas des éléments JSX */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard 
-          icon={<Home className="w-5 h-5" />} 
+          icon={Home} 
           label="En attente" 
           value={stats.total_pending || 0} 
           color="yellow"
         />
         <StatCard 
-          icon={<Calendar className="w-5 h-5" />} 
+          icon={CalendarIcon} 
           label="Aujourd'hui" 
           value={stats.pending_today || 0} 
           color="blue"
         />
         <StatCard 
-          icon={<Users className="w-5 h-5" />} 
+          icon={Users} 
           label="Hôtes" 
           value={new Set(properties.map((p: any) => p.user_id)).size} 
           color="green"
         />
         <StatCard 
-          icon={<MapPin className="w-5 h-5" />} 
+          icon={MapPin} 
           label="Villes" 
           value={new Set(properties.map((p: any) => p.city)).size} 
           color="purple"
@@ -17693,15 +18188,19 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
       </div>
 
       {/* Barre de recherche */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
           <input
             type="text"
             placeholder="Rechercher par titre, ville ou hôte..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+            className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+              isDark 
+                ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+            }`}
           />
         </div>
       </div>
@@ -17709,19 +18208,19 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
       {/* Liste des propriétés */}
       <div className="space-y-4">
         {filteredProperties.length === 0 ? (
-          <div className="bg-white rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center">
-            <Home className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Aucune propriété en attente de modération</p>
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center border transition-colors duration-300`}>
+            <Home className={`w-12 h-12 sm:w-16 sm:h-16 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucune propriété en attente de modération</p>
           </div>
         ) : (
           filteredProperties.map((property: any) => (
-            <PropertyCard
+            <AdminPropertyCard
               key={property.id}
               property={property}
+              isDark={isDark}
               onView={() => setSelectedProperty(property)}
               onApprove={() => handleApprove(property)}
               onReject={() => handleReject(property)}
-              onNavigate={onNavigate}
             />
           ))
         )}
@@ -17741,9 +18240,11 @@ export function AdminPropertiesPage({ onNavigate }: { onNavigate?: (route: any) 
   );
 }
 
-// pages/admin/AdminUsersPage.tsx
-
+// ============================================
+// ADMIN USERS PAGE - MODE SOMBRE
+// ============================================
 export function AdminUsersPage() {
+  const { isDark } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -17778,7 +18279,7 @@ export function AdminUsersPage() {
     onError: () => toast.error('Erreur'),
   });
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
   
   const users = data?.data || data || [];
   
@@ -17809,44 +18310,51 @@ export function AdminUsersPage() {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête */}
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
           Gestion des utilisateurs
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Gérez et modérez les utilisateurs de la plateforme</p>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Gérez et modérez les utilisateurs de la plateforme
+        </p>
       </div>
 
-      {/* Statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 mb-6">
-        <StatBadge label="Total" value={stats.total} color="gray" />
-        <StatBadge label="Actifs" value={stats.active} color="green" />
-        <StatBadge label="Inactifs" value={stats.inactive} color="red" />
-        <StatBadge label="Hôtes" value={stats.hosts} color="blue" />
-        <StatBadge label="Voyageurs" value={stats.travelers} color="purple" />
-        <StatBadge label="Admins" value={stats.admins} color="orange" />
-        <StatBadge label="Nouveaux" value={stats.newThisWeek} color="emerald" icon={<UserPlus className="w-3 h-3" />} />
+        <StatBadge label="Total" value={stats.total} color="gray" isDark={isDark} />
+        <StatBadge label="Actifs" value={stats.active} color="green" isDark={isDark} />
+        <StatBadge label="Inactifs" value={stats.inactive} color="red" isDark={isDark} />
+        <StatBadge label="Hôtes" value={stats.hosts} color="blue" isDark={isDark} />
+        <StatBadge label="Voyageurs" value={stats.travelers} color="purple" isDark={isDark} />
+        <StatBadge label="Admins" value={stats.admins} color="orange" isDark={isDark} />
+        <StatBadge label="Nouveaux" value={stats.newThisWeek} color="emerald" icon={<UserPlus className="w-3 h-3" />} isDark={isDark} />
       </div>
 
-      {/* Filtres et recherche */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
             <input
               type="text"
               placeholder="Rechercher par nom, email ou téléphone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                  : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+              }`}
             />
           </div>
           <div className="flex gap-2">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`}
             >
               <option value="all">Tous les rôles</option>
               <option value="voyageur">Voyageurs</option>
@@ -17856,7 +18364,11 @@ export function AdminUsersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`}
             >
               <option value="all">Tous statuts</option>
               <option value="active">Actifs</option>
@@ -17864,7 +18376,7 @@ export function AdminUsersPage() {
             </select>
             <button
               onClick={() => refetch()}
-              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              className={`px-3 py-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-xl transition`}
             >
               🔄
             </button>
@@ -17872,18 +18384,18 @@ export function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Liste des utilisateurs */}
       <div className="space-y-3">
         {filteredUsers.length === 0 ? (
-          <div className="bg-white rounded-xl p-8 text-center">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Aucun utilisateur trouvé</p>
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-8 text-center border transition-colors duration-300`}>
+            <Users className={`w-12 h-12 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucun utilisateur trouvé</p>
           </div>
         ) : (
           filteredUsers.map((user: any) => (
             <UserCard
               key={user.id}
               user={user}
+              isDark={isDark}
               onView={() => setSelectedUser(user)}
               onSuspend={() => {
                 const days = parseInt(prompt("Durée de suspension (jours) :", "30") || "30");
@@ -17895,72 +18407,64 @@ export function AdminUsersPage() {
         )}
       </div>
 
-      {/* Modal de détail */}
       {selectedUser && (
-        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+        <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} isDark={isDark} />
       )}
     </div>
   );
 }
 
-// Composant de carte utilisateur
-const UserCard = ({ user, onView, onSuspend, onActivate }: any) => {
-  const roleColors = {
-    voyageur: 'bg-blue-100 text-blue-700',
-    hote: 'bg-green-100 text-green-700',
-    admin: 'bg-purple-100 text-purple-700',
-  };
-
+// ============================================
+// USER CARD - MODE SOMBRE
+// ============================================
+const UserCard = ({ user, isDark, onView, onSuspend, onActivate }: any) => {
   const getInitials = () => {
     return `${(user.first_name || '')?.charAt(0) || ''}${(user.last_name || '')?.charAt(0) || ''}`.toUpperCase() || '?';
   };
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-4 shadow-sm hover:shadow-md transition-all border`}>
       <div className="flex flex-col sm:flex-row gap-4">
-        {/* Avatar */}
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold text-lg shrink-0">
             {getInitials()}
           </div>
           <div className="sm:hidden">
-            <p className="font-semibold">{user.first_name} {user.last_name}</p>
-            <p className="text-xs text-gray-500">{user.user_type}</p>
+            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>{user.first_name} {user.last_name}</p>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{user.user_type}</p>
           </div>
         </div>
 
-        {/* Infos */}
         <div className="flex-1 min-w-0">
           <div className="hidden sm:block">
-            <p className="font-semibold">{user.first_name} {user.last_name}</p>
-            <p className="text-sm text-gray-500">{user.user_type}</p>
+            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'}`}>{user.first_name} {user.last_name}</p>
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{user.user_type}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className={`flex items-center gap-2 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
               <Mail className="w-3 h-3" />
               <span className="text-xs truncate">{user.email}</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className={`flex items-center gap-2 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
               <Phone className="w-3 h-3" />
               <span className="text-xs">{user.phone || 'Non renseigné'}</span>
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Calendar className="w-3 h-3" />
+            <div className={`flex items-center gap-2 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+              <CalendarIcon className="w-3 h-3" />
               <span className="text-xs">Inscrit le {new Date(user.created_at).toLocaleDateString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Statut et actions */}
         <div className="flex items-center justify-between sm:justify-end gap-3">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-xs text-gray-500 hidden sm:inline">{user.is_active ? 'Actif' : 'Suspendu'}</span>
+            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'} hidden sm:inline`}>{user.is_active ? 'Actif' : 'Suspendu'}</span>
           </div>
           
           <button
             onClick={onView}
-            className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+            className={`p-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-lg transition`}
           >
             <Eye className="w-4 h-4" />
           </button>
@@ -17988,28 +18492,54 @@ const UserCard = ({ user, onView, onSuspend, onActivate }: any) => {
   );
 };
 
-// Modal de détail utilisateur
-const UserDetailModal = ({ user, onClose }: any) => {
+// ============================================
+// STAT BADGE - MODE SOMBRE
+// ============================================
+const StatBadge = ({ label, value, color, icon, isDark }: any) => {
+  const colorClasses: any = {
+    gray: isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-700',
+    green: isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700',
+    yellow: isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700',
+    blue: isDark ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-700',
+    red: isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700',
+    purple: isDark ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700',
+    orange: isDark ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-700',
+    emerald: isDark ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-700',
+  };
+
+  return (
+    <div className={`rounded-lg sm:rounded-xl p-2 sm:p-3 text-center ${colorClasses[color]}`}>
+      {icon && <span className="mr-1">{icon}</span>}
+      <p className="text-lg sm:text-2xl font-bold">{value}</p>
+      <p className="text-xs hidden sm:block">{label}</p>
+      <p className="text-[10px] sm:hidden">{label.slice(0, 3)}</p>
+    </div>
+  );
+};
+
+// ============================================
+// USER DETAIL MODAL - MODE SOMBRE
+// ============================================
+const UserDetailModal = ({ user, onClose, isDark }: any) => {
   const getInitials = () => {
     return `${(user.first_name || '')?.charAt(0) || ''}${(user.last_name || '')?.charAt(0) || ''}`.toUpperCase() || '?';
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-white p-4 border-b flex justify-between items-center">
-          <h3 className="font-bold text-lg">Détails de l'utilisateur</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">✕</button>
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300`} onClick={(e) => e.stopPropagation()}>
+        <div className={`sticky top-0 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} p-4 border-b flex justify-between items-center`}>
+          <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Détails de l'utilisateur</h3>
+          <button onClick={onClose} className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`}>✕</button>
         </div>
 
         <div className="p-5 space-y-5">
-          {/* En-tête avec avatar */}
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold text-2xl">
               {getInitials()}
             </div>
             <div>
-              <p className="text-xl font-bold">{user.first_name} {user.last_name}</p>
+              <p className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>{user.first_name} {user.last_name}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   user.user_type === 'hote' ? 'bg-green-100 text-green-700' :
@@ -18019,81 +18549,81 @@ const UserDetailModal = ({ user, onClose }: any) => {
                   {user.user_type === 'hote' ? 'Hôte' : user.user_type === 'voyageur' ? 'Voyageur' : 'Admin'}
                 </span>
                 <div className={`w-2 h-2 rounded-full ${user.is_active ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-xs text-gray-500">{user.is_active ? 'Actif' : 'Suspendu'}</span>
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{user.is_active ? 'Actif' : 'Suspendu'}</span>
               </div>
             </div>
           </div>
 
-          {/* Informations personnelles */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="font-semibold text-sm mb-3">👤 Informations personnelles</p>
+          <div className={`${isDark ? 'bg-slate-700' : 'bg-gray-50'} rounded-xl p-4 transition-colors duration-300`}>
+            <p className={`font-semibold text-sm mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>👤 Informations personnelles</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Nom complet</span>
-                <span className="font-medium">{user.first_name} {user.last_name}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Nom complet</span>
+                <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{user.first_name} {user.last_name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Email</span>
-                <span className="font-mono text-xs">{user.email}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Email</span>
+                <span className={`font-mono text-xs ${isDark ? 'text-white' : 'text-gray-800'}`}>{user.email}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Téléphone</span>
-                <span>{user.phone || 'Non renseigné'}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Téléphone</span>
+                <span className={isDark ? 'text-white' : 'text-gray-800'}>{user.phone || 'Non renseigné'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Inscrit le</span>
-                <span>{new Date(user.created_at).toLocaleDateString()}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Inscrit le</span>
+                <span className={isDark ? 'text-white' : 'text-gray-800'}>{new Date(user.created_at).toLocaleDateString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Dernière connexion</span>
-                <span>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Jamais'}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Dernière connexion</span>
+                <span className={isDark ? 'text-white' : 'text-gray-800'}>{user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Jamais'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Vérifié</span>
-                <span>{user.verification_status === 'verified' ? '✅ Oui' : '❌ Non'}</span>
+              <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                <span>Vérifié</span>
+                <span className={isDark ? 'text-white' : 'text-gray-800'}>{user.verification_status === 'verified' ? '✅ Oui' : '❌ Non'}</span>
               </div>
             </div>
           </div>
 
-          {/* Statistiques utilisateur */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="font-semibold text-sm mb-3">📊 Statistiques</p>
+          <div className={`${isDark ? 'bg-slate-700' : 'bg-gray-50'} rounded-xl p-4 transition-colors duration-300`}>
+            <p className={`font-semibold text-sm mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>📊 Statistiques</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-              <div className="bg-white rounded-lg p-2">
+              <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-lg p-2`}>
                 <p className="text-lg font-bold text-[#00c9a7]">{user.total_properties || 0}</p>
-                <p className="text-xs text-gray-500">Propriétés</p>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Propriétés</p>
               </div>
-              <div className="bg-white rounded-lg p-2">
+              <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-lg p-2`}>
                 <p className="text-lg font-bold text-[#00c9a7]">{user.total_bookings || 0}</p>
-                <p className="text-xs text-gray-500">Réservations</p>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Réservations</p>
               </div>
-              <div className="bg-white rounded-lg p-2">
+              <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-lg p-2`}>
                 <p className="text-lg font-bold text-[#00c9a7]">{user.total_reviews || 0}</p>
-                <p className="text-xs text-gray-500">Avis</p>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Avis</p>
               </div>
-              <div className="bg-white rounded-lg p-2">
+              <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-lg p-2`}>
                 <p className="text-lg font-bold text-[#00c9a7]">{user.average_rating || 0}★</p>
-                <p className="text-xs text-gray-500">Note moyenne</p>
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Note moyenne</p>
               </div>
             </div>
           </div>
 
-          {/* Historique des suspensions */}
           {user.suspended_until && (
-            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+            <div className={`${isDark ? 'bg-yellow-900/30 border-yellow-700' : 'bg-yellow-50 border-yellow-200'} rounded-xl p-4 border`}>
               <div className="flex items-center gap-2 text-yellow-700">
                 <AlertCircle className="w-4 h-4" />
-                <p className="text-sm font-medium">Compte suspendu jusqu'au {new Date(user.suspended_until).toLocaleDateString()}</p>
+                <p className={`text-sm font-medium ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                  Compte suspendu jusqu'au {new Date(user.suspended_until).toLocaleDateString()}
+                </p>
               </div>
               {user.suspension_reason && (
-                <p className="text-xs text-yellow-600 mt-2">Raison : {user.suspension_reason}</p>
+                <p className={`text-xs mt-2 ${isDark ? 'text-yellow-400/70' : 'text-yellow-600'}`}>
+                  Raison : {user.suspension_reason}
+                </p>
               )}
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div className="sticky bottom-0 bg-white p-4 border-t flex gap-3">
+        <div className={`sticky bottom-0 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} p-4 border-t flex gap-3`}>
           {user.is_active ? (
             <button
               onClick={() => {
@@ -18122,10 +18652,11 @@ const UserDetailModal = ({ user, onClose }: any) => {
   );
 };
 
-// pages/admin/AdminBookingPage.tsx
-
-
+// ============================================
+// ADMIN BOOKINGS PAGE - MODE SOMBRE
+// ============================================
 export function AdminBookingsPage() {
+  const { isDark } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -18147,7 +18678,7 @@ export function AdminBookingsPage() {
     onError: () => toast.error('Erreur'),
   });
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
   
   const bookings = data?.data?.data || [];
   
@@ -18173,42 +18704,49 @@ export function AdminBookingsPage() {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête responsive */}
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       <div className="mb-5">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
           Réservations
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Gérez toutes les réservations de la plateforme</p>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Gérez toutes les réservations de la plateforme
+        </p>
       </div>
 
-      {/* Statistiques - grille responsive */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
-        <StatBadge label="Total" value={stats.total} color="gray" />
-        <StatBadge label="Confirmées" value={stats.confirmed} color="green" />
-        <StatBadge label="En attente" value={stats.pending} color="yellow" />
-        <StatBadge label="Terminées" value={stats.completed} color="blue" />
-        <StatBadge label="Annulées" value={stats.cancelled} color="red" />
+        <StatBadge label="Total" value={stats.total} color="gray" isDark={isDark} />
+        <StatBadge label="Confirmées" value={stats.confirmed} color="green" isDark={isDark} />
+        <StatBadge label="En attente" value={stats.pending} color="yellow" isDark={isDark} />
+        <StatBadge label="Terminées" value={stats.completed} color="blue" isDark={isDark} />
+        <StatBadge label="Annulées" value={stats.cancelled} color="red" isDark={isDark} />
       </div>
 
-      {/* Recherche et filtres - responsive */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-5">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-5 transition-colors duration-300`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
             <input
               type="text"
               placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                  : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+              }`}
             />
           </div>
           <div className="flex gap-2">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`}
             >
               <option value="all">Tous</option>
               <option value="confirmed">Confirmées</option>
@@ -18218,7 +18756,7 @@ export function AdminBookingsPage() {
             </select>
             <button
               onClick={() => refetch()}
-              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              className={`px-3 py-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-xl transition`}
             >
               🔄
             </button>
@@ -18226,18 +18764,18 @@ export function AdminBookingsPage() {
         </div>
       </div>
 
-      {/* Liste des réservations - responsive */}
       <div className="space-y-3">
         {filteredBookings.length === 0 ? (
-          <div className="bg-white rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center">
-            <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Aucune réservation trouvée</p>
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center border transition-colors duration-300`}>
+            <CalendarIcon className={`w-12 h-12 sm:w-16 sm:h-16 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucune réservation trouvée</p>
           </div>
         ) : (
           filteredBookings.map((booking: any) => (
-            <BookingCard 
-              key={booking.id} 
-              booking={booking} 
+            <BookingCard
+              key={booking.id}
+              booking={booking}
+              isDark={isDark}
               isExpanded={expandedId === booking.id}
               onToggle={() => toggleExpand(booking.id)}
               onCancel={() => {
@@ -18251,9 +18789,11 @@ export function AdminBookingsPage() {
   );
 }
 
-// Composant de carte réservation responsive
-const BookingCard = ({ booking, isExpanded, onToggle, onCancel }: any) => {
-  const statusConfig = {
+// ============================================
+// BOOKING CARD - MODE SOMBRE
+// ============================================
+const BookingCard = ({ booking, isDark, isExpanded, onToggle, onCancel }: any) => {
+  const statusConfig: any = {
     confirmed: { color: 'green', icon: CheckCircle, label: 'Confirmée' },
     pending: { color: 'yellow', icon: Clock, label: 'En attente' },
     completed: { color: 'blue', icon: CheckCircle, label: 'Terminée' },
@@ -18264,100 +18804,95 @@ const BookingCard = ({ booking, isExpanded, onToggle, onCancel }: any) => {
   const StatusIcon = config.icon;
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden">
-      {/* En-tête de la carte - toujours visible */}
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden border`}>
       <div 
-        className="p-3 sm:p-4 cursor-pointer hover:bg-gray-50 transition"
+        className={`p-3 sm:p-4 cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-50'} transition`}
         onClick={onToggle}
       >
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className={`w-10 h-10 rounded-xl bg-${config.color}-100 flex items-center justify-center shrink-0`}>
+            <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-gray-100'} flex items-center justify-center shrink-0`}>
               <StatusIcon className={`w-5 h-5 text-${config.color}-600`} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded">
+                <span className={`font-mono text-xs font-semibold ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-800'} px-2 py-0.5 rounded`}>
                   #{booking.booking_reference?.slice(-8)}
                 </span>
                 <span className={`text-xs px-2 py-0.5 rounded-full bg-${config.color}-100 text-${config.color}-700`}>
                   {config.label}
                 </span>
               </div>
-              <p className="font-semibold text-gray-800 text-sm mt-1 truncate">{booking.property?.title}</p>
-              <p className="text-xs text-gray-500">{booking.property?.district}</p>
+              <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-800'} text-sm mt-1 truncate`}>{booking.property?.title}</p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{booking.property?.district}</p>
             </div>
           </div>
           <div className="flex items-center justify-between w-full sm:w-auto gap-3">
             <div className="text-left sm:text-right">
               <p className="text-base sm:text-lg font-bold text-[#00c9a7]">{booking.total_amount?.toLocaleString()} FCFA</p>
-              <p className="text-xs text-gray-400">{booking.check_in} → {booking.check_out}</p>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>{booking.check_in} → {booking.check_out}</p>
             </div>
-            <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`} />
+            <ChevronRight className={`w-5 h-5 ${isDark ? 'text-slate-400' : 'text-gray-400'} transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`} />
           </div>
         </div>
       </div>
 
-      {/* Détails étendus */}
       {isExpanded && (
-        <div className="border-t border-gray-100 p-3 sm:p-4 bg-gray-50">
+        <div className={`border-t ${isDark ? 'border-slate-700' : 'border-gray-100'} p-3 sm:p-4 ${isDark ? 'bg-slate-700/50' : 'bg-gray-50'}`}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {/* Voyageur */}
-            <div className="bg-white rounded-xl p-3 shadow-sm">
+            <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-xl p-3 shadow-sm`}>
               <div className="flex items-center gap-2 mb-2">
                 <Users className="w-4 h-4 text-[#00c9a7]" />
-                <h4 className="font-semibold text-sm">Voyageur</h4>
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>Voyageur</h4>
               </div>
-              <p className="font-medium text-sm">{booking.user?.full_name}</p>
-              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.user?.full_name}</p>
+              <div className={`flex items-center gap-2 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
                 <Mail className="w-3 h-3" />
                 <span className="truncate">{booking.user?.email}</span>
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+              <div className={`flex items-center gap-2 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
                 <Phone className="w-3 h-3" />
                 <span>{booking.user?.phone || 'Non renseigné'}</span>
               </div>
             </div>
 
-            {/* Détails séjour */}
-            <div className="bg-white rounded-xl p-3 shadow-sm">
+            <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-xl p-3 shadow-sm`}>
               <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4 text-[#00c9a7]" />
-                <h4 className="font-semibold text-sm">Séjour</h4>
+                <CalendarIcon className="w-4 h-4 text-[#00c9a7]" />
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>Séjour</h4>
               </div>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Arrivée</span>
-                  <span className="font-medium">{booking.check_in}</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Arrivée</span>
+                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.check_in}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Départ</span>
-                  <span className="font-medium">{booking.check_out}</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Départ</span>
+                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.check_out}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Nuits</span>
-                  <span className="font-medium">{booking.nights_count || 0}</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Nuits</span>
+                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.nights_count || 0}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Voyageurs</span>
-                  <span className="font-medium">{booking.guests_count || 1}</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Voyageurs</span>
+                  <span className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.guests_count || 1}</span>
                 </div>
               </div>
             </div>
 
-            {/* Paiement */}
-            <div className="bg-white rounded-xl p-3 shadow-sm">
+            <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-xl p-3 shadow-sm`}>
               <div className="flex items-center gap-2 mb-2">
                 <CreditCard className="w-4 h-4 text-[#00c9a7]" />
-                <h4 className="font-semibold text-sm">Paiement</h4>
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>Paiement</h4>
               </div>
               <div className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Méthode</span>
-                  <span className="font-medium capitalize">{booking.payment_method || '-'}</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Méthode</span>
+                  <span className={`font-medium capitalize ${isDark ? 'text-white' : 'text-gray-800'}`}>{booking.payment_method || '-'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Statut</span>
+                <div className={`flex justify-between ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+                  <span>Statut</span>
                   <span className={`font-medium ${booking.payment_status === 'paid' ? 'text-green-600' : 'text-yellow-600'}`}>
                     {booking.payment_status === 'paid' ? 'Payé' : 'En attente'}
                   </span>
@@ -18366,7 +18901,6 @@ const BookingCard = ({ booking, isExpanded, onToggle, onCancel }: any) => {
             </div>
           </div>
 
-          {/* Actions */}
           {booking.booking_status !== 'cancelled' && booking.booking_status !== 'completed' && (
             <div className="mt-3 flex justify-end">
               <button
@@ -18383,30 +18917,11 @@ const BookingCard = ({ booking, isExpanded, onToggle, onCancel }: any) => {
   );
 };
 
-// Composant de badge statistique responsive
-const StatBadge = ({ label, value, color }: { label: string; value: number; color: string }) => {
-  const colorClasses = {
-    gray: 'bg-gray-100 text-gray-700',
-    green: 'bg-green-100 text-green-700',
-    yellow: 'bg-yellow-100 text-yellow-700',
-    blue: 'bg-blue-100 text-blue-700',
-    red: 'bg-red-100 text-red-700',
-  };
-
-  return (
-    <div className={`rounded-lg sm:rounded-xl p-2 sm:p-3 text-center ${colorClasses[color]}`}>
-      <p className="text-lg sm:text-2xl font-bold">{value}</p>
-      <p className="text-xs hidden sm:block">{label}</p>
-      <p className="text-[10px] sm:hidden">{label.slice(0, 3)}</p>
-    </div>
-  );
-};
-
-
-// pages/admin/AdminPayementsPage.tsx
-
-
+// ============================================
+// ADMIN PAYMENTS PAGE - MODE SOMBRE
+// ============================================
 export function AdminPaymentsPage() {
+  const { isDark } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -18417,7 +18932,7 @@ export function AdminPaymentsPage() {
     refetchInterval: 30000,
   });
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
   
   const allPayments = data?.data?.data || [];
   
@@ -18444,27 +18959,26 @@ export function AdminPaymentsPage() {
   const successRate = stats.total > 0 ? ((stats.success / stats.total) * 100).toFixed(1) : 0;
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête */}
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
           Suivi des paiements
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez et gérez toutes les transactions financières</p>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Analysez et gérez toutes les transactions financières
+        </p>
       </div>
 
-      {/* Statistiques */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        <StatCard icon={<CreditCard className="w-5 h-5" />} label="Transactions" value={stats.total} color="blue" />
-        <StatCard icon={<Wallet className="w-5 h-5" />} label="Volume total" value={`${(stats.totalAmount / 1000000).toFixed(1)}M`} color="purple" subValue="FCFA" />
-        <StatCard icon={<CheckCircle className="w-5 h-5" />} label="Succès" value={stats.success} color="green" />
-        <StatCard icon={<Clock className="w-5 h-5" />} label="En attente" value={stats.pending} color="yellow" />
-        <StatCard icon={<XCircle className="w-5 h-5" />} label="Échouées" value={stats.failed} color="red" />
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="Taux succès" value={`${successRate}%`} color="emerald" />
+        <StatCard icon={CreditCard} label="Transactions" value={stats.total} color="blue" isDark={isDark} />
+        <StatCard icon={Wallet} label="Volume total" value={`${(stats.totalAmount / 1000000).toFixed(1)}M`} color="purple" subValue="FCFA" isDark={isDark} />
+        <StatCard icon={CheckCircle} label="Succès" value={stats.success} color="green" isDark={isDark} />
+        <StatCard icon={Clock} label="En attente" value={stats.pending} color="yellow" isDark={isDark} />
+        <StatCard icon={XCircle} label="Échouées" value={stats.failed} color="red" isDark={isDark} />
+        <StatCard icon={TrendingUp} label="Taux succès" value={`${successRate}%`} color="emerald" isDark={isDark} />
       </div>
 
-      {/* Résumé quotidien */}
-      <div className="bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-xl sm:rounded-2xl p-4 mb-6 text-white">
+      <div className={`bg-gradient-to-r from-[#00c9a7] to-[#0f2940] rounded-xl sm:rounded-2xl p-4 mb-6 text-white`}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <p className="text-white/80 text-sm">Transactions aujourd'hui</p>
@@ -18483,24 +18997,31 @@ export function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Filtres et recherche */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
             <input
               type="text"
               placeholder="Rechercher par transaction ID ou réservation..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                  : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+              }`}
             />
           </div>
           <div className="flex gap-2">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`}
             >
               <option value="all">Tous statuts</option>
               <option value="success">Succès</option>
@@ -18509,7 +19030,7 @@ export function AdminPaymentsPage() {
             </select>
             <button
               onClick={() => refetch()}
-              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              className={`px-3 py-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-xl transition`}
             >
               🔄
             </button>
@@ -18517,36 +19038,36 @@ export function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Liste des transactions */}
       <div className="space-y-3">
         {filteredPayments.length === 0 ? (
-          <div className="bg-white rounded-xl p-8 text-center">
-            <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Aucune transaction trouvée</p>
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-8 text-center border transition-colors duration-300`}>
+            <CreditCard className={`w-12 h-12 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucune transaction trouvée</p>
           </div>
         ) : (
-          filteredPayments.map((payment: any, idx: number) => (
-            <PaymentCard
+          filteredPayments.map((payment: any) => (
+            <PaymentCardComponent
               key={payment.id}
               payment={payment}
-              index={idx}
+              isDark={isDark}
               onView={() => setSelectedPayment(payment)}
             />
           ))
         )}
       </div>
 
-      {/* Modal de détails */}
       {selectedPayment && (
-        <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
+        <PaymentDetailModalComponent payment={selectedPayment} onClose={() => setSelectedPayment(null)} isDark={isDark} />
       )}
     </div>
   );
 }
 
-// Composant de carte paiement
-const PaymentCard = ({ payment, index, onView }: any) => {
-  const statusConfig = {
+// ============================================
+// PAYMENT CARD - MODE SOMBRE
+// ============================================
+const PaymentCardComponent = ({ payment, isDark, onView }: any) => {
+  const statusConfig: any = {
     success: { color: 'green', icon: CheckCircle, label: 'Succès' },
     pending: { color: 'yellow', icon: Clock, label: 'En attente' },
     failed: { color: 'red', icon: XCircle, label: 'Échoué' },
@@ -18556,40 +19077,40 @@ const PaymentCard = ({ payment, index, onView }: any) => {
   const StatusIcon = config.icon;
 
   return (
-    <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all border`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className={`w-10 h-10 rounded-xl bg-${config.color}-100 flex items-center justify-center shrink-0`}>
+          <div className={`w-10 h-10 rounded-xl ${isDark ? 'bg-slate-700' : 'bg-gray-100'} flex items-center justify-center shrink-0`}>
             <StatusIcon className={`w-5 h-5 text-${config.color}-600`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded">
+              <span className={`font-mono text-xs font-semibold ${isDark ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-800'} px-2 py-0.5 rounded`}>
                 {payment.transaction_id?.slice(-12)}
               </span>
               <span className={`text-xs px-2 py-0.5 rounded-full bg-${config.color}-100 text-${config.color}-700`}>
                 {config.label}
               </span>
             </div>
-            <p className="text-sm font-semibold text-gray-800 mt-1">
+            <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-800'} mt-1`}>
               {payment.booking?.property?.title || 'Réservation'}
             </p>
-            <p className="text-xs text-gray-500">Réf: {payment.booking?.booking_reference || '-'}</p>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Réf: {payment.booking?.booking_reference || '-'}</p>
           </div>
         </div>
         <div className="flex items-center justify-between w-full sm:w-auto gap-3">
           <div className="text-left sm:text-right">
             <p className="text-base sm:text-lg font-bold text-[#00c9a7]">{payment.amount?.toLocaleString()} FCFA</p>
             <div className="flex items-center gap-1 mt-1">
-              <Smartphone className="w-3 h-3 text-gray-400" />
-              <p className="text-xs text-gray-400">{payment.payment_method || 'Mobile Money'}</p>
+              <Smartphone className={`w-3 h-3 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>{payment.payment_method || 'Mobile Money'}</p>
             </div>
           </div>
           <button
             onClick={onView}
-            className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+            className={`p-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-lg transition`}
           >
-            <Eye className="w-4 h-4 text-gray-600" />
+            <Eye className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -18597,35 +19118,35 @@ const PaymentCard = ({ payment, index, onView }: any) => {
   );
 };
 
-// Modal de détails du paiement
-const PaymentDetailModal = ({ payment, onClose }: any) => {
+// ============================================
+// PAYMENT DETAIL MODAL - MODE SOMBRE
+// ============================================
+const PaymentDetailModalComponent = ({ payment, onClose, isDark }: any) => {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b sticky top-0 bg-white">
+      <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors duration-300`} onClick={(e) => e.stopPropagation()}>
+        <div className={`sticky top-0 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} p-5 border-b`}>
           <div className="flex justify-between items-center">
-            <h3 className="font-bold text-lg">Détails du paiement</h3>
-            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">✕</button>
+            <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>Détails du paiement</h3>
+            <button onClick={onClose} className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-gray-100 text-gray-500'}`}>✕</button>
           </div>
         </div>
         
         <div className="p-5 space-y-4">
-          {/* Montant */}
           <div className="text-center">
-            <p className="text-gray-500 text-sm">Montant total</p>
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Montant total</p>
             <p className="text-3xl font-bold text-[#00c9a7]">{payment.amount?.toLocaleString()} FCFA</p>
           </div>
 
-          {/* Détails */}
           <div className="space-y-3">
-            <DetailRow label="Transaction ID" value={payment.transaction_id} />
-            <DetailRow label="Réservation" value={payment.booking?.booking_reference} />
-            <DetailRow label="Propriété" value={payment.booking?.property?.title} />
-            <DetailRow label="Voyageur" value={payment.booking?.user?.full_name} />
-            <DetailRow label="Méthode" value={payment.payment_method || 'Mobile Money'} />
-            <DetailRow label="Statut" value={payment.status} status />
-            <DetailRow label="Date" value={new Date(payment.created_at).toLocaleString()} />
-            {payment.paid_at && <DetailRow label="Payé le" value={new Date(payment.paid_at).toLocaleString()} />}
+            <DetailRow label="Transaction ID" value={payment.transaction_id} isDark={isDark} />
+            <DetailRow label="Réservation" value={payment.booking?.booking_reference} isDark={isDark} />
+            <DetailRow label="Propriété" value={payment.booking?.property?.title} isDark={isDark} />
+            <DetailRow label="Voyageur" value={payment.booking?.user?.full_name} isDark={isDark} />
+            <DetailRow label="Méthode" value={payment.payment_method || 'Mobile Money'} isDark={isDark} />
+            <DetailRow label="Statut" value={payment.status} status isDark={isDark} />
+            <DetailRow label="Date" value={new Date(payment.created_at).toLocaleString()} isDark={isDark} />
+            {payment.paid_at && <DetailRow label="Payé le" value={new Date(payment.paid_at).toLocaleString()} isDark={isDark} />}
           </div>
         </div>
       </div>
@@ -18633,10 +19154,12 @@ const PaymentDetailModal = ({ payment, onClose }: any) => {
   );
 };
 
-// Composant de ligne de détail
-const DetailRow = ({ label, value, status }: any) => (
-  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-    <span className="text-sm text-gray-500">{label}</span>
+// ============================================
+// DETAIL ROW - MODE SOMBRE
+// ============================================
+const DetailRow = ({ label, value, status, isDark }: any) => (
+  <div className={`flex justify-between items-center py-2 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+    <span className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{label}</span>
     {status ? (
       <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
         value === 'success' ? 'bg-green-100 text-green-700' :
@@ -18646,14 +19169,16 @@ const DetailRow = ({ label, value, status }: any) => (
         {value === 'success' ? 'Succès' : value === 'pending' ? 'En attente' : 'Échoué'}
       </span>
     ) : (
-      <span className="text-sm font-medium text-gray-800">{value || '-'}</span>
+      <span className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{value || '-'}</span>
     )}
   </div>
 );
 
-
-
+// ============================================
+// ADMIN MESSAGES PAGE - MODE SOMBRE
+// ============================================
 export function AdminMessagesPage() {
+  const { isDark } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [filterType, setFilterType] = useState<'all' | 'flagged' | 'unread'>('all');
@@ -18664,7 +19189,7 @@ export function AdminMessagesPage() {
     refetchInterval: 15000,
   });
 
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
   
   const allMessages = data?.data?.data || [];
   
@@ -18690,43 +19215,46 @@ export function AdminMessagesPage() {
   };
 
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête */}
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
           Surveillance des messages
         </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez et modérez les conversations entre utilisateurs</p>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+          Analysez et modérez les conversations entre utilisateurs
+        </p>
       </div>
 
-      {/* Statistiques */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard icon={<MessageCircle className="w-5 h-5" />} label="Total messages" value={stats.total} color="blue" />
-        <StatCard icon={<Mail className="w-5 h-5" />} label="Non lus" value={stats.unread} color="yellow" />
-        <StatCard icon={<Flag className="w-5 h-5" />} label="Signalés" value={stats.flagged} color="red" />
-        <StatCard icon={<Calendar className="w-5 h-5" />} label="Aujourd'hui" value={stats.today} color="green" />
+        <StatCard icon={MessageCircle} label="Total messages" value={stats.total} color="blue" isDark={isDark} />
+        <StatCard icon={Mail} label="Non lus" value={stats.unread} color="yellow" isDark={isDark} />
+        <StatCard icon={Flag} label="Signalés" value={stats.flagged} color="red" isDark={isDark} />
+        <StatCard icon={CalendarIcon} label="Aujourd'hui" value={stats.today} color="green" isDark={isDark} />
       </div>
 
-      {/* Filtres et recherche */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
             <input
               type="text"
               placeholder="Rechercher par expéditeur, destinataire ou contenu..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
+              className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                  : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+              }`}
             />
           </div>
           <div className="flex gap-2">
-            <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="Tous" />
-            <FilterButton active={filterType === 'unread'} onClick={() => setFilterType('unread')} label="Non lus" />
-            <FilterButton active={filterType === 'flagged'} onClick={() => setFilterType('flagged')} label="Signalés" />
+            <FilterButton active={filterType === 'all'} onClick={() => setFilterType('all')} label="Tous" isDark={isDark} />
+            <FilterButton active={filterType === 'unread'} onClick={() => setFilterType('unread')} label="Non lus" isDark={isDark} />
+            <FilterButton active={filterType === 'flagged'} onClick={() => setFilterType('flagged')} label="Signalés" isDark={isDark} />
             <button
               onClick={() => refetch()}
-              className="px-3 py-2 bg-gray-100 rounded-xl hover:bg-gray-200 transition"
+              className={`px-3 py-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-xl transition`}
             >
               🔄
             </button>
@@ -18734,20 +19262,19 @@ export function AdminMessagesPage() {
         </div>
       </div>
 
-      {/* Liste des messages */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Colonne gauche - Liste */}
         <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
           {filteredMessages.length === 0 ? (
-            <div className="bg-white rounded-xl p-8 text-center">
-              <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">Aucun message trouvé</p>
+            <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-8 text-center border transition-colors duration-300`}>
+              <MessageCircle className={`w-12 h-12 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucun message trouvé</p>
             </div>
           ) : (
-            filteredMessages.map((msg: any, idx: number) => (
-              <MessageCard
+            filteredMessages.map((msg: any) => (
+              <MessageCardComponent
                 key={msg.id}
                 message={msg}
+                isDark={isDark}
                 isSelected={selectedMessage?.id === msg.id}
                 onClick={() => setSelectedMessage(msg)}
               />
@@ -18755,12 +19282,11 @@ export function AdminMessagesPage() {
           )}
         </div>
 
-        {/* Colonne droite - Détails du message */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden sticky top-4 h-[600px] flex flex-col">
+        <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl shadow-lg overflow-hidden sticky top-4 h-[600px] flex flex-col border transition-colors duration-300`}>
           {selectedMessage ? (
-            <MessageDetail message={selectedMessage} onClose={() => setSelectedMessage(null)} />
+            <MessageDetailComponent message={selectedMessage} onClose={() => setSelectedMessage(null)} isDark={isDark} />
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-6">
+            <div className={`flex-1 flex flex-col items-center justify-center ${isDark ? 'text-slate-500' : 'text-gray-400'} p-6`}>
               <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
               <p className="text-center">Sélectionnez un message<br />pour voir les détails</p>
             </div>
@@ -18771,212 +19297,182 @@ export function AdminMessagesPage() {
   );
 }
 
-// Composant de carte message
-const MessageCard = ({ message, isSelected, onClick }: any) => {
-  const isUnread = !message.is_read;
-  const isFlagged = message.is_flagged;
-  
-  return (
-    <div
-      onClick={onClick}
-      className={`bg-white rounded-xl p-3 cursor-pointer transition-all hover:shadow-md ${
-        isSelected ? 'ring-2 ring-[#00c9a7] shadow-lg' : 'shadow-sm'
-      } ${isUnread ? 'border-l-4 border-l-[#00c9a7]' : ''}`}
-    >
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold shrink-0">
-          {message.sender?.full_name?.charAt(0) || '?'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate">{message.sender?.full_name || 'Inconnu'}</p>
-              <p className="text-xs text-gray-500 truncate">→ {message.receiver?.full_name || 'Inconnu'}</p>
-            </div>
-            <div className="flex gap-1 shrink-0">
-              {isFlagged && <Flag className="w-3 h-3 text-red-500 fill-red-500" />}
-              {isUnread && <div className="w-2 h-2 rounded-full bg-[#00c9a7] animate-pulse"></div>}
-            </div>
-          </div>
-          <p className="text-xs text-gray-600 mt-1 line-clamp-2">{message.message}</p>
-          <p className="text-xs text-gray-400 mt-1">{formatDate(message.created_at)}</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
-      </div>
-    </div>
-  );
-};
-
-// Composant de détail du message
-const MessageDetail = ({ message, onClose }: any) => {
-  const [showFullMessage, setShowFullMessage] = useState(false);
-  
-  return (
-    <>
-      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00c9a7] to-[#0f2940] flex items-center justify-center text-white font-bold">
-            {message.sender?.full_name?.charAt(0) || '?'}
-          </div>
-          <div>
-            <p className="font-semibold text-sm">{message.sender?.full_name || 'Expéditeur inconnu'}</p>
-            <p className="text-xs text-gray-500">{message.sender?.email || 'Email non disponible'}</p>
-          </div>
-        </div>
-        <button onClick={onClose} className="p-1 hover:bg-gray-200 rounded-lg transition">
-          ✕
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Informations de l'expéditeur */}
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-3 mb-2">
-            <User className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Informations expéditeur</p>
-          </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Nom complet</span>
-              <span className="font-medium">{message.sender?.full_name || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium text-sm">{message.sender?.email || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Téléphone</span>
-              <span className="font-medium">{message.sender?.phone || '-'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Informations destinataire */}
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-3 mb-2">
-            <User className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Informations destinataire</p>
-          </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Nom complet</span>
-              <span className="font-medium">{message.receiver?.full_name || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Email</span>
-              <span className="font-medium">{message.receiver?.email || '-'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Contenu du message */}
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-3 mb-2">
-            <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Contenu du message</p>
-          </div>
-          <div className={`text-sm text-gray-700 leading-relaxed ${showFullMessage ? '' : 'max-h-32 overflow-hidden relative'}`}>
-            <p className="whitespace-pre-wrap break-words">{message.message}</p>
-            {!showFullMessage && message.message?.length > 200 && (
-              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-50 to-transparent"></div>
-            )}
-          </div>
-          {message.message?.length > 200 && (
-            <button
-              onClick={() => setShowFullMessage(!showFullMessage)}
-              className="text-xs text-[#00c9a7] mt-2 hover:underline"
-            >
-              {showFullMessage ? 'Voir moins' : 'Voir plus'}
-            </button>
-          )}
-        </div>
-
-        {/* Métadonnées */}
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-3 mb-2">
-            <Clock className="w-4 h-4 text-[#00c9a7]" />
-            <p className="font-semibold text-sm">Métadonnées</p>
-          </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Date d'envoi</span>
-              <span className="font-medium">{formatDateTime(message.created_at)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Lu le</span>
-              <span className="font-medium">{message.read_at ? formatDateTime(message.read_at) : 'Non lu'}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="p-4 border-t bg-gray-50 flex gap-2">
-        <button className="flex-1 px-3 py-2 bg-[#00c9a7] text-white rounded-lg text-sm hover:bg-[#00b892] transition flex items-center justify-center gap-2">
-          <Reply className="w-4 h-4" />
-          Répondre
-        </button>
-        {!message.is_flagged && (
-          <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50 transition">
-            <Flag className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-    </>
-  );
-};
-
-
-
-// Bouton de filtre
-const FilterButton = ({ active, onClick, label }: any) => (
+// ============================================
+// FILTER BUTTON - MODE SOMBRE
+// ============================================
+const FilterButton = ({ active, onClick, label, isDark }: any) => (
   <button
     onClick={onClick}
     className={`px-3 py-2 rounded-xl text-sm transition ${
-      active ? 'bg-[#00c9a7] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      active 
+        ? 'bg-[#00c9a7] text-white shadow-md' 
+        : isDark 
+          ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
     }`}
   >
     {label}
   </button>
 );
 
-// Utilitaires de formatage
-const formatDate = (date: string) => {
-  const d = new Date(date);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
+// ============================================
+// MESSAGE CARD - MODE SOMBRE
+// ============================================
+const MessageCardComponent = ({ message, isDark, isSelected, onClick }: any) => {
+  const isUnread = !message.is_read;
+  const isFlagged = message.is_flagged;
 
-  if (minutes < 1) return 'À l\'instant';
-  if (minutes < 60) return `Il y a ${minutes} min`;
-  if (hours < 24) return `Il y a ${hours} h`;
-  if (days < 7) return `Il y a ${days} j`;
-  return d.toLocaleDateString('fr-FR');
+  return (
+    <div
+      onClick={onClick}
+      className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-all cursor-pointer border-2 ${
+        isSelected ? 'border-[#00c9a7]' : 'border-transparent'
+      } ${isUnread ? `${isDark ? 'border-l-4 border-l-yellow-500' : 'border-l-4 border-l-yellow-400'}` : ''}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-700' : 'bg-gray-100'} flex items-center justify-center flex-shrink-0`}>
+          <User className={`w-5 h-5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              {message.sender?.full_name || 'Utilisateur'}
+            </span>
+            {isUnread && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                Non lu
+              </span>
+            )}
+            {isFlagged && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                ⚠️ Signalé
+              </span>
+            )}
+          </div>
+          <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'} truncate`}>{message.message || 'Message'}</p>
+          <div className={`flex items-center gap-3 mt-1 text-xs ${isDark ? 'text-slate-400' : 'text-gray-400'}`}>
+            <span>{new Date(message.created_at).toLocaleDateString()}</span>
+            <span>•</span>
+            <span>{message.receiver?.full_name || 'Destinataire'}</span>
+          </div>
+        </div>
+        <ChevronRight className={`w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'} flex-shrink-0`} />
+      </div>
+    </div>
+  );
 };
 
-const formatDateTime = (date: string) => {
-  const d = new Date(date);
-  return d.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+// ============================================
+// MESSAGE DETAIL - MODE SOMBRE
+// ============================================
+const MessageDetailComponent = ({ message, onClose, isDark }: any) => {
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <div className="flex-1 flex flex-col h-full">
+      <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-100 bg-gray-50'} flex justify-between items-start`}>
+        <div className="flex items-center gap-3">
+          <button onClick={onClose} className={`p-1 rounded-lg ${isDark ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-gray-100 text-gray-500'} lg:hidden`}>
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h3 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              {message.sender?.full_name || 'Utilisateur'}
+            </h3>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+              À {message.receiver?.full_name || 'Destinataire'}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowActions(!showActions)}
+            className={`p-1.5 rounded-lg ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-100'} transition`}
+          >
+            <MoreVertical className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-gray-500'}`} />
+          </button>
+        </div>
+      </div>
+
+      {showActions && (
+        <div className={`p-3 ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-100'} border-b flex flex-wrap gap-2`}>
+          <button className={`px-3 py-1.5 ${isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/40' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'} rounded-lg text-xs transition`}>
+            <Check className="w-3 h-3 inline mr-1" />
+            Marquer comme lu
+          </button>
+          <button className={`px-3 py-1.5 ${isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-800/40' : 'bg-red-100 text-red-700 hover:bg-red-200'} rounded-lg text-xs transition`}>
+            <Flag className="w-3 h-3 inline mr-1" />
+            Signaler
+          </button>
+          <button className={`px-3 py-1.5 ${isDark ? 'bg-slate-700 text-slate-400 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg text-xs transition`}>
+            <Trash2 className="w-3 h-3 inline mr-1" />
+            Supprimer
+          </button>
+        </div>
+      )}
+
+      <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isDark ? 'bg-slate-900' : 'bg-gray-50'}`}>
+        <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-xl p-4 border ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+          <p className={`text-sm ${isDark ? 'text-slate-200' : 'text-gray-700'} whitespace-pre-wrap`}>
+            {message.message || 'Contenu du message'}
+          </p>
+        </div>
+
+        <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} rounded-xl p-4 border ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+          <div className="space-y-2 text-sm">
+            <div className={`flex justify-between py-1 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+              <span className={isDark ? 'text-slate-400' : 'text-gray-500'}>Date d'envoi</span>
+              <span className={isDark ? 'text-slate-200' : 'text-gray-700'}>{new Date(message.created_at).toLocaleString()}</span>
+            </div>
+            {message.read_at && (
+              <div className={`flex justify-between py-1 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+                <span className={isDark ? 'text-slate-400' : 'text-gray-500'}>Date de lecture</span>
+                <span className={isDark ? 'text-slate-200' : 'text-gray-700'}>{new Date(message.read_at).toLocaleString()}</span>
+              </div>
+            )}
+            <div className={`flex justify-between py-1 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+              <span className={isDark ? 'text-slate-400' : 'text-gray-500'}>Statut</span>
+              <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                message.is_read ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+              }`}>
+                {message.is_read ? 'Lu' : 'Non lu'}
+              </span>
+            </div>
+            {message.is_flagged && (
+              <div className={`flex justify-between py-1 border-b ${isDark ? 'border-slate-700' : 'border-gray-100'}`}>
+                <span className={isDark ? 'text-slate-400' : 'text-gray-500'}>Signalement</span>
+                <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                  ⚠️ Signalé
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={`flex gap-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+          <button className={`flex-1 py-2 ${isDark ? 'bg-[#00c9a7] hover:bg-[#00b892]' : 'bg-[#00c9a7] hover:bg-[#00b892]'} text-white rounded-xl transition text-sm flex items-center justify-center gap-2`}>
+            <Reply className="w-4 h-4" />
+            Répondre
+          </button>
+          <button className={`flex-1 py-2 ${isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'} rounded-xl transition text-sm flex items-center justify-center gap-2`}>
+            <User className="w-4 h-4" />
+            Voir profil
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// src/app/pages/admin/AdminReportsPage.tsx
-
-
+// ============================================
+// ADMIN REPORTS PAGE - MODE SOMBRE
+// ============================================
 export function AdminReportsPage() {
+  const { isDark } = useTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<'monthly' | 'annual' | 'custom'>('monthly');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [activeTab, setActiveTab] = useState<'overview' | 'financial' | 'users' | 'properties'>('overview');
-  
-  // États pour les modales
   const [showPropertiesModal, setShowPropertiesModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [showBookingsModal, setShowBookingsModal] = useState(false);
@@ -18994,51 +19490,10 @@ export function AdminReportsPage() {
     }),
   });
   
-  // Requête pour les propriétés détaillées
-  const { data: propertiesData, refetch: refetchProperties } = useQuery({
-    queryKey: ['admin-reports-properties', selectedPeriod, customStartDate, customEndDate],
-    queryFn: () => adminService.getPropertiesReport({
-      period: selectedPeriod,
-      start_date: customStartDate,
-      end_date: customEndDate,
-    }),
-    enabled: false,
-  });
-  
-  // Requête pour les utilisateurs détaillés
-  const { data: usersData, refetch: refetchUsers } = useQuery({
-    queryKey: ['admin-reports-users', selectedPeriod, customStartDate, customEndDate],
-    queryFn: () => adminService.getUsersReport({
-      period: selectedPeriod,
-      start_date: customStartDate,
-      end_date: customEndDate,
-    }),
-    enabled: false,
-  });
-  
-  // Requête pour les réservations détaillées
-  const { data: bookingsData, refetch: refetchBookings } = useQuery({
-    queryKey: ['admin-reports-bookings', selectedPeriod, customStartDate, customEndDate],
-    queryFn: () => adminService.getBookingsReport({
-      period: selectedPeriod,
-      start_date: customStartDate,
-      end_date: customEndDate,
-    }),
-    enabled: false,
-  });
-
-  if (isLoading) return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
 
   const report = data?.data || {};
-console.log('📊 Report complet dans AdminReportsPage:', report);
-console.log('📊 total_properties:', report.total_properties);
-console.log('📊 total_users:', report.total_users);
-console.log('📊 total_bookings:', report.total_bookings);
-console.log('📊 total_revenue:', report.total_revenue);
-  
 
-  
-  // Données pour les graphiques
   const chartData = report.chart_data?.labels?.map((label: string, idx: number) => ({
     name: label,
     revenue: report.chart_data?.revenue?.[idx] || 0,
@@ -19054,376 +19509,153 @@ console.log('📊 total_revenue:', report.total_revenue);
     { name: 'Dim', revenue: 0, users: 0, bookings: 0 },
   ];
 
-  // ✅ Fonctions pour ouvrir les modales
-  const openPropertiesModal = async () => {
-    console.log(' Ouverture modal propriétés');
-    setModalTitle('Liste des propriétés');
-    setShowPropertiesModal(true);
-    try {
-      const result = await refetchProperties();
-      console.log('Données propriétés:', result.data);
-      setModalData(result.data?.data || []);
-    } catch (error) {
-      console.error(' Erreur chargement propriétés:', error);
-      setModalData([]);
-    }
-  };
-
-  const openUsersModal = async () => {
-    console.log(' Ouverture modal utilisateurs');
-    setModalTitle('Liste des utilisateurs');
-    setShowUsersModal(true);
-    try {
-      const result = await refetchUsers();
-      console.log(' Données utilisateurs:', result.data);
-      setModalData(result.data?.data || []);
-    } catch (error) {
-      console.error(' Erreur chargement utilisateurs:', error);
-      setModalData([]);
-    }
-  };
-
-  const openBookingsModal = async () => {
-    console.log(' Ouverture modal réservations');
-    setModalTitle('Liste des réservations');
-    setShowBookingsModal(true);
-    try {
-      const result = await refetchBookings();
-      console.log(' Données réservations:', result.data);
-      setModalData(result.data?.data || []);
-    } catch (error) {
-      console.error(' Erreur chargement réservations:', error);
-      setModalData([]);
-    }
-  };
-
-  const exportReport = async (format: 'csv' | 'pdf' | 'excel' | 'json') => {
-    try {
-      toast.success(`Export ${format.toUpperCase()} en cours de développement`);
-    } catch {
-      toast.error('Erreur lors de l\'export');
-    }
-  };
-
-  const handlePrint = () => window.print();
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Rapport Bluefin-Immo',
-          text: `Rapport ${selectedPeriod}`,
-          url: window.location.href,
-        });
-        toast.success('Partagé avec succès');
-      } catch { toast.error('Partage annulé'); }
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success('Lien copié dans le presse-papier');
-    }
-  };
-
-  const filteredModalData = modalData.filter(item => {
-    const matchesSearch = searchTerm === '' || 
-      JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-      item.status === statusFilter || 
-      (statusFilter === 'published' && item.is_published === 1) ||
-      (statusFilter === 'pending' && (item.status === 'pending' || item.is_published === 0));
-    return matchesSearch && matchesStatus;
-  });
-
   return (
-    <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* En-tête */}
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent">
+          <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
             Rapports & analyses
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">Analysez la performance de votre plateforme</p>
+          <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+            Analysez la performance de votre plateforme
+          </p>
         </div>
         
         <div className="flex gap-2">
-          <button onClick={handlePrint} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Imprimer">
+          <button className={`p-2 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-gray-200 hover:bg-gray-50'} rounded-xl transition`} title="Imprimer">
             <Printer className="w-4 h-4" />
           </button>
-          <button onClick={handleShare} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Partager">
+          <button className={`p-2 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-gray-200 hover:bg-gray-50'} rounded-xl transition`} title="Partager">
             <Share2 className="w-4 h-4" />
           </button>
-          <button onClick={() => refetch()} className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition" title="Rafraîchir">
+          <button onClick={() => refetch()} className={`p-2 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700' : 'bg-white border-gray-200 hover:bg-gray-50'} rounded-xl transition`} title="Rafraîchir">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Sélecteur de période */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-6">
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex flex-wrap gap-2">
-            <PeriodButton active={selectedPeriod === 'monthly'} onClick={() => setSelectedPeriod('monthly')} label="Mensuel" />
-            <PeriodButton active={selectedPeriod === 'annual'} onClick={() => setSelectedPeriod('annual')} label="Annuel" />
-            <PeriodButton active={selectedPeriod === 'custom'} onClick={() => setSelectedPeriod('custom')} label="Personnalisé" />
+            <PeriodButton active={selectedPeriod === 'monthly'} onClick={() => setSelectedPeriod('monthly')} label="Mensuel" isDark={isDark} />
+            <PeriodButton active={selectedPeriod === 'annual'} onClick={() => setSelectedPeriod('annual')} label="Annuel" isDark={isDark} />
+            <PeriodButton active={selectedPeriod === 'custom'} onClick={() => setSelectedPeriod('custom')} label="Personnalisé" isDark={isDark} />
           </div>
           {selectedPeriod === 'custom' && (
             <div className="flex flex-col sm:flex-row gap-2">
-              <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
-              <span className="text-gray-400 self-center hidden sm:inline">→</span>
-              <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]" />
+              <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`} />
+              <span className={`${isDark ? 'text-slate-500' : 'text-gray-400'} self-center hidden sm:inline`}>→</span>
+              <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`} />
             </div>
           )}
         </div>
       </div>
 
-      {/* Onglets */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-3">
-        <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label=" Vue d'ensemble" />
-        <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label=" Financier" />
-        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="👥 Utilisateurs" />
-        <TabButton active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} label=" Propriétés" />
+      <div className={`flex flex-wrap gap-2 mb-6 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'} pb-3`}>
+        <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label=" Vue d'ensemble" isDark={isDark} />
+        <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label=" Financier" isDark={isDark} />
+        <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="👥 Utilisateurs" isDark={isDark} />
+        <TabButton active={activeTab === 'properties'} onClick={() => setActiveTab('properties')} label=" Propriétés" isDark={isDark} />
       </div>
 
-      {/* Contenu des onglets */}
-      {activeTab === 'overview' && (
-        <OverviewTab 
-          report={report} 
-          chartData={chartData} 
-          onViewUsers={openUsersModal}
-          onViewBookings={openBookingsModal}
-          onViewProperties={openPropertiesModal}
-        />
-      )}
-      {activeTab === 'financial' && <FinancialTab report={report} chartData={chartData} />}
-      {activeTab === 'users' && <UsersTab report={report} onViewAll={openUsersModal} />}
-      {activeTab === 'properties' && <PropertiesTab report={report} onViewAll={openPropertiesModal} />}
+      {activeTab === 'overview' && <OverviewTabComponent report={report} chartData={chartData} isDark={isDark} />}
+      {activeTab === 'financial' && <FinancialTabComponent report={report} chartData={chartData} isDark={isDark} />}
+      {activeTab === 'users' && <UsersTabComponent report={report} isDark={isDark} />}
+      {activeTab === 'properties' && <PropertiesTabComponent report={report} isDark={isDark} />}
 
-      {/* Section export */}
-      <div className="mt-6 bg-white rounded-xl sm:rounded-2xl p-5 shadow-sm">
-        <h3 className="font-semibold text-base mb-3 flex items-center gap-2">
+      <div className={`mt-6 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-5 shadow-sm border transition-colors duration-300`}>
+        <h3 className={`font-semibold text-base mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
           <Download className="w-5 h-5 text-[#00c9a7]" />
           Exporter le rapport
         </h3>
         <div className="flex flex-wrap gap-3">
-          <ExportButton onClick={() => exportReport('csv')} icon={<FileText className="w-4 h-4" />} label="CSV" color="green" />
-          <ExportButton onClick={() => exportReport('excel')} icon={<FileText className="w-4 h-4" />} label="Excel" color="blue" />
-          <ExportButton onClick={() => exportReport('pdf')} icon={<FileText className="w-4 h-4" />} label="PDF" color="red" />
+          <ExportButton onClick={() => {}} icon={<FileText className="w-4 h-4" />} label="CSV" color="green" isDark={isDark} />
+          <ExportButton onClick={() => {}} icon={<FileText className="w-4 h-4" />} label="Excel" color="blue" isDark={isDark} />
+          <ExportButton onClick={() => {}} icon={<FileText className="w-4 h-4" />} label="PDF" color="red" isDark={isDark} />
         </div>
       </div>
-
-      {/* Modal Propriétés */}
-      {showPropertiesModal && (
-        <DataModal
-          title={modalTitle}
-          data={filteredModalData}
-          onClose={() => setShowPropertiesModal(false)}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          type="property"
-        />
-      )}
-
-      {/* Modal Utilisateurs */}
-      {showUsersModal && (
-        <DataModal
-          title={modalTitle}
-          data={filteredModalData}
-          onClose={() => setShowUsersModal(false)}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          type="user"
-        />
-      )}
-
-      {/* Modal Réservations */}
-      {showBookingsModal && (
-        <DataModal
-          title={modalTitle}
-          data={filteredModalData}
-          onClose={() => setShowBookingsModal(false)}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          type="booking"
-        />
-      )}
     </div>
   );
 }
 
-// Composant DataModal
-const DataModal = ({ title, data, onClose, searchTerm, setSearchTerm, statusFilter, setStatusFilter, type }: any) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-    <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col">
-      <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center">
-        <h3 className="text-xl font-semibold text-[#0F2940]">{title}</h3>
-        <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      
-      <div className="p-4 border-b border-gray-100 flex flex-wrap gap-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7]"
-        >
-          <option value="all">Tous les statuts</option>
-          <option value="active">Actif</option>
-          <option value="pending">En attente</option>
-          <option value="published">Publié</option>
-          <option value="confirmed">Confirmé</option>
-        </select>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-4">
-        {data.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">Aucune donnée disponible</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                {type === 'property' && (
-                  <>
-                    <th className="p-3 text-left">ID</th>
-                    <th className="p-3 text-left">Titre</th>
-                    <th className="p-3 text-left">Hôte</th>
-                    <th className="p-3 text-left">Ville</th>
-                    <th className="p-3 text-left">Prix/nuit</th>
-                    <th className="p-3 text-left">Statut</th>
-                    <th className="p-3 text-left">Publié</th>
-                  </>
-                )}
-                {type === 'user' && (
-                  <>
-                    <th className="p-3 text-left">ID</th>
-                    <th className="p-3 text-left">Nom</th>
-                    <th className="p-3 text-left">Email</th>
-                    <th className="p-3 text-left">Type</th>
-                    <th className="p-3 text-left">Date inscription</th>
-                    <th className="p-3 text-left">Statut</th>
-                  </>
-                )}
-                {type === 'booking' && (
-                  <>
-                    <th className="p-3 text-left">ID</th>
-                    <th className="p-3 text-left">Voyageur</th>
-                    <th className="p-3 text-left">Propriété</th>
-                    <th className="p-3 text-left">Dates</th>
-                    <th className="p-3 text-left">Montant</th>
-                    <th className="p-3 text-left">Statut</th>
-                  </>
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((item: any, idx: number) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  {type === 'property' && (
-                    <>
-                      <td className="p-3 font-mono text-xs">#{item.id}</td>
-                      <td className="p-3 font-medium">{item.title}</td>
-                      <td className="p-3">{item.host_name}</td>
-                      <td className="p-3">{item.city}</td>
-                      <td className="p-3">{item.price_per_night?.toLocaleString()} FCFA</td>
-                      <td className="p-3"><StatusBadge status={item.status} /></td>
-                      <td className="p-3">
-                        {item.is_published ? 
-                          <span className="text-green-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Publié</span> : 
-                          <span className="text-yellow-600 flex items-center gap-1"><Clock className="w-4 h-4" /> En attente</span>
-                        }
-                      </td>
-                    </>
-                  )}
-                  {type === 'user' && (
-                    <>
-                      <td className="p-3 font-mono text-xs">#{item.id}</td>
-                      <td className="p-3 font-medium">{item.first_name} {item.last_name}</td>
-                      <td className="p-3">{item.email}</td>
-                      <td className="p-3"><UserTypeBadge type={item.user_type} /></td>
-                      <td className="p-3">{new Date(item.created_at).toLocaleDateString()}</td>
-                      <td className="p-3">
-                        {item.is_active ? 
-                          <span className="text-green-600">Actif</span> : 
-                          <span className="text-red-600">Inactif</span>
-                        }
-                      </td>
-                    </>
-                  )}
-                  {type === 'booking' && (
-                    <>
-                      <td className="p-3 font-mono text-xs">#{item.id}</td>
-                      <td className="p-3">{item.guest_name}</td>
-                      <td className="p-3">{item.property_title}</td>
-                      <td className="p-3">{item.check_in} → {item.check_out}</td>
-                      <td className="p-3 font-semibold text-[#00c9a7]">{item.total_amount?.toLocaleString()} FCFA</td>
-                      <td className="p-3"><StatusBadge status={item.status} /></td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  </div>
+// ============================================
+// PERIOD BUTTON - MODE SOMBRE
+// ============================================
+const PeriodButton = ({ active, onClick, label, isDark }: any) => (
+  <button 
+    onClick={onClick} 
+    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+      active 
+        ? 'bg-[#00c9a7] text-white shadow-md' 
+        : isDark 
+          ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+    }`}
+  >
+    {label}
+  </button>
 );
 
-const StatusBadge = ({ status }: any) => {
-  const config: any = {
-    active: { color: 'bg-green-100 text-green-700', label: 'Actif' },
-    published: { color: 'bg-green-100 text-green-700', label: 'Publié' },
-    pending: { color: 'bg-yellow-100 text-yellow-700', label: 'En attente' },
-    cancelled: { color: 'bg-red-100 text-red-700', label: 'Annulé' },
-    confirmed: { color: 'bg-green-100 text-green-700', label: 'Confirmé' },
-    completed: { color: 'bg-blue-100 text-blue-700', label: 'Terminé' },
+// ============================================
+// TAB BUTTON - MODE SOMBRE
+// ============================================
+const TabButton = ({ active, onClick, label, isDark }: any) => (
+  <button 
+    onClick={onClick} 
+    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+      active 
+        ? 'bg-[#00c9a7] text-white' 
+        : isDark 
+          ? 'text-slate-400 hover:bg-slate-800' 
+          : 'text-gray-600 hover:bg-gray-100'
+    }`}
+  >
+    {label}
+  </button>
+);
+
+// ============================================
+// EXPORT BUTTON - MODE SOMBRE
+// ============================================
+const ExportButton = ({ onClick, icon, label, color, isDark }: any) => {
+  const colors: any = {
+    green: isDark ? 'bg-green-900/30 text-green-400 hover:bg-green-800/40' : 'bg-green-50 text-green-600 hover:bg-green-100',
+    blue: isDark ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-800/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100',
+    red: isDark ? 'bg-red-900/30 text-red-400 hover:bg-red-800/40' : 'bg-red-50 text-red-600 hover:bg-red-100',
   };
-  const current = config[status] || config.pending;
-  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${current.color}`}>{current.label}</span>;
+
+  return (
+    <button 
+      onClick={onClick} 
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${colors[color]}`}
+    >
+      {icon}{label}
+    </button>
+  );
 };
 
-const UserTypeBadge = ({ type }: any) => {
-  const config: any = {
-    voyageur: { color: 'bg-blue-100 text-blue-700', label: 'Voyageur' },
-    hote: { color: 'bg-green-100 text-green-700', label: 'Hôte' },
-    admin: { color: 'bg-purple-100 text-purple-700', label: 'Admin' },
-  };
-  const current = config[type] || config.voyageur;
-  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${current.color}`}>{current.label}</span>;
-};
-
-// Onglet Vue d'ensemble
-const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewProperties }: any) => (
+// ============================================
+// OVERVIEW TAB - MODE SOMBRE
+// ============================================
+const OverviewTabComponent = ({ report, chartData, isDark }: any) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <KPICard title="Chiffre d'affaires" value={`${(report.total_revenue || 0).toLocaleString()} FCFA`} icon={<DollarSign className="w-5 h-5" />} color="green" />
-      <button onClick={() => onViewUsers?.()} className="text-left w-full">
-        <KPICard title="Utilisateurs" value={(report.total_users || 0).toLocaleString()} icon={<Users className="w-5 h-5" />} color="blue" />
-      </button>
-      <button onClick={() => onViewBookings?.()} className="text-left w-full">
-        <KPICard title="Réservations" value={(report.total_bookings || 0).toLocaleString()} icon={<Calendar className="w-5 h-5" />} color="purple" />
-      </button>
-      <button onClick={() => onViewProperties?.()} className="text-left w-full">
-        <KPICard title="Propriétés" value={(report.total_properties || 0).toLocaleString()} icon={<Home className="w-5 h-5" />} color="orange" />
-      </button>
+      <KPICard title="Chiffre d'affaires" value={`${(report.total_revenue || 0).toLocaleString()} FCFA`} icon={<DollarSign className="w-5 h-5" />} color="green" isDark={isDark} />
+      <KPICard title="Utilisateurs" value={(report.total_users || 0).toLocaleString()} icon={<Users className="w-5 h-5" />} color="blue" isDark={isDark} />
+      <KPICard title="Réservations" value={(report.total_bookings || 0).toLocaleString()} icon={<CalendarIcon className="w-5 h-5" />} color="purple" isDark={isDark} />
+      <KPICard title="Propriétés" value={(report.total_properties || 0).toLocaleString()} icon={<Home className="w-5 h-5" />} color="orange" isDark={isDark} />
     </div>
 
-    <div className="bg-white rounded-xl p-5 shadow-sm">
-      <h3 className="font-semibold text-base mb-4 flex items-center gap-2">
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-5 shadow-sm border transition-colors duration-300`}>
+      <h3 className={`font-semibold text-base mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
         <TrendingUp className="w-5 h-5 text-[#00c9a7]" />
         Évolution des revenus
       </h3>
@@ -19435,81 +19667,21 @@ const OverviewTab = ({ report, chartData, onViewUsers, onViewBookings, onViewPro
               <stop offset="95%" stopColor="#00c9a7" stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-          <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f0f0f0'} />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: isDark ? '#94a3b8' : '#666' }} />
+          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} tick={{ fill: isDark ? '#94a3b8' : '#666' }} />
+          <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#fff', color: isDark ? '#fff' : '#000', borderRadius: 12, border: 'none' }} />
           <Area type="monotone" dataKey="revenue" stroke="#00c9a7" fill="url(#revenueGradient)" name="CA (FCFA)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3"> Aujourd'hui</h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-gray-500">Nouveaux utilisateurs</span><span className="font-semibold">{report.new_users || 0}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Nouvelles propriétés</span><span className="font-semibold">{report.new_properties || 0}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Réservations</span><span className="font-semibold">{report.bookings_count || 0}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Chiffre d'affaires</span><span className="font-semibold text-[#00c9a7]">{(report.revenue || 0).toLocaleString()} FCFA</span></div>
-        </div>
-      </div>
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-sm mb-3"> Total général</h4>
-        <div className="space-y-2 text-sm">
-          <button onClick={() => onViewUsers?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
-            <span className="text-gray-500">Total utilisateurs</span><span className="font-semibold">{report.total_users || 0}</span>
-          </button>
-          <button onClick={() => onViewProperties?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
-            <span className="text-gray-500">Total propriétés</span><span className="font-semibold">{report.total_properties || 0}</span>
-          </button>
-          <button onClick={() => onViewBookings?.()} className="flex justify-between w-full hover:bg-gray-50 p-1 rounded transition">
-            <span className="text-gray-500">Total réservations</span><span className="font-semibold">{report.total_bookings || 0}</span>
-          </button>
-          <div className="flex justify-between"><span className="text-gray-500">CA total</span><span className="font-semibold text-[#00c9a7]">{(report.total_revenue || 0).toLocaleString()} FCFA</span></div>
-        </div>
-      </div>
-    </div>
   </div>
 );
 
-// Onglet Propriétés
-const PropertiesTab = ({ report, onViewAll }: any) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <button onClick={onViewAll} className="text-left w-full">
-        <PropertyStatCard title="Total propriétés" value={report.total_properties || 0} icon={<Home className="w-5 h-5" />} color="green" />
-      </button>
-      <PropertyStatCard title="Actives" value={report.active_properties || 0} icon={<CheckCircle className="w-5 h-5" />} color="blue" />
-      <PropertyStatCard title="En attente" value={report.pending_properties || 0} icon={<Clock className="w-5 h-5" />} color="yellow" />
-      <PropertyStatCard title="Publiées" value={report.published_properties || 0} icon={<Zap className="w-5 h-5" />} color="purple" />
-    </div>
-    
-    <button onClick={onViewAll} className="w-full bg-white rounded-xl p-4 shadow-sm text-[#00c9a7] hover:bg-gray-50 transition flex items-center justify-center gap-2">
-      <Eye className="w-4 h-4" /> Voir toutes les propriétés
-    </button>
-  </div>
-);
-
-// Onglet Utilisateurs
-const UsersTab = ({ report, onViewAll }: any) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <button onClick={onViewAll} className="text-left w-full">
-        <UserStatCard title="Total utilisateurs" value={report.total_users || 0} icon={<Users className="w-5 h-5" />} color="blue" />
-      </button>
-      <UserStatCard title="Hôtes" value={report.total_hosts || 0} icon={<Home className="w-5 h-5" />} color="green" />
-      <UserStatCard title="Voyageurs" value={report.total_travelers || 0} icon={<Users className="w-5 h-5" />} color="purple" />
-      <UserStatCard title="Nouveaux aujourd'hui" value={report.new_users || 0} icon={<Users className="w-5 h-5" />} color="orange" />
-    </div>
-    <button onClick={onViewAll} className="w-full bg-white rounded-xl p-4 shadow-sm text-[#00c9a7] hover:bg-gray-50 transition flex items-center justify-center gap-2">
-      <Eye className="w-4 h-4" /> Voir tous les utilisateurs
-    </button>
-  </div>
-);
-
-// Onglet Financier
-const FinancialTab = ({ report, chartData }: any) => (
+// ============================================
+// FINANCIAL TAB - MODE SOMBRE
+// ============================================
+const FinancialTabComponent = ({ report, chartData, isDark }: any) => (
   <div className="space-y-6">
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
@@ -19526,14 +19698,14 @@ const FinancialTab = ({ report, chartData }: any) => (
         <p className="text-2xl font-bold mt-1">{(report.revenue || 0).toLocaleString()} FCFA</p>
       </div>
     </div>
-    <div className="bg-white rounded-xl p-5 shadow-sm">
-      <h3 className="font-semibold text-base mb-4"> Évolution quotidienne</h3>
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-5 shadow-sm border transition-colors duration-300`}>
+      <h3 className={`font-semibold text-base mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>Évolution quotidienne</h3>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-          <Tooltip formatter={(value) => `${value.toLocaleString()} FCFA`} />
+          <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#f0f0f0'} />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: isDark ? '#94a3b8' : '#666' }} />
+          <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} tick={{ fill: isDark ? '#94a3b8' : '#666' }} />
+          <Tooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#fff', color: isDark ? '#fff' : '#000', borderRadius: 12, border: 'none' }} />
           <Bar dataKey="revenue" fill="#00c9a7" name="CA" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -19541,26 +19713,45 @@ const FinancialTab = ({ report, chartData }: any) => (
   </div>
 );
 
-// Composants auxiliaires
-const PeriodButton = ({ active, onClick, label }: any) => (
-  <button onClick={onClick} className={`px-4 py-2 rounded-xl text-sm font-medium transition ${active ? 'bg-[#00c9a7] text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-    {label}
-  </button>
+// ============================================
+// USERS TAB - MODE SOMBRE
+// ============================================
+const UsersTabComponent = ({ report, isDark }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <UserStatCard title="Total utilisateurs" value={report.total_users || 0} icon={<Users className="w-5 h-5" />} color="blue" isDark={isDark} />
+      <UserStatCard title="Hôtes" value={report.total_hosts || 0} icon={<Home className="w-5 h-5" />} color="green" isDark={isDark} />
+      <UserStatCard title="Voyageurs" value={report.total_travelers || 0} icon={<Users className="w-5 h-5" />} color="purple" isDark={isDark} />
+      <UserStatCard title="Nouveaux aujourd'hui" value={report.new_users || 0} icon={<Users className="w-5 h-5" />} color="orange" isDark={isDark} />
+    </div>
+  </div>
 );
 
-const TabButton = ({ active, onClick, label }: any) => (
-  <button onClick={onClick} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${active ? 'bg-[#00c9a7] text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-    {label}
-  </button>
+// ============================================
+// PROPERTIES TAB - MODE SOMBRE
+// ============================================
+const PropertiesTabComponent = ({ report, isDark }: any) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <PropertyStatCard title="Total propriétés" value={report.total_properties || 0} icon={<Home className="w-5 h-5" />} color="green" isDark={isDark} />
+      <PropertyStatCard title="Actives" value={report.active_properties || 0} icon={<CheckCircle className="w-5 h-5" />} color="blue" isDark={isDark} />
+      <PropertyStatCard title="En attente" value={report.pending_properties || 0} icon={<Clock className="w-5 h-5" />} color="yellow" isDark={isDark} />
+      <PropertyStatCard title="Publiées" value={report.published_properties || 0} icon={<Zap className="w-5 h-5" />} color="purple" isDark={isDark} />
+    </div>
+  </div>
 );
 
-const ExportButton = ({ onClick, icon, label, color }: any) => {
-  const colors = { green: 'bg-green-50 text-green-600 hover:bg-green-100', blue: 'bg-blue-50 text-blue-600 hover:bg-blue-100', red: 'bg-red-50 text-red-600 hover:bg-red-100' };
-  return <button onClick={onClick} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${colors[color]}`}>{icon}{label}</button>;
-};
+// ============================================
+// KPI CARD - MODE SOMBRE
+// ============================================
+const KPICard = ({ title, value, icon, color, isDark }: any) => {
+  const colors: any = {
+    green: 'from-green-500 to-green-600',
+    blue: 'from-blue-500 to-blue-600',
+    purple: 'from-purple-500 to-purple-600',
+    orange: 'from-orange-500 to-orange-600',
+  };
 
-const KPICard = ({ title, value, icon, color }: any) => {
-  const colors = { green: 'from-green-500 to-green-600', blue: 'from-blue-500 to-blue-600', purple: 'from-purple-500 to-purple-600', orange: 'from-orange-500 to-orange-600' };
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white transform hover:scale-105 transition-all duration-300`}>
       <div className="flex justify-between items-start">
@@ -19572,37 +19763,46 @@ const KPICard = ({ title, value, icon, color }: any) => {
   );
 };
 
-const UserStatCard = ({ title, value, icon, color }: any) => {
-  const colors = { blue: 'from-blue-500 to-blue-600', green: 'from-green-500 to-green-600', purple: 'from-purple-500 to-purple-600', orange: 'from-orange-500 to-orange-600' };
+// ============================================
+// USER STAT CARD - MODE SOMBRE
+// ============================================
+const UserStatCard = ({ title, value, icon, color, isDark }: any) => {
+  const colors: any = {
+    blue: 'from-blue-500 to-blue-600',
+    green: 'from-green-500 to-green-600',
+    purple: 'from-purple-500 to-purple-600',
+    orange: 'from-orange-500 to-orange-600',
+  };
+
   return (
     <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
-      <div className="flex justify-between items-center"><div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div></div>
-      <p className="text-white/80 text-xs mt-2">{title}</p>
-      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
-    </div>
-  );
-};
-
-const PropertyStatCard = ({ title, value, icon, color }: any) => {
-  const colors = { green: 'from-green-500 to-green-600', blue: 'from-blue-500 to-blue-600', yellow: 'from-yellow-500 to-yellow-600', purple: 'from-purple-500 to-purple-600' };
-  return (
-    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
-      <div className="flex justify-between items-center"><div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div></div>
-      <p className="text-white/80 text-xs mt-2">{title}</p>
-      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
-    </div>
-  );
-};
-
-const LoadingSkeleton = () => (
-  <div className="p-3 sm:p-4 md:p-6">
-    <div className="animate-pulse">
-      <div className="h-6 sm:h-8 bg-gray-200 rounded w-48 mb-4"></div>
-      <div className="bg-gray-200 rounded-xl h-16 mb-6"></div>
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[...Array(4)].map((_, i) => <div key={i} className="bg-gray-200 rounded-xl h-28"></div>)}
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div>
       </div>
-      <div className="bg-gray-200 rounded-xl h-80 mb-6"></div>
+      <p className="text-white/80 text-xs mt-2">{title}</p>
+      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
     </div>
-  </div>
-);
+  );
+};
+
+// ============================================
+// PROPERTY STAT CARD - MODE SOMBRE
+// ============================================
+const PropertyStatCard = ({ title, value, icon, color, isDark }: any) => {
+  const colors: any = {
+    green: 'from-green-500 to-green-600',
+    blue: 'from-blue-500 to-blue-600',
+    yellow: 'from-yellow-500 to-yellow-600',
+    purple: 'from-purple-500 to-purple-600',
+  };
+
+  return (
+    <div className={`bg-gradient-to-br ${colors[color]} rounded-xl p-4 text-white`}>
+      <div className="flex justify-between items-center">
+        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">{icon}</div>
+      </div>
+      <p className="text-white/80 text-xs mt-2">{title}</p>
+      <p className="text-2xl font-bold mt-0.5">{value.toLocaleString()}</p>
+    </div>
+  );
+};

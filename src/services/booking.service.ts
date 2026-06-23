@@ -7,7 +7,8 @@ export interface BookingData {
     check_out: string;
     guests_count: number;
     guests?: number;
-    payment_method: 'mobile_money' | 'card' | 'bank_transfer';
+    // ✅ Ajouter 'fedapay' à la liste des méthodes de paiement
+    payment_method: 'mobile_money' | 'card' | 'bank_transfer' | 'fedapay';
     mobile_money_provider?: 'MTN' | 'Moov' | 'Orange';
     mobile_money_number?: string;
     guest_details: {
@@ -27,64 +28,70 @@ export interface BookingData {
 }
 
 class BookingService {
-    // ✅ Créer une réservation - ENDPOINT CORRIGÉ selon les routes Laravel
+    /**
+     * Créer une réservation
+     */
     async create(data: BookingData) {
         const payload = {
             property_id: data.property_id,
             check_in: data.check_in,
             check_out: data.check_out,
             guests_count: data.guests_count || data.guests || 1,
-            payment_method: data.payment_method,
+            // ✅ Support de 'fedapay'
+            payment_method: data.payment_method || 'fedapay',
             mobile_money_provider: data.mobile_money_provider,
             mobile_money_number: data.mobile_money_number,
             guest_details: data.guest_details,
-            payment_option: data.payment_option,
+            payment_option: data.payment_option || '100',
             total_amount: data.total_amount,
             payment_amount: data.payment_amount,
             nights: data.nights,
             special_requests: data.special_requests
         };
         
-        console.log('📤 Envoi de la réservation à:', '/bookings');
-        console.log('📦 Payload:', payload);
+        console.log('📤 Envoi de la réservation:', payload);
         
-        // ✅ Utiliser le bon endpoint: POST /v1/bookings (sans traveler)
         const response = await v1Api.post('/bookings', payload);
+        
+        console.log('📥 Réponse de la réservation:', response.data);
+        
+        // ✅ S'assurer que l'ID est retourné
         return response.data;
     }
 
-    // Récupérer mes réservations (voyageur)
+    /**
+     * Récupérer mes réservations (voyageur)
+     */
     async getMyBookings(status?: string) {
-        // GET /v1/traveler/bookings existe dans vos routes
         const url = status ? `/traveler/bookings?status=${status}` : '/traveler/bookings';
         const response = await v1Api.get(url);
         return response.data;
     }
 
-    // Récupérer une réservation par ID
+    /**
+     * Récupérer une réservation par ID
+     */
     async getById(id: number) {
-        // GET /v1/bookings/{id} existe dans vos routes
         const response = await v1Api.get(`/bookings/${id}`);
         return response.data;
     }
 
-    // Annuler une réservation
-     async cancel(id: number, reason?: string) {
+    /**
+     * Annuler une réservation
+     */
+    async cancel(id: number, reason?: string) {
         try {
-            // Essayer avec reason dans le body
             const payload = reason ? { cancellation_reason: reason } : {};
             const response = await v1Api.post(`/bookings/${id}/cancel`, payload);
             return response.data;
         } catch (error: any) {
             console.error('Erreur annulation:', error);
             
-            // Récupérer le message d'erreur détaillé
             const errorMessage = error?.response?.data?.message 
                 || error?.response?.data?.error 
                 || error?.message 
                 || 'Impossible d\'annuler la réservation';
             
-            // Si l'API attend un format différent, essayer sans raison
             if (error?.response?.status === 422) {
                 try {
                     const response = await v1Api.post(`/bookings/${id}/cancel`, {});
@@ -98,32 +105,56 @@ class BookingService {
         }
     }
 
-    // Confirmer le paiement
+    /**
+     * Confirmer le paiement
+     */
     async confirmPayment(id: number) {
-        // POST /v1/bookings/{id}/confirm-payment existe dans vos routes
         const response = await v1Api.post(`/bookings/${id}/confirm-payment`, {});
         return response.data;
     }
 
-    // Mettre à jour les informations de la réservation
+    /**
+     * Mettre à jour les informations de la réservation
+     */
     async update(id: number, data: Partial<BookingData>) {
         const response = await v1Api.put(`/bookings/${id}`, data);
         return response.data;
     }
 
-    // Récupérer les réservations d'une propriété (pour hôte)
+    /**
+     * Récupérer les réservations d'une propriété (pour hôte)
+     */
     async getPropertyBookings(propertyId: number) {
         const response = await v1Api.get(`/properties/${propertyId}/bookings`);
         return response.data;
     }
 
-    // Récupérer les statistiques des réservations
+    /**
+     * Récupérer les statistiques des réservations
+     */
     async getBookingStats() {
         const response = await v1Api.get('/traveler/bookings/stats');
         return response.data;
     }
 
-    
+    /**
+     * ✅ Confirmer le paiement Fedapay
+     */
+    async confirmFedapayPayment(transactionId: string, bookingId: number) {
+        const response = await v1Api.post('/payments/fedapay/confirm', {
+            transaction_id: transactionId,
+            booking_id: bookingId
+        });
+        return response.data;
+    }
+
+    /**
+     * ✅ Vérifier le statut d'une transaction Fedapay
+     */
+    async getFedapayTransactionStatus(transactionId: string) {
+        const response = await v1Api.get(`/payments/fedapay/status/${transactionId}`);
+        return response.data;
+    }
 }
 
 export default new BookingService();

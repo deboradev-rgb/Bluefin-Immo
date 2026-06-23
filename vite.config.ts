@@ -28,6 +28,14 @@ export default defineConfig({
   },
  server: {
   port: 5173,
+   host: '0.0.0.0',
+       allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      '.ngrok-free.dev',      // ✅ Autorise tous les tunnels ngrok-free.dev
+      '.ngrok.io',            // ✅ Autorise aussi les anciens tunnels .ngrok.io
+      'splashed-commotion-glitter.ngrok-free.dev' // ✅ Ou spécifiquement cette URL
+    ],
   proxy: {
     '/api': {
       target: 'https://api.bluefin-immo.com',

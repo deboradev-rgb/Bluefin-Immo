@@ -1,3 +1,5 @@
+// src/app/router.ts
+
 export type Page =
   | 'home'
   | 'search-logements'
@@ -37,10 +39,13 @@ export type Page =
   | 'admin-users'
   | 'admin-bookings'
   | 'admin-payments'
-  | 'admin-host-payments'  // 👈 AJOUTÉ
+  | 'admin-host-payments'
   | 'admin-messages'
   | 'admin-reports'
-  | 'admin-login';
+  | 'admin-login'
+  // ✅ ROUTES FEDAPAY
+  | 'fedapay-payment'
+  | 'fedapay-callback';
 
 export type Route = {
   name: Page;
@@ -48,6 +53,11 @@ export type Route = {
   city?: string;
   type?: 'privacy' | 'cgu';
   search?: string;
+  params?: any;
+  bookingData?: any;
+  transactionId?: string;
+  status?: string;
+  bookingId?: string;
 };
 
 /**
@@ -150,10 +160,23 @@ export function parseRoute(path: string): Route {
     if (sub === 'users') return { name: 'admin-users', search };
     if (sub === 'bookings') return { name: 'admin-bookings', search };
     if (sub === 'payments') return { name: 'admin-payments', search };
-    if (sub === 'host-payments') return { name: 'admin-host-payments', search };  // 👈 AJOUTÉ
+    if (sub === 'host-payments') return { name: 'admin-host-payments', search };
     if (sub === 'messages') return { name: 'admin-messages', search };
     if (sub === 'reports') return { name: 'admin-reports', search };
     return { name: 'admin-dashboard', search };
+  }
+
+  // ✅ ROUTES FEDAPAY
+  if (segments[0] === 'payment') {
+    if (segments[1] === 'fedapay') {
+      if (segments[2] === 'callback') {
+        return { name: 'fedapay-callback', search };
+      }
+      if (segments[2] === 'cancel') {
+        return { name: 'fedapay-callback', search: `status=cancelled${search ? '&' + search : ''}` };
+      }
+      return { name: 'fedapay-payment', search };
+    }
   }
 
   // Autres pages
@@ -216,7 +239,7 @@ export function routeToPath(route: Route): string {
     case 'admin-users': path = '/admin/users'; break;
     case 'admin-bookings': path = '/admin/bookings'; break;
     case 'admin-payments': path = '/admin/payments'; break;
-    case 'admin-host-payments': path = '/admin/host-payments'; break;  // 👈 AJOUTÉ
+    case 'admin-host-payments': path = '/admin/host-payments'; break;
     case 'admin-messages': path = '/admin/messages'; break;
     case 'admin-reports': path = '/admin/reports'; break;
     case 'admin-login': path = '/admin-login'; break;
@@ -224,6 +247,16 @@ export function routeToPath(route: Route): string {
       if (route.type === 'privacy') path = '/confidentialite';
       else if (route.type === 'cgu') path = '/cgu';
       else path = '/mentions-legales';
+      break;
+    // ✅ ROUTES FEDAPAY
+    case 'fedapay-payment':
+      path = '/payment/fedapay';
+      if (route.bookingData) {
+        path += `?data=${encodeURIComponent(JSON.stringify(route.bookingData))}`;
+      }
+      break;
+    case 'fedapay-callback':
+      path = '/payment/fedapay/callback';
       break;
     default: path = '/404';
   }
