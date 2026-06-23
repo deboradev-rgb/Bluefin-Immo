@@ -3296,7 +3296,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             ))}
           </div>
           <div className="bg-blue-50 rounded-xl p-3 sm:p-4 mt-2">
-            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service (10%) ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
+            <div className="flex items-start gap-2"><Info className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] sm:text-xs text-blue-700">Les frais de service ne sont jamais remboursés en cas d'annulation partielle. L'heure indiquée est basée sur l'emplacement du logement (GMT+1).</p></div>
           </div>
         </div>
         <div className="sticky bottom-0 bg-white border-t px-4 sm:px-6 py-3 sm:py-4">
@@ -3555,7 +3555,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                       </div>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Frais de service (10%)</span>
+                      <span className="text-gray-600">Frais de service </span>
                       <div className="text-right">
                         <div>{serviceFeeFormatted.fCFA}</div>
                         <div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div>
@@ -5380,7 +5380,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                     <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Frais de service (10%)</span>
+                    <span className="text-gray-600">Frais de service </span>
                     <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
                   </div>
                   <div className="border-t border-gray-200 pt-3 mt-3">
@@ -6803,7 +6803,7 @@ export function CancellationPolicy({
       <div className="bg-gray-50 px-5 py-3 border-t border-gray-100">
         <p className="text-xs text-gray-500 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" />
-          Les frais de service (10%) ne sont pas remboursés en cas d'annulation partielle.
+          Les frais de service  ne sont pas remboursés en cas d'annulation partielle.
         </p>
       </div>
     </div>
@@ -13117,7 +13117,7 @@ export function PublishListingPage({ onNavigate }: PublishListingPageProps) {
                   </div>
                   
                   <p className="text-xs text-gray-500 mt-1">
-                    Une commission de 10% sera appliquée sur chaque réservation
+                    Une commission de service sera appliquée sur chaque réservation
                   </p>
                 </div>
                 
@@ -13553,7 +13553,7 @@ export function PublishListingPage({ onNavigate }: PublishListingPageProps) {
               {/* Informations */}
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
                 <p className="font-semibold text-[#0F2940] mb-2">💰 Frais de service</p>
-                <p>Une commission de 10% sera automatiquement appliquée sur chaque réservation. Aucun frais de ménage n'est facturé.</p>
+                <p>Une commission de service sera automatiquement appliquée sur chaque réservation. Aucun frais de ménage n'est facturé.</p>
               </div>
 
               <div className="rounded-[1.75rem] border border-[#e2f5f2] bg-[#f4fffe] p-5 text-sm text-[#6b7280]">
@@ -14261,8 +14261,8 @@ const getHostContent = () => ({
             
             <div class="bg-[#f4fffe] rounded-xl p-4 border border-[#e2f5f2]">
               <h3 class="font-semibold text-[#0F2940] flex items-center gap-2">✈️ Pour le voyageur</h3>
-              <p class="text-2xl font-bold text-[#00c9a7] mt-2">10%</p>
-              <p class="text-sm text-gray-600">Des frais de 10% sont ajoutés au prix affiché lors de la réservation.</p>
+             
+              <p class="text-sm text-gray-600">Des frais de service sont ajoutés au prix affiché lors de la réservation.</p>
               <p class="text-sm text-gray-500 mt-2">Exemple : nuit à 50 000 FCFA → voyageur paie <strong>55 000 FCFA</strong></p>
             </div>
           </div>
@@ -15891,7 +15891,7 @@ export function CguPage({ onNavigate }: PageProps) {
       },
       {
         title: "4bis. Frais de service et commissions",
-        content: "4bis.1 – Frais applicables aux hôtes : Pour chaque réservation confirmée, Bluefin Immo prélève des frais de service de 6% calculés sur le sous-total de la réservation, hors taxes. Ces frais sont automatiquement déduits du montant versé à l'hôte. Exemple : pour une réservation d'un montant de 50 000 FCFA, l'hôte perçoit 47 000 FCFA.\n\n4bis.2 – Frais applicables aux voyageurs : Des frais de service de 10% sont ajoutés au prix affiché par l'hôte et sont à la charge du voyageur au moment de la réservation. Ces frais sont clairement indiqués avant toute confirmation de paiement. Exemple : pour une nuit affichée à 50 000 FCFA, le voyageur règle 55 000 FCFA.\n\n4bis.3 – Affectation des frais : Les frais de service contribuent au fonctionnement de la plateforme et couvrent notamment : le traitement sécurisé des paiements, la promotion des annonces auprès des voyageurs, l'assistance aux hôtes et aux voyageurs, la maintenance et le développement de la plateforme.\n\n4bis.4 – Modification des frais : Bluefin Immo se réserve le droit de modifier le taux des frais de service à tout moment. Toute modification sera notifiée aux utilisateurs par e-mail au moins 30 jours avant son entrée en vigueur. Les réservations confirmées avant la date d'entrée en vigueur restent soumises aux frais applicables au moment de leur confirmation.\n\n4bis.5 – Taxes : Dans les territoires où la réglementation l'exige, Bluefin Immo peut être amené à collecter et reverser automatiquement les taxes locales applicables (taxe de séjour, TVA, etc.) au nom des hôtes. Le détail des taxes applicables est précisé lors du processus de réservation."
+        content: "4bis.1 – Frais applicables aux hôtes : Pour chaque réservation confirmée, Bluefin Immo prélève des frais de service de 6% calculés sur le sous-total de la réservation, hors taxes. Ces frais sont automatiquement déduits du montant versé à l'hôte. Exemple : pour une réservation d'un montant de 50 000 FCFA, l'hôte perçoit 47 000 FCFA.\n\n4bis.2 – Frais applicables aux voyageurs : Des frais de service sont ajoutés au prix affiché par l'hôte et sont à la charge du voyageur au moment de la réservation. Ces frais sont clairement indiqués avant toute confirmation de paiement. Exemple : pour une nuit affichée à 50 000 FCFA, le voyageur règle 55 000 FCFA.\n\n4bis.3 – Affectation des frais : Les frais de service contribuent au fonctionnement de la plateforme et couvrent notamment : le traitement sécurisé des paiements, la promotion des annonces auprès des voyageurs, l'assistance aux hôtes et aux voyageurs, la maintenance et le développement de la plateforme.\n\n4bis.4 – Modification des frais : Bluefin Immo se réserve le droit de modifier le taux des frais de service à tout moment. Toute modification sera notifiée aux utilisateurs par e-mail au moins 30 jours avant son entrée en vigueur. Les réservations confirmées avant la date d'entrée en vigueur restent soumises aux frais applicables au moment de leur confirmation.\n\n4bis.5 – Taxes : Dans les territoires où la réglementation l'exige, Bluefin Immo peut être amené à collecter et reverser automatiquement les taxes locales applicables (taxe de séjour, TVA, etc.) au nom des hôtes. Le détail des taxes applicables est précisé lors du processus de réservation."
       },
       {
         title: "5. Politique d'annulation",
