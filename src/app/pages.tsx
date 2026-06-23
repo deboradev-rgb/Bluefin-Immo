@@ -2639,6 +2639,7 @@ export default PropertyCard;
 
 // PropertyDetailModal.tsx
 
+
 interface PropertyDetailModalProps {
   property: any;
   onClose: () => void;
@@ -2653,7 +2654,32 @@ const formatCurrency = (amount: number) => {
   return { fCFA, euro };
 };
 
-// ✅ Composant d'affichage des équipements - Design moderne sans icônes
+// ============================================
+// COMPOSANT CALENDRIER DE DISPONIBILITÉ
+// ============================================
+interface AvailabilityCalendarProps {
+  propertyId: number;
+  checkIn?: string;
+  checkOut?: string;
+  onDateSelect?: (checkIn: string, checkOut: string) => void;
+}
+
+
+
+// ============================================
+// COMPOSANT CALENDRIER DE DISPONIBILITÉ
+// ============================================
+interface AvailabilityCalendarProps {
+  propertyId: number;
+  checkIn?: string;
+  checkOut?: string;
+  onDateSelect?: (checkIn: string, checkOut: string) => void;
+}
+
+
+// ============================================
+// COMPOSANT AFFICHAGE DES ÉQUIPEMENTS
+// ============================================
 const AmenitiesDisplay = ({ amenities, showAll, onToggle }: { amenities: string[]; showAll: boolean; onToggle: () => void }) => {
   if (amenities.length === 0) {
     return (
@@ -2698,6 +2724,9 @@ const AmenitiesDisplay = ({ amenities, showAll, onToggle }: { amenities: string[
   );
 };
 
+// ============================================
+// COMPOSANT PRINCIPAL PROPERTY DETAIL MODAL
+// ============================================
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
   onClose, 
@@ -2710,19 +2739,15 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const { isAuthenticated, user } = useAuth();
   
-  // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
   const [availabilityMessage, setAvailabilityMessage] = useState('');
   
-  // États pour les modales
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   
-  // États pour la galerie d'images
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   
-  // Récupérer les dates depuis l'URL
   const [checkIn, setCheckIn] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlCheckIn = urlParams.get('check_in');
@@ -2740,7 +2765,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   });
   
-  // Types de voyageurs
   const [adults, setAdults] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const guests = urlParams.get('guests');
@@ -2748,14 +2772,19 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   });
   const [children, setChildren] = useState(0);
   const [babies, setBabies] = useState(0);
-  const [pets, setPets] = useState(0);
+  const [pets, setPets] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const petsParam = urlParams.get('pets');
+    return petsParam ? parseInt(petsParam) : 0;
+  });
   
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [animate, setAnimate] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const maxGuests = property.max_guests || 10;
-  const totalGuests = adults + children;
+  const totalGuests = adults + children + babies;
+  const totalTravelers = totalGuests + pets;
 
   const formatDisplayFromIso = (isoDate: string) => {
     if (!isoDate) return '';
@@ -2763,7 +2792,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     return `${day}/${month}/${year}`;
   };
 
-  // ✅ Calcul des constantes
   const host = property.host || 'Hôte vérifié';
   const hostId = property.hostId ?? property.id;
   const hostAvatarUrl = property.hostImage || `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(host)}&bold=true&size=128`;
@@ -2771,7 +2799,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const superhost = property.superhost ?? true;
   const responseRate = property.responseRate || 95;
 
-  // ✅ Récupération des images
   const getPropertyImages = (property: any): string[] => {
     const images: string[] = [];
     
@@ -2881,7 +2908,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const serviceFeeFormatted = formatCurrency(serviceFee);
   const totalFormatted = formatCurrency(total);
 
-  // Fonction pour gérer la redirection si non connecté
   const handleAuthenticatedAction = (action: () => void, intent: string) => {
     if (!isAuthenticated) {
       localStorage.setItem('redirect_intent', intent);
@@ -2901,7 +2927,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
   };
 
-  // Vérifier si l'utilisateur vient d'être redirigé après connexion
   useEffect(() => {
     const redirectIntent = localStorage.getItem('redirect_intent');
     const propertyId = localStorage.getItem('redirect_property_id');
@@ -2925,15 +2950,12 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     }
   }, [isAuthenticated, property.id, hostId, onChat, onNavigate]);
 
-  
   const checkAvailability = async (checkInDate: string, checkOutDate: string) => {
     if (!checkInDate || !checkOutDate) return;
     setIsCheckingAvailability(true);
     setAvailabilityStatus('checking');
     try {
         const response = await propertyService.checkAvailability(property.id, checkInDate, checkOutDate);
-        
-        // ✅ CORRECTION : Utiliser response.available
         const isAvailable = response?.available === true;
         
         console.log('📊 Disponibilité PropertyDetailModal:', { isAvailable, response });
@@ -2952,9 +2974,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     } finally {
         setIsCheckingAvailability(false);
     }
-};
-
-
+  };
 
   useEffect(() => {
     if (checkIn && checkOut) {
@@ -2962,6 +2982,12 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
       return () => clearTimeout(debounceTimer);
     }
   }, [checkIn, checkOut]);
+
+  const handleDateSelect = (start: string, end: string) => {
+    setCheckIn(start);
+    setCheckOut(end);
+    setAvailabilityStatus('idle');
+  };
 
   const getCancellationRules = () => {
     return [
@@ -2971,88 +2997,90 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     ];
   };
 
- const handleReservationClick = () => {
-  if (availabilityStatus !== 'available') {
-    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
-    return;
-  }
+  const handleReservationClick = () => {
+    if (availabilityStatus !== 'available') {
+      alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+      return;
+    }
 
-  const token = localStorage.getItem('token');
-  const isLoggedIn = !!token;
+    const token = localStorage.getItem('token');
+    const isLoggedIn = !!token;
 
-  if (!isLoggedIn) {
-    localStorage.setItem('redirect_intent', 'booking');
-    localStorage.setItem('redirect_property_id', property.id.toString());
-    localStorage.setItem('redirect_property_title', property.title);
-    localStorage.setItem('redirect_property_location', property.location);
-    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-    localStorage.setItem('temp_booking_check_in', checkIn);
-    localStorage.setItem('temp_booking_check_out', checkOut);
-    localStorage.setItem('temp_booking_guests', totalGuests.toString());
-    localStorage.setItem('temp_booking_nights', nights.toString());
-    // ✅ Sauvegarder les détails des voyageurs
-    localStorage.setItem('temp_booking_adults', adults.toString());
-    localStorage.setItem('temp_booking_children', children.toString());
-    localStorage.setItem('temp_booking_babies', babies.toString());
-    
-    if (onNavigate) {
-      onNavigate({ name: 'auth', search: 'redirect=booking' });
+    if (!isLoggedIn) {
+      localStorage.setItem('redirect_intent', 'booking');
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      localStorage.setItem('redirect_property_title', property.title);
+      localStorage.setItem('redirect_property_location', property.location);
+      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+      localStorage.setItem('temp_booking_check_in', checkIn);
+      localStorage.setItem('temp_booking_check_out', checkOut);
+      localStorage.setItem('temp_booking_guests', totalGuests.toString());
+      localStorage.setItem('temp_booking_nights', nights.toString());
+      localStorage.setItem('temp_booking_adults', adults.toString());
+      localStorage.setItem('temp_booking_children', children.toString());
+      localStorage.setItem('temp_booking_babies', babies.toString());
+      localStorage.setItem('temp_booking_pets', pets.toString());
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=booking' });
+      } else {
+        window.location.href = '/auth?redirect=booking';
+      }
     } else {
-      window.location.href = '/auth?redirect=booking';
+      console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
+      
+      const userStr = localStorage.getItem('user');
+      let userData = null;
+      try {
+        userData = userStr ? JSON.parse(userStr) : null;
+      } catch (e) {
+        console.error('Erreur parsing user:', e);
+      }
+      
+      const bookingData = {
+        property_id: property.id,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests: totalGuests,
+        adults: adults,
+        children: children,
+        babies: babies,
+        pets: pets,
+        nights: nights,
+        guest_details: {
+          full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+          email: userData?.email || '',
+          phone: userData?.phone || '',
+          address: ''
+        },
+        totalAmount: total,
+        paymentAmount: Math.floor(total * 0.5)
+      };
+      
+      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+      
+      const params = new URLSearchParams();
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+      params.set('guests', totalGuests.toString());
+      params.set('nights', nights.toString());
+      params.set('adults', adults.toString());
+      params.set('children', children.toString());
+      params.set('babies', babies.toString());
+      params.set('pets', pets.toString());
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'booking', 
+          id: property.id.toString(),
+          search: `?${params.toString()}`
+        });
+      } else {
+        window.location.href = `/booking/${property.id}?${params.toString()}`;
+      }
     }
-  } else {
-    console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
-    
-    const userStr = localStorage.getItem('user');
-    let userData = null;
-    try {
-      userData = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      console.error('Erreur parsing user:', e);
-    }
-    
-    const bookingData = {
-      property_id: property.id,
-      check_in: checkIn,
-      check_out: checkOut,
-      guests: totalGuests,
-      adults: adults,        // ✅ Ajout des adultes
-      children: children,    // ✅ Ajout des enfants
-      babies: babies,        // ✅ Ajout des bébés
-      nights: nights,
-      guest_details: {
-        full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
-        email: userData?.email || '',
-        phone: userData?.phone || '',
-        address: ''
-      },
-      totalAmount: total,
-      paymentAmount: Math.floor(total * 0.5)
-    };
-    
-    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-    
-    const params = new URLSearchParams();
-    params.set('check_in', checkIn);
-    params.set('check_out', checkOut);
-    params.set('guests', totalGuests.toString());
-    params.set('nights', nights.toString());
-    params.set('adults', adults.toString());      // ✅ Ajout dans l'URL
-    params.set('children', children.toString());  // ✅ Ajout dans l'URL
-    params.set('babies', babies.toString());      // ✅ Ajout dans l'URL
-    
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'booking', 
-        id: property.id.toString(),
-        search: `?${params.toString()}`
-      });
-    } else {
-      window.location.href = `/booking/${property.id}?${params.toString()}`;
-    }
-  }
-};
+  };
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -3068,7 +3096,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const cancellationRules = getCancellationRules();
 
-  // Composant Galerie d'images
+  // Galerie d'images
   const GalleryModal = () => {
     const [touchStartX, setTouchStartX] = useState(0);
     const [touchEndX, setTouchEndX] = useState(0);
@@ -3278,7 +3306,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     </div>
   );
 
-  // Rendu principal
   return (
     <>
       {showCancellationModal && <CancellationModal />}
@@ -3301,7 +3328,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            {/* SECTION IMAGES */}
             <div 
               className="relative grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 cursor-pointer"
               onClick={() => setIsGalleryOpen(true)}
@@ -3362,7 +3388,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                 
                 <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
                 
-                {/* ✅ SECTION ÉQUIPEMENTS - MODERNE SANS ICÔNES */}
                 <div className="border-t pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -3417,15 +3442,27 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                   </div>
 
                   <div className="border rounded-xl mb-4 overflow-hidden">
-                    <div className="grid grid-cols-2 border-b">
+                    <div className="p-3">
+                      <AvailabilityCalendar
+                        propertyId={property.id}
+                        checkIn={checkIn}
+                        checkOut={checkOut}
+                        onDateSelect={handleDateSelect}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 border-t">
                       <div className="p-3">
                         <div className="text-xs font-bold text-gray-500 uppercase">Arrivée</div>
                         <input 
                           type="date" 
                           value={checkIn} 
-                          onChange={(e) => setCheckIn(e.target.value)} 
+                          onChange={(e) => {
+                            setCheckIn(e.target.value);
+                            setAvailabilityStatus('idle');
+                          }} 
                           min={new Date().toISOString().split('T')[0]} 
-                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0 bg-transparent" 
                         />
                       </div>
                       <div className="p-3 border-l">
@@ -3433,49 +3470,79 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
                         <input 
                           type="date" 
                           value={checkOut} 
-                          onChange={(e) => setCheckOut(e.target.value)} 
+                          onChange={(e) => {
+                            setCheckOut(e.target.value);
+                            setAvailabilityStatus('idle');
+                          }} 
                           min={checkIn} 
-                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0" 
+                          className="w-full text-sm font-medium mt-1 border-0 p-0 focus:ring-0 bg-transparent" 
                         />
                       </div>
                     </div>
+
                     {availabilityStatus === 'available' && (
-                      <div className="p-2 bg-green-50 text-center text-xs text-green-600">
+                      <div className="p-2 bg-green-50 text-center text-xs text-green-600 border-t">
                         <CheckCircle className="inline w-3 h-3 mr-1" />Disponible
                       </div>
                     )}
                     {availabilityStatus === 'unavailable' && (
-                      <div className="p-2 bg-red-50 text-center text-xs text-red-600">
+                      <div className="p-2 bg-red-50 text-center text-xs text-red-600 border-t">
                         <AlertCircle className="inline w-3 h-3 mr-1" />Non disponible
                       </div>
                     )}
-                    <div className="p-3">
+
+                    <div className="p-3 border-t">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-2">Voyageurs</div>
+                      
                       <div className="flex justify-between items-center py-1">
-                        <span className="text-sm">Adultes</span>
+                        <div>
+                          <span className="text-sm">Adultes</span>
+                          <p className="text-[10px] text-gray-400">À partir de 13 ans</p>
+                        </div>
                         <div className="flex gap-3">
                           <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                          <span>{adults}</span>
+                          <span className="min-w-[20px] text-center">{adults}</span>
                           <button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
                         </div>
                       </div>
+                      
                       <div className="flex justify-between items-center py-1 border-t">
-                        <span className="text-sm">Enfants</span>
+                        <div>
+                          <span className="text-sm">Enfants</span>
+                          <p className="text-[10px] text-gray-400">De 2 à 12 ans</p>
+                        </div>
                         <div className="flex gap-3">
                           <button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                          <span>{children}</span>
+                          <span className="min-w-[20px] text-center">{children}</span>
                           <button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
                         </div>
                       </div>
+                      
                       <div className="flex justify-between items-center py-1 border-t">
-                        <span className="text-sm">Bébés</span>
+                        <div>
+                          <span className="text-sm">Bébés</span>
+                          <p className="text-[10px] text-gray-400">Moins de 2 ans</p>
+                        </div>
                         <div className="flex gap-3">
                           <button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
-                          <span>{babies}</span>
+                          <span className="min-w-[20px] text-center">{babies}</span>
                           <button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers.</p>
+                      
+                      <div className="flex justify-between items-center py-1 border-t">
+                        <div>
+                          <span className="text-sm">Animaux domestiques</span>
+                          <p className="text-[10px] text-gray-400">Chiens, chats, etc.</p>
+                        </div>
+                        <div className="flex gap-3">
+                          <button onClick={() => setPets(Math.max(0, pets-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <span className="min-w-[20px] text-center">{pets}</span>
+                          <button onClick={() => setPets(pets+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-gray-400 mt-2">Max {maxGuests} pers. + animaux</p>
                     </div>
                   </div>
 
@@ -3980,6 +4047,8 @@ export function HomePage({
 
 // pages/BookingPage.tsx
 
+
+
 interface BookingPageProps {
   onNavigate?: (route: any) => void;
   id?: string;
@@ -4010,7 +4079,313 @@ interface BookingData {
   special_requests?: string;
 }
 
+// ============================================
+// COMPOSANT CALENDRIER DE DISPONIBILITÉ
+// ============================================
+interface AvailabilityCalendarProps {
+  propertyId: number;
+  checkIn?: string;
+  checkOut?: string;
+  onDateSelect?: (checkIn: string, checkOut: string) => void;
+}
 
+const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({ 
+  propertyId, 
+  checkIn, 
+  checkOut, 
+  onDateSelect 
+}) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedStart, setSelectedStart] = useState<string | null>(checkIn || null);
+  const [selectedEnd, setSelectedEnd] = useState<string | null>(checkOut || null);
+  const [availabilityData, setAvailabilityData] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+
+  // Récupérer les disponibilités du mois
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!propertyId) return;
+      setIsLoading(true);
+      try {
+        const response = await propertyService.getAvailability(propertyId, year, month);
+        if (response?.data) {
+          const availability: Record<string, string> = {};
+          response.data.forEach((day: any) => {
+            availability[day.date] = day.status; // 'available' | 'booked' | 'blocked'
+          });
+          setAvailabilityData(availability);
+        }
+      } catch (error) {
+        console.error('Erreur récupération disponibilités:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAvailability();
+  }, [propertyId, year, month]);
+
+  // Générer les jours du mois
+  const getDaysInMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const days: Date[] = [];
+    
+    const startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    for (let i = startPadding; i > 0; i--) {
+      const date = new Date(year, month - 1, 1 - i);
+      days.push(date);
+    }
+    
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      days.push(new Date(year, month - 1, i));
+    }
+    
+    const endPadding = 7 - (days.length % 7);
+    if (endPadding < 7) {
+      for (let i = 1; i <= endPadding; i++) {
+        const date = new Date(year, month, i);
+        days.push(date);
+      }
+    }
+    
+    return days;
+  };
+
+  const days = getDaysInMonth(year, month);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const isDateInPast = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  };
+
+  const isDateBooked = (date: Date) => {
+    const key = formatDateKey(date);
+    return availabilityData[key] === 'booked' || availabilityData[key] === 'blocked';
+  };
+
+  const isDateAvailable = (date: Date) => {
+    const key = formatDateKey(date);
+    return !isDateInPast(date) && availabilityData[key] === 'available';
+  };
+
+  const isDateSelected = (date: Date) => {
+    const key = formatDateKey(date);
+    return key === selectedStart || key === selectedEnd;
+  };
+
+  const isDateInRange = (date: Date) => {
+    if (!selectedStart || !selectedEnd) return false;
+    const key = formatDateKey(date);
+    return key > selectedStart && key < selectedEnd;
+  };
+
+  const handleDateClick = (date: Date) => {
+    if (isDateInPast(date) || isDateBooked(date)) return;
+    
+    const key = formatDateKey(date);
+    
+    if (!selectedStart) {
+      setSelectedStart(key);
+      return;
+    }
+    
+    if (!selectedEnd && key !== selectedStart) {
+      if (key < selectedStart) {
+        setSelectedStart(key);
+        return;
+      }
+      setSelectedEnd(key);
+      if (onDateSelect) {
+        onDateSelect(selectedStart, key);
+      }
+      return;
+    }
+    
+    setSelectedStart(key);
+    setSelectedEnd(null);
+  };
+
+  const isCurrentMonth = (date: Date) => {
+    return date.getMonth() === month - 1;
+  };
+
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  return (
+    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      {/* Navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setCurrentDate(new Date(year, month - 2, 1))}
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h3 className="font-semibold text-gray-800">
+          {monthNames[month - 1]} {year}
+        </h3>
+        <button
+          onClick={() => setCurrentDate(new Date(year, month, 1))}
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+
+      {/* Jours de la semaine */}
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {dayNames.map((day) => (
+          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Grille des jours */}
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7]"></div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((date, index) => {
+            const key = formatDateKey(date);
+            const isPast = isDateInPast(date);
+            const isBooked = isDateBooked(date);
+            const isAvail = isDateAvailable(date);
+            const isSelected = isDateSelected(date);
+            const isInRange = isDateInRange(date);
+            const isCurrentMonthDay = isCurrentMonth(date);
+            
+            let bgColor = 'hover:bg-gray-50';
+            let textColor = 'text-gray-800';
+            let cursor = 'cursor-pointer';
+            let statusText = '';
+            
+            if (!isCurrentMonthDay) {
+              textColor = 'text-gray-300';
+              cursor = 'cursor-default';
+              bgColor = '';
+            } else if (isPast) {
+              textColor = 'text-gray-300';
+              cursor = 'cursor-not-allowed';
+              bgColor = '';
+            } else if (isBooked) {
+              bgColor = 'bg-red-50';
+              textColor = 'text-red-500';
+              cursor = 'cursor-not-allowed';
+              statusText = '🔴';
+            } else if (isSelected) {
+              bgColor = 'bg-[#00c9a7] text-white';
+              textColor = 'text-white';
+            } else if (isInRange) {
+              bgColor = 'bg-[#00c9a7]/20';
+            } else if (isAvail) {
+              bgColor = 'hover:bg-green-50';
+              textColor = 'text-green-600';
+              statusText = '✓';
+            }
+            
+            return (
+              <div
+                key={index}
+                onClick={() => isCurrentMonthDay && !isBooked && !isPast && handleDateClick(date)}
+                className={`
+                  relative aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-medium transition-all duration-200
+                  ${bgColor} ${textColor} ${cursor}
+                  ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}
+                  ${isInRange && !isSelected ? 'border border-[#00c9a7]/30' : ''}
+                `}
+              >
+                <span>{date.getDate()}</span>
+                {statusText && (
+                  <span className="text-[8px] absolute bottom-0.5">
+                    {statusText}
+                  </span>
+                )}
+                {isBooked && isCurrentMonthDay && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500"></span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Légende */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-[#00c9a7]"></div>
+          <span className="text-gray-600">Sélectionné</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-[#00c9a7]/20"></div>
+          <span className="text-gray-600">Plage</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-red-50 border border-red-200"></div>
+          <span className="text-gray-600">Réservé/Bloqué</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-green-50 border border-green-200"></div>
+          <span className="text-gray-600">Disponible</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL BOOKING PAGE
+// ============================================
+
+interface BookingPageProps {
+  onNavigate?: (route: any) => void;
+  id?: string;
+  search?: string;
+}
+
+interface BookingData {
+  property_id: number;
+  check_in: string;
+  check_out: string;
+  guests_count: number;
+  payment_method: 'mobile_money' | 'card' | 'fedapay';
+  mobile_money_provider?: 'MTN' | 'Moov' | 'Orange';
+  mobile_money_number?: string;
+  guest_details: {
+    full_name: string;
+    email: string;
+    phone: string;
+    address?: string;
+    nationality?: string;
+    id_type?: string;
+    id_number?: string;
+  };
+  payment_option: '100';
+  total_amount: number;
+  payment_amount: number;
+  nights: number;
+  special_requests?: string;
+}
+
+// ============================================
+// COMPOSANT PRINCIPAL BOOKING PAGE
+// ============================================
 export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const params = useParams<{ id: string }>();
   const propertyId = id || params.id;
@@ -4039,12 +4414,14 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const [editedGuests, setEditedGuests] = useState(1);
   const [editedChildren, setEditedChildren] = useState(0);
   const [editedBabies, setEditedBabies] = useState(0);
+  const [editedPets, setEditedPets] = useState(0);
   const [showGuestDetails, setShowGuestDetails] = useState(false);
   
   // États pour les valeurs actuelles des voyageurs
   const [currentAdults, setCurrentAdults] = useState(1);
   const [currentChildren, setCurrentChildren] = useState(0);
   const [currentBabies, setCurrentBabies] = useState(0);
+  const [currentPets, setCurrentPets] = useState(0);
   
   // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
@@ -4062,9 +4439,11 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         setEditedGuests(parsed.adults || parsed.guests || 1);
         setEditedChildren(parsed.children || 0);
         setEditedBabies(parsed.babies || 0);
+        setEditedPets(parsed.pets || 0);
         setCurrentAdults(parsed.adults || parsed.guests || 1);
         setCurrentChildren(parsed.children || 0);
         setCurrentBabies(parsed.babies || 0);
+        setCurrentPets(parsed.pets || 0);
         console.log('📋 Données du formulaire chargées:', parsed);
       } catch (e) {
         console.error('Erreur lors du chargement des données:', e);
@@ -4082,6 +4461,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const initialAdults = searchParams.get('adults') ? parseInt(searchParams.get('adults')!) : (bookingFormData?.adults || initialGuests);
   const initialChildren = searchParams.get('children') ? parseInt(searchParams.get('children')!) : (bookingFormData?.children || 0);
   const initialBabies = searchParams.get('babies') ? parseInt(searchParams.get('babies')!) : (bookingFormData?.babies || 0);
+  const initialPets = searchParams.get('pets') ? parseInt(searchParams.get('pets')!) : (bookingFormData?.pets || 0);
   const initialNights = searchParams.get('nights') ? parseInt(searchParams.get('nights')!) : (bookingFormData?.nights || 0);
   
   const [currentCheckIn, setCurrentCheckIn] = useState(initialCheckIn);
@@ -4098,6 +4478,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       setCurrentAdults(bookingFormData.adults || initialAdults || bookingFormData.guests || initialGuests);
       setCurrentChildren(bookingFormData.children || initialChildren || 0);
       setCurrentBabies(bookingFormData.babies || initialBabies || 0);
+      setCurrentPets(bookingFormData.pets || initialPets || 0);
     }
   }, [bookingFormData]);
 
@@ -4127,8 +4508,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       const formattedCheckIn = editedCheckIn.includes('T') ? editedCheckIn.split('T')[0] : editedCheckIn;
       const formattedCheckOut = editedCheckOut.includes('T') ? editedCheckOut.split('T')[0] : editedCheckOut;
       
-      // Total des voyageurs
-      const totalTravelers = editedGuests + editedChildren + editedBabies;
+      const totalTravelers = editedGuests + editedChildren + editedBabies + editedPets;
       
       console.log('🔍 Vérification disponibilité avec:', {
         propertyId: parseInt(propertyId || '0'),
@@ -4137,7 +4517,8 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         guests: totalTravelers,
         adults: editedGuests,
         children: editedChildren,
-        babies: editedBabies
+        babies: editedBabies,
+        pets: editedPets
       });
 
       const response = await propertyService.checkAvailability(
@@ -4188,7 +4569,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       return;
     }
 
-    const totalTravelers = editedGuests + editedChildren + editedBabies;
+    const totalTravelers = editedGuests + editedChildren + editedBabies + editedPets;
     if (totalTravelers > maxGuests) {
       setError(`Le nombre total de voyageurs (${totalTravelers}) dépasse la capacité maximale (${maxGuests})`);
       return;
@@ -4206,6 +4587,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       setCurrentAdults(editedGuests);
       setCurrentChildren(editedChildren);
       setCurrentBabies(editedBabies);
+      setCurrentPets(editedPets);
       
       const updatedBookingData = {
         ...bookingFormData,
@@ -4215,6 +4597,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         adults: editedGuests,
         children: editedChildren,
         babies: editedBabies,
+        pets: editedPets,
         nights: newNights
       };
       
@@ -4232,7 +4615,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
 
   // Redirection vers la page Fedapay
   const handleFedapayRedirect = () => {
-    // Sauvegarder les données de réservation dans sessionStorage
     const bookingDataToSave = {
       property_id: parseInt(propertyId || '0'),
       property_title: property?.title,
@@ -4242,6 +4624,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       adults: currentAdults,
       children: currentChildren,
       babies: currentBabies,
+      pets: currentPets,
       nights: currentNights,
       totalAmount: total,
       price_per_night: pricePerNight,
@@ -4251,7 +4634,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     
     sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingDataToSave));
     
-    // Rediriger vers la page Fedapay
     if (onNavigate) {
       onNavigate({ 
         name: 'fedapay-payment', 
@@ -4314,7 +4696,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         address: ''
       };
 
-      // ÉTAPE 1 : Créer la réservation
       const bookingPayload = {
         property_id: parseInt(propertyId || '0'),
         check_in: currentCheckIn,
@@ -4323,6 +4704,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         adults: currentAdults,
         children: currentChildren,
         babies: currentBabies,
+        pets: currentPets,
         payment_method: 'fedapay' as const,
         guest_details: guestDetails,
         payment_option: '100' as const,
@@ -4348,7 +4730,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
 
       console.log('✅ Réservation créée avec ID:', bookingId);
 
-      // ÉTAPE 2 : Initier le paiement Fedapay
       const fedapayData = {
         amount: Math.round(total),
         currency: 'XAF' as const,
@@ -4428,6 +4809,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         adults: currentAdults,
         children: currentChildren,
         babies: currentBabies,
+        pets: currentPets,
         nights: currentNights,
         guest_details: bookingFormData?.guest_details || {}
       };
@@ -4442,6 +4824,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       localStorage.setItem('temp_booking_adults', currentAdults.toString());
       localStorage.setItem('temp_booking_children', currentChildren.toString());
       localStorage.setItem('temp_booking_babies', currentBabies.toString());
+      localStorage.setItem('temp_booking_pets', currentPets.toString());
       
       if (onNavigate) {
         onNavigate({ name: 'auth', search: 'redirect=booking' });
@@ -4570,8 +4953,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     });
   };
 
-  // Calcul du total des voyageurs à partir des valeurs actuelles
-  const totalTravelers = currentAdults + currentChildren + currentBabies;
+  const totalTravelers = currentAdults + currentChildren + currentBabies + currentPets;
 
   if (isLoading) {
     return (
@@ -4598,7 +4980,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   return (
     <>
       <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
-        {/* Header sticky */}
         <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
             <button 
@@ -4638,12 +5019,19 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                   {currentChildren > 0 && (
                     <span className="text-gray-400 text-xs">
                       ({currentChildren} enf.
-                      {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''})
+                      {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
+                      {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
                     </span>
                   )}
                   {currentChildren === 0 && currentBabies > 0 && (
                     <span className="text-gray-400 text-xs">
-                      ({currentBabies} bébé{currentBabies > 1 ? 's' : ''})
+                      ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
+                      {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                    </span>
+                  )}
+                  {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
+                    <span className="text-gray-400 text-xs">
+                      ({currentPets} animal{currentPets > 1 ? 'x' : ''})
                     </span>
                   )}
                 </div>
@@ -4656,9 +5044,8 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-            {/* Colonne gauche - Informations */}
             <div className="flex-1 space-y-4">
-              {/* Vos dates avec édition */}
+              {/* Vos dates avec calendrier */}
               <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-3">
                   <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
@@ -4674,6 +5061,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                         setEditedGuests(currentAdults || currentGuests);
                         setEditedChildren(currentChildren || 0);
                         setEditedBabies(currentBabies || 0);
+                        setEditedPets(currentPets || 0);
                         setError('');
                       }}
                       className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
@@ -4688,6 +5076,19 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 
                 {isEditingDates ? (
                   <div className="space-y-4">
+                    {propertyId && (
+                      <AvailabilityCalendar
+                        propertyId={parseInt(propertyId)}
+                        checkIn={editedCheckIn}
+                        checkOut={editedCheckOut}
+                        onDateSelect={(start, end) => {
+                          setEditedCheckIn(start);
+                          setEditedCheckOut(end);
+                          setError('');
+                        }}
+                      />
+                    )}
+                    
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Date d'arrivée</label>
@@ -4717,7 +5118,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                       </div>
                     </div>
                     
-                    {/* Section voyageurs avec Adultes, Enfants, Bébés */}
                     <div>
                       <button
                         type="button"
@@ -4726,13 +5126,15 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                       >
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm text-gray-700">
-                            {editedGuests + editedChildren + editedBabies} voyageur{(editedGuests + editedChildren + editedBabies) > 1 ? 's' : ''}
+                            {editedGuests + editedChildren + editedBabies + editedPets} voyageur{(editedGuests + editedChildren + editedBabies + editedPets) > 1 ? 's' : ''}
                           </span>
-                          {(editedChildren > 0 || editedBabies > 0) && (
+                          {(editedChildren > 0 || editedBabies > 0 || editedPets > 0) && (
                             <span className="text-xs text-gray-500">
                               ({editedChildren > 0 ? `${editedChildren} enfant${editedChildren > 1 ? 's' : ''}` : ''}
-                              {editedChildren > 0 && editedBabies > 0 ? ', ' : ''}
-                              {editedBabies > 0 ? `${editedBabies} bébé${editedBabies > 1 ? 's' : ''}` : ''})
+                              {editedChildren > 0 && (editedBabies > 0 || editedPets > 0) ? ', ' : ''}
+                              {editedBabies > 0 ? `${editedBabies} bébé${editedBabies > 1 ? 's' : ''}` : ''}
+                              {editedBabies > 0 && editedPets > 0 ? ', ' : ''}
+                              {editedPets > 0 ? `${editedPets} animal${editedPets > 1 ? 'x' : ''}` : ''})
                             </span>
                           )}
                         </div>
@@ -4743,7 +5145,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                       
                       {showGuestDetails && (
                         <div className="mt-3 space-y-3 bg-gray-50 rounded-lg p-4">
-                          {/* Adultes */}
                           <div className="flex justify-between items-center">
                             <div>
                               <span className="font-medium text-sm text-gray-700">Adultes</span>
@@ -4766,7 +5167,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                             </div>
                           </div>
                           
-                          {/* Enfants */}
                           <div className="flex justify-between items-center border-t border-gray-200 pt-3">
                             <div>
                               <span className="font-medium text-sm text-gray-700">Enfants</span>
@@ -4781,7 +5181,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                               </button>
                               <span className="font-medium text-base min-w-[30px] text-center">{editedChildren}</span>
                               <button 
-                                onClick={() => setEditedChildren(Math.min(maxGuests - editedGuests - editedBabies, editedChildren + 1))}
+                                onClick={() => setEditedChildren(Math.min(maxGuests - editedGuests - editedBabies - editedPets, editedChildren + 1))}
                                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
                               >
                                 <span className="text-gray-600">+</span>
@@ -4789,7 +5189,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                             </div>
                           </div>
                           
-                          {/* Bébés */}
                           <div className="flex justify-between items-center border-t border-gray-200 pt-3">
                             <div>
                               <span className="font-medium text-sm text-gray-700">Bébés</span>
@@ -4804,7 +5203,29 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                               </button>
                               <span className="font-medium text-base min-w-[30px] text-center">{editedBabies}</span>
                               <button 
-                                onClick={() => setEditedBabies(Math.min(maxGuests - editedGuests - editedChildren, editedBabies + 1))}
+                                onClick={() => setEditedBabies(Math.min(maxGuests - editedGuests - editedChildren - editedPets, editedBabies + 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">+</span>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                            <div>
+                              <span className="font-medium text-sm text-gray-700">Animaux domestiques</span>
+                              <p className="text-xs text-gray-400">Chiens, chats, etc.</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                onClick={() => setEditedPets(Math.max(0, editedPets - 1))}
+                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                              >
+                                <span className="text-gray-600">-</span>
+                              </button>
+                              <span className="font-medium text-base min-w-[30px] text-center">{editedPets}</span>
+                              <button 
+                                onClick={() => setEditedPets(editedPets + 1)}
                                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
                               >
                                 <span className="text-gray-600">+</span>
@@ -4815,8 +5236,8 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                           <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-2 mt-1">
                             <span>Total voyageurs</span>
                             <span className="font-medium">
-                              {editedGuests + editedChildren + editedBabies} / {maxGuests} max.
-                              {editedGuests + editedChildren + editedBabies > maxGuests && (
+                              {editedGuests + editedChildren + editedBabies + editedPets} / {maxGuests} max.
+                              {editedGuests + editedChildren + editedBabies + editedPets > maxGuests && (
                                 <span className="text-red-500 ml-1">⚠️ Dépassement</span>
                               )}
                             </span>
@@ -4853,6 +5274,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                           setEditedGuests(currentAdults || currentGuests);
                           setEditedChildren(currentChildren || 0);
                           setEditedBabies(currentBabies || 0);
+                          setEditedPets(currentPets || 0);
                           setShowGuestDetails(false);
                           setError('');
                           setAvailabilityStatus('idle');
@@ -4884,12 +5306,19 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                         {currentChildren > 0 && (
                           <span className="text-xs text-gray-400 ml-1">
                             ({currentChildren} enf.
-                            {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''})
+                            {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
+                            {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
                           </span>
                         )}
                         {currentChildren === 0 && currentBabies > 0 && (
                           <span className="text-xs text-gray-400 ml-1">
-                            ({currentBabies} bébé{currentBabies > 1 ? 's' : ''})
+                            ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
+                            {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                          </span>
+                        )}
+                        {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            ({currentPets} animal{currentPets > 1 ? 'x' : ''})
                           </span>
                         )}
                       </p>
@@ -4942,7 +5371,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
               </div>
             </div>
 
-            {/* Colonne droite - Résumé et paiement */}
             <div className="lg:w-96 space-y-4">
               <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
                 <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
@@ -4963,7 +5391,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                   </div>
                 </div>
                 
-                {/* Bouton Fedapay */}
                 <button 
                   onClick={handleFedapayRedirect} 
                   disabled={loading} 
@@ -4973,7 +5400,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                   {loading ? 'Traitement...' : 'Payer avec Fedapay'}
                 </button>
                 
-                {/* Bouton Autres méthodes de paiement */}
                 <button 
                   onClick={handleOpenPaymentModal} 
                   disabled={loading} 
@@ -4994,7 +5420,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 </div>
               </div>
 
-              {/* Support */}
               <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
                   <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
@@ -5009,7 +5434,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
         </div>
       </div>
 
-      {/* Modal de paiement (pour Mobile Money et Carte) */}
+      {/* Modal de paiement */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl">

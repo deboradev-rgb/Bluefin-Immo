@@ -61,64 +61,70 @@ class PropertyService {
         return response.data;
     }
 
-    
-    // services/property.service.ts
+    // ✅ CORRECTION : Utiliser v1Api au lieu de api
+    async checkAvailability(propertyId: number, checkIn: string, checkOut: string, guests: number = 1) {
+        try {
+            const cleanCheckIn = checkIn.split('T')[0];
+            const cleanCheckOut = checkOut.split('T')[0];
+            
+            console.log('📤 checkAvailability:', {
+                propertyId,
+                checkIn: cleanCheckIn,
+                checkOut: cleanCheckOut,
+                guests
+            });
 
+            const response = await v1Api.post(`/properties/${propertyId}/availability`, {
+                check_in: cleanCheckIn,
+                check_out: cleanCheckOut,
+                guests_count: guests
+            });
 
-   // services/property.service.ts - Version améliorée
-
-async checkAvailability(propertyId: number, checkIn: string, checkOut: string, guests: number = 1) {
-    try {
-        const cleanCheckIn = checkIn.split('T')[0];
-        const cleanCheckOut = checkOut.split('T')[0];
-        
-        console.log('📤 checkAvailability:', {
-            propertyId,
-            checkIn: cleanCheckIn,
-            checkOut: cleanCheckOut,
-            guests
-        });
-
-        const response = await v1Api.post(`/properties/${propertyId}/availability`, {
-            check_in: cleanCheckIn,
-            check_out: cleanCheckOut,
-            guests_count: guests
-        });
-
-        console.log('📥 Réponse checkAvailability:', response.data);
-        
-        // ✅ Récupérer la disponibilité depuis différentes structures possibles
-        const data = response.data;
-        const isAvailable = data.available === true || 
-                           data.data?.available === true || 
-                           data.availability === true ||
-                           data.is_available === true;
-        
-        return {
-            success: data.success !== false,
-            available: isAvailable,
-            price_details: data.price_details || data.data?.price_details || null,
-            unavailable_dates: data.unavailable_dates || data.data?.unavailable_dates || [],
-            property: data.property || data.data?.property || null,
-            message: data.message || (isAvailable ? 'Dates disponibles' : 'Dates non disponibles')
-        };
-    } catch (error: any) {
-        console.error('❌ Erreur checkAvailability:', error);
-        console.error('❌ Détails:', error.response?.data);
-        
-        // ✅ Retourner une structure cohérente même en cas d'erreur
-        return {
-            success: false,
-            available: false,
-            price_details: null,
-            unavailable_dates: [],
-            property: null,
-            message: error.response?.data?.message || error.message || 'Erreur de vérification'
-        };
+            console.log('📥 Réponse checkAvailability:', response.data);
+            
+            const data = response.data;
+            const isAvailable = data.available === true || 
+                               data.data?.available === true || 
+                               data.availability === true ||
+                               data.is_available === true;
+            
+            return {
+                success: data.success !== false,
+                available: isAvailable,
+                price_details: data.price_details || data.data?.price_details || null,
+                unavailable_dates: data.unavailable_dates || data.data?.unavailable_dates || [],
+                property: data.property || data.data?.property || null,
+                message: data.message || (isAvailable ? 'Dates disponibles' : 'Dates non disponibles')
+            };
+        } catch (error: any) {
+            console.error('❌ Erreur checkAvailability:', error);
+            console.error('❌ Détails:', error.response?.data);
+            
+            return {
+                success: false,
+                available: false,
+                price_details: null,
+                unavailable_dates: [],
+                property: null,
+                message: error.response?.data?.message || error.message || 'Erreur de vérification'
+            };
+        }
     }
-}
 
-
+    // ✅ CORRECTION : Utiliser v1Api au lieu de api
+    async getAvailability(propertyId: number, year: number, month: number) {
+        try {
+            // Formatage du mois avec 2 chiffres
+            const monthStr = String(month).padStart(2, '0');
+            const response = await v1Api.get(`/properties/${propertyId}/availability/${year}/${monthStr}`);
+            console.log('📥 Réponse getAvailability:', response.data);
+            return response.data;
+        } catch (error) {
+            console.error('❌ Erreur récupération disponibilités:', error);
+            // Retourner un tableau vide en cas d'erreur
+            return { data: [] };
+        }
+    }
 
     // ✅ RECHERCHE AVANCÉE COMPLÈTE
     async searchWithFilters(filters: {
@@ -139,7 +145,6 @@ async checkAvailability(propertyId: number, checkIn: string, checkOut: string, g
     }) {
         const params = new URLSearchParams();
         
-        // Destination : ville ou quartier
         if (filters.destination) {
             params.append('search', filters.destination);
             params.append('city', filters.destination);
@@ -147,28 +152,22 @@ async checkAvailability(propertyId: number, checkIn: string, checkOut: string, g
         if (filters.city) params.append('city', filters.city);
         if (filters.district) params.append('district', filters.district);
         
-        // Dates
         if (filters.check_in) params.append('check_in', filters.check_in);
         if (filters.check_out) params.append('check_out', filters.check_out);
         
-        // Capacité
         if (filters.guests) params.append('max_guests', filters.guests.toString());
         if (filters.bedrooms) params.append('bedrooms', filters.bedrooms.toString());
         
-        // Prix
         if (filters.min_price) params.append('min_price', filters.min_price.toString());
         if (filters.max_price) params.append('max_price', filters.max_price.toString());
         
-        // Type et qualité
         if (filters.property_type) params.append('property_type', filters.property_type);
         if (filters.min_rating) params.append('min_rating', filters.min_rating.toString());
         
-        // Équipements
         if (filters.has_wifi) params.append('has_wifi', 'true');
         if (filters.has_air_conditioning) params.append('has_air_conditioning', 'true');
         if (filters.has_generator) params.append('has_generator', 'true');
         
-        // Pagination et images
         params.append('per_page', '50');
         params.append('include', 'photos,cover_photo,photo_urls,images,media');
         
