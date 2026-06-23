@@ -10188,27 +10188,49 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
   const [blockRange, setBlockRange] = useState({ start: '', end: '', reason: '' });
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   
-  // ✅ Nouvel état pour la modale de déblocage
   const [showUnblockModal, setShowUnblockModal] = useState(false);
   const [unblockDate, setUnblockDate] = useState<string | null>(null);
   const [unblockReason, setUnblockReason] = useState('');
 
-  // ✅ Fonction showToast améliorée
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToastMessage({ type, message });
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // Récupérer le calendrier
+  // ✅ Récupérer le calendrier avec revalidation automatique
+  const queryClient = useQueryClient();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['host-calendar', propertyId, year, month],
     queryFn: () => hostService.getCalendar(propertyId!, year, month),
     enabled: !!propertyId,
+    // ✅ Revalider toutes les 30 secondes pour refléter les changements
+    refetchInterval: 30000,
+    // ✅ Revalider au focus de la page
+    refetchOnWindowFocus: true,
+    // ✅ Ne pas utiliser les données en cache trop longtemps
+    staleTime: 5000,
   });
 
-  const queryClient = useQueryClient();
+  // ✅ Écouter les événements de mise à jour des réservations
+  useEffect(() => {
+    const handleBookingUpdate = () => {
+      console.log('🔄 Mise à jour des réservations détectée, rechargement du calendrier...');
+      refetch();
+    };
 
-  // Mutation pour mettre à jour les disponibilités
+    // Écouter les événements personnalisés
+    window.addEventListener('booking-updated', handleBookingUpdate);
+    window.addEventListener('booking-cancelled', handleBookingUpdate);
+    window.addEventListener('booking-rejected', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('booking-updated', handleBookingUpdate);
+      window.removeEventListener('booking-cancelled', handleBookingUpdate);
+      window.removeEventListener('booking-rejected', handleBookingUpdate);
+    };
+  }, [refetch]);
+
+  // ✅ Mutation pour mettre à jour les disponibilités
   const updateAvailabilityMutation = useMutation({
     mutationFn: ({ start, end, status, price, reason }: any) =>
       hostService.updateAvailability(propertyId!, start, end, status, price, reason),
@@ -10216,8 +10238,14 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       console.log('✅ Mise à jour réussie:', response);
       const statusMessage = status === 'available' ? 'débloquée' : 'bloquée';
       showToast('success', `Date ${statusMessage} avec succès !`);
+      
+      // ✅ Forcer le rechargement des données
       refetch();
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
+      
+      // ✅ Déclencher un événement pour informer les autres composants
+      window.dispatchEvent(new Event('booking-updated'));
+      
       setShowBlockModal(false);
       setShowUnblockModal(false);
       setUnblockDate(null);
@@ -10231,7 +10259,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     },
   });
 
-  // Mutation pour les prix spéciaux
+  // ✅ Mutation pour les prix spéciaux
   const specialPriceMutation = useMutation({
     mutationFn: ({ start, end, price }: any) =>
       hostService.updateSpecialPrice(propertyId!, start, end, price),
@@ -10239,6 +10267,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       showToast('success', '✅ Prix spécial défini avec succès');
       refetch();
       queryClient.invalidateQueries({ queryKey: ['host-calendar', propertyId, year, month] });
+      window.dispatchEvent(new Event('booking-updated'));
     },
     onError: (error: any) => {
       console.error('❌ Erreur prix spécial:', error);
@@ -10246,7 +10275,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     },
   });
 
-  // ✅ Nouvelle fonction pour ouvrir la modale de déblocage
+  // ✅ Fonction pour ouvrir la modale de déblocage
   const handleUnblockClick = (date: string) => {
     setUnblockDate(date);
     setUnblockReason('');
@@ -10274,13 +10303,11 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       return;
     }
     
-    // ✅ Si la date est bloquée, ouvrir la modale de déblocage
     if (day.status === 'blocked') {
       handleUnblockClick(day.date);
       return;
     }
     
-    // Si on est en mode sélection de plage
     if (selectedRange.start === null) {
       setSelectedRange({ start: day.date, end: null });
       showToast('success', `📌 Date de début sélectionnée: ${day.date}`);
@@ -10312,7 +10339,6 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
       return;
     }
     
-    // Mode simple pour les dates disponibles
     if (day.status === 'available') {
       const action = confirm(
         `Voulez-vous bloquer le ${day.date} ?\n\n` +
@@ -10351,6 +10377,15 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
     showToast('info', 'ℹ️ Sélection de plage annulée');
   };
 
+  // ✅ Fonction pour vérifier si une date est dans le passé
+  const isDateInPast = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(dateStr);
+    date.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
   if (!propertyId) {
     return (
       <div className="min-h-screen bg-[#f4fffe] py-10 text-center">
@@ -10377,7 +10412,6 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Toast notification */}
         {toastMessage && (
           <div className={`fixed top-20 right-4 z-50 p-4 rounded-xl shadow-lg max-w-md ${
             toastMessage.type === 'success' ? 'bg-green-500 text-white' : 
@@ -10389,7 +10423,6 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
 
         <PageSection title={`Calendrier - ${propertyTitle}`} subtitle="Gérez vos disponibilités et tarifs spéciaux.">
           
-          {/* Boutons d'action */}
           <div className="flex flex-wrap gap-3 mb-6">
             {selectedRange.start !== null && selectedRange.end === null ? (
               <button
@@ -10407,7 +10440,10 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
               </button>
             )}
             <button
-              onClick={() => refetch()}
+              onClick={() => {
+                refetch();
+                showToast('info', '🔄 Calendrier actualisé');
+              }}
               className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition"
             >
               🔄 Rafraîchir
@@ -10425,7 +10461,6 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
           )}
 
           <div className="bg-white rounded-2xl border p-6">
-            {/* Navigation mois */}
             <div className="flex justify-between items-center mb-6">
               <button 
                 onClick={() => setCurrentDate(new Date(year, month - 2, 1))} 
@@ -10444,23 +10479,22 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
               </button>
             </div>
 
-            {/* Jours de la semaine */}
             <div className="grid grid-cols-7 gap-1 text-center font-semibold text-gray-500 mb-2">
               {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => <div key={d} className="py-2">{d}</div>)}
             </div>
 
-            {/* Calendrier */}
             <div className="grid grid-cols-7 gap-1">
               {calendar.map((day: any, idx: number) => {
                 const dayStatus = day.status || (day.is_available ? 'available' : 'blocked');
                 const isSelectedStart = selectedRange.start === day.date;
                 const isInRange = selectedRange.start && selectedRange.end === null && day.date > selectedRange.start;
+                const isPast = isDateInPast(day.date);
                 
                 let bgColor = '';
                 let hoverEffect = '';
                 let cursor = 'cursor-pointer';
                 
-                if (dayStatus === 'booked') {
+                if (dayStatus === 'booked' || isPast) {
                   bgColor = 'bg-red-100 text-red-700';
                   cursor = 'cursor-not-allowed';
                   hoverEffect = '';
@@ -10479,11 +10513,16 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                   bgColor = 'bg-blue-100';
                 }
                 
+                // ✅ Afficher les dates passées comme réservées
+                const displayStatus = isPast ? '📅 Passée' : 
+                  dayStatus === 'booked' ? '📅 Réservé' :
+                  dayStatus === 'blocked' ? '🚫 Bloqué' : '✅ Dispo';
+                
                 return (
                   <div
                     key={idx}
                     className={`p-2 border rounded-xl text-center transition-all duration-200 ${bgColor} ${hoverEffect} ${cursor}`}
-                    onClick={() => !isUpdating && dayStatus !== 'booked' && handleDayClick(day)}
+                    onClick={() => !isUpdating && dayStatus !== 'booked' && !isPast && handleDayClick(day)}
                   >
                     <div className="text-sm font-medium">{day.day}</div>
                     {day.special_price && (
@@ -10492,24 +10531,20 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
                       </div>
                     )}
                     <div className="text-xs mt-1">
-                      {dayStatus === 'booked' && '📅 Réservé'}
-                      {dayStatus === 'blocked' && '🚫 Bloqué'}
-                      {dayStatus === 'available' && '✅ Dispo'}
+                      {displayStatus}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Légende */}
             <div className="mt-6 flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border border-gray-200 rounded"></div> ✅ Disponible</div>
               <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div> 🚫 Bloqué par l'hôte</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> 📅 Réservé</div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> 📅 Réservé / Passé</div>
               <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-[#00c9a7] rounded"></div> 📌 Date sélectionnée</div>
             </div>
 
-            {/* Indicateur de chargement */}
             {(updateAvailabilityMutation.isPending || specialPriceMutation.isPending || isUpdating) && (
               <div className="mt-4 text-center text-sm text-gray-500">
                 <div className="inline-flex items-center gap-2">
@@ -10578,7 +10613,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
         </div>
       )}
 
-      {/* ✅ NOUVELLE MODALE : Débloquer une date */}
+      {/* Modal de déblocage */}
       {showUnblockModal && unblockDate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fadeInUp">
