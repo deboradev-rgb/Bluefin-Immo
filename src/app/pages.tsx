@@ -4570,6 +4570,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     });
   };
 
+  // Calcul du total des voyageurs à partir des valeurs actuelles
+  const totalTravelers = currentAdults + currentChildren + currentBabies;
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
@@ -4591,7 +4594,6 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   }
 
   const guestInfo = bookingFormData?.guest_details || {};
-  const totalTravelers = currentGuests;
 
   return (
     <>
@@ -4630,7 +4632,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                 <div className="flex items-center gap-2 mt-2 text-xs">
                   <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
                   <span className="text-gray-300">•</span>
-                  <span className="text-gray-500">{totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}</span>
+                  <span className="text-gray-500">
+                    {totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}
+                  </span>
                   {currentChildren > 0 && (
                     <span className="text-gray-400 text-xs">
                       ({currentChildren} enf.
