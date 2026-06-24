@@ -79,10 +79,10 @@ function AdminLayoutContent() {
   const location = useLocation();
   const routerNavigate = useRouterNavigate();
   
-  // ✅ Utiliser location directement pour la route actuelle
+  // Utiliser location directement pour la route actuelle
   const currentPath = location.pathname + location.search;
   
-  // ✅ Fonction pour déterminer la page à afficher
+  // Fonction pour déterminer la page à afficher
   const getPageName = (path: string) => {
     if (path.includes('/admin/dashboard')) return 'admin-dashboard';
     if (path.includes('/admin/properties')) return 'admin-properties';
@@ -109,11 +109,10 @@ function AdminLayoutContent() {
     routerNavigate(path);
   };
 
-  // ✅ Rendu de la page admin en fonction de la route actuelle
+  // Rendu de la page admin en fonction de la route actuelle
   const renderAdminPage = () => {
     console.log('🔄 Rendu page admin:', currentPage, 'Path:', currentPath);
     
-    // Utiliser un key basé sur la page pour forcer le re-rendu
     const pageKey = currentPage + '-' + Date.now();
     
     switch (currentPage) {
@@ -172,7 +171,11 @@ function AppContent() {
   );
   const [isBookingSheetOpen, setIsBookingSheetOpen] = useState(false);
   const { user, isAuthenticated, loading } = useAuth();
+  const routerNavigate = useRouterNavigate();
 
+  // ============================================
+  // ✅ FONCTION DE NAVIGATION CENTRALISÉE
+  // ============================================
   const navigate = (to: Route | string) => {
     let routeObject: Route;
     
@@ -199,6 +202,23 @@ function AppContent() {
     window.dispatchEvent(new Event('authChange'));
   };
 
+  // ============================================
+  // ✅ EXPOSER LA FONCTION NAVIGATE GLOBALEMENT
+  // ============================================
+  useEffect(() => {
+    // Exposer la fonction navigate globalement pour que AuthContext puisse l'utiliser
+    (window as any).navigate = navigate;
+    
+    console.log('✅ Fonction navigate exposée globalement');
+    
+    return () => {
+      delete (window as any).navigate;
+    };
+  }, [navigate]);
+
+  // ============================================
+  // GESTION DU POPSTATE
+  // ============================================
   useEffect(() => {
     const onPop = () => {
       const newRoute = parseRoute(window.location.pathname + window.location.search);
@@ -213,7 +233,9 @@ function AppContent() {
     setMobileNavActive(tabFromPage(route.name));
   }, [route.name]);
 
-  // Écouter les changements d'authentification
+  // ============================================
+  // ÉCOUTER LES CHANGEMENTS D'AUTHENTIFICATION
+  // ============================================
   useEffect(() => {
     const handleAuthChange = () => {
       console.log('🔄 Changement d\'authentification détecté');
@@ -231,7 +253,9 @@ function AppContent() {
     return () => window.removeEventListener('authChange', handleAuthChange);
   }, [isAuthenticated, user]);
 
-  // Écouter les données de réservation temporaire
+  // ============================================
+  // ÉCOUTER LES DONNÉES DE RÉSERVATION TEMPORAIRE
+  // ============================================
   useEffect(() => {
     const handleBookingData = (event: CustomEvent) => {
       const data = event.detail;
@@ -260,7 +284,9 @@ function AppContent() {
     };
   }, [navigate]);
 
-  // Vérifier les intentions de chat au chargement (URL directe)
+  // ============================================
+  // VÉRIFIER LES INTENTIONS DE CHAT AU CHARGEMENT
+  // ============================================
   useEffect(() => {
     const currentPath = window.location.pathname;
     const currentSearch = window.location.search;
@@ -288,6 +314,9 @@ function AppContent() {
     }
   }, [window.location.pathname, window.location.search, isAuthenticated, loading]);
 
+  // ============================================
+  // NAVIGATION MOBILE
+  // ============================================
   const handleMobileNavigate = (tab: Tab | { name: string; id?: string }) => {
     if (typeof tab === 'object') {
       navigate(tab);
@@ -299,6 +328,9 @@ function AppContent() {
     if (tab !== 'auth') setMobileNavActive(tab);
   };
 
+  // ============================================
+  // VÉRIFICATION DES ROUTES AUTORISÉES
+  // ============================================
   const isRouteAllowed = (route: Route): boolean => {
     if (route.name === 'messages') {
       return true;
@@ -324,7 +356,9 @@ function AppContent() {
     return true;
   };
 
-  // Écran de chargement
+  // ============================================
+  // ÉCRAN DE CHARGEMENT
+  // ============================================
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
@@ -336,7 +370,9 @@ function AppContent() {
     );
   }
 
-  // Cas spécial : messages sans authentification
+  // ============================================
+  // CAS SPÉCIAL : MESSAGES SANS AUTH
+  // ============================================
   if (route.name === 'messages' && !isAuthenticated) {
     console.log('💬 Messages sans auth, redirection vers login avec intention');
     
@@ -360,24 +396,32 @@ function AppContent() {
     return <AuthPage onNavigate={navigate} />;
   }
 
-  // Vérifier si la route est autorisée
+  // ============================================
+  // VÉRIFICATION DES ROUTES
+  // ============================================
   if (!isRouteAllowed(route)) {
     console.log('🚫 Route non autorisée, redirection vers home');
     navigate({ name: 'home' });
     return null;
   }
 
-  // Page de login admin
+  // ============================================
+  // PAGE DE LOGIN ADMIN
+  // ============================================
   if (route.name === 'admin-login') {
     return <AdminLoginPage onNavigate={navigate} />;
   }
 
-  // ✅ Routes admin protégées
+  // ============================================
+  // ROUTES ADMIN PROTÉGÉES
+  // ============================================
   if (route.name.startsWith('admin-') && user?.user_type === 'admin') {
     return <AdminLayoutWrapper />;
   }
 
-  // Routes publiques et protégées classiques
+  // ============================================
+  // ROUTES PUBLIQUES ET PROTÉGÉES CLASSIQUES
+  // ============================================
   const showNavbar = route.name !== 'home';
 
   return (
@@ -434,7 +478,7 @@ function AppContent() {
       {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
       {route.name === 'booking-summary' && <BookingSummaryPage onNavigate={navigate} id={route.id} search={route.search} />}
 
-      {/* ROUTES FEDAPAY */}
+      {/* Routes Fedapay */}
       {route.name === 'fedapay-payment' && (
         <FedapayPaymentPage 
           onNavigate={navigate} 

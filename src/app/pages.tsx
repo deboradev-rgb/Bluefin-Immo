@@ -2997,90 +2997,132 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     ];
   };
 
-  const handleReservationClick = () => {
-    if (availabilityStatus !== 'available') {
-      alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
-      return;
-    }
+  // ✅ FONCTION DE RÉSERVATION CORRIGÉE AVEC SAUVEGARDE COMPLÈTE
 
-    const token = localStorage.getItem('token');
-    const isLoggedIn = !!token;
+const handleReservationClick = () => {
+  if (availabilityStatus !== 'available') {
+    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+    return;
+  }
 
-    if (!isLoggedIn) {
-      localStorage.setItem('redirect_intent', 'booking');
-      localStorage.setItem('redirect_property_id', property.id.toString());
-      localStorage.setItem('redirect_property_title', property.title);
-      localStorage.setItem('redirect_property_location', property.location);
-      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-      localStorage.setItem('temp_booking_check_in', checkIn);
-      localStorage.setItem('temp_booking_check_out', checkOut);
-      localStorage.setItem('temp_booking_guests', totalGuests.toString());
-      localStorage.setItem('temp_booking_nights', nights.toString());
-      localStorage.setItem('temp_booking_adults', adults.toString());
-      localStorage.setItem('temp_booking_children', children.toString());
-      localStorage.setItem('temp_booking_babies', babies.toString());
-      localStorage.setItem('temp_booking_pets', pets.toString());
-      
-      if (onNavigate) {
-        onNavigate({ name: 'auth', search: 'redirect=booking' });
-      } else {
-        window.location.href = '/auth?redirect=booking';
-      }
+  const token = localStorage.getItem('token');
+  const isLoggedIn = !!token;
+
+  // ✅ Calculer le total des voyageurs
+  const totalGuests = adults + children + babies + pets;
+
+  console.log('💾 Sauvegarde des données - Valeurs actuelles:', {
+    adults,
+    children,
+    babies,
+    pets,
+    totalGuests,
+    checkIn,
+    checkOut,
+    nights,
+    propertyId: property.id
+  });
+
+  if (!isLoggedIn) {
+    // ✅ Sauvegarder TOUS les détails dans localStorage
+    localStorage.setItem('redirect_intent', 'booking');
+    localStorage.setItem('redirect_property_id', property.id.toString());
+    localStorage.setItem('redirect_property_title', property.title);
+    localStorage.setItem('redirect_property_location', property.location);
+    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+    
+    // ✅ Sauvegarder les données de réservation
+    localStorage.setItem('temp_booking_check_in', checkIn);
+    localStorage.setItem('temp_booking_check_out', checkOut);
+    localStorage.setItem('temp_booking_guests', totalGuests.toString());
+    localStorage.setItem('temp_booking_nights', nights.toString());
+    localStorage.setItem('temp_booking_adults', adults.toString());
+    localStorage.setItem('temp_booking_children', children.toString());
+    localStorage.setItem('temp_booking_babies', babies.toString());
+    localStorage.setItem('temp_booking_pets', pets.toString());
+    localStorage.setItem('temp_booking_property_id', property.id.toString());
+    
+    // ✅ Sauvegarder aussi dans sessionStorage (pour la redirection)
+    const bookingData = {
+      property_id: property.id,
+      property_title: property.title,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests: totalGuests,
+      adults: adults,
+      children: children,
+      babies: babies,
+      pets: pets,
+      nights: nights,
+      guest_details: {}
+    };
+    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+    
+    console.log('💾 Données sauvegardées pour non-connecté:', bookingData);
+    
+    if (onNavigate) {
+      onNavigate({ name: 'auth', search: 'redirect=booking' });
     } else {
-      console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
-      
-      const userStr = localStorage.getItem('user');
-      let userData = null;
-      try {
-        userData = userStr ? JSON.parse(userStr) : null;
-      } catch (e) {
-        console.error('Erreur parsing user:', e);
-      }
-      
-      const bookingData = {
-        property_id: property.id,
-        check_in: checkIn,
-        check_out: checkOut,
-        guests: totalGuests,
-        adults: adults,
-        children: children,
-        babies: babies,
-        pets: pets,
-        nights: nights,
-        guest_details: {
-          full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
-          email: userData?.email || '',
-          phone: userData?.phone || '',
-          address: ''
-        },
-        totalAmount: total,
-        paymentAmount: Math.floor(total * 0.5)
-      };
-      
-      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-      
-      const params = new URLSearchParams();
-      params.set('check_in', checkIn);
-      params.set('check_out', checkOut);
-      params.set('guests', totalGuests.toString());
-      params.set('nights', nights.toString());
-      params.set('adults', adults.toString());
-      params.set('children', children.toString());
-      params.set('babies', babies.toString());
-      params.set('pets', pets.toString());
-      
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'booking', 
-          id: property.id.toString(),
-          search: `?${params.toString()}`
-        });
-      } else {
-        window.location.href = `/booking/${property.id}?${params.toString()}`;
-      }
+      window.location.href = '/auth?redirect=booking';
     }
-  };
+  } else {
+    console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
+    
+    const userStr = localStorage.getItem('user');
+    let userData = null;
+    try {
+      userData = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      console.error('Erreur parsing user:', e);
+    }
+    
+    const bookingData = {
+      property_id: property.id,
+      property_title: property.title,
+      check_in: checkIn,
+      check_out: checkOut,
+      guests: totalGuests,
+      adults: adults,
+      children: children,
+      babies: babies,
+      pets: pets,
+      nights: nights,
+      guest_details: {
+        full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+        email: userData?.email || '',
+        phone: userData?.phone || '',
+        address: ''
+      },
+      totalAmount: total,
+      paymentAmount: Math.floor(total * 0.5)
+    };
+    
+    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+    
+    const params = new URLSearchParams();
+    params.set('check_in', checkIn);
+    params.set('check_out', checkOut);
+    params.set('guests', totalGuests.toString());
+    params.set('nights', nights.toString());
+    params.set('adults', adults.toString());
+    params.set('children', children.toString());
+    params.set('babies', babies.toString());
+    params.set('pets', pets.toString());
+    
+    console.log('📤 URL de redirection:', params.toString());
+    
+    if (onNavigate) {
+      onNavigate({ 
+        name: 'booking', 
+        id: property.id.toString(),
+        search: `?${params.toString()}`
+      });
+    } else {
+      window.location.href = `/booking/${property.id}?${params.toString()}`;
+    }
+  }
+};
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -3620,7 +3662,6 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     </>
   );
 };
-
 // pages.tsx - Version complète de HomePage
 
 
@@ -4048,6 +4089,16 @@ export function HomePage({
 // pages/BookingPage.tsx
 
 
+// ============================================
+// COMPOSANT CALENDRIER DE DISPONIBILITÉ
+// ============================================
+interface AvailabilityCalendarProps {
+  propertyId: number;
+  checkIn?: string;
+  checkOut?: string;
+  onDateSelect?: (checkIn: string, checkOut: string) => void;
+}
+
 
 interface BookingPageProps {
   onNavigate?: (route: any) => void;
@@ -4104,7 +4155,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
-  // Récupérer les disponibilités du mois
   useEffect(() => {
     const fetchAvailability = async () => {
       if (!propertyId) return;
@@ -4114,12 +4164,13 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         if (response?.data) {
           const availability: Record<string, string> = {};
           response.data.forEach((day: any) => {
-            availability[day.date] = day.status; // 'available' | 'booked' | 'blocked'
+            availability[day.date] = day.status;
           });
           setAvailabilityData(availability);
         }
       } catch (error) {
         console.error('Erreur récupération disponibilités:', error);
+        setAvailabilityData({});
       } finally {
         setIsLoading(false);
       }
@@ -4127,7 +4178,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     fetchAvailability();
   }, [propertyId, year, month]);
 
-  // Générer les jours du mois
   const getDaysInMonth = (year: number, month: number) => {
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
@@ -4227,7 +4277,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 
   return (
     <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-      {/* Navigation */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => setCurrentDate(new Date(year, month - 2, 1))}
@@ -4246,7 +4295,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         </button>
       </div>
 
-      {/* Jours de la semaine */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {dayNames.map((day) => (
           <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
@@ -4255,7 +4303,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         ))}
       </div>
 
-      {/* Grille des jours */}
       {isLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7]"></div>
@@ -4326,7 +4373,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
         </div>
       )}
 
-      {/* Légende */}
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-[#00c9a7]"></div>
@@ -4348,40 +4394,6 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     </div>
   );
 };
-
-// ============================================
-// COMPOSANT PRINCIPAL BOOKING PAGE
-// ============================================
-
-interface BookingPageProps {
-  onNavigate?: (route: any) => void;
-  id?: string;
-  search?: string;
-}
-
-interface BookingData {
-  property_id: number;
-  check_in: string;
-  check_out: string;
-  guests_count: number;
-  payment_method: 'mobile_money' | 'card' | 'fedapay';
-  mobile_money_provider?: 'MTN' | 'Moov' | 'Orange';
-  mobile_money_number?: string;
-  guest_details: {
-    full_name: string;
-    email: string;
-    phone: string;
-    address?: string;
-    nationality?: string;
-    id_type?: string;
-    id_number?: string;
-  };
-  payment_option: '100';
-  total_amount: number;
-  payment_amount: number;
-  nights: number;
-  special_requests?: string;
-}
 
 // ============================================
 // COMPOSANT PRINCIPAL BOOKING PAGE
@@ -4427,31 +4439,328 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
 
-  // Récupérer les données du formulaire depuis sessionStorage
-  useEffect(() => {
-    const savedData = sessionStorage.getItem('bookingFormData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setBookingFormData(parsed);
-        setEditedCheckIn(parsed.check_in || '');
-        setEditedCheckOut(parsed.check_out || '');
-        setEditedGuests(parsed.adults || parsed.guests || 1);
-        setEditedChildren(parsed.children || 0);
-        setEditedBabies(parsed.babies || 0);
-        setEditedPets(parsed.pets || 0);
-        setCurrentAdults(parsed.adults || parsed.guests || 1);
-        setCurrentChildren(parsed.children || 0);
-        setCurrentBabies(parsed.babies || 0);
-        setCurrentPets(parsed.pets || 0);
-        console.log('📋 Données du formulaire chargées:', parsed);
-      } catch (e) {
-        console.error('Erreur lors du chargement des données:', e);
-      }
-    }
-  }, []);
+  // ============================================
+  // ✅ FONCTION CENTRALISÉE DE SAUVEGARDE
+  // ============================================
 
+const saveBookingData = () => {
+  const totalGuests = currentAdults + currentChildren + currentBabies + currentPets;
+  
+  const bookingData = {
+    property_id: parseInt(propertyId || '0'),
+    property_title: property?.title || '',
+    check_in: currentCheckIn,
+    check_out: currentCheckOut,
+    guests: totalGuests,
+    adults: currentAdults,
+    children: currentChildren,
+    babies: currentBabies,
+    pets: currentPets,
+    nights: currentNights,
+    guest_details: bookingFormData?.guest_details || {},
+    totalAmount: total,
+    paymentAmount: paymentAmount
+  };
+  
+  // ✅ Sauvegarder dans sessionStorage
+  sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+  
+  // ✅ Sauvegarder dans localStorage pour la redirection après connexion
+  localStorage.setItem('temp_booking_check_in', currentCheckIn);
+  localStorage.setItem('temp_booking_check_out', currentCheckOut);
+  localStorage.setItem('temp_booking_guests', totalGuests.toString());
+  localStorage.setItem('temp_booking_nights', currentNights.toString());
+  localStorage.setItem('temp_booking_adults', currentAdults.toString());
+  localStorage.setItem('temp_booking_children', currentChildren.toString());
+  localStorage.setItem('temp_booking_babies', currentBabies.toString());
+  localStorage.setItem('temp_booking_pets', currentPets.toString());
+  localStorage.setItem('temp_booking_property_id', propertyId || '');
+  
+  console.log('💾 Données sauvegardées:', {
+    adults: currentAdults,
+    children: currentChildren,
+    babies: currentBabies,
+    pets: currentPets,
+    total: totalGuests
+  });
+  
+  return bookingData;
+};
+
+  // ============================================
+  // Récupérer les données du formulaire depuis sessionStorage
+  // ============================================
+ 
+useEffect(() => {
+  // 1. D'abord, essayer de récupérer depuis sessionStorage
+  const savedData = sessionStorage.getItem('bookingFormData');
+  if (savedData) {
+    try {
+      const parsed = JSON.parse(savedData);
+      setBookingFormData(parsed);
+      setEditedCheckIn(parsed.check_in || '');
+      setEditedCheckOut(parsed.check_out || '');
+      
+      // ✅ Récupérer les détails des voyageurs depuis sessionStorage
+      const adults = parsed.adults || parsed.guests || 1;
+      const children = parsed.children || 0;
+      const babies = parsed.babies || 0;
+      const pets = parsed.pets || 0;
+      
+      setEditedGuests(adults);
+      setEditedChildren(children);
+      setEditedBabies(babies);
+      setEditedPets(pets);
+      setCurrentAdults(adults);
+      setCurrentChildren(children);
+      setCurrentBabies(babies);
+      setCurrentPets(pets);
+      setCurrentGuests(adults + children + babies + pets);
+      
+      console.log('📋 Données du formulaire chargées depuis sessionStorage:', {
+        adults, children, babies, pets, total: adults + children + babies + pets
+      });
+      
+      // ✅ VÉRIFIER SI localStorage A DES DONNÉES PLUS PRÉCISES (temp_booking_*)
+      // Ces données viennent de PropertyDetailModal après une redirection de connexion
+      const tempAdults = localStorage.getItem('temp_booking_adults');
+      const tempChildren = localStorage.getItem('temp_booking_children');
+      const tempBabies = localStorage.getItem('temp_booking_babies');
+      const tempPets = localStorage.getItem('temp_booking_pets');
+      const tempCheckIn = localStorage.getItem('temp_booking_check_in');
+      const tempCheckOut = localStorage.getItem('temp_booking_check_out');
+      const tempPropertyId = localStorage.getItem('temp_booking_property_id');
+      
+      // Si des données temp existent et correspondent à la propriété actuelle
+      if (tempAdults && tempChildren !== null && tempBabies !== null && tempPets !== null && tempPropertyId === propertyId) {
+        const tempAdultsNum = parseInt(tempAdults);
+        const tempChildrenNum = parseInt(tempChildren);
+        const tempBabiesNum = parseInt(tempBabies);
+        const tempPetsNum = parseInt(tempPets);
+        
+        console.log('🔄 Mise à jour avec les données localStorage (plus précises):', {
+          adults: tempAdultsNum,
+          children: tempChildrenNum,
+          babies: tempBabiesNum,
+          pets: tempPetsNum,
+          total: tempAdultsNum + tempChildrenNum + tempBabiesNum + tempPetsNum
+        });
+        
+        // ✅ ÉCRASER avec les données de localStorage (plus précises)
+        setCurrentAdults(tempAdultsNum);
+        setCurrentChildren(tempChildrenNum);
+        setCurrentBabies(tempBabiesNum);
+        setCurrentPets(tempPetsNum);
+        setEditedGuests(tempAdultsNum);
+        setEditedChildren(tempChildrenNum);
+        setEditedBabies(tempBabiesNum);
+        setEditedPets(tempPetsNum);
+        setCurrentGuests(tempAdultsNum + tempChildrenNum + tempBabiesNum + tempPetsNum);
+        
+        if (tempCheckIn) setCurrentCheckIn(tempCheckIn);
+        if (tempCheckOut) setCurrentCheckOut(tempCheckOut);
+        
+        // Nettoyer les données temporaires après récupération
+        localStorage.removeItem('temp_booking_check_in');
+        localStorage.removeItem('temp_booking_check_out');
+        localStorage.removeItem('temp_booking_guests');
+        localStorage.removeItem('temp_booking_nights');
+        localStorage.removeItem('temp_booking_adults');
+        localStorage.removeItem('temp_booking_children');
+        localStorage.removeItem('temp_booking_babies');
+        localStorage.removeItem('temp_booking_pets');
+        localStorage.removeItem('temp_booking_property_id');
+      }
+      
+      return; // On a trouvé des données, on s'arrête là
+    } catch (e) {
+      console.error('Erreur lors du chargement des données:', e);
+    }
+  }
+
+  // 2. Sinon, essayer de récupérer depuis localStorage (pour les redirections après connexion)
+  const tempCheckIn = localStorage.getItem('temp_booking_check_in');
+  const tempCheckOut = localStorage.getItem('temp_booking_check_out');
+  const tempAdults = localStorage.getItem('temp_booking_adults');
+  const tempChildren = localStorage.getItem('temp_booking_children');
+  const tempBabies = localStorage.getItem('temp_booking_babies');
+  const tempPets = localStorage.getItem('temp_booking_pets');
+  const tempPropertyId = localStorage.getItem('temp_booking_property_id');
+
+  if (tempCheckIn && tempCheckOut && tempPropertyId === propertyId) {
+    const adults = tempAdults ? parseInt(tempAdults) : 1;
+    const children = tempChildren ? parseInt(tempChildren) : 0;
+    const babies = tempBabies ? parseInt(tempBabies) : 0;
+    const pets = tempPets ? parseInt(tempPets) : 0;
+    const total = adults + children + babies + pets;
+
+    setCurrentCheckIn(tempCheckIn);
+    setCurrentCheckOut(tempCheckOut);
+    setEditedCheckIn(tempCheckIn);
+    setEditedCheckOut(tempCheckOut);
+    setCurrentGuests(total);
+    setCurrentNights(Math.max(1, Math.ceil((new Date(tempCheckOut).getTime() - new Date(tempCheckIn).getTime()) / (1000 * 60 * 60 * 24))));
+    
+    setCurrentAdults(adults);
+    setCurrentChildren(children);
+    setCurrentBabies(babies);
+    setCurrentPets(pets);
+    setEditedGuests(adults);
+    setEditedChildren(children);
+    setEditedBabies(babies);
+    setEditedPets(pets);
+
+    console.log('📋 Données récupérées depuis localStorage (après connexion):', {
+      adults, children, babies, pets, total
+    });
+
+    // Nettoyer les données temporaires après récupération
+    localStorage.removeItem('temp_booking_check_in');
+    localStorage.removeItem('temp_booking_check_out');
+    localStorage.removeItem('temp_booking_guests');
+    localStorage.removeItem('temp_booking_nights');
+    localStorage.removeItem('temp_booking_adults');
+    localStorage.removeItem('temp_booking_children');
+    localStorage.removeItem('temp_booking_babies');
+    localStorage.removeItem('temp_booking_pets');
+    localStorage.removeItem('temp_booking_property_id');
+  }
+}, [propertyId]); // Ajouter propertyId comme dépendance
+
+// src/app/pages/BookingPage.tsx
+
+// ✅ Récupérer les paramètres de l'URL (priorité maximale)
+useEffect(() => {
+  const queryString = search || location.search;
+  const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+  
+  const urlCheckIn = searchParams.get('check_in');
+  const urlCheckOut = searchParams.get('check_out');
+  const urlGuests = searchParams.get('guests');
+  const urlAdults = searchParams.get('adults');
+  const urlChildren = searchParams.get('children');
+  const urlBabies = searchParams.get('babies');
+  const urlPets = searchParams.get('pets');
+  const urlNights = searchParams.get('nights');
+  
+  // ✅ Si des paramètres URL existent, ils ont priorité sur tout
+  if (urlCheckIn) {
+    setCurrentCheckIn(urlCheckIn);
+    setEditedCheckIn(urlCheckIn);
+  }
+  if (urlCheckOut) {
+    setCurrentCheckOut(urlCheckOut);
+    setEditedCheckOut(urlCheckOut);
+  }
+  if (urlGuests) {
+    setCurrentGuests(parseInt(urlGuests));
+  }
+  if (urlNights) {
+    setCurrentNights(parseInt(urlNights));
+  }
+  
+  // ✅ Mettre à jour les détails des voyageurs depuis l'URL
+  if (urlAdults) {
+    const adults = parseInt(urlAdults);
+    setCurrentAdults(adults);
+    setEditedGuests(adults);
+    console.log('✅ Adultes depuis URL:', adults);
+  }
+  if (urlChildren) {
+    const children = parseInt(urlChildren);
+    setCurrentChildren(children);
+    setEditedChildren(children);
+    console.log('✅ Enfants depuis URL:', children);
+  }
+  if (urlBabies) {
+    const babies = parseInt(urlBabies);
+    setCurrentBabies(babies);
+    setEditedBabies(babies);
+    console.log('✅ Bébés depuis URL:', babies);
+  }
+  if (urlPets) {
+    const pets = parseInt(urlPets);
+    setCurrentPets(pets);
+    setEditedPets(pets);
+    console.log('✅ Animaux depuis URL:', pets);
+  }
+  
+  console.log('📥 Paramètres URL chargés:', {
+    adults: urlAdults,
+    children: urlChildren,
+    babies: urlBabies,
+    pets: urlPets,
+    guests: urlGuests
+  });
+}, [search, location.search]);
+// ✅ Récupérer les paramètres de l'URL
+// src/app/pages/BookingPage.tsx
+
+// // ✅ Récupérer les paramètres de l'URL (priorité sur les autres sources)
+// useEffect(() => {
+//   const queryString = search || location.search;
+//   const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+  
+//   // ✅ Récupérer depuis l'URL (priorité max)
+//   const urlCheckIn = searchParams.get('check_in');
+//   const urlCheckOut = searchParams.get('check_out');
+//   const urlGuests = searchParams.get('guests');
+//   const urlAdults = searchParams.get('adults');
+//   const urlChildren = searchParams.get('children');
+//   const urlBabies = searchParams.get('babies');
+//   const urlPets = searchParams.get('pets');
+//   const urlNights = searchParams.get('nights');
+  
+//   // ✅ Si des paramètres URL existent, ils ont priorité
+//   if (urlCheckIn) {
+//     setCurrentCheckIn(urlCheckIn);
+//     setEditedCheckIn(urlCheckIn);
+//   }
+//   if (urlCheckOut) {
+//     setCurrentCheckOut(urlCheckOut);
+//     setEditedCheckOut(urlCheckOut);
+//   }
+//   if (urlGuests) {
+//     const guests = parseInt(urlGuests);
+//     setCurrentGuests(guests);
+//   }
+//   if (urlNights) {
+//     setCurrentNights(parseInt(urlNights));
+//   }
+  
+//   // ✅ Mettre à jour les détails des voyageurs depuis l'URL (priorité max)
+//   if (urlAdults) {
+//     const adults = parseInt(urlAdults);
+//     setCurrentAdults(adults);
+//     setEditedGuests(adults);
+//   }
+//   if (urlChildren) {
+//     const children = parseInt(urlChildren);
+//     setCurrentChildren(children);
+//     setEditedChildren(children);
+//   }
+//   if (urlBabies) {
+//     const babies = parseInt(urlBabies);
+//     setCurrentBabies(babies);
+//     setEditedBabies(babies);
+//   }
+//   if (urlPets) {
+//     const pets = parseInt(urlPets);
+//     setCurrentPets(pets);
+//     setEditedPets(pets);
+//   }
+  
+//   console.log('📥 Paramètres URL chargés:', {
+//     adults: urlAdults,
+//     children: urlChildren,
+//     babies: urlBabies,
+//     pets: urlPets,
+//     guests: urlGuests
+//   });
+// }, [search, location.search]);
+  // ============================================
   // Récupérer les paramètres de l'URL
+  // ============================================
   const queryString = search || location.search;
   const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
   
@@ -4497,7 +4806,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const total = subtotal + serviceFee;
   const paymentAmount = total;
 
+  // ============================================
   // Vérifier la disponibilité des nouvelles dates
+  // ============================================
   const checkNewAvailability = async () => {
     if (!editedCheckIn || !editedCheckOut) return false;
     
@@ -4557,7 +4868,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     }
   };
 
+  // ============================================
   // Sauvegarder les modifications des dates et voyageurs
+  // ============================================
   const handleSaveDatesAndGuests = async () => {
     if (!editedCheckIn || !editedCheckOut) {
       setError('Veuillez sélectionner des dates valides');
@@ -4589,20 +4902,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
       setCurrentBabies(editedBabies);
       setCurrentPets(editedPets);
       
-      const updatedBookingData = {
-        ...bookingFormData,
-        check_in: editedCheckIn,
-        check_out: editedCheckOut,
-        guests: totalTravelers,
-        adults: editedGuests,
-        children: editedChildren,
-        babies: editedBabies,
-        pets: editedPets,
-        nights: newNights
-      };
+      // ✅ Sauvegarder les données après modification
+      saveBookingData();
       
-      setBookingFormData(updatedBookingData);
-      sessionStorage.setItem('bookingFormData', JSON.stringify(updatedBookingData));
       setIsEditingDates(false);
       setShowGuestDetails(false);
       setError('');
@@ -4613,38 +4915,28 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     }
   };
 
+  // ============================================
   // Redirection vers la page Fedapay
+  // ============================================
   const handleFedapayRedirect = () => {
-    const bookingDataToSave = {
-      property_id: parseInt(propertyId || '0'),
-      property_title: property?.title,
-      check_in: currentCheckIn,
-      check_out: currentCheckOut,
-      guests: currentGuests,
-      adults: currentAdults,
-      children: currentChildren,
-      babies: currentBabies,
-      pets: currentPets,
-      nights: currentNights,
-      totalAmount: total,
-      price_per_night: pricePerNight,
-      guest_details: bookingFormData?.guest_details || {},
-      special_requests: specialRequests || undefined
-    };
+    // ✅ Sauvegarder les données avant la redirection
+    const bookingData = saveBookingData();
     
-    sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingDataToSave));
+    sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingData));
     
     if (onNavigate) {
       onNavigate({ 
         name: 'fedapay-payment', 
-        bookingData: bookingDataToSave 
+        bookingData: bookingData 
       });
     } else {
-      window.location.href = `/payment/fedapay?data=${encodeURIComponent(JSON.stringify(bookingDataToSave))}`;
+      window.location.href = `/payment/fedapay?data=${encodeURIComponent(JSON.stringify(bookingData))}`;
     }
   };
 
+  // ============================================
   // Validation des données de paiement
+  // ============================================
   const validatePaymentDetails = () => {
     if (paymentMethod === 'fedapay') {
       return true;
@@ -4681,7 +4973,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     return true;
   };
 
+  // ============================================
   // Paiement via Fedapay
+  // ============================================
   const handleFedapayPayment = async () => {
     setError('');
     setIsProcessing(true);
@@ -4776,7 +5070,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     }
   };
 
+  // ============================================
   // Traitement du paiement (Mobile Money / Carte)
+  // ============================================
   const processPayment = async (): Promise<boolean> => {
     if (!validatePaymentDetails()) return false;
     
@@ -4795,36 +5091,19 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     });
   };
 
+  // ============================================
   // Ouverture du modal de paiement
+  // ============================================
   const handleOpenPaymentModal = () => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     
     if (!token || !storedUser || !user) {
-      const currentBookingData = {
-        property_id: parseInt(propertyId || '0'),
-        check_in: currentCheckIn,
-        check_out: currentCheckOut,
-        guests: currentGuests,
-        adults: currentAdults,
-        children: currentChildren,
-        babies: currentBabies,
-        pets: currentPets,
-        nights: currentNights,
-        guest_details: bookingFormData?.guest_details || {}
-      };
-      sessionStorage.setItem('bookingFormData', JSON.stringify(currentBookingData));
+      // ✅ Sauvegarder les données avant la redirection
+      saveBookingData();
       
       localStorage.setItem('redirect_intent', 'booking');
       localStorage.setItem('redirect_property_id', propertyId || '');
-      localStorage.setItem('temp_booking_check_in', currentCheckIn);
-      localStorage.setItem('temp_booking_check_out', currentCheckOut);
-      localStorage.setItem('temp_booking_guests', currentGuests.toString());
-      localStorage.setItem('temp_booking_nights', currentNights.toString());
-      localStorage.setItem('temp_booking_adults', currentAdults.toString());
-      localStorage.setItem('temp_booking_children', currentChildren.toString());
-      localStorage.setItem('temp_booking_babies', currentBabies.toString());
-      localStorage.setItem('temp_booking_pets', currentPets.toString());
       
       if (onNavigate) {
         onNavigate({ name: 'auth', search: 'redirect=booking' });
@@ -4839,7 +5118,9 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
     setPaymentStep('form');
   };
 
+  // ============================================
   // Soumission du paiement (hors Fedapay)
+  // ============================================
   const handlePaymentSubmit = async () => {
     if (paymentMethod === 'fedapay') {
       await handleFedapayPayment();
@@ -5380,7 +5661,7 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
                     <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Frais de service </span>
+                    <span className="text-gray-600">Frais de service (10%)</span>
                     <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
                   </div>
                   <div className="border-t border-gray-200 pt-3 mt-3">
@@ -17066,13 +17347,18 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
+
 interface Route {
   name: string;
   id?: string;
   search?: string;
 }
 
-export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
+export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { 
+  onNavigate?: (route: Route) => void; 
+  onAuthSuccess?: (user: any) => void; 
+  hideBackButton?: boolean 
+}) {
   const { login, register } = useAuth();
   const location = useLocation();
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
@@ -17127,115 +17413,44 @@ export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: 
     return newErrors;
   };
 
-  // ✅ Fonction pour sauvegarder les données de réservation pour BookingPage
-  const saveBookingDataForProfile = () => {
+  // ============================================
+  // ✅ REDIRECTION VERS BOOKING PAGE AVEC TOUS LES PARAMÈTRES
+  // ============================================
+  const redirectToBookingPage = (userData: any) => {
     const propertyId = localStorage.getItem('redirect_property_id');
-    const propertyTitle = localStorage.getItem('redirect_property_title');
-    const propertyLocation = localStorage.getItem('redirect_property_location');
-    const propertyPrice = localStorage.getItem('redirect_property_price');
-    const propertyImage = localStorage.getItem('redirect_property_image');
     const checkIn = localStorage.getItem('temp_booking_check_in');
     const checkOut = localStorage.getItem('temp_booking_check_out');
-    const guests = localStorage.getItem('temp_booking_guests');
-    const nights = localStorage.getItem('temp_booking_nights');
+    const guests = localStorage.getItem('temp_booking_guests') || '1';
+    const nights = localStorage.getItem('temp_booking_nights') || '1';
+    const adults = localStorage.getItem('temp_booking_adults') || '1';
+    const children = localStorage.getItem('temp_booking_children') || '0';
+    const babies = localStorage.getItem('temp_booking_babies') || '0';
+    const pets = localStorage.getItem('temp_booking_pets') || '0';
+
+    console.log('🔄 Redirection vers BookingPage avec détails:', {
+      propertyId,
+      checkIn,
+      checkOut,
+      guests,
+      nights,
+      adults,
+      children,
+      babies,
+      pets
+    });
 
     if (propertyId && checkIn && checkOut) {
-      // Construire les données au format attendu par BookingPage
+      // ✅ Construire les données complètes
       const bookingData = {
         property_id: parseInt(propertyId),
         check_in: checkIn,
         check_out: checkOut,
         guests: parseInt(guests || '1'),
         nights: parseInt(nights || '1'),
-        guest_details: {
-          full_name: '',
-          email: '',
-          phone: '',
-          address: ''
-        },
-        totalAmount: 0,
-        paymentAmount: 0
-      };
-      
-      // Sauvegarder dans sessionStorage pour BookingPage
-      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-      console.log('💾 Données sauvegardées pour BookingPage:', bookingData);
-      return bookingData;
-    }
-    return null;
-  };
-
-  // ✅ Redirection vers BookingPage après connexion
-  const redirectToBookingPage = () => {
-    const propertyId = localStorage.getItem('redirect_property_id');
-    const checkIn = localStorage.getItem('temp_booking_check_in');
-    const checkOut = localStorage.getItem('temp_booking_check_out');
-    const guests = localStorage.getItem('temp_booking_guests');
-    const nights = localStorage.getItem('temp_booking_nights');
-
-    if (propertyId && checkIn && checkOut) {
-      // Sauvegarder les données
-      saveBookingDataForProfile();
-      
-      // Construire les paramètres URL
-      const params = new URLSearchParams();
-      params.set('check_in', checkIn);
-      params.set('check_out', checkOut);
-      params.set('guests', guests || '1');
-      params.set('nights', nights || '1');
-      
-      // Nettoyer les données temporaires
-      localStorage.removeItem('redirect_intent');
-      localStorage.removeItem('redirect_property_id');
-      localStorage.removeItem('redirect_property_title');
-      localStorage.removeItem('redirect_property_location');
-      localStorage.removeItem('redirect_property_price');
-      localStorage.removeItem('redirect_property_image');
-      localStorage.removeItem('temp_booking_check_in');
-      localStorage.removeItem('temp_booking_check_out');
-      localStorage.removeItem('temp_booking_guests');
-      localStorage.removeItem('temp_booking_nights');
-      
-      // Rediriger vers BookingPage
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'booking', 
-          id: propertyId,
-          search: `?${params.toString()}`
-        });
-      } else {
-        window.location.href = `/booking/${propertyId}?${params.toString()}`;
-      }
-      return true;
-    }
-    return false;
-  };
-
- // ✅ Modifiez la fonction handleSuccessfulAuth pour utiliser un délai et vérifier les données
-const handleSuccessfulAuth = (userData: any) => {
-  // Sauvegarder l'utilisateur immédiatement
-  if (userData) {
-    localStorage.setItem('user', JSON.stringify(userData));
-  }
-  
-  // Vérifier l'intention
-  const bookingIntent = localStorage.getItem('redirect_intent');
-  
-  if (bookingIntent === 'booking') {
-    const propertyId = localStorage.getItem('redirect_property_id');
-    const checkIn = localStorage.getItem('temp_booking_check_in');
-    const checkOut = localStorage.getItem('temp_booking_check_out');
-    const guests = localStorage.getItem('temp_booking_guests');
-    const nights = localStorage.getItem('temp_booking_nights');
-
-    if (propertyId && checkIn && checkOut) {
-      // Préparer les données
-      const bookingData = {
-        property_id: parseInt(propertyId),
-        check_in: checkIn,
-        check_out: checkOut,
-        guests: parseInt(guests || '1'),
-        nights: parseInt(nights || '1'),
+        adults: parseInt(adults || '1'),
+        children: parseInt(children || '0'),
+        babies: parseInt(babies || '0'),
+        pets: parseInt(pets || '0'),
         guest_details: {
           full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
           email: userData?.email || '',
@@ -17246,49 +17461,92 @@ const handleSuccessfulAuth = (userData: any) => {
         paymentAmount: 0
       };
       
+      // ✅ Sauvegarder dans sessionStorage
       sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+      console.log('💾 Données sauvegardées dans sessionStorage:', bookingData);
       
+      // ✅ Construire les paramètres URL avec TOUS les détails
       const params = new URLSearchParams();
       params.set('check_in', checkIn);
       params.set('check_out', checkOut);
-      params.set('guests', guests || '1');
-      params.set('nights', nights || '1');
+      params.set('guests', guests);
+      params.set('nights', nights);
+      params.set('adults', adults);
+      params.set('children', children);
+      params.set('babies', babies);
+      params.set('pets', pets);
       
-      // Nettoyage immédiat
-      localStorage.removeItem('redirect_intent');
-      localStorage.removeItem('redirect_property_id');
-      localStorage.removeItem('redirect_property_title');
-      localStorage.removeItem('redirect_property_location');
-      localStorage.removeItem('redirect_property_price');
-      localStorage.removeItem('redirect_property_image');
-      localStorage.removeItem('temp_booking_check_in');
-      localStorage.removeItem('temp_booking_check_out');
-      localStorage.removeItem('temp_booking_guests');
-      localStorage.removeItem('temp_booking_nights');
+      // 🔥 NE PAS NETTOYER temp_booking_* ICI
+      // Elles seront nettoyées dans BookingPage après le chargement
       
-      // ⚡ REDIRECTION INSTANTANÉE
+      // Rediriger vers BookingPage
+      const search = `?${params.toString()}`;
+      console.log('📤 URL de redirection:', `/booking/${propertyId}${search}`);
+      
       if (onNavigate) {
         onNavigate({ 
           name: 'booking', 
           id: propertyId,
-          search: `?${params.toString()}`
+          search: search
         });
       } else {
-        window.location.replace(`/booking/${propertyId}?${params.toString()}`);
+        window.location.replace(`/booking/${propertyId}${search}`);
+      }
+      return true;
+    }
+    return false;
+  };
+
+  // ============================================
+  // ✅ GESTION DE L'AUTHENTIFICATION RÉUSSIE
+  // ============================================
+  const handleSuccessfulAuth = (userData: any) => {
+    // Sauvegarder l'utilisateur
+    if (userData) {
+      localStorage.setItem('user', JSON.stringify(userData));
+    }
+    
+    // ✅ Vérifier l'intention de redirection
+    const bookingIntent = localStorage.getItem('redirect_intent');
+    
+    if (bookingIntent === 'booking') {
+      // ✅ Rediriger vers BookingPage avec tous les paramètres
+      const redirected = redirectToBookingPage(userData);
+      if (redirected) return;
+    }
+    
+    // ✅ Redirection vers le chat
+    const chatIntent = localStorage.getItem('redirect_intent');
+    if (chatIntent === 'chat') {
+      const propertyId = localStorage.getItem('redirect_property_id');
+      const chatParams = localStorage.getItem('pendingChatParams') || '';
+      
+      localStorage.removeItem('redirect_intent');
+      localStorage.removeItem('redirect_property_id');
+      localStorage.removeItem('pendingChatParams');
+      localStorage.removeItem('chatIntent');
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'messages', 
+          id: 'inquiry',
+          search: chatParams ? `?${chatParams}` : `?property=${propertyId}`
+        });
+      } else {
+        window.location.href = `/messages/inquiry?property=${propertyId}${chatParams ? `&${chatParams}` : ''}`;
       }
       return;
     }
-  }
-  
-  // Redirection par défaut
-  if (onAuthSuccess) {
-    onAuthSuccess(userData);
-  } else if (onNavigate) {
-    onNavigate({ name: 'profile' });
-  } else {
-    window.location.replace('/profile');
-  }
-};
+    
+    // ✅ Redirection par défaut
+    if (onAuthSuccess) {
+      onAuthSuccess(userData);
+    } else if (onNavigate) {
+      onNavigate({ name: 'profile' });
+    } else {
+      window.location.replace('/profile');
+    }
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17324,48 +17582,56 @@ const handleSuccessfulAuth = (userData: any) => {
     }
   };
 
- // Dans handleSubmit - Version rapide sans délai
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setErrors({});
-  setSuccessMessage('');
-  
-  const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
-  if (Object.keys(validationErrors).length > 0) {
-    setErrors(validationErrors);
-    return;
-  }
-
-  setLoading(true);
-  try {
-    if (mode === 'signup') {
-      const payload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        password_confirmation: formData.confirmPassword,
-        user_type: 'voyageur',
-      };
-      const response = await register(payload);
-      
-      // ✅ REDIRECTION IMMÉDIATE - SANS setTimeout
-      handleSuccessfulAuth(response?.user);
-      
-    } else if (mode === 'login') {
-      const response = await login(formData.email, formData.password);
-      
-      // ✅ REDIRECTION IMMÉDIATE - SANS setTimeout
-      handleSuccessfulAuth(response?.user);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    setSuccessMessage('');
+    
+    const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
     }
-  } catch (err: any) {
-    console.error('Erreur:', err);
-    // Gestion d'erreur...
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+    try {
+      let response;
+      let userData;
+      
+      if (mode === 'signup') {
+        const payload = {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+          user_type: 'voyageur',
+        };
+        response = await register(payload);
+        userData = response?.user;
+      } else if (mode === 'login') {
+        response = await login(formData.email, formData.password);
+        userData = response?.user;
+      }
+      
+      // ✅ Gérer la redirection
+      handleSuccessfulAuth(userData);
+      
+    } catch (err: any) {
+      console.error('Erreur:', err);
+      if (err.response?.data?.message) {
+        setErrors({ general: err.response.data.message });
+      } else if (err.response?.data?.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat();
+        setErrors({ general: errorMessages.join(', ') });
+      } else {
+        setErrors({ general: 'Une erreur est survenue. Veuillez réessayer.' });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
@@ -17425,7 +17691,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                           target.style.display = 'none';
                           const parent = target.parentElement;
                           if (parent) {
-                            parent.innerHTML = '<span class="text-2xl font-bold text-white bg-gradient-to-r from-[#00c9a7] to-[#0f2940] w-full h-full flex items-center justify-center">B</span>';
+                            parent.innerHTML = '<span className="text-2xl font-bold text-white bg-gradient-to-r from-[#00c9a7] to-[#0f2940] w-full h-full flex items-center justify-center">B</span>';
                           }
                         }}
                       />
@@ -17454,13 +17720,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                     )}
                   </div>
 
-                 
-{successMessage && (
-  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
-    <Check className="w-5 h-5 text-green-500" />
-    <p className="text-sm text-green-700">{successMessage}</p>
-  </div>
-)}
+                  {successMessage && (
+                    <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                      <Check className="w-5 h-5 text-green-500" />
+                      <p className="text-sm text-green-700">{successMessage}</p>
+                    </div>
+                  )}
+                  
                   {errors.general && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
                       <p className="text-sm text-red-600">{errors.general}</p>
