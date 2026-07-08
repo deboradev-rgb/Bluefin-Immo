@@ -10,6 +10,7 @@ import { Footer } from './components/Footer';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+
 import {
   HomePage,
   SearchPage,
@@ -20,6 +21,15 @@ import {
   AccountPage,
   AccountReservationsPage,
   HostDashboardPage,
+  HostExperienceDashboardPage,
+  HostExperienceListPage,
+  HostExperienceCalendarPage,
+  HostExperienceReservationsPage,
+  HostExperienceMessagesPage,
+  ExperienceBookingPage ,
+  HostServiceDashboardPage,
+  HostServiceListPage ,
+  ServiceBookingPage,
   HostListingsPage,
   HostCalendarPage,
   HostReservationsPage,
@@ -45,9 +55,13 @@ import {
   AdminDashboardPage,
   AdminUsersPage,
   AdminBookingsPage,
+  AdminBookingsLogementsPage,
+  AdminBookingsExperiencesServicesPage,
   AdminPaymentsPage,
   AdminMessagesPage,
   AdminReportsPage,
+  AdminExperiencesPage,
+  AdminServicesPage,
 } from './pages';
 import { AdminPropertiesPage } from './pages/admin/AdminPropertiesPage';
 import { parseRoute, routeToPath, tabFromPage, routeFromTab, type Route, type Page } from './router';
@@ -71,69 +85,47 @@ const queryClient = new QueryClient({
 });
 
 // ============================================
-// COMPOSANT ADMIN LAYOUT - CORRIGÉ AVEC useLocation
+// COMPOSANT ADMIN LAYOUT
 // ============================================
-function AdminLayoutContent() {
+function AdminLayoutContent({
+  currentPage,
+  onNavigate,
+}: {
+  currentPage: Page;
+  onNavigate: (to: Route | string) => void;
+}) {
   const { isDark } = useTheme();
-  const { user } = useAuth();
-  const location = useLocation();
-  const routerNavigate = useRouterNavigate();
-  
-  // Utiliser location directement pour la route actuelle
-  const currentPath = location.pathname + location.search;
-  
-  // Fonction pour déterminer la page à afficher
-  const getPageName = (path: string) => {
-    if (path.includes('/admin/dashboard')) return 'admin-dashboard';
-    if (path.includes('/admin/properties')) return 'admin-properties';
-    if (path.includes('/admin/users')) return 'admin-users';
-    if (path.includes('/admin/bookings')) return 'admin-bookings';
-    if (path.includes('/admin/payments')) return 'admin-payments';
-    if (path.includes('/admin/host-payments')) return 'admin-host-payments';
-    if (path.includes('/admin/messages')) return 'admin-messages';
-    if (path.includes('/admin/reports')) return 'admin-reports';
-    if (path.includes('/admin/settings')) return 'admin-settings';
-    return 'admin-dashboard';
-  };
 
-  const currentPage = getPageName(currentPath);
-
-  const navigate = (to: Route | string) => {
-    let routeObject: Route;
-    if (typeof to === 'string') {
-      routeObject = { name: to as Page };
-    } else {
-      routeObject = to;
-    }
-    const path = routeToPath(routeObject);
-    routerNavigate(path);
-  };
-
-  // Rendu de la page admin en fonction de la route actuelle
   const renderAdminPage = () => {
-    console.log('🔄 Rendu page admin:', currentPage, 'Path:', currentPath);
-    
-    const pageKey = currentPage + '-' + Date.now();
+    console.log('🔄 Rendu page admin:', currentPage);
     
     switch (currentPage) {
       case 'admin-dashboard': 
-        return <AdminDashboardPage key={pageKey} onNavigate={navigate} />;
+        return <AdminDashboardPage onNavigate={onNavigate} />;
       case 'admin-properties': 
-        return <AdminPropertiesPage key={pageKey} onNavigate={navigate} />;
+        return <AdminPropertiesPage onNavigate={onNavigate} />;
+      case 'admin-experiences':
+        return <AdminExperiencesPage onNavigate={onNavigate} />;
+      case 'admin-services':
+        return <AdminServicesPage onNavigate={onNavigate} />;
       case 'admin-users': 
-        return <AdminUsersPage key={pageKey} onNavigate={navigate} />;
+        return <AdminUsersPage onNavigate={onNavigate} />;
       case 'admin-bookings': 
-        return <AdminBookingsPage key={pageKey} onNavigate={navigate} />;
+        return <AdminBookingsPage onNavigate={onNavigate} />;
+      case 'admin-bookings-logements':
+        return <AdminBookingsLogementsPage onNavigate={onNavigate} />;
+      case 'admin-bookings-experiences-services':
+        return <AdminBookingsExperiencesServicesPage onNavigate={onNavigate} />;
       case 'admin-payments': 
-        return <AdminPaymentsPage key={pageKey} onNavigate={navigate} />;
+        return <AdminPaymentsPage onNavigate={onNavigate} />;
       case 'admin-host-payments': 
-        return <AdminHostPaymentsPage key={pageKey} onNavigate={navigate} />;
+        return <AdminHostPaymentsPage onNavigate={onNavigate} />;
       case 'admin-messages': 
-        return <AdminMessagesPage key={pageKey} onNavigate={navigate} />;
+        return <AdminMessagesPage onNavigate={onNavigate} />;
       case 'admin-reports': 
-        return <AdminReportsPage key={pageKey} onNavigate={navigate} />;
+        return <AdminReportsPage onNavigate={onNavigate} />;
       default: 
-        return <AdminDashboardPage key={pageKey} onNavigate={navigate} />;
+        return <AdminDashboardPage onNavigate={onNavigate} />;
     }
   };
 
@@ -150,13 +142,16 @@ function AdminLayoutContent() {
   );
 }
 
-// ============================================
-// WRAPPER ADMIN - AVEC ROUTER ET THEME
-// ============================================
-function AdminLayoutWrapper() {
+function AdminLayoutWrapper({
+  currentPage,
+  onNavigate,
+}: {
+  currentPage: Page;
+  onNavigate: (to: Route | string) => void;
+}) {
   return (
     <ThemeProvider>
-      <AdminLayoutContent />
+      <AdminLayoutContent currentPage={currentPage} onNavigate={onNavigate} />
     </ThemeProvider>
   );
 }
@@ -170,19 +165,29 @@ function AppContent() {
     tabFromPage(route.name)
   );
   const [isBookingSheetOpen, setIsBookingSheetOpen] = useState(false);
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, loading, refreshUser } = useAuth();
   const routerNavigate = useRouterNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const nextRoute = parseRoute(location.pathname + location.search);
+    setRoute(nextRoute);
+  }, [location.pathname, location.search]);
 
   // ============================================
   // ✅ FONCTION DE NAVIGATION CENTRALISÉE
   // ============================================
-  const navigate = (to: Route | string) => {
+  const navigate = (to: Route | string, params?: any) => {
     let routeObject: Route;
     
     if (typeof to === 'string') {
       routeObject = { name: to as Page };
     } else {
       routeObject = to;
+    }
+    
+    if (params) {
+      routeObject.params = params;
     }
     
     console.log('🔍 Navigation appelée avec:', routeObject);
@@ -206,9 +211,7 @@ function AppContent() {
   // ✅ EXPOSER LA FONCTION NAVIGATE GLOBALEMENT
   // ============================================
   useEffect(() => {
-    // Exposer la fonction navigate globalement pour que AuthContext puisse l'utiliser
     (window as any).navigate = navigate;
-    
     console.log('✅ Fonction navigate exposée globalement');
     
     return () => {
@@ -232,6 +235,61 @@ function AppContent() {
   useEffect(() => {
     setMobileNavActive(tabFromPage(route.name));
   }, [route.name]);
+
+  useEffect(() => {
+    if (!route.name.startsWith('admin-')) {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [route.name]);
+
+  // ============================================
+  // ✅ NETTOYER session_expired APRÈS AUTH
+  // ============================================
+  useEffect(() => {
+    if (isAuthenticated && location.search.includes('session_expired=true')) {
+      console.log('✅ Session rétablie, nettoyage des paramètres...');
+      
+      const searchParams = new URLSearchParams(location.search);
+      searchParams.delete('session_expired');
+      
+      const redirect = searchParams.get('redirect');
+      const newSearch = searchParams.toString();
+      
+      const newPath = location.pathname + (newSearch ? `?${newSearch}` : '');
+      window.history.replaceState({}, '', newPath);
+      
+      if (redirect === 'payment') {
+        const paymentDataStr = sessionStorage.getItem('fedapay_booking_data') || 
+                               localStorage.getItem('fedapay_booking_data');
+        
+        if (paymentDataStr) {
+          try {
+            const bookingData = JSON.parse(paymentDataStr);
+            console.log('📦 Redirection vers paiement avec données:', bookingData);
+            
+            setTimeout(() => {
+              navigate({ 
+                name: 'fedapay-payment'
+              }, { bookingData });
+            }, 100);
+            
+            sessionStorage.removeItem('fedapay_booking_data');
+            return;
+          } catch (e) {
+            console.error('❌ Erreur parsing données de paiement:', e);
+          }
+        }
+      }
+      
+      if (redirect === 'booking') {
+        const propertyId = localStorage.getItem('redirect_property_id');
+        if (propertyId) {
+          navigate({ name: 'booking', id: propertyId });
+          localStorage.removeItem('redirect_property_id');
+        }
+      }
+    }
+  }, [isAuthenticated, location, navigate]);
 
   // ============================================
   // ÉCOUTER LES CHANGEMENTS D'AUTHENTIFICATION
@@ -278,14 +336,31 @@ function AppContent() {
     };
     
     window.addEventListener('booking-data-available', handleBookingData as EventListener);
-    
     return () => {
       window.removeEventListener('booking-data-available', handleBookingData as EventListener);
     };
   }, [navigate]);
 
   // ============================================
-  // VÉRIFIER LES INTENTIONS DE CHAT AU CHARGEMENT
+  // ✅ VÉRIFIER LES INTENTIONS DE PAIEMENT
+  // ============================================
+  useEffect(() => {
+    const paymentIntent = sessionStorage.getItem('payment_intent');
+    if (paymentIntent && isAuthenticated) {
+      console.log('💳 Intention de paiement détectée:', paymentIntent);
+      
+      try {
+        const bookingData = JSON.parse(paymentIntent);
+        navigate({ name: 'fedapay-payment' }, { bookingData });
+        sessionStorage.removeItem('payment_intent');
+      } catch (e) {
+        console.error('❌ Erreur parsing payment_intent:', e);
+      }
+    }
+  }, [isAuthenticated, navigate]);
+
+  // ============================================
+  // VÉRIFIER LES INTENTIONS DE CHAT
   // ============================================
   useEffect(() => {
     const currentPath = window.location.pathname;
@@ -339,6 +414,8 @@ function AppContent() {
     const protectedRoutes: Page[] = [
       'account', 'account-reservations', 'host-dashboard', 'host-annonces',
       'host-calendrier', 'host-reservations', 'host-messages', 'favorites', 'publish',
+      'host-experience-dashboard', 'host-experiences-list', 'host-experience-calendar',
+      'host-experience-reservations', 'host-service-dashboard'
     ];
     
     if (protectedRoutes.includes(route.name)) {
@@ -416,13 +493,15 @@ function AppContent() {
   // ROUTES ADMIN PROTÉGÉES
   // ============================================
   if (route.name.startsWith('admin-') && user?.user_type === 'admin') {
-    return <AdminLayoutWrapper />;
+    return <AdminLayoutWrapper currentPage={route.name} onNavigate={navigate} />;
   }
 
   // ============================================
   // ROUTES PUBLIQUES ET PROTÉGÉES CLASSIQUES
   // ============================================
-  const showNavbar = route.name !== 'home';
+  const showNavbar = route.name !== 'home' && route.name !== 'listing' && route.name !== 'booking';
+  const showFooter = route.name !== 'listing' && route.name !== 'booking';
+  const showMobileBottomNav = route.name !== 'listing' && route.name !== 'booking';
 
   return (
     <div className="min-h-screen bg-white">
@@ -454,6 +533,37 @@ function AppContent() {
       {route.name === 'account' && <AccountPage onNavigate={navigate} />}
       {route.name === 'account-reservations' && <AccountReservationsPage onNavigate={navigate} />}
       {route.name === 'host-dashboard' && <HostDashboardPage onNavigate={navigate} />}
+      
+      {/* ✅ ROUTES EXPÉRIENCES - AJOUTÉES */}
+      {route.name === 'host-experience-dashboard' && <HostExperienceDashboardPage onNavigate={navigate} />}
+      {route.name === 'host-experiences-list' && <HostExperienceListPage onNavigate={navigate} />}
+      {route.name === 'host-experience-calendar' && <HostExperienceCalendarPage onNavigate={navigate} />}
+      {route.name === 'host-experience-reservations' && <HostExperienceReservationsPage onNavigate={navigate} />}
+      {route.name === 'host-experience-messages' && <HostExperienceMessagesPage onNavigate={navigate} id={route.id} />}
+     {route.name === 'experience-booking' && (
+  <ExperienceBookingPage 
+    onNavigate={navigate} 
+    id={route.id} 
+    search={route.search} 
+  />
+)}
+
+{route.name === 'host-service-dashboard' && <HostServiceDashboardPage onNavigate={navigate} />}
+{route.name === 'host-service-list' && <HostServiceListPage onNavigate={navigate} />}
+{route.name === 'host-service-calendar' && <HostServiceCalendarPage onNavigate={navigate} />}
+{route.name === 'host-service-reservations' && <HostServiceReservationsPage onNavigate={navigate} />}
+{route.name === 'host-service-messages' && <HostServiceMessagesPage onNavigate={navigate} id={route.id} />}
+{route.name === 'service-booking' && (
+  <ServiceBookingPage 
+    onNavigate={navigate} 
+    id={route.id} 
+    search={route.search} 
+  />
+)}
+
+
+      
+    
       {route.name === 'host-annonces' && <HostListingsPage onNavigate={navigate} />}
       {route.name === 'host-calendrier' && <HostCalendarPage onNavigate={navigate} id={route.id} />}
       {route.name === 'host-reservations' && <HostReservationsPage onNavigate={navigate} />}
@@ -478,6 +588,8 @@ function AppContent() {
       {route.name === 'not-found' && <NotFoundPage onNavigate={navigate} />}
       {route.name === 'booking-summary' && <BookingSummaryPage onNavigate={navigate} id={route.id} search={route.search} />}
 
+
+
       {/* Routes Fedapay */}
       {route.name === 'fedapay-payment' && (
         <FedapayPaymentPage 
@@ -494,10 +606,12 @@ function AppContent() {
         />
       )}
 
-      <Footer onNavigate={navigate} />
-      <div className="lg:hidden">
-        <MobileBottomNav active={mobileNavActive} onNavigate={handleMobileNavigate} />
-      </div>
+      {showFooter && <Footer onNavigate={navigate} />}
+      {showMobileBottomNav && (
+        <div className="lg:hidden">
+          <MobileBottomNav active={mobileNavActive} onNavigate={handleMobileNavigate} />
+        </div>
+      )}
       <MobileBookingSheet isOpen={isBookingSheetOpen} onClose={() => setIsBookingSheetOpen(false)} propertyId={0} pricePerNight={0} />
       <Toaster position="top-right" />
     </div>
@@ -512,7 +626,9 @@ export default function App() {
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <AppContent />
+          <ThemeProvider>
+            <AppContent />
+          </ThemeProvider>
         </AuthProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>

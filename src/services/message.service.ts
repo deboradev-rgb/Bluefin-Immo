@@ -52,6 +52,7 @@ export interface Conversation {
     is_from_host: boolean;
   } | null;
   unread_count: number;
+  type: 'inquiry' | 'experience';
 }
 
 export interface InquiryConversation {
@@ -114,59 +115,7 @@ const messageService = {
     }
   },
 
-  // Envoyer une réponse à un inquiry - AVEC RETRY
-  sendInquiryReply: async (hostId: number, data: { message: string }): Promise<{ data: Message }> => {
-    console.log('📤 sendInquiryReply - hostId:', hostId, 'data:', data);
-    
-    // Validation côté client
-    if (!hostId || isNaN(hostId)) {
-      throw new Error('ID de l\'hôte invalide');
-    }
-    
-    if (!data.message || data.message.trim() === '') {
-      throw new Error('Le message ne peut pas être vide');
-    }
-    
-    try {
-      const response = await v1Api.post(`/traveler/messages/inquiry/${hostId}`, {
-        message: data.message.trim()
-      });
-      console.log('✅ Message envoyé avec succès:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Erreur sendInquiryReply:', error);
-      
-      // Stocker localement si l'API échoue
-      const localMessage = {
-        id: Date.now(),
-        sender_id: parseInt(localStorage.getItem('userId') || '0'),
-        receiver_id: hostId,
-        booking_id: null,
-        message: data.message,
-        is_read: false,
-        read_at: null,
-        message_type: 'text',
-        attachment_url: null,
-        attachment_name: null,
-        attachment_size: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      // Sauvegarder dans localStorage pour récupération ultérieure
-      const pendingMessages = JSON.parse(localStorage.getItem('pendingInquiryMessages') || '{}');
-      if (!pendingMessages[hostId]) {
-        pendingMessages[hostId] = [];
-      }
-      pendingMessages[hostId].push(localMessage);
-      localStorage.setItem('pendingInquiryMessages', JSON.stringify(pendingMessages));
-      
-      console.log('💾 Message sauvegardé localement en attente:', localMessage);
-      
-      // Retourner le message local comme si l'API avait réussi
-      return { data: localMessage };
-    }
-  },
+  
 
   // Récupérer les messages locaux en attente
   getPendingInquiryMessages: (hostId: number): Message[] => {
@@ -221,11 +170,36 @@ const messageService = {
     return response.data;
   },
 
-  // Envoyer un message pour une réservation
-  sendMessage: async (bookingId: number, data: { message: string }): Promise<{ data: Message }> => {
-    const response = await v1Api.post(`/traveler/messages/booking/${bookingId}`, data);
+ // services/messageService.ts
+
+// ✅ S'assurer que sendMessage vérifie bookingId
+sendMessage: async (bookingId: number, data: { message: string }): Promise<{ data: Message }> => {
+  if (!bookingId) {
+    throw new Error('Booking ID est requis');
+  }
+  console.log('📤 sendMessage - bookingId:', bookingId);
+  const response = await v1Api.post(`/traveler/messages/booking/${bookingId}`, data);
+  return response.data;
+},
+
+// ✅ S'assurer que sendInquiryReply vérifie hostId
+sendInquiryReply: async (hostId: number, data: { message: string }): Promise<{ data: Message }> => {
+  if (!hostId || isNaN(hostId)) {
+    throw new Error('ID de l\'hôte invalide');
+  }
+  console.log('📤 sendInquiryReply - hostId:', hostId);
+  
+  try {
+    const response = await v1Api.post(`/traveler/messages/inquiry/${hostId}`, {
+      message: data.message.trim()
+    });
     return response.data;
-  },
+  } catch (error: any) {
+    console.error('❌ Erreur sendInquiryReply:', error);
+    // Fallback local...
+    throw error;
+  }
+},
 
   // Envoyer une demande d'information (sans réservation)
   sendInquiry: async (data: { 

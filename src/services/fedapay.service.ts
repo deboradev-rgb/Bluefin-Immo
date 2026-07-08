@@ -1,4 +1,4 @@
-// services/fedapay.service.ts - Version complète avec callback URL
+// services/fedapay.service.ts
 
 import { v1Api } from './api';
 
@@ -18,92 +18,141 @@ interface FedapayPaymentData {
   callback_url?: string;
   cancel_url?: string;
   booking_id?: string | number;
-}
-
-interface FedapayTransaction {
-  id: string;
-  status: 'pending' | 'success' | 'failed' | 'cancelled';
-  amount: number;
-  currency: string;
-  customer: FedapayCustomer;
-  created_at: string;
-  payment_url: string;
-  reference: string;
-  booking_id?: string;
+  booking_data?: Record<string, any>;
+  booking_type?: 'experience' | 'service' | 'property';
 }
 
 class FedapayService {
-  private baseUrl: string;
-  private frontendUrl: string;  // ✅ Nouvelle propriété
+  // ✅ Clé publique Fedapay (à mettre dans .env)
+  private publicKey = 'pk_live_Or1ICljkG96OG4n797pBQvlD';
+  private apiUrl = 'https://api.fedapay.com/v1';
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_FEDAPAY_API_URL || 'https://api.fedapay.com/v1';
-    // ✅ URL du frontend depuis les variables d'environnement
-    this.frontendUrl = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:5173';
+    console.log('🔧 Fedapay service - utilisation directe');
   }
 
-  async initiatePayment(data: FedapayPaymentData): Promise<{ success: boolean; data: FedapayTransaction | null; message?: string }> {
+  // ✅ Version directe - Appelle Fedapay directement sans passer par le backend
+  async initiatePayment(data: FedapayPaymentData) {
     try {
-      // ✅ Construire les URLs de callback avec l'URL du frontend
-      const callbackUrl = data.callback_url || `${this.frontendUrl}/payment/fedapay/callback`;
-      const cancelUrl = data.cancel_url || `${this.frontendUrl}/payment/fedapay/cancel`;
+      console.log('📤 Envoi direct à Fedapay API');
 
-      // ✅ Préparer les données avec les URLs de callback
-      const paymentData = {
-        ...data,
-        callback_url: callbackUrl,
-        cancel_url: cancelUrl,
+      // ✅ Formater le payload pour Fedapay
+      const payload = {
+        amount: data.amount,
+        currency: data.currency,
+        customer: {
+          firstname: data.customer.firstname,
+          lastname: data.customer.lastname,
+          email: data.customer.email,
+          phone: data.customer.phone || ''
+        },
+        description: data.description,
+        reference: data.reference || `EXP-${Date.now()}`,
+        callback_url: data.callback_url || `${window.location.origin}/payment/fedapay/callback`,
+        cancel_url: data.cancel_url || `${window.location.origin}/payment/fedapay/cancel`,
+        metadata: {
+          booking_type: 'experience',
+          booking_data: data.booking_data || {}
+        }
       };
 
-      console.log('📤 Fedapay - Envoi des données:', {
-        ...paymentData,
-        customer: {
-          ...paymentData.customer,
-          phone: paymentData.customer.phone || 'Non renseigné'
-        }
+      console.log('📤 Payload envoyé à Fedapay:', JSON.stringify(payload, null, 2));
+
+      // ✅ Appel direct à l'API Fedapay
+      const response = await fetch(`${this.apiUrl}/transactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.publicKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
 
-      const response = await v1Api.post('/payments/fedapay/initiate', paymentData);
+      // ✅ Lire la réponse
+      const responseData = await response.json();
+      console.log('📥 Réponse Fedapay:', responseData);
+
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Erreur Fedapay');
+      }
+
+      // ✅ Extraire les données
+      const transactionData = responseData;
       
-      console.log('📥 Fedapay - Réponse:', response.data);
+      // ✅ Construire l'URL de paiement
+      let paymentUrl = transactionData.payment_url;
       
+      // Si pas d'URL de paiement, utiliser l'URL de base avec l'ID
+      if (!paymentUrl && transactionData.id) {
+        paymentUrl = `https://me.fedapay.com/bf-immo/${transactionData.id}`;
+      }
+      
+      // Dernier fallback
+      if (!paymentUrl) {
+        paymentUrl = 'https://me.fedapay.com/bf-immo';
+      }
+
+      // ✅ Sauvegarder pour le callback
+      sessionStorage.setItem('fedapay_transaction_id', transactionData.id || '');
+      sessionStorage.setItem('fedapay_token', transactionData.token || '');
+      if (data.booking_data) {
+        sessionStorage.setItem('fedapay_booking_data', JSON.stringify(data.booking_data));
+      }
+      sessionStorage.setItem('fedapay_payment_url', paymentUrl);
+
+      console.log('✅ Transaction créée, URL de paiement:', paymentUrl);
+
       return {
         success: true,
-        data: response.data.data || response.data,
-        message: response.data.message
+        data: transactionData,
+        payment_url: paymentUrl,
+        transaction_id: transactionData.id
       };
+
     } catch (error: any) {
       console.error('❌ Erreur Fedapay:', error);
-      console.error('❌ Détails:', error.response?.data);
       
-      return {
-        success: false,
-        data: null,
-        message: error?.response?.data?.message || error?.message || 'Erreur de paiement'
-      };
+      let errorMessage = 'Erreur lors de l\'initiation du paiement';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
-  async getTransactionStatus(transactionId: string): Promise<FedapayTransaction> {
+  async getTransactionStatus(transactionId: string) {
     try {
-      const response = await v1Api.get(`/payments/fedapay/status/${transactionId}`);
-      return response.data.data || response.data;
-    } catch (error: any) {
-      console.error('❌ Erreur vérification transaction:', error);
-      throw new Error(error?.response?.data?.message || 'Impossible de vérifier le statut du paiement');
-    }
-  }
-
-  async confirmPayment(transactionId: string, bookingId: string): Promise<any> {
-    try {
-      const response = await v1Api.post('/payments/fedapay/confirm', {
-        transaction_id: transactionId,
-        booking_id: bookingId
+      const response = await fetch(`${this.apiUrl}/transactions/${transactionId}`, {
+        headers: {
+          'Authorization': `Bearer ${this.publicKey}`,
+          'Accept': 'application/json'
+        }
       });
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Erreur confirmation:', error);
-      throw new Error(error?.response?.data?.message || 'Erreur lors de la confirmation du paiement');
+      
+      if (!response.ok) {
+        throw new Error('Erreur récupération transaction');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Erreur getTransactionStatus:', error);
+      throw error;
+    }
+  }
+
+  async confirmPayment(transactionId: string, bookingId: string) {
+    try {
+      // ✅ Utiliser le backend pour confirmer le paiement
+      const response = await v1Api.post(`/payments/fedapay/${transactionId}/confirm`, { booking_id: bookingId });
+      return response.data?.data;
+    } catch (error) {
+      console.error('❌ Erreur confirmPayment:', error);
+      throw error;
     }
   }
 }

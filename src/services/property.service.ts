@@ -55,11 +55,20 @@ class PropertyService {
         return response.data;
     }
 
-    async getById(id: number) {
-        const url = `/properties/${id}?include=photos,cover_photo,photo_urls,images,media`;
-        const response = await v1Api.get(url);
+   async getById(id: number) {
+    try {
+        const response = await v1Api.get(`/properties/${id}?include=photos,cover_photo`);
         return response.data;
+    } catch (error: any) {
+        console.error('❌ Erreur getById:', error);
+        try {
+            const response = await v1Api.get(`/properties/${id}`);
+            return response.data;
+        } catch (fallbackError) {
+            throw fallbackError;
+        }
     }
+}
 
     // ==================== VÉRIFICATION DE DISPONIBILITÉ ====================
     

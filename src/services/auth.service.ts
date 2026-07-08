@@ -1,5 +1,11 @@
-// services/auth.service.ts
-import { publicApi, v1Api } from './api';
+// services/auth.service.ts - Version corrigée pour Laravel
+
+import { publicApi, v1Api, getCookie, deleteCookie, refreshCsrfToken, checkAuthStatus } from './api';
+import toast from 'react-hot-toast';
+
+// ============================================
+// ✅ INTERFACES
+// ============================================
 
 export interface RegisterData {
     first_name: string;
@@ -8,389 +14,625 @@ export interface RegisterData {
     phone: string;
     password: string;
     password_confirmation: string;
+    host_type?: 'logement' | 'experience' | 'service';
+    property_address?: string;
+    property_type?: string;
 }
 
 export interface LoginData {
     email?: string;
     phone?: string;
     password: string;
+    remember?: boolean;
 }
 
-export interface OTPData {
+export interface User {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
     phone: string;
-}
-
-export interface VerifyOTPData {
-    phone: string;
-    otp: string;
-}
-
-export interface UpdateProfileData {
-    first_name?: string;
-    last_name?: string;
-    email?: string;
-    phone?: string;
+    user_type: 'traveler' | 'hote' | 'admin'; // ✅ 'hote' pour Laravel
+    host_type?: 'logement' | 'experience' | 'service' | null;
+    profile_photo?: string;
+    profile_photo_url?: string;
     bio?: string;
-    languages?: string[];
     country?: string;
     city?: string;
+    address?: string;
+    property_address?: string;
+    property_type?: string;
+    email_verified_at?: string;
+    phone_verified_at?: string;
+    verification_status?: 'pending' | 'verified' | 'rejected';
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    total_bookings?: number;
+    total_reviews?: number;
+    average_rating_as_host?: number;
+    total_properties?: number;
 }
 
-export interface ChangePasswordData {
-    current_password: string;
-    new_password: string;
-    new_password_confirmation: string;
+export type UserType = 'traveler' | 'hote' | 'admin';
+
+export interface AuthResponse {
+    user: User;
+    message?: string;
+    token?: string;
 }
 
-export type UserType = 'traveler' | 'host' | 'admin';
+// ============================================
+// ✅ SERVICE D'AUTHENTIFICATION
+// ============================================
 
 class AuthService {
+    private static instance: AuthService;
     private currentUserType: UserType = 'traveler';
+    private currentUser: User | null = null;
+    private authListeners: ((isAuthenticated: boolean, user: User | null) => void)[] = [];
 
-    // ==================== GESTION DU TYPE D'UTILISATEUR ====================
-    
-    setUserType(type: UserType) {
-        this.currentUserType = type;
-        localStorage.setItem('userType', type);
-    }
-
-    getUserType(): UserType {
-        const stored = localStorage.getItem('userType') as UserType;
-        if (stored) return stored;
-        return this.currentUserType;
-    }
-
-    isHost(): boolean {
-        return this.getUserType() === 'host';
-    }
-
-    isTraveler(): boolean {
-        return this.getUserType() === 'traveler';
-    }
-
-    // ==================== INSCRIPTION & CONNEXION ====================
-    
-    // Inscription avec type d'utilisateur personnalisable
-    async register(data: RegisterData, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/register' : '/traveler/register';
-        
-        // Ajouter le type d'utilisateur aux données
-        const registerData = {
-            ...data,
-            user_type: userType,
-            role: userType
-        };
-        
-        const response = await publicApi.post(endpoint, registerData);
-        
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            const userData = {
-                ...response.data.user,
-                user_type: userType,
-                role: userType
-            };
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('userType', userType);
-            this.currentUserType = userType;
+    public static getInstance(): AuthService {
+        if (!AuthService.instance) {
+            AuthService.instance = new AuthService();
         }
-        return response.data;
+        return AuthService.instance;
     }
 
-    // Connexion avec type d'utilisateur personnalisable
-    async login(data: LoginData, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/login' : '/traveler/login';
+    private constructor() {
+        this.loadUserFromStorage();
         
+        setInterval(() => {
+            this.checkSession();
+        }, 60000);
+    }
+
+    // ============================================
+    // ✅ GESTION DES LISTENERS
+    // ============================================
+
+    public addAuthListener(listener: (isAuthenticated: boolean, user: User | null) => void) {
+        this.authListeners.push(listener);
+        listener(this.isAuthenticated(), this.currentUser);
+    }
+
+    public removeAuthListener(listener: (isAuthenticated: boolean, user: User | null) => void) {
+        this.authListeners = this.authListeners.filter(l => l !== listener);
+    }
+
+    private notifyListeners() {
+        const isAuthenticated = this.isAuthenticated();
+        console.log('🔔 Notification listeners - auth:', isAuthenticated, 'user:', this.currentUser?.email);
+        this.authListeners.forEach(listener => listener(isAuthenticated, this.currentUser));
+    }
+
+    // ============================================
+    // ✅ GESTION DE L'UTILISATEUR
+    // ============================================
+
+    private loadUserFromStorage() {
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                this.currentUser = JSON.parse(userStr);
+                console.log('👤 Utilisateur chargé depuis localStorage:', this.currentUser?.email);
+                console.log('📋 Type utilisateur:', this.currentUser?.user_type);
+                console.log('📋 Type hôte:', this.currentUser?.host_type);
+            }
+            
+            const userType = localStorage.getItem('userType') as UserType;
+            if (userType && ['traveler', 'hote', 'admin'].includes(userType)) {
+                this.currentUserType = userType;
+            }
+
+            // ✅ En développement, ignorer la vérification des cookies
+            if (import.meta.env.DEV) {
+                console.log('🔧 DEV MODE: Ignorer la vérification des cookies');
+                if (this.currentUser && !this.hasValidSession()) {
+                    console.log('🔧 DEV MODE: Création d\'un cookie de session factice');
+                    document.cookie = 'laravel_session=dev_session_12345; path=/; max-age=3600';
+                    document.cookie = 'XSRF-TOKEN=dev_token_67890; path=/; max-age=3600';
+                }
+                return;
+            }
+            
+            const hasSession = this.hasValidSession();
+            if (!hasSession && this.currentUser) {
+                console.warn('⚠️ Session cookie manquant, nettoyage...');
+                this.clearLocalData();
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors du chargement de l\'utilisateur:', error);
+        }
+    }
+
+    private hasValidSession(): boolean {
+        return !!(getCookie('laravel_session') || getCookie('PHPSESSID') || getCookie('bluefin_session'));
+    }
+
+    private async checkSession() {
+        try {
+            if (!this.hasValidSession() && this.currentUser) {
+                console.warn('⚠️ Session cookie perdu, nettoyage...');
+                this.clearLocalData();
+                this.notifyListeners();
+            }
+        } catch (error) {
+            console.error('❌ Erreur checkSession:', error);
+        }
+    }
+
+    public getCurrentUser(): User | null {
+        return this.currentUser;
+    }
+
+    public getUser(): User | null {
+        return this.getCurrentUser();
+    }
+
+    public isAuthenticated(): boolean {
+        const hasUser = !!this.currentUser;
+        const hasSession = this.hasValidSession();
+        const isAuth = hasUser && hasSession;
+        
+        if (hasUser && !hasSession) {
+            console.warn('⚠️ Incohérence: user présent mais pas de session cookie');
+            this.clearLocalData();
+            return false;
+        }
+        
+        return isAuth;
+    }
+
+    public getToken(): string | null {
+        return localStorage.getItem('token') || null;
+    }
+
+    // ============================================
+    // ✅ CONNEXION - CORRIGÉE POUR LARAVEL
+    // ============================================
+    
+    public async login(data: LoginData, userType: UserType = 'traveler'): Promise<AuthResponse> {
         console.log(`🔐 Tentative de login ${userType} avec:`, data.email || data.phone);
         
-        const response = await publicApi.post(endpoint, data);
-        
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            const userData = {
-                ...response.data.user,
-                user_type: userType,
-                role: userType
-            };
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('userType', userType);
-            this.currentUserType = userType;
+        try {
+            await refreshCsrfToken();
             
-            console.log(`✅ Login ${userType} réussi:`, userData);
-        }
-        return response.data;
-    }
-
-    // Connexion avec OTP (WhatsApp/SMS)
-    async loginWithOTP(data: OTPData, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/login-otp' : '/traveler/login-otp';
-        return publicApi.post(endpoint, data);
-    }
-
-    // Vérification OTP
-    async verifyOTP(data: VerifyOTPData, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/verify-otp' : '/traveler/verify-otp';
-        const response = await publicApi.post(endpoint, data);
-        
-        if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            const userData = {
-                ...response.data.user,
-                user_type: userType,
-                role: userType
+            // ✅ Utiliser l'endpoint standard de Laravel
+            const payload = {
+                ...data,
+                user_type: userType, // Optionnel car Laravel utilise le guard
+                remember: data.remember || false,
             };
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('userType', userType);
-            this.currentUserType = userType;
-        }
-        return response.data;
-    }
+            
+                // ✅ Construire le payload
+                const base = publicApi.defaults.baseURL || '';
+                const hasApiInBase = base.includes('/api');
 
-    // Envoi de code de vérification email
-    async sendVerificationCode(email: string, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/send-verification' : '/traveler/send-verification';
-        const response = await publicApi.post(endpoint, { email });
-        return response.data;
-    }
+                const candidatePaths = hasApiInBase
+                    ? ['/v1/auth/login', '/v1/traveler/login', '/traveler/login', '/login']
+                    : ['/api/v1/auth/login', '/api/v1/traveler/login', '/api/traveler/login', '/api/login'];
 
-    // Vérification du code email
-    async verifyEmail(email: string, code: string, userType: UserType = 'traveler') {
-        const endpoint = userType === 'host' ? '/host/verify-email' : '/traveler/verify-email';
-        const response = await publicApi.post(endpoint, { email, code });
-        
-        if (response.data.success && response.data.token) {
-            localStorage.setItem('token', response.data.token);
-            const userData = {
-                ...response.data.user,
-                user_type: userType,
-                role: userType,
-                is_verified: true
+                let response: any = null;
+                let lastError: any = null;
+
+                for (const ep of candidatePaths) {
+                    try {
+                        response = await publicApi.post(ep, payload);
+                        break;
+                    } catch (err: any) {
+                        lastError = err;
+                        const msg = err?.response?.data?.message || '';
+                        if (err?.response?.status === 404 && msg.includes('could not be found')) {
+                            console.warn(`⚠️ Endpoint ${ep} introuvable, essai du suivant...`);
+                            continue;
+                        }
+                        throw err;
+                    }
+                }
+
+                if (!response && lastError) throw lastError;
+            
+            console.log('📊 Réponse login:', response.data);
+            
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Erreur de connexion');
+            }
+            
+            // ✅ Extraire l'utilisateur
+            const userData = response.data.user || response.data;
+            
+            if (!userData) {
+                throw new Error('Données utilisateur manquantes dans la réponse');
+            }
+            
+            // ✅ Transformer les données
+            this.currentUser = {
+                ...userData,
+                user_type: userData.user_type || userType,
             };
-            localStorage.setItem('user', JSON.stringify(userData));
-            localStorage.setItem('userType', userType);
-            this.currentUserType = userType;
+            
+            // ✅ Stocker l'utilisateur
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
+            localStorage.setItem('userType', this.currentUser.user_type);
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            this.currentUserType = this.currentUser.user_type as UserType;
+            
+            this.notifyListeners();
+            
+            console.log('✅ Utilisateur connecté:', this.currentUser);
+            console.log('📋 Type utilisateur:', this.currentUser.user_type);
+            console.log('📋 Type hôte:', this.currentUser.host_type);
+            
+            return {
+                user: this.currentUser,
+                message: response.data.message || 'Connexion réussie',
+                token: response.data.token,
+            };
+            
+        } catch (error: any) {
+            console.error('❌ Erreur de login:', error);
+            throw this.handleError(error);
         }
-        return response.data;
     }
 
-    // Déconnexion
-    async logout(userType?: UserType) {
-        const type = userType || this.getUserType();
-        let endpoint = '';
-        
-        if (type === 'host') {
-            endpoint = '/host/logout';
-        } else if (type === 'traveler') {
-            endpoint = '/traveler/logout';
-        } else if (type === 'admin') {
-            endpoint = '/admin/logout';
-        } else {
-            endpoint = '/auth/logout';
-        }
+    // ============================================
+    // ✅ INSCRIPTION - CORRIGÉE POUR LARAVEL
+    // ============================================
+    
+    public async register(data: RegisterData, userType: UserType = 'traveler'): Promise<AuthResponse> {
+        console.log(`📝 Tentative d'inscription ${userType}...`);
+        console.log('📋 Données:', data);
         
         try {
-            const response = await v1Api.post(endpoint);
-            return response.data;
-        } finally {
-            // Toujours effacer les données locales même si l'API échoue
-            this.clearLocalData();
+            await refreshCsrfToken();
+            
+            // ✅ Construire le payload pour Laravel
+            const payload: any = {
+                first_name: data.first_name,
+                last_name: data.last_name,
+                email: data.email,
+                phone: data.phone,
+                password: data.password,
+                password_confirmation: data.password_confirmation,
+                user_type: userType,
+            };
+            
+            // ✅ Ajouter host_type si l'utilisateur est un hôte
+            if (userType === 'hote' && data.host_type) {
+                payload.host_type = data.host_type;
+                console.log('✅ Type hôte ajouté:', data.host_type);
+            }
+            
+            // ✅ Ajouter les propriétés si présentes
+            if (data.property_address) {
+                payload.property_address = data.property_address;
+            }
+            if (data.property_type) {
+                payload.property_type = data.property_type;
+            }
+            
+            // ✅ Construire dynamiquement la liste d'endpoints selon la baseURL pour éviter /api/api
+            const base = publicApi.defaults.baseURL || '';
+            const hasApiInBase = base.includes('/api');
+
+            const candidatePaths = hasApiInBase
+                ? ['/v1/auth/register', '/v1/traveler/register', '/traveler/register', '/register', '/auth/register']
+                : ['/api/v1/auth/register', '/api/v1/traveler/register', '/api/traveler/register', '/api/register', '/api/auth/register'];
+
+            let response: any = null;
+            let lastError: any = null;
+
+            for (const ep of candidatePaths) {
+                try {
+                    console.log(`🔄 Essai endpoint: ${ep}...`);
+                    response = await publicApi.post(ep, payload);
+                    console.log(`✅ Succès avec ${ep}`);
+                    break;
+                } catch (err: any) {
+                    lastError = err;
+                    const msg = err?.response?.data?.message || '';
+                    if (err?.response?.status === 404 && msg.includes('could not be found')) {
+                        console.warn(`⚠️ Endpoint ${ep} introuvable, essai du suivant...`);
+                        continue;
+                    }
+                    throw err;
+                }
+            }
+
+            if (!response && lastError) throw lastError;
+            
+            console.log('📊 Réponse register:', response.data);
+            
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Erreur d\'inscription');
+            }
+            
+            // ✅ Extraire l'utilisateur
+            const userData = response.data.user || response.data;
+            
+            if (!userData) {
+                throw new Error('Données utilisateur manquantes dans la réponse');
+            }
+            
+            // ✅ Transformer les données
+            // ⚠️ FORCE userType (paramètre) plutôt que userData.user_type
+            // Car le backend peut retourner 'traveler' même si on envoie 'hote'
+            this.currentUser = {
+                ...userData,
+                user_type: userType,
+                host_type: userData.host_type || null
+            };
+            
+            // ✅ Stocker l'utilisateur
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
+            localStorage.setItem('userType', userType);
+            if (response.data.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            this.currentUserType = this.currentUser.user_type as UserType;
+            
+            this.notifyListeners();
+            
+            console.log('✅ Utilisateur inscrit:', this.currentUser);
+            console.log('📋 Type hôte:', this.currentUser.host_type);
+            
+            return {
+                user: this.currentUser,
+                message: response.data.message || 'Inscription réussie',
+                token: response.data.token,
+            };
+            
+        } catch (error: any) {
+            console.error('❌ Erreur d\'inscription:', error);
+            throw this.handleError(error);
         }
     }
 
-    clearLocalData() {
+    // ============================================
+    // ✅ INSCRIPTION SPÉCIFIQUE POUR HÔTE
+    // ============================================
+    
+    public async registerHost(data: RegisterData): Promise<AuthResponse> {
+        console.log('🏠 Inscription en tant qu\'hôte...');
+        return this.register(data, 'hote');
+    }
+
+    // ============================================
+    // ✅ DÉCONNEXION
+    // ============================================
+    
+    public async logout(): Promise<void> {
+        console.log(`🚪 Déconnexion...`);
+        
+        try {
+            const base = publicApi.defaults.baseURL || '';
+            const logoutPath = base.includes('/api') ? '/logout' : '/api/logout';
+            await publicApi.post(logoutPath);
+            console.log('✅ Déconnexion API réussie');
+        } catch (error) {
+            console.warn('⚠️ Erreur lors de la déconnexion API:', error);
+        } finally {
+            this.clearLocalData();
+            this.notifyListeners();
+            console.log('✅ Déconnexion terminée');
+        }
+    }
+
+    // ============================================
+    // ✅ NETTOYAGE
+    // ============================================
+    
+    public clearLocalData(): void {
+        this.currentUser = null;
+        this.currentUserType = 'traveler';
+        
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('userType');
         localStorage.removeItem('userRole');
         localStorage.removeItem('isHost');
-        this.currentUserType = 'traveler';
-    }
-
-    // ==================== PROFIL UTILISATEUR ====================
-
-    // Récupérer le profil de l'utilisateur connecté
-    async getProfile() {
-        const userType = this.getUserType();
-        const endpoint = userType === 'host' ? '/host/profile' : '/traveler/profile';
-        const response = await v1Api.get(endpoint);
-        return response.data;
-    }
-
-    // Mettre à jour le profil
-    async updateProfile(data: UpdateProfileData) {
-        const userType = this.getUserType();
-        const endpoint = userType === 'host' ? '/host/profile' : '/traveler/profile';
-        const response = await v1Api.put(endpoint, data);
+        localStorage.removeItem('remember_token');
         
-        if (response.data.user) {
-            const currentUser = this.getCurrentUser();
-            const updatedUser = { ...currentUser, ...response.data.user };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
+        deleteCookie('laravel_session');
+        deleteCookie('PHPSESSID');
+        deleteCookie('XSRF-TOKEN');
+        deleteCookie('bluefin_session');
+    }
+
+    // ============================================
+    // ✅ PROFIL UTILISATEUR
+    // ============================================
+    
+    public async getProfile(): Promise<User> {
+        try {
+            console.log('👤 Récupération du profil...');
+            
+            if (!this.hasValidSession()) {
+                throw new Error('Session expirée');
+            }
+            
+            const response = await publicApi.get('/api/user');
+            console.log('📊 Réponse profil:', response.data);
+            
+            const userData = response.data.user || response.data;
+            
+            if (userData) {
+                // ⚠️ FORCE currentUserType au lieu de faire confiance au serveur
+                this.currentUser = {
+                    ...this.currentUser,
+                    ...userData,
+                    user_type: this.currentUserType,
+                    host_type: userData.host_type || this.currentUser.host_type || null
+                };
+                localStorage.setItem('user', JSON.stringify(this.currentUser));
+                localStorage.setItem('userType', this.currentUserType);
+            }
+            
+            console.log('✅ Profil récupéré:', this.currentUser?.email);
+            console.log('📋 Type utilisateur:', this.currentUser?.user_type);
+            console.log('📋 Type hôte:', this.currentUser?.host_type);
+            return this.currentUser!;
+        } catch (error) {
+            console.error('❌ Erreur getProfile:', error);
+            if ((error as any)?.response?.status === 401) {
+                this.clearLocalData();
+                this.notifyListeners();
+            }
+            throw this.handleError(error);
         }
-        return response.data;
     }
 
-    // Changer le mot de passe
-    async changePassword(data: ChangePasswordData) {
-        const userType = this.getUserType();
-        const endpoint = userType === 'host' ? '/host/profile/change-password' : '/traveler/profile/change-password';
-        const response = await v1Api.post(endpoint, data);
-        return response.data;
-    }
-
-    // Upload de la photo de profil
-    async uploadProfilePhoto(photo: File) {
-        const formData = new FormData();
-        formData.append('photo', photo);
-        const userType = this.getUserType();
-        const endpoint = userType === 'host' ? '/host/profile/photo' : '/traveler/profile/photo';
-        const response = await v1Api.post(endpoint, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        
-        if (response.data.user) {
-            const currentUser = this.getCurrentUser();
-            const updatedUser = { ...currentUser, ...response.data.user };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
+    public async refreshUser(): Promise<User | null> {
+        try {
+            return await this.getProfile();
+        } catch (error) {
+            console.error('❌ Erreur refreshUser:', error);
+            return this.currentUser;
         }
-        return response.data;
     }
 
-    // Vérification d'identité (CNI, passeport)
-    async verifyIdentity(document: File, documentType: 'cni' | 'passeport') {
-        const formData = new FormData();
-        formData.append('identity_document', document);
-        formData.append('document_type', documentType);
-        const response = await v1Api.post('/auth/verify-identity', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        
-        if (response.data.user) {
-            const currentUser = this.getCurrentUser();
-            const updatedUser = { ...currentUser, ...response.data.user };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-        }
-        return response.data;
-    }
-
-    // ==================== FAVORIS ====================
-
-    // Récupérer les favoris
-    async getFavorites() {
-        const response = await v1Api.get('/traveler/favorites');
-        return response.data;
-    }
-
-    // Ajouter/Retirer des favoris
-    async toggleFavorite(propertyId: number) {
-        const response = await v1Api.post(`/traveler/favorites/${propertyId}/toggle`);
-        return response.data;
-    }
-
-    // Vérifier si une propriété est en favori
-    async checkFavorite(propertyId: number) {
-        const response = await v1Api.get(`/traveler/favorites/${propertyId}/check`);
-        return response.data;
-    }
-
-    // ==================== RÉSERVATIONS VOYAGEUR ====================
-
-    // Récupérer les réservations
-    async getBookings() {
-        const response = await v1Api.get('/traveler/bookings');
-        return response.data;
-    }
-
-    // Annuler une réservation
-    async cancelBooking(bookingId: number) {
-        const response = await v1Api.post(`/traveler/bookings/${bookingId}/cancel`);
-        return response.data;
-    }
-
-    // ==================== RÉSERVATIONS HÔTE ====================
-
-    // Récupérer les réservations en tant qu'hôte
-    async getHostBookings() {
-        const response = await v1Api.get('/host/bookings');
-        return response.data;
-    }
-
-    // Confirmer une réservation
-    async confirmBooking(bookingId: number, notes?: string) {
-        const response = await v1Api.post(`/host/bookings/${bookingId}/confirm`, { notes });
-        return response.data;
-    }
-
-    // Refuser une réservation
-    async declineBooking(bookingId: number, reason?: string) {
-        const response = await v1Api.post(`/host/bookings/${bookingId}/decline`, { reason });
-        return response.data;
-    }
-
-    // ==================== UTILITAIRES ====================
-
-    // Récupérer l'utilisateur courant depuis localStorage
-    getCurrentUser() {
-        const user = localStorage.getItem('user');
-        return user ? JSON.parse(user) : null;
-    }
-
-    // Vérifier si l'utilisateur est connecté
-    isAuthenticated() {
-        return !!localStorage.getItem('token');
-    }
-
-    // Récupérer le token JWT
-    getToken() {
-        return localStorage.getItem('token');
-    }
-
-    // Mettre à jour le type d'utilisateur dans le localStorage
-    updateUserType(type: UserType) {
+    // ============================================
+    // ✅ GESTION DU TYPE D'UTILISATEUR
+    // ============================================
+    
+    public setUserType(type: UserType) {
         this.currentUserType = type;
         localStorage.setItem('userType', type);
-        localStorage.setItem('userRole', type);
-        if (type === 'host') {
-            localStorage.setItem('isHost', 'true');
-        } else {
-            localStorage.removeItem('isHost');
+        if (this.currentUser) {
+            this.currentUser.user_type = type;
+            localStorage.setItem('user', JSON.stringify(this.currentUser));
         }
+        this.notifyListeners();
     }
 
-    // Convertir un voyageur en hôte
-    async convertToHost(userId: number) {
+    public getUserType(): UserType {
+        const stored = localStorage.getItem('userType') as UserType;
+        if (stored && ['traveler', 'hote', 'admin'].includes(stored)) {
+            this.currentUserType = stored;
+            return stored;
+        }
+        return this.currentUserType;
+    }
+
+    public isHost(): boolean {
+        return this.getUserType() === 'hote';
+    }
+
+    public isTraveler(): boolean {
+        return this.getUserType() === 'traveler';
+    }
+
+    public isAdmin(): boolean {
+        return this.getUserType() === 'admin';
+    }
+
+    // ============================================
+    // ✅ MÉTHODES SPÉCIFIQUES POUR LES HÔTES
+    // ============================================
+    
+    public isHostLogement(): boolean {
+        return this.isHost() && this.currentUser?.host_type === 'logement';
+    }
+
+    public isHostExperience(): boolean {
+        return this.isHost() && this.currentUser?.host_type === 'experience';
+    }
+
+    public isHostService(): boolean {
+        return this.isHost() && this.currentUser?.host_type === 'service';
+    }
+
+    public getHostType(): 'logement' | 'experience' | 'service' | null {
+        if (!this.isHost()) return null;
+        return this.currentUser?.host_type || null;
+    }
+
+    public getHostTypeLabel(): string {
+        const types = {
+            'logement': '🏠 Logement',
+            'experience': '🎯 Expérience',
+            'service': '🔧 Service'
+        };
+        const hostType = this.getHostType();
+        return hostType ? types[hostType] : 'Non défini';
+    }
+
+    public getHostTypeColor(): string {
+        const colors = {
+            'logement': 'bg-blue-100 text-blue-800',
+            'experience': 'bg-purple-100 text-purple-800',
+            'service': 'bg-orange-100 text-orange-800'
+        };
+        const hostType = this.getHostType();
+        return hostType ? colors[hostType] : 'bg-gray-100 text-gray-800';
+    }
+
+    public async updateHostType(hostType: 'logement' | 'experience' | 'service'): Promise<User> {
         try {
-            const response = await v1Api.patch('/users/convert-to-host', { user_id: userId });
+            const response = await publicApi.post('/api/users/update-host-type', {
+                host_type: hostType
+            });
             
-            if (response.data.success) {
-                this.updateUserType('host');
-                const currentUser = this.getCurrentUser();
-                if (currentUser) {
-                    const updatedUser = {
-                        ...currentUser,
-                        user_type: 'host',
-                        role: 'host',
-                        isHost: true,
-                        becameHostAt: new Date().toISOString()
-                    };
-                    localStorage.setItem('user', JSON.stringify(updatedUser));
-                }
-                return response.data;
+            const userData = response.data.user || response.data;
+            if (userData) {
+                this.currentUser = { ...this.currentUser, ...userData };
+                localStorage.setItem('user', JSON.stringify(this.currentUser));
             }
-            return response.data;
+            
+            console.log('✅ Type d\'hôte mis à jour:', hostType);
+            return this.currentUser!;
         } catch (error) {
-            console.error('Erreur lors de la conversion en hôte:', error);
-            throw error;
+            console.error('❌ Erreur updateHostType:', error);
+            throw this.handleError(error);
         }
     }
 
-/**
- * Récupère les informations de paiement complètes d'un hôte
- */
-async getHostPaymentInfo(hostId: string): Promise<{ data: any }> {
-  const response = await v1Api.get(`/admin/hosts/${hostId}/payment-info`);
-  return response.data;
-}
+    // ============================================
+    // ✅ GESTION DES ERREURS
+    // ============================================
+    
+    private handleError(error: any): Error {
+        let message = 'Une erreur est survenue';
+        
+        if (error.response) {
+            const data = error.response.data;
+            
+            // ✅ Erreurs de validation Laravel
+            if (data.errors) {
+                const messages = Object.values(data.errors).flat();
+                message = messages.join(', ');
+            } else {
+                message = data.message || data.error || message;
+            }
+            
+            if (error.response.status === 419) {
+                message = 'Erreur de sécurité. Veuillez rafraîchir la page et réessayer.';
+                refreshCsrfToken();
+            }
+            
+            if (error.response.status === 401) {
+                message = 'Session expirée. Veuillez vous reconnecter.';
+                this.clearLocalData();
+                this.notifyListeners();
+            }
+            
+            if (error.response.status === 403) {
+                message = data.message || 'Accès non autorisé.';
+            }
+        } else if (error.request) {
+            message = 'Impossible de contacter le serveur. Vérifiez votre connexion.';
+        } else {
+            message = error.message || message;
+        }
+        
+        toast.error(message);
+        return new Error(message);
+    }
 }
 
-export default new AuthService();
+// ✅ Export du singleton
+export default AuthService.getInstance();
+export { AuthService };

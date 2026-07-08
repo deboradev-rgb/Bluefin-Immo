@@ -5,6 +5,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { CheckCircle, XCircle, Loader2, Home } from 'lucide-react';
 import { fedapayService } from '../../services/fedapay.service';
+import bookingService from '../../services/booking.service';
 
 interface FedapayCallbackPageProps {
   onNavigate?: (route: any) => void;
@@ -35,19 +36,53 @@ export function FedapayCallbackPage({ onNavigate }: FedapayCallbackPageProps) {
 
       try {
         // Vérifier le statut de la transaction
-       const response = await fedapayService.getTransactionStatus(transId);
-       
-        if (response.status === 'success') {  // ✅ Vérifier directement le statut
-  setStatus('success');
+        const response = await fedapayService.getTransactionStatus(transId);
+        
+        if (response.status === 'success') {
+          let createdBookingId = bookingIdParam || sessionStorage.getItem('fedapay_booking_id');
+          const storedBookingData = sessionStorage.getItem('fedapay_booking_data');
+
+          if (!createdBookingId && storedBookingData) {
+            try {
+              const bookingData = JSON.parse(storedBookingData);
+              console.log('📤 Création de la réservation après paiement:', bookingData);
+
+              const bookingResponse = await bookingService.create(bookingData);
+              createdBookingId = bookingResponse?.booking?.id 
+                || bookingResponse?.data?.booking?.id 
+                || bookingResponse?.data?.id 
+                || bookingResponse?.id?.toString();
+
+              if (createdBookingId) {
+                sessionStorage.setItem('fedapay_booking_id', createdBookingId.toString());
+              }
+            } catch (bookingError: any) {
+              console.error('❌ Erreur création réservation après paiement:', bookingError);
+              setStatus('failed');
+              setError(bookingError.message || 'Erreur lors de la création de la réservation');
+              toast.error('❌ Échec création réservation après paiement');
+              setLoading(false);
+              return;
+            }
+          }
+
+          setStatus('success');
           toast.success('✅ Paiement confirmé !');
           
           // Sauvegarder la transaction
           sessionStorage.setItem('fedapay_payment_success', 'true');
           sessionStorage.setItem('fedapay_transaction_id', transId);
           
-          // Rediriger vers l'accueil après 3 secondes
+          // Rediriger vers la confirmation ou l'accueil après 3 secondes
           setTimeout(() => {
-            if (onNavigate) {
+            if (createdBookingId) {
+              const confirmationRoute = `/reserver/confirmation/${createdBookingId}`;
+              if (onNavigate) {
+                onNavigate({ name: 'confirmation', id: createdBookingId.toString() });
+              } else {
+                navigate(confirmationRoute);
+              }
+            } else if (onNavigate) {
               onNavigate({ name: 'home' });
             } else {
               navigate('/');

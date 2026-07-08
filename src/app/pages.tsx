@@ -16,8 +16,9 @@ import LogoUrl from './assets/Bluefin Immo_01.jpg.jpeg';
 import { useInquiryMessages } from './hooks/useInquiryMessages';
 import { PaymentInfoModal } from './components/PaymentInfoModal';
 import { fedapayService } from '../services/fedapay.service';
-
 import { useTheme } from '../contexts/ThemeContext';
+import { publicApi } from '../services/api'; 
+import { ExperienceDetailModal } from './components/ExperienceDetailModal';
 
 
 import { IdentityVerification } from './components/IdentityVerification';
@@ -34,13 +35,20 @@ import propertyService from '../services/property.service';
 import authService from '../services/auth.service';
 import adminService from '../services/admin.service';
 import { PageSection } from './components/PageSection';
-import hostService from '../services/host.service';
+import hostService, { type HostExperience, type HostExperienceConversation, type HostExperienceFormData } from '../services/host.service';
 import bookingService from '../services/booking.service';
 import temporaryBookingService from '../services/temporaryBooking.service';
 
 import { toast } from 'react-hot-toast';
-import { getImageUrl } from './utils/imageHelper';
-import type { Route } from './router';
+import { 
+  getImageUrl,
+  getFirstExperienceImage,
+  getItemImages,
+  getExperienceSteps,
+  getProgramSteps,
+  getAvailableDates,
+  PLACEHOLDER_IMAGE 
+} from './utils/imageHelper';
 import messageService, { Conversation, Message } from '../services/message.service';
 
 import { 
@@ -51,9 +59,9 @@ import {
   FileText, Send, MessageCircle,PlusCircle,RefreshCw,Printer ,Download ,FileSpreadsheet ,FileJson ,
   Mail,Reply, Wifi,Wind,Coffee ,Car,Baby,Dog,ZoomIn,
   Settings,  Calendar as CalendarIcon, Plus,Banknote,
-  Bell,Search ,Monitor,Tablet, Menu, TrendingUp, 
+  Bell,Search ,Monitor,Tablet, Menu, TrendingUp,Pencil , Minus,
   AlertCircle, Eye, Lock, EyeOff, Compass,Briefcase,Edit2,LogOut,Shield, Fingerprint, User, Trash2 ,
-   ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users,
+   ChevronLeft, ChevronRight, ArrowRight, ArrowLeft, Globe, X, Users, Lightbulb,
   MapPin, Bath, Bed, Filter, ChevronDown, Share2, Award, Crown, Key, Smartphone, Phone, Camera, Image
 } from 'lucide-react';
 
@@ -2087,178 +2095,178 @@ const allExperiences = [
 ];
 
 
-// ==================== SERVICES PAGE ====================
-const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () => void }) => {
-  const [currentImage, setCurrentImage] = useState(0);
-  const [showAllDetails, setShowAllDetails] = useState(false);
+// // ==================== SERVICES PAGE ====================
+// const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () => void }) => {
+//   const [currentImage, setCurrentImage] = useState(0);
+//   const [showAllDetails, setShowAllDetails] = useState(false);
 
-  const nextImage = () => setCurrentImage((prev) => (prev + 1) % service.images.length);
-  const prevImage = () => setCurrentImage((prev) => (prev - 1 + service.images.length) % service.images.length);
+//   const nextImage = () => setCurrentImage((prev) => (prev + 1) % service.images.length);
+//   const prevImage = () => setCurrentImage((prev) => (prev - 1 + service.images.length) % service.images.length);
 
-  const getServiceSteps = (service: any) => [
-    `Prise de contact et confirmation de rendez-vous à ${service.location}`,
-    `Déroulement du service selon vos besoins spécifiques`,
-    `Réalisation de la prestation par un professionnel qualifié`,
-    `Suivi de satisfaction et facturation`,
-  ];
+//   const getServiceSteps = (service: any) => [
+//     `Prise de contact et confirmation de rendez-vous à ${service.location}`,
+//     `Déroulement du service selon vos besoins spécifiques`,
+//     `Réalisation de la prestation par un professionnel qualifié`,
+//     `Suivi de satisfaction et facturation`,
+//   ];
 
-  const serviceSteps = getServiceSteps(service);
+//   const serviceSteps = getServiceSteps(service);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 text-[#0F2940]">
-      <div className="mx-auto max-w-6xl bg-white rounded-[32px] shadow-2xl overflow-hidden">
-        {/* En-tête */}
-        <div className="flex flex-col gap-4 border-b border-gray-200 p-6 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-sm text-gray-500">{service.location}</p>
-            <h2 className="text-3xl font-semibold text-[#0F2940] mt-2">{service.title}</h2>
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <span>{service.rating} · {service.reviews} évaluations</span>
-              <span>Hôte : {service.hostType}</span>
-              <span>À partir de {service.price} € / {service.priceType}</span>
-            </div>
-          </div>
-          <button onClick={onClose} className="rounded-full border border-gray-200 bg-white p-3 text-gray-700 hover:bg-gray-100">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+//   return (
+//     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 text-[#0F2940]">
+//       <div className="mx-auto max-w-6xl bg-white rounded-[32px] shadow-2xl overflow-hidden">
+//         {/* En-tête */}
+//         <div className="flex flex-col gap-4 border-b border-gray-200 p-6 lg:flex-row lg:items-start lg:justify-between">
+//           <div className="max-w-3xl">
+//             <p className="text-sm text-gray-500">{service.location}</p>
+//             <h2 className="text-3xl font-semibold text-[#0F2940] mt-2">{service.title}</h2>
+//             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+//               <span>{service.rating} · {service.reviews} évaluations</span>
+//               <span>Hôte : {service.hostType}</span>
+//               <span>À partir de {service.price} € / {service.priceType}</span>
+//             </div>
+//           </div>
+//           <button onClick={onClose} className="rounded-full border border-gray-200 bg-white p-3 text-gray-700 hover:bg-gray-100">
+//             <X className="w-5 h-5" />
+//           </button>
+//         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr] p-6">
-          {/* Colonne gauche - Détails */}
-          <div className="space-y-6">
-            {/* Galerie d'images */}
-            <div className="relative">
-              <div className="grid grid-cols-4 gap-2">
-                {service.images.slice(0, 4).map((img: string, idx: number) => (
-                  <img 
-                    key={idx} 
-                    src={img} 
-                    alt={`Photo ${idx + 1}`} 
-                    className="h-32 w-full rounded-xl object-cover cursor-pointer hover:opacity-80 transition-opacity" 
-                    onClick={() => setCurrentImage(idx)}
-                  />
-                ))}
-              </div>
-              <div className="relative mt-2 overflow-hidden rounded-2xl">
-                <img 
-                  src={service.images[currentImage]} 
-                  alt={service.title} 
-                  className="w-full h-96 object-cover transition-all duration-300" 
-                />
-                {service.images.length > 1 && (
-                  <>
-                    <button 
-                      onClick={prevImage} 
-                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur rounded-full p-2 hover:bg-white transition-all"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                    <button 
-                      onClick={nextImage} 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur rounded-full p-2 hover:bg-white transition-all"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                      {service.images.map((_: string, idx: number) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentImage(idx)}
-                          className={`w-2 h-2 rounded-full transition-all ${currentImage === idx ? 'w-6 bg-white' : 'bg-white/50'}`}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+//         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr] p-6">
+//           {/* Colonne gauche - Détails */}
+//           <div className="space-y-6">
+//             {/* Galerie d'images */}
+//             <div className="relative">
+//               <div className="grid grid-cols-4 gap-2">
+//                 {service.images.slice(0, 4).map((img: string, idx: number) => (
+//                   <img 
+//                     key={idx} 
+//                     src={img} 
+//                     alt={`Photo ${idx + 1}`} 
+//                     className="h-32 w-full rounded-xl object-cover cursor-pointer hover:opacity-80 transition-opacity" 
+//                     onClick={() => setCurrentImage(idx)}
+//                   />
+//                 ))}
+//               </div>
+//               <div className="relative mt-2 overflow-hidden rounded-2xl">
+//                 <img 
+//                   src={service.images[currentImage]} 
+//                   alt={service.title} 
+//                   className="w-full h-96 object-cover transition-all duration-300" 
+//                 />
+//                 {service.images.length > 1 && (
+//                   <>
+//                     <button 
+//                       onClick={prevImage} 
+//                       className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur rounded-full p-2 hover:bg-white transition-all"
+//                     >
+//                       <ChevronLeft className="w-6 h-6" />
+//                     </button>
+//                     <button 
+//                       onClick={nextImage} 
+//                       className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur rounded-full p-2 hover:bg-white transition-all"
+//                     >
+//                       <ChevronRight className="w-6 h-6" />
+//                     </button>
+//                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+//                       {service.images.map((_: string, idx: number) => (
+//                         <button
+//                           key={idx}
+//                           onClick={() => setCurrentImage(idx)}
+//                           className={`w-2 h-2 rounded-full transition-all ${currentImage === idx ? 'w-6 bg-white' : 'bg-white/50'}`}
+//                         />
+//                       ))}
+//                     </div>
+//                   </>
+//                 )}
+//               </div>
+//             </div>
 
-            {/* Description */}
-            <div>
-              <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Description</h3>
-              <p className="text-gray-700 leading-relaxed">{service.longDescription || service.description}</p>
-            </div>
+//             {/* Description */}
+//             <div>
+//               <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Description</h3>
+//               <p className="text-gray-700 leading-relaxed">{service.longDescription || service.description}</p>
+//             </div>
 
-            {/* Déroulement du service */}
-            <div>
-              <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Déroulement</h3>
-              <div className="space-y-3">
-                {serviceSteps.map((step: string, idx: number) => (
-                  <div key={idx} className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="font-semibold">{`Étape ${idx + 1}`}</p>
-                    <p className="mt-2 text-sm text-gray-600">{step}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+//             {/* Déroulement du service */}
+//             <div>
+//               <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Déroulement</h3>
+//               <div className="space-y-3">
+//                 {serviceSteps.map((step: string, idx: number) => (
+//                   <div key={idx} className="rounded-3xl border border-gray-200 bg-gray-50 p-4">
+//                     <p className="font-semibold">{`Étape ${idx + 1}`}</p>
+//                     <p className="mt-2 text-sm text-gray-600">{step}</p>
+//                   </div>
+//                 ))}
+//               </div>
+//             </div>
 
-            {/* Équipements inclus */}
-            <div>
-              <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Ce qui est inclus</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Service professionnel</div>
-                <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Personnel qualifié</div>
-                <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Matériel fourni</div>
-                <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Assistance prioritaire</div>
-              </div>
-            </div>
+//             {/* Équipements inclus */}
+//             <div>
+//               <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Ce qui est inclus</h3>
+//               <div className="grid grid-cols-2 gap-3">
+//                 <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Service professionnel</div>
+//                 <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Personnel qualifié</div>
+//                 <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Matériel fourni</div>
+//                 <div className="flex items-center gap-2 text-gray-700"><Check className="w-5 h-5 text-[#00c9a7]" />Assistance prioritaire</div>
+//               </div>
+//             </div>
 
-            {/* Avis clients */}
-            <div>
-              <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Avis des clients</h3>
-              <div className="space-y-4">
-                {service.reviews?.map((review: any, idx: number) => (
-                  <div key={idx} className="rounded-3xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-[#0F2940]">{review.name}</p>
-                        <p className="text-sm text-gray-500">{review.location} · {review.daysAgo}</p>
-                      </div>
-                      <span className="rounded-full bg-[#00c9a7]/10 px-3 py-1 text-sm text-[#0F2940]">{review.rating.toFixed(1)}</span>
-                    </div>
-                    <p className="mt-3 text-sm text-gray-700">{review.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+//             {/* Avis clients */}
+//             <div>
+//               <h3 className="text-xl font-semibold text-[#0F2940] mb-4">Avis des clients</h3>
+//               <div className="space-y-4">
+//                 {service.reviews?.map((review: any, idx: number) => (
+//                   <div key={idx} className="rounded-3xl border border-gray-200 p-4">
+//                     <div className="flex items-center justify-between gap-3">
+//                       <div>
+//                         <p className="font-semibold text-[#0F2940]">{review.name}</p>
+//                         <p className="text-sm text-gray-500">{review.location} · {review.daysAgo}</p>
+//                       </div>
+//                       <span className="rounded-full bg-[#00c9a7]/10 px-3 py-1 text-sm text-[#0F2940]">{review.rating.toFixed(1)}</span>
+//                     </div>
+//                     <p className="mt-3 text-sm text-gray-700">{review.text}</p>
+//                   </div>
+//                 ))}
+//               </div>
+//             </div>
+//           </div>
 
-          {/* Colonne droite - Réservation */}
-          <aside className="space-y-6 rounded-3xl border border-gray-200 bg-[#f8fafb] p-6">
-            {/* Prix */}
-            <div className="text-center">
-              <span className="text-4xl font-bold text-[#0F2940]">{service.price} €</span>
-              <span className="text-gray-500"> / {service.priceType}</span>
-            </div>
+//           {/* Colonne droite - Réservation */}
+//           <aside className="space-y-6 rounded-3xl border border-gray-200 bg-[#f8fafb] p-6">
+//             {/* Prix */}
+//             <div className="text-center">
+//               <span className="text-4xl font-bold text-[#0F2940]">{service.price} €</span>
+//               <span className="text-gray-500"> / {service.priceType}</span>
+//             </div>
 
-            {/* À savoir */}
-            <div>
-              <p className="text-sm font-semibold text-gray-700">À savoir</p>
-              <ul className="mt-4 space-y-3 text-sm text-gray-600">
-                <li className="flex items-center gap-2"><Calendar className="w-4 h-4 text-[#00c9a7]" />Durée : {service.duration}</li>
-                <li className="flex items-center gap-2"><Users className="w-4 h-4 text-[#00c9a7]" />Service personnalisé</li>
-                <li className="flex items-center gap-2"><Star className="w-4 h-4 text-[#00c9a7]" />Service professionnel certifié</li>
-                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#00c9a7]" />Annulation gratuite 24h avant</li>
-              </ul>
-            </div>
+//             {/* À savoir */}
+//             <div>
+//               <p className="text-sm font-semibold text-gray-700">À savoir</p>
+//               <ul className="mt-4 space-y-3 text-sm text-gray-600">
+//                 <li className="flex items-center gap-2"><Calendar className="w-4 h-4 text-[#00c9a7]" />Durée : {service.duration}</li>
+//                 <li className="flex items-center gap-2"><Users className="w-4 h-4 text-[#00c9a7]" />Service personnalisé</li>
+//                 <li className="flex items-center gap-2"><Star className="w-4 h-4 text-[#00c9a7]" />Service professionnel certifié</li>
+//                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-[#00c9a7]" />Annulation gratuite 24h avant</li>
+//               </ul>
+//             </div>
 
-            {/* Lieu */}
-            <div className="rounded-3xl bg-white p-4 shadow-sm">
-              <p className="text-sm text-gray-500">Lieu du service</p>
-              <p className="mt-2 font-medium text-[#0F2940]">{service.location}</p>
-            </div>
+//             {/* Lieu */}
+//             <div className="rounded-3xl bg-white p-4 shadow-sm">
+//               <p className="text-sm text-gray-500">Lieu du service</p>
+//               <p className="mt-2 font-medium text-[#0F2940]">{service.location}</p>
+//             </div>
 
-            {/* Bouton de réservation */}
-            <button className="w-full rounded-full bg-[#00c9a7] px-5 py-3 text-sm font-semibold text-[#0F2940] hover:bg-[#00b892] transition-colors shadow-md hover:shadow-lg">
-              Réserver ce service
-            </button>
-            <p className="text-center text-xs text-gray-500">Aucun débit pour le moment</p>
-          </aside>
-        </div>
-      </div>
-    </div>
-  );
-};
+//             {/* Bouton de réservation */}
+//             <button className="w-full rounded-full bg-[#00c9a7] px-5 py-3 text-sm font-semibold text-[#0F2940] hover:bg-[#00b892] transition-colors shadow-md hover:shadow-lg">
+//               Réserver ce service
+//             </button>
+//             <p className="text-center text-xs text-gray-500">Aucun débit pour le moment</p>
+//           </aside>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 
 
@@ -2727,6 +2735,16 @@ const AmenitiesDisplay = ({ amenities, showAll, onToggle }: { amenities: string[
 // ============================================
 // COMPOSANT PRINCIPAL PROPERTY DETAIL MODAL
 // ============================================
+
+
+interface PropertyDetailModalProps {
+  property: any;
+  onClose: () => void;
+  onReserve?: () => void;
+  onChat?: (hostId: string) => void;
+  onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
+}
+
 export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({ 
   property, 
   onClose, 
@@ -2734,10 +2752,12 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   onChat,
   onNavigate  
 }) => {
+  // ✅ Utiliser useAuth pour l'authentification
+  const { isAuthenticated, user } = useAuth();
+  
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const { isAuthenticated, user } = useAuth();
   
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
@@ -2908,6 +2928,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
   const serviceFeeFormatted = formatCurrency(serviceFee);
   const totalFormatted = formatCurrency(total);
 
+  // ✅ Action avec vérification d'authentification
   const handleAuthenticatedAction = (action: () => void, intent: string) => {
     if (!isAuthenticated) {
       localStorage.setItem('redirect_intent', intent);
@@ -2997,132 +3018,122 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     ];
   };
 
-  // ✅ FONCTION DE RÉSERVATION CORRIGÉE AVEC SAUVEGARDE COMPLÈTE
+  // ✅ FONCTION DE RÉSERVATION CORRIGÉE
+  const handleReservationClick = () => {
+    if (availabilityStatus !== 'available') {
+      alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
+      return;
+    }
 
-const handleReservationClick = () => {
-  if (availabilityStatus !== 'available') {
-    alert('Ce logement n\'est pas disponible pour les dates sélectionnées.');
-    return;
-  }
+    const isLoggedIn = isAuthenticated;
 
-  const token = localStorage.getItem('token');
-  const isLoggedIn = !!token;
+    const totalGuests = adults + children + babies + pets;
 
-  // ✅ Calculer le total des voyageurs
-  const totalGuests = adults + children + babies + pets;
+    console.log('💾 Sauvegarde des données - Valeurs actuelles:', {
+      adults,
+      children,
+      babies,
+      pets,
+      totalGuests,
+      checkIn,
+      checkOut,
+      nights,
+      propertyId: property.id,
+      isLoggedIn,
+      user
+    });
 
-  console.log('💾 Sauvegarde des données - Valeurs actuelles:', {
-    adults,
-    children,
-    babies,
-    pets,
-    totalGuests,
-    checkIn,
-    checkOut,
-    nights,
-    propertyId: property.id
-  });
-
-  if (!isLoggedIn) {
-    // ✅ Sauvegarder TOUS les détails dans localStorage
-    localStorage.setItem('redirect_intent', 'booking');
-    localStorage.setItem('redirect_property_id', property.id.toString());
-    localStorage.setItem('redirect_property_title', property.title);
-    localStorage.setItem('redirect_property_location', property.location);
-    localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
-    localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
-    
-    // ✅ Sauvegarder les données de réservation
-    localStorage.setItem('temp_booking_check_in', checkIn);
-    localStorage.setItem('temp_booking_check_out', checkOut);
-    localStorage.setItem('temp_booking_guests', totalGuests.toString());
-    localStorage.setItem('temp_booking_nights', nights.toString());
-    localStorage.setItem('temp_booking_adults', adults.toString());
-    localStorage.setItem('temp_booking_children', children.toString());
-    localStorage.setItem('temp_booking_babies', babies.toString());
-    localStorage.setItem('temp_booking_pets', pets.toString());
-    localStorage.setItem('temp_booking_property_id', property.id.toString());
-    
-    // ✅ Sauvegarder aussi dans sessionStorage (pour la redirection)
-    const bookingData = {
-      property_id: property.id,
-      property_title: property.title,
-      check_in: checkIn,
-      check_out: checkOut,
-      guests: totalGuests,
-      adults: adults,
-      children: children,
-      babies: babies,
-      pets: pets,
-      nights: nights,
-      guest_details: {}
-    };
-    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-    
-    console.log('💾 Données sauvegardées pour non-connecté:', bookingData);
-    
-    if (onNavigate) {
-      onNavigate({ name: 'auth', search: 'redirect=booking' });
+    if (!isLoggedIn) {
+      localStorage.setItem('redirect_intent', 'booking');
+      localStorage.setItem('redirect_property_id', property.id.toString());
+      localStorage.setItem('redirect_property_title', property.title);
+      localStorage.setItem('redirect_property_location', property.location);
+      localStorage.setItem('redirect_property_price', property.price?.toString() || '0');
+      localStorage.setItem('redirect_property_image', property.image || property.images?.[0] || '');
+      
+      localStorage.setItem('temp_booking_check_in', checkIn);
+      localStorage.setItem('temp_booking_check_out', checkOut);
+      localStorage.setItem('temp_booking_guests', totalGuests.toString());
+      localStorage.setItem('temp_booking_nights', nights.toString());
+      localStorage.setItem('temp_booking_adults', adults.toString());
+      localStorage.setItem('temp_booking_children', children.toString());
+      localStorage.setItem('temp_booking_babies', babies.toString());
+      localStorage.setItem('temp_booking_pets', pets.toString());
+      localStorage.setItem('temp_booking_property_id', property.id.toString());
+      
+      const bookingData = {
+        property_id: property.id,
+        property_title: property.title,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests: totalGuests,
+        adults: adults,
+        children: children,
+        babies: babies,
+        pets: pets,
+        nights: nights,
+        guest_details: {}
+      };
+      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+      
+      console.log('💾 Données sauvegardées pour non-connecté:', bookingData);
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=booking' });
+      } else {
+        window.location.href = '/auth?redirect=booking';
+      }
     } else {
-      window.location.href = '/auth?redirect=booking';
+      console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
+      
+      const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
+      
+      const bookingData = {
+        property_id: property.id,
+        property_title: property.title,
+        check_in: checkIn,
+        check_out: checkOut,
+        guests: totalGuests,
+        adults: adults,
+        children: children,
+        babies: babies,
+        pets: pets,
+        nights: nights,
+        guest_details: {
+          full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+          email: userData?.email || '',
+          phone: userData?.phone || '',
+          address: ''
+        },
+        totalAmount: total,
+        paymentAmount: Math.floor(total * 0.5)
+      };
+      
+      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+      
+      const params = new URLSearchParams();
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+      params.set('guests', totalGuests.toString());
+      params.set('nights', nights.toString());
+      params.set('adults', adults.toString());
+      params.set('children', children.toString());
+      params.set('babies', babies.toString());
+      params.set('pets', pets.toString());
+      
+      console.log('📤 URL de redirection:', params.toString());
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'booking', 
+          id: property.id.toString(),
+          search: `?${params.toString()}`
+        });
+      } else {
+        window.location.href = `/booking/${property.id}?${params.toString()}`;
+      }
     }
-  } else {
-    console.log('✅ Utilisateur déjà connecté, redirection vers BookingPage');
-    
-    const userStr = localStorage.getItem('user');
-    let userData = null;
-    try {
-      userData = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      console.error('Erreur parsing user:', e);
-    }
-    
-    const bookingData = {
-      property_id: property.id,
-      property_title: property.title,
-      check_in: checkIn,
-      check_out: checkOut,
-      guests: totalGuests,
-      adults: adults,
-      children: children,
-      babies: babies,
-      pets: pets,
-      nights: nights,
-      guest_details: {
-        full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
-        email: userData?.email || '',
-        phone: userData?.phone || '',
-        address: ''
-      },
-      totalAmount: total,
-      paymentAmount: Math.floor(total * 0.5)
-    };
-    
-    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-    
-    const params = new URLSearchParams();
-    params.set('check_in', checkIn);
-    params.set('check_out', checkOut);
-    params.set('guests', totalGuests.toString());
-    params.set('nights', nights.toString());
-    params.set('adults', adults.toString());
-    params.set('children', children.toString());
-    params.set('babies', babies.toString());
-    params.set('pets', pets.toString());
-    
-    console.log('📤 URL de redirection:', params.toString());
-    
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'booking', 
-        id: property.id.toString(),
-        search: `?${params.toString()}`
-      });
-    } else {
-      window.location.href = `/booking/${property.id}?${params.toString()}`;
-    }
-  }
-};
+  };
 
   useEffect(() => {
     if (testimonials.length <= 1) return;
@@ -3138,7 +3149,7 @@ const handleReservationClick = () => {
 
   const cancellationRules = getCancellationRules();
 
-  // Galerie d'images
+  // ✅ Galerie d'images moderne
   const GalleryModal = () => {
     const [touchStartX, setTouchStartX] = useState(0);
     const [touchEndX, setTouchEndX] = useState(0);
@@ -3355,6 +3366,7 @@ const handleReservationClick = () => {
       
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
         <div className="min-h-screen pb-20">
+          {/* Header sticky */}
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
               <ArrowLeft className="w-5 h-5" />
@@ -3370,37 +3382,77 @@ const handleReservationClick = () => {
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            <div 
-              className="relative grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl overflow-hidden mb-4 sm:mb-6 cursor-pointer"
-              onClick={() => setIsGalleryOpen(true)}
-            >
-              <div className="col-span-2 row-span-2 overflow-hidden aspect-[4/3] relative">
-                <img 
-                  src={images[0]} 
-                  alt={property.title} 
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" 
-                />
-                <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs sm:text-sm px-3 py-1.5 rounded-lg backdrop-blur-sm flex items-center gap-1.5">
-                  <span>📸</span>
-                  <span className="hidden xs:inline">{images.length} photos</span>
-                </div>
-              </div>
-              {images.slice(1, 5).map((img, i) => (
-                <div key={i} className="overflow-hidden aspect-[4/3] hidden sm:block">
+            {/* ✅ Images - Design moderne avec image principale + miniatures */}
+            <div className="mb-6">
+              <div className="relative">
+                {/* Image principale */}
+                <div 
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group aspect-[16/9] bg-gray-100"
+                  onClick={() => setIsGalleryOpen(true)}
+                >
                   <img 
-                    src={img} 
-                    alt={`${property.title} - ${i + 2}`} 
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" 
+                    src={images[0] || `https://picsum.photos/seed/${property.id}/1200/800`} 
+                    alt={property.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${property.id}/1200/800`;
+                    }}
                   />
+                  {/* Badge "Voir toutes les photos" */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-black/80 transition">
+                      <Image className="w-4 h-4" />
+                      <span>Voir toutes les photos ({images.length})</span>
+                    </div>
+                  )}
                 </div>
-              ))}
+
+                {/* Miniatures */}
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {images.slice(1, 5).map((img, index) => (
+                      <div 
+                        key={index} 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#00c9a7] transition-all bg-gray-100"
+                        onClick={() => {
+                          setGalleryIndex(index + 1);
+                          setIsGalleryOpen(true);
+                        }}
+                      >
+                        <img 
+                          src={img || `https://picsum.photos/seed/${property.id}-${index+2}/400/300`} 
+                          alt={`${property.title} - ${index + 2}`} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${property.id}-${index+2}/400/300`;
+                          }}
+                        />
+                      </div>
+                    ))}
+                    {/* Si plus de 4 images supplémentaires, afficher un compteur */}
+                    {images.length > 5 && (
+                      <div 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer bg-black/80 flex items-center justify-center text-white font-bold text-xl hover:bg-black/90 transition"
+                        onClick={() => setIsGalleryOpen(true)}
+                      >
+                        +{images.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              {/* Colonne gauche - Détails */}
               <div className="flex-1 space-y-6 sm:space-y-8">
                 <div className="border-b pb-4">
-                  <div className="text-xs sm:text-sm text-gray-500">{property.property_type || 'Logement'} · {property.beds} chambres</div>
-                  <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">{property.title}</h1>
+                  <div className="text-xs sm:text-sm text-gray-500">
+                    {property.property_type || 'Logement'} · {property.beds} chambres
+                  </div>
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold text-[#0F2940] mt-2">
+                    {property.title}
+                  </h1>
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
                     <span className="font-medium text-sm">{property.rating}</span>
@@ -3428,7 +3480,9 @@ const handleReservationClick = () => {
                   </div>
                 </div>
                 
-                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">{property.description}</div>
+                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                  {property.description}
+                </div>
                 
                 <div className="border-t pt-6">
                   <div className="flex items-center justify-between mb-4">
@@ -3458,6 +3512,7 @@ const handleReservationClick = () => {
                     <img 
                       src={`https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${testimonials[currentTestimonial]?.name?.charAt(0) || 'U'}`} 
                       className="w-12 h-12 rounded-full border-2 border-[#00c9a7]" 
+                      alt="Client" 
                     />
                     <div>
                       <div className="font-semibold">{testimonials[currentTestimonial]?.name}</div>
@@ -3467,15 +3522,20 @@ const handleReservationClick = () => {
                 </div>
               </div>
 
+              {/* Colonne droite - Réservation */}
               <div className="lg:w-96 xl:w-[400px]">
                 <div className="sticky top-24 bg-white border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl">
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">{nightlyPrice.toLocaleString()} FCFA</span>
+                        <span className="text-2xl sm:text-3xl font-bold text-[#0F2940]">
+                          {nightlyPrice.toLocaleString()} FCFA
+                        </span>
                         <span className="text-gray-500 text-sm">/ nuit</span>
                       </div>
-                      <div className="text-xs text-[#00c9a7] mt-0.5">{nightlyPriceFormatted.euro}</div>
+                      <div className="text-xs text-[#00c9a7] mt-0.5">
+                        {nightlyPriceFormatted.euro}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
                       <Star className="w-4 h-4 fill-current text-[#00c9a7]" />
@@ -3542,9 +3602,19 @@ const handleReservationClick = () => {
                           <p className="text-[10px] text-gray-400">À partir de 13 ans</p>
                         </div>
                         <div className="flex gap-3">
-                          <button onClick={() => setAdults(Math.max(1, adults-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <button 
+                            onClick={() => setAdults(Math.max(1, adults-1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
                           <span className="min-w-[20px] text-center">{adults}</span>
-                          <button onClick={() => setAdults(adults+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          <button 
+                            onClick={() => setAdults(adults+1)} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       
@@ -3554,9 +3624,19 @@ const handleReservationClick = () => {
                           <p className="text-[10px] text-gray-400">De 2 à 12 ans</p>
                         </div>
                         <div className="flex gap-3">
-                          <button onClick={() => setChildren(Math.max(0, children-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <button 
+                            onClick={() => setChildren(Math.max(0, children-1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
                           <span className="min-w-[20px] text-center">{children}</span>
-                          <button onClick={() => setChildren(children+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          <button 
+                            onClick={() => setChildren(children+1)} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       
@@ -3566,9 +3646,19 @@ const handleReservationClick = () => {
                           <p className="text-[10px] text-gray-400">Moins de 2 ans</p>
                         </div>
                         <div className="flex gap-3">
-                          <button onClick={() => setBabies(Math.max(0, babies-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <button 
+                            onClick={() => setBabies(Math.max(0, babies-1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
                           <span className="min-w-[20px] text-center">{babies}</span>
-                          <button onClick={() => setBabies(babies+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          <button 
+                            onClick={() => setBabies(babies+1)} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       
@@ -3578,9 +3668,19 @@ const handleReservationClick = () => {
                           <p className="text-[10px] text-gray-400">Chiens, chats, etc.</p>
                         </div>
                         <div className="flex gap-3">
-                          <button onClick={() => setPets(Math.max(0, pets-1))} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">-</button>
+                          <button 
+                            onClick={() => setPets(Math.max(0, pets-1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
                           <span className="min-w-[20px] text-center">{pets}</span>
-                          <button onClick={() => setPets(pets+1)} className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors">+</button>
+                          <button 
+                            onClick={() => setPets(pets+1)} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
                         </div>
                       </div>
                       
@@ -3597,7 +3697,7 @@ const handleReservationClick = () => {
                       </div>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Frais de service </span>
+                      <span className="text-gray-600">Frais de service</span>
                       <div className="text-right">
                         <div>{serviceFeeFormatted.fCFA}</div>
                         <div className="text-xs text-gray-400">{serviceFeeFormatted.euro}</div>
@@ -3628,7 +3728,9 @@ const handleReservationClick = () => {
                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     }`}
                   >
-                    {availabilityStatus === 'available' ? 'Réserver' : availabilityStatus === 'checking' ? 'Vérification...' : 'Non disponible'}
+                    {availabilityStatus === 'available' ? 'Réserver' : 
+                     availabilityStatus === 'checking' ? 'Vérification...' : 
+                     'Non disponible'}
                   </button>
 
                   {onChat && hostId && (
@@ -4140,20 +4242,28 @@ interface AvailabilityCalendarProps {
   onDateSelect?: (checkIn: string, checkOut: string) => void;
 }
 
-const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({ 
-  propertyId, 
+// ============================================
+// COMPOSANT CALENDRIER DE DISPONIBILITÉ
+// ============================================
+const AvailabilityCalendar = ({ 
   checkIn, 
   checkOut, 
+  propertyId,
   onDateSelect 
+}: { 
+  checkIn: string; 
+  checkOut: string; 
+  propertyId: number;
+  onDateSelect: (start: string, end: string) => void;
 }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedStart, setSelectedStart] = useState<string | null>(checkIn || null);
-  const [selectedEnd, setSelectedEnd] = useState<string | null>(checkOut || null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [availabilityData, setAvailabilityData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedStart, setSelectedStart] = useState<string | null>(checkIn || null);
+  const [selectedEnd, setSelectedEnd] = useState<string | null>(checkOut || null);
   
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth() + 1;
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth() + 1;
 
   useEffect(() => {
     const fetchAvailability = async () => {
@@ -4178,33 +4288,16 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     fetchAvailability();
   }, [propertyId, year, month]);
 
-  const getDaysInMonth = (year: number, month: number) => {
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0);
-    const days: Date[] = [];
-    
-    const startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
-    for (let i = startPadding; i > 0; i--) {
-      const date = new Date(year, month - 1, 1 - i);
-      days.push(date);
-    }
-    
-    for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push(new Date(year, month - 1, i));
-    }
-    
-    const endPadding = 7 - (days.length % 7);
-    if (endPadding < 7) {
-      for (let i = 1; i <= endPadding; i++) {
-        const date = new Date(year, month, i);
-        days.push(date);
-      }
-    }
-    
-    return days;
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    return { days, firstDay };
   };
 
-  const days = getDaysInMonth(year, month);
+  const { days, firstDay } = getDaysInMonth(currentMonth);
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -4272,124 +4365,105 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
     return date.getMonth() === month - 1;
   };
 
-  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const totalNights = selectedStart && selectedEnd ? 
+    Math.ceil((new Date(selectedEnd).getTime() - new Date(selectedStart).getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => setCurrentDate(new Date(year, month - 2, 1))}
-          className="p-2 rounded-lg hover:bg-gray-100 transition"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-600" />
+    <div className="text-center">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronLeft className="w-4 h-4" />
         </button>
-        <h3 className="font-semibold text-gray-800">
-          {monthNames[month - 1]} {year}
-        </h3>
-        <button
-          onClick={() => setCurrentDate(new Date(year, month, 1))}
-          className="p-2 rounded-lg hover:bg-gray-100 transition"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-600" />
+        <span className="font-medium text-sm">
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </span>
+        <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-
-      <div className="grid grid-cols-7 gap-1 mb-2">
-        {dayNames.map((day) => (
-          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-            {day}
-          </div>
+      
+      <div className="grid grid-cols-7 gap-1 text-xs">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, i) => (
+          <div key={i} className="font-medium text-gray-500 py-1">{day}</div>
         ))}
+        {Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }).map((_, i) => (
+          <div key={`empty-${i}`} className="py-1" />
+        ))}
+        {Array.from({ length: days }, (_, i) => i + 1).map((day) => {
+          const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+          const isPast = isDateInPast(date);
+          const isBooked = isDateBooked(date);
+          const isAvailable = isDateAvailable(date);
+          const isSelected = isDateSelected(date);
+          const isInRange = isDateInRange(date);
+          const isCurrentMonthDay = isCurrentMonth(date);
+          
+          let bgColor = '';
+          let textColor = '';
+          let cursor = '';
+          let hoverEffect = '';
+          
+          if (!isCurrentMonthDay) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-default';
+          } else if (isPast) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-gray-50';
+          } else if (isBooked) {
+            bgColor = 'bg-red-50';
+            textColor = 'text-red-500';
+            cursor = 'cursor-not-allowed';
+          } else if (isSelected) {
+            bgColor = 'bg-[#00c9a7] text-white';
+            textColor = 'text-white';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:scale-105';
+          } else if (isInRange) {
+            bgColor = 'bg-[#00c9a7]/20';
+          } else if (isAvailable) {
+            bgColor = 'hover:bg-green-50';
+            textColor = 'text-green-600';
+          } else {
+            textColor = 'text-gray-800';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:bg-[#00c9a7]/20';
+          }
+          
+          return (
+            <div
+              key={day}
+              onClick={() => isCurrentMonthDay && !isBooked && !isPast && handleDateClick(date)}
+              className={`
+                py-1.5 rounded-full text-sm transition-all duration-200
+                ${bgColor} ${textColor} ${cursor} ${hoverEffect}
+                ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}
+              `}
+            >
+              {day}
+            </div>
+          );
+        })}
       </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7]"></div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-7 gap-1">
-          {days.map((date, index) => {
-            const key = formatDateKey(date);
-            const isPast = isDateInPast(date);
-            const isBooked = isDateBooked(date);
-            const isAvail = isDateAvailable(date);
-            const isSelected = isDateSelected(date);
-            const isInRange = isDateInRange(date);
-            const isCurrentMonthDay = isCurrentMonth(date);
-            
-            let bgColor = 'hover:bg-gray-50';
-            let textColor = 'text-gray-800';
-            let cursor = 'cursor-pointer';
-            let statusText = '';
-            
-            if (!isCurrentMonthDay) {
-              textColor = 'text-gray-300';
-              cursor = 'cursor-default';
-              bgColor = '';
-            } else if (isPast) {
-              textColor = 'text-gray-300';
-              cursor = 'cursor-not-allowed';
-              bgColor = '';
-            } else if (isBooked) {
-              bgColor = 'bg-red-50';
-              textColor = 'text-red-500';
-              cursor = 'cursor-not-allowed';
-              statusText = '🔴';
-            } else if (isSelected) {
-              bgColor = 'bg-[#00c9a7] text-white';
-              textColor = 'text-white';
-            } else if (isInRange) {
-              bgColor = 'bg-[#00c9a7]/20';
-            } else if (isAvail) {
-              bgColor = 'hover:bg-green-50';
-              textColor = 'text-green-600';
-              statusText = '✓';
-            }
-            
-            return (
-              <div
-                key={index}
-                onClick={() => isCurrentMonthDay && !isBooked && !isPast && handleDateClick(date)}
-                className={`
-                  relative aspect-square rounded-lg flex flex-col items-center justify-center text-sm font-medium transition-all duration-200
-                  ${bgColor} ${textColor} ${cursor}
-                  ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}
-                  ${isInRange && !isSelected ? 'border border-[#00c9a7]/30' : ''}
-                `}
-              >
-                <span>{date.getDate()}</span>
-                {statusText && (
-                  <span className="text-[8px] absolute bottom-0.5">
-                    {statusText}
-                  </span>
-                )}
-                {isBooked && isCurrentMonthDay && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500"></span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-[#00c9a7]"></div>
-          <span className="text-gray-600">Sélectionné</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-[#00c9a7]/20"></div>
-          <span className="text-gray-600">Plage</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-red-50 border border-red-200"></div>
-          <span className="text-gray-600">Réservé/Bloqué</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-green-50 border border-green-200"></div>
-          <span className="text-gray-600">Disponible</span>
-        </div>
+      
+     
+      
+      <div className="mt-2 text-xs text-gray-400">
+        {!selectedStart && 'Cliquez sur une date pour commencer'}
+        {selectedStart && !selectedEnd && 'Sélectionnez la date de fin'}
+        {selectedStart && selectedEnd && (
+          <span>
+            {totalNights} nuit{totalNights > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -4398,13 +4472,38 @@ const AvailabilityCalendar: React.FC<AvailabilityCalendarProps> = ({
 // ============================================
 // COMPOSANT PRINCIPAL BOOKING PAGE
 // ============================================
-export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
+
+
+// ✅ Formater la date en français
+const formatDate = (dateString: string) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString + 'T00:00:00');
+  return date.toLocaleDateString('fr-FR', { 
+    weekday: 'long', 
+    day: 'numeric', 
+    month: 'long', 
+    year: 'numeric' 
+  });
+};
+
+
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+export function BookingPage({ onNavigate, id, search }: any) {
   const params = useParams<{ id: string }>();
   const propertyId = id || params.id;
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
+  const [bookingFormData, setBookingFormData] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'fedapay'>('fedapay');
   const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
@@ -4413,13 +4512,19 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
   const [showCvv, setShowCvv] = useState(false);
-  const [specialRequests, setSpecialRequests] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
-  const [bookingFormData, setBookingFormData] = useState<any>(null);
   
-  // États pour l'édition des dates et voyageurs
+  // États pour les voyageurs
+  const [currentAdults, setCurrentAdults] = useState(1);
+  const [currentChildren, setCurrentChildren] = useState(0);
+  const [currentBabies, setCurrentBabies] = useState(0);
+  const [currentPets, setCurrentPets] = useState(0);
+  
+  // États pour les dates
+  const [currentCheckIn, setCurrentCheckIn] = useState('');
+  const [currentCheckOut, setCurrentCheckOut] = useState('');
+  const [currentNights, setCurrentNights] = useState(0);
+  
+  // États pour l'édition
   const [isEditingDates, setIsEditingDates] = useState(false);
   const [editedCheckIn, setEditedCheckIn] = useState('');
   const [editedCheckOut, setEditedCheckOut] = useState('');
@@ -4429,208 +4534,14 @@ export function BookingPage({ onNavigate, id, search }: BookingPageProps) {
   const [editedPets, setEditedPets] = useState(0);
   const [showGuestDetails, setShowGuestDetails] = useState(false);
   
-  // États pour les valeurs actuelles des voyageurs
-  const [currentAdults, setCurrentAdults] = useState(1);
-  const [currentChildren, setCurrentChildren] = useState(0);
-  const [currentBabies, setCurrentBabies] = useState(0);
-  const [currentPets, setCurrentPets] = useState(0);
-  
   // États pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
 
-  // ============================================
-  // ✅ FONCTION CENTRALISÉE DE SAUVEGARDE
-  // ============================================
+  const [property, setProperty] = useState<any>(null);
+  const [isLoadingProperty, setIsLoadingProperty] = useState(true);
 
-const saveBookingData = () => {
-  const totalGuests = currentAdults + currentChildren + currentBabies + currentPets;
-  
-  const bookingData = {
-    property_id: parseInt(propertyId || '0'),
-    property_title: property?.title || '',
-    check_in: currentCheckIn,
-    check_out: currentCheckOut,
-    guests: totalGuests,
-    adults: currentAdults,
-    children: currentChildren,
-    babies: currentBabies,
-    pets: currentPets,
-    nights: currentNights,
-    guest_details: bookingFormData?.guest_details || {},
-    totalAmount: total,
-    paymentAmount: paymentAmount
-  };
-  
-  // ✅ Sauvegarder dans sessionStorage
-  sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-  
-  // ✅ Sauvegarder dans localStorage pour la redirection après connexion
-  localStorage.setItem('temp_booking_check_in', currentCheckIn);
-  localStorage.setItem('temp_booking_check_out', currentCheckOut);
-  localStorage.setItem('temp_booking_guests', totalGuests.toString());
-  localStorage.setItem('temp_booking_nights', currentNights.toString());
-  localStorage.setItem('temp_booking_adults', currentAdults.toString());
-  localStorage.setItem('temp_booking_children', currentChildren.toString());
-  localStorage.setItem('temp_booking_babies', currentBabies.toString());
-  localStorage.setItem('temp_booking_pets', currentPets.toString());
-  localStorage.setItem('temp_booking_property_id', propertyId || '');
-  
-  console.log('💾 Données sauvegardées:', {
-    adults: currentAdults,
-    children: currentChildren,
-    babies: currentBabies,
-    pets: currentPets,
-    total: totalGuests
-  });
-  
-  return bookingData;
-};
-
-  // ============================================
-  // Récupérer les données du formulaire depuis sessionStorage
-  // ============================================
- 
-useEffect(() => {
-  // 1. D'abord, essayer de récupérer depuis sessionStorage
-  const savedData = sessionStorage.getItem('bookingFormData');
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      setBookingFormData(parsed);
-      setEditedCheckIn(parsed.check_in || '');
-      setEditedCheckOut(parsed.check_out || '');
-      
-      // ✅ Récupérer les détails des voyageurs depuis sessionStorage
-      const adults = parsed.adults || parsed.guests || 1;
-      const children = parsed.children || 0;
-      const babies = parsed.babies || 0;
-      const pets = parsed.pets || 0;
-      
-      setEditedGuests(adults);
-      setEditedChildren(children);
-      setEditedBabies(babies);
-      setEditedPets(pets);
-      setCurrentAdults(adults);
-      setCurrentChildren(children);
-      setCurrentBabies(babies);
-      setCurrentPets(pets);
-      setCurrentGuests(adults + children + babies + pets);
-      
-      console.log('📋 Données du formulaire chargées depuis sessionStorage:', {
-        adults, children, babies, pets, total: adults + children + babies + pets
-      });
-      
-      // ✅ VÉRIFIER SI localStorage A DES DONNÉES PLUS PRÉCISES (temp_booking_*)
-      // Ces données viennent de PropertyDetailModal après une redirection de connexion
-      const tempAdults = localStorage.getItem('temp_booking_adults');
-      const tempChildren = localStorage.getItem('temp_booking_children');
-      const tempBabies = localStorage.getItem('temp_booking_babies');
-      const tempPets = localStorage.getItem('temp_booking_pets');
-      const tempCheckIn = localStorage.getItem('temp_booking_check_in');
-      const tempCheckOut = localStorage.getItem('temp_booking_check_out');
-      const tempPropertyId = localStorage.getItem('temp_booking_property_id');
-      
-      // Si des données temp existent et correspondent à la propriété actuelle
-      if (tempAdults && tempChildren !== null && tempBabies !== null && tempPets !== null && tempPropertyId === propertyId) {
-        const tempAdultsNum = parseInt(tempAdults);
-        const tempChildrenNum = parseInt(tempChildren);
-        const tempBabiesNum = parseInt(tempBabies);
-        const tempPetsNum = parseInt(tempPets);
-        
-        console.log('🔄 Mise à jour avec les données localStorage (plus précises):', {
-          adults: tempAdultsNum,
-          children: tempChildrenNum,
-          babies: tempBabiesNum,
-          pets: tempPetsNum,
-          total: tempAdultsNum + tempChildrenNum + tempBabiesNum + tempPetsNum
-        });
-        
-        // ✅ ÉCRASER avec les données de localStorage (plus précises)
-        setCurrentAdults(tempAdultsNum);
-        setCurrentChildren(tempChildrenNum);
-        setCurrentBabies(tempBabiesNum);
-        setCurrentPets(tempPetsNum);
-        setEditedGuests(tempAdultsNum);
-        setEditedChildren(tempChildrenNum);
-        setEditedBabies(tempBabiesNum);
-        setEditedPets(tempPetsNum);
-        setCurrentGuests(tempAdultsNum + tempChildrenNum + tempBabiesNum + tempPetsNum);
-        
-        if (tempCheckIn) setCurrentCheckIn(tempCheckIn);
-        if (tempCheckOut) setCurrentCheckOut(tempCheckOut);
-        
-        // Nettoyer les données temporaires après récupération
-        localStorage.removeItem('temp_booking_check_in');
-        localStorage.removeItem('temp_booking_check_out');
-        localStorage.removeItem('temp_booking_guests');
-        localStorage.removeItem('temp_booking_nights');
-        localStorage.removeItem('temp_booking_adults');
-        localStorage.removeItem('temp_booking_children');
-        localStorage.removeItem('temp_booking_babies');
-        localStorage.removeItem('temp_booking_pets');
-        localStorage.removeItem('temp_booking_property_id');
-      }
-      
-      return; // On a trouvé des données, on s'arrête là
-    } catch (e) {
-      console.error('Erreur lors du chargement des données:', e);
-    }
-  }
-
-  // 2. Sinon, essayer de récupérer depuis localStorage (pour les redirections après connexion)
-  const tempCheckIn = localStorage.getItem('temp_booking_check_in');
-  const tempCheckOut = localStorage.getItem('temp_booking_check_out');
-  const tempAdults = localStorage.getItem('temp_booking_adults');
-  const tempChildren = localStorage.getItem('temp_booking_children');
-  const tempBabies = localStorage.getItem('temp_booking_babies');
-  const tempPets = localStorage.getItem('temp_booking_pets');
-  const tempPropertyId = localStorage.getItem('temp_booking_property_id');
-
-  if (tempCheckIn && tempCheckOut && tempPropertyId === propertyId) {
-    const adults = tempAdults ? parseInt(tempAdults) : 1;
-    const children = tempChildren ? parseInt(tempChildren) : 0;
-    const babies = tempBabies ? parseInt(tempBabies) : 0;
-    const pets = tempPets ? parseInt(tempPets) : 0;
-    const total = adults + children + babies + pets;
-
-    setCurrentCheckIn(tempCheckIn);
-    setCurrentCheckOut(tempCheckOut);
-    setEditedCheckIn(tempCheckIn);
-    setEditedCheckOut(tempCheckOut);
-    setCurrentGuests(total);
-    setCurrentNights(Math.max(1, Math.ceil((new Date(tempCheckOut).getTime() - new Date(tempCheckIn).getTime()) / (1000 * 60 * 60 * 24))));
-    
-    setCurrentAdults(adults);
-    setCurrentChildren(children);
-    setCurrentBabies(babies);
-    setCurrentPets(pets);
-    setEditedGuests(adults);
-    setEditedChildren(children);
-    setEditedBabies(babies);
-    setEditedPets(pets);
-
-    console.log('📋 Données récupérées depuis localStorage (après connexion):', {
-      adults, children, babies, pets, total
-    });
-
-    // Nettoyer les données temporaires après récupération
-    localStorage.removeItem('temp_booking_check_in');
-    localStorage.removeItem('temp_booking_check_out');
-    localStorage.removeItem('temp_booking_guests');
-    localStorage.removeItem('temp_booking_nights');
-    localStorage.removeItem('temp_booking_adults');
-    localStorage.removeItem('temp_booking_children');
-    localStorage.removeItem('temp_booking_babies');
-    localStorage.removeItem('temp_booking_pets');
-    localStorage.removeItem('temp_booking_property_id');
-  }
-}, [propertyId]); // Ajouter propertyId comme dépendance
-
-// src/app/pages/BookingPage.tsx
-
-// ✅ Récupérer les paramètres de l'URL (priorité maximale)
-useEffect(() => {
+  // ✅ Récupérer les paramètres de l'URL
   const queryString = search || location.search;
   const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
   
@@ -4642,173 +4553,93 @@ useEffect(() => {
   const urlBabies = searchParams.get('babies');
   const urlPets = searchParams.get('pets');
   const urlNights = searchParams.get('nights');
-  
-  // ✅ Si des paramètres URL existent, ils ont priorité sur tout
-  if (urlCheckIn) {
-    setCurrentCheckIn(urlCheckIn);
-    setEditedCheckIn(urlCheckIn);
-  }
-  if (urlCheckOut) {
-    setCurrentCheckOut(urlCheckOut);
-    setEditedCheckOut(urlCheckOut);
-  }
-  if (urlGuests) {
-    setCurrentGuests(parseInt(urlGuests));
-  }
-  if (urlNights) {
-    setCurrentNights(parseInt(urlNights));
-  }
-  
-  // ✅ Mettre à jour les détails des voyageurs depuis l'URL
-  if (urlAdults) {
-    const adults = parseInt(urlAdults);
-    setCurrentAdults(adults);
-    setEditedGuests(adults);
-    console.log('✅ Adultes depuis URL:', adults);
-  }
-  if (urlChildren) {
-    const children = parseInt(urlChildren);
-    setCurrentChildren(children);
-    setEditedChildren(children);
-    console.log('✅ Enfants depuis URL:', children);
-  }
-  if (urlBabies) {
-    const babies = parseInt(urlBabies);
-    setCurrentBabies(babies);
-    setEditedBabies(babies);
-    console.log('✅ Bébés depuis URL:', babies);
-  }
-  if (urlPets) {
-    const pets = parseInt(urlPets);
-    setCurrentPets(pets);
-    setEditedPets(pets);
-    console.log('✅ Animaux depuis URL:', pets);
-  }
-  
-  console.log('📥 Paramètres URL chargés:', {
-    adults: urlAdults,
-    children: urlChildren,
-    babies: urlBabies,
-    pets: urlPets,
-    guests: urlGuests
-  });
-}, [search, location.search]);
-// ✅ Récupérer les paramètres de l'URL
-// src/app/pages/BookingPage.tsx
 
-// // ✅ Récupérer les paramètres de l'URL (priorité sur les autres sources)
-// useEffect(() => {
-//   const queryString = search || location.search;
-//   const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
-  
-//   // ✅ Récupérer depuis l'URL (priorité max)
-//   const urlCheckIn = searchParams.get('check_in');
-//   const urlCheckOut = searchParams.get('check_out');
-//   const urlGuests = searchParams.get('guests');
-//   const urlAdults = searchParams.get('adults');
-//   const urlChildren = searchParams.get('children');
-//   const urlBabies = searchParams.get('babies');
-//   const urlPets = searchParams.get('pets');
-//   const urlNights = searchParams.get('nights');
-  
-//   // ✅ Si des paramètres URL existent, ils ont priorité
-//   if (urlCheckIn) {
-//     setCurrentCheckIn(urlCheckIn);
-//     setEditedCheckIn(urlCheckIn);
-//   }
-//   if (urlCheckOut) {
-//     setCurrentCheckOut(urlCheckOut);
-//     setEditedCheckOut(urlCheckOut);
-//   }
-//   if (urlGuests) {
-//     const guests = parseInt(urlGuests);
-//     setCurrentGuests(guests);
-//   }
-//   if (urlNights) {
-//     setCurrentNights(parseInt(urlNights));
-//   }
-  
-//   // ✅ Mettre à jour les détails des voyageurs depuis l'URL (priorité max)
-//   if (urlAdults) {
-//     const adults = parseInt(urlAdults);
-//     setCurrentAdults(adults);
-//     setEditedGuests(adults);
-//   }
-//   if (urlChildren) {
-//     const children = parseInt(urlChildren);
-//     setCurrentChildren(children);
-//     setEditedChildren(children);
-//   }
-//   if (urlBabies) {
-//     const babies = parseInt(urlBabies);
-//     setCurrentBabies(babies);
-//     setEditedBabies(babies);
-//   }
-//   if (urlPets) {
-//     const pets = parseInt(urlPets);
-//     setCurrentPets(pets);
-//     setEditedPets(pets);
-//   }
-  
-//   console.log('📥 Paramètres URL chargés:', {
-//     adults: urlAdults,
-//     children: urlChildren,
-//     babies: urlBabies,
-//     pets: urlPets,
-//     guests: urlGuests
-//   });
-// }, [search, location.search]);
-  // ============================================
-  // Récupérer les paramètres de l'URL
-  // ============================================
-  const queryString = search || location.search;
-  const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
-  
-  const initialCheckIn = searchParams.get('check_in') || bookingFormData?.check_in || '';
-  const initialCheckOut = searchParams.get('check_out') || bookingFormData?.check_out || '';
-  const initialGuests = searchParams.get('guests') ? parseInt(searchParams.get('guests')!) : (bookingFormData?.guests || 1);
-  const initialAdults = searchParams.get('adults') ? parseInt(searchParams.get('adults')!) : (bookingFormData?.adults || initialGuests);
-  const initialChildren = searchParams.get('children') ? parseInt(searchParams.get('children')!) : (bookingFormData?.children || 0);
-  const initialBabies = searchParams.get('babies') ? parseInt(searchParams.get('babies')!) : (bookingFormData?.babies || 0);
-  const initialPets = searchParams.get('pets') ? parseInt(searchParams.get('pets')!) : (bookingFormData?.pets || 0);
-  const initialNights = searchParams.get('nights') ? parseInt(searchParams.get('nights')!) : (bookingFormData?.nights || 0);
-  
-  const [currentCheckIn, setCurrentCheckIn] = useState(initialCheckIn);
-  const [currentCheckOut, setCurrentCheckOut] = useState(initialCheckOut);
-  const [currentGuests, setCurrentGuests] = useState(initialGuests);
-  const [currentNights, setCurrentNights] = useState(initialNights);
-
+  // ✅ Charger les données depuis sessionStorage ou URL
   useEffect(() => {
-    if (bookingFormData) {
-      setCurrentCheckIn(bookingFormData.check_in || initialCheckIn);
-      setCurrentCheckOut(bookingFormData.check_out || initialCheckOut);
-      setCurrentGuests(bookingFormData.guests || initialGuests);
-      setCurrentNights(bookingFormData.nights || initialNights);
-      setCurrentAdults(bookingFormData.adults || initialAdults || bookingFormData.guests || initialGuests);
-      setCurrentChildren(bookingFormData.children || initialChildren || 0);
-      setCurrentBabies(bookingFormData.babies || initialBabies || 0);
-      setCurrentPets(bookingFormData.pets || initialPets || 0);
+    const savedData = sessionStorage.getItem('bookingFormData');
+    let parsedData = null;
+    
+    if (savedData) {
+      try {
+        parsedData = JSON.parse(savedData);
+        setBookingFormData(parsedData);
+        console.log('📋 Données du formulaire chargées depuis sessionStorage:', parsedData);
+      } catch (e) {
+        console.error('Erreur chargement données:', e);
+      }
     }
-  }, [bookingFormData]);
 
-  const { data: propertyData, isLoading } = useQuery({
-    queryKey: ['property', propertyId, currentCheckIn, currentCheckOut],
-    queryFn: () => propertyService.getById(parseInt(propertyId || '0')),
-    enabled: !!propertyId,
-  });
+    // ✅ Priorité : URL > sessionStorage > valeurs par défaut
+    const checkIn = urlCheckIn || parsedData?.check_in || '';
+    const checkOut = urlCheckOut || parsedData?.check_out || '';
+    const guests = urlGuests ? parseInt(urlGuests) : (parsedData?.guests || 1);
+    const adults = urlAdults ? parseInt(urlAdults) : (parsedData?.adults || guests);
+    const children = urlChildren ? parseInt(urlChildren) : (parsedData?.children || 0);
+    const babies = urlBabies ? parseInt(urlBabies) : (parsedData?.babies || 0);
+    const pets = urlPets ? parseInt(urlPets) : (parsedData?.pets || 0);
+    const nights = urlNights ? parseInt(urlNights) : (parsedData?.nights || 0);
 
-  const property = propertyData?.data || propertyData;
-  const pricePerNight = property?.price_per_night || 0;
-  const maxGuests = property?.max_guests || 10;
-  
-  const subtotal = pricePerNight * currentNights;
-  const serviceFee = subtotal * 0.10;
-  const total = subtotal + serviceFee;
-  const paymentAmount = total;
+    setCurrentCheckIn(checkIn);
+    setCurrentCheckOut(checkOut);
+    setEditedCheckIn(checkIn);
+    setEditedCheckOut(checkOut);
+    setCurrentAdults(adults);
+    setCurrentChildren(children);
+    setCurrentBabies(babies);
+    setCurrentPets(pets);
+    setEditedGuests(adults);
+    setEditedChildren(children);
+    setEditedBabies(babies);
+    setEditedPets(pets);
+    setCurrentNights(nights || Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24))));
 
-  // ============================================
-  // Vérifier la disponibilité des nouvelles dates
-  // ============================================
+    console.log('📥 Paramètres chargés:', { checkIn, checkOut, adults, children, babies, pets, nights });
+  }, []);
+
+  // ✅ Charger la propriété
+  useEffect(() => {
+    const fetchProperty = async () => {
+      if (!propertyId) return;
+      setIsLoadingProperty(true);
+      try {
+        const response = await propertyService.getById(parseInt(propertyId));
+        setProperty(response?.data || response);
+        console.log('🏠 Propriété chargée:', response);
+      } catch (error) {
+        console.error('❌ Erreur chargement propriété:', error);
+        toast.error('Impossible de charger les informations du logement');
+      } finally {
+        setIsLoadingProperty(false);
+      }
+    };
+    fetchProperty();
+  }, [propertyId]);
+
+  // ✅ Sauvegarder les données
+  const saveBookingData = () => {
+    const totalTravelers = currentAdults + currentChildren + currentBabies + currentPets;
+    
+    const bookingData = {
+      property_id: parseInt(propertyId || '0'),
+      property_title: property?.title || '',
+      check_in: currentCheckIn,
+      check_out: currentCheckOut,
+      guests: totalTravelers,
+      adults: currentAdults,
+      children: currentChildren,
+      babies: currentBabies,
+      pets: currentPets,
+      nights: currentNights,
+      guest_details: bookingFormData?.guest_details || {},
+      totalAmount: total,
+      paymentAmount: paymentAmount
+    };
+    
+    sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+    return bookingData;
+  };
+
+  // ✅ Vérifier la disponibilité des nouvelles dates
   const checkNewAvailability = async () => {
     if (!editedCheckIn || !editedCheckOut) return false;
     
@@ -4816,34 +4647,18 @@ useEffect(() => {
     setAvailabilityStatus('checking');
     
     try {
-      const formattedCheckIn = editedCheckIn.includes('T') ? editedCheckIn.split('T')[0] : editedCheckIn;
-      const formattedCheckOut = editedCheckOut.includes('T') ? editedCheckOut.split('T')[0] : editedCheckOut;
-      
       const totalTravelers = editedGuests + editedChildren + editedBabies + editedPets;
       
-      console.log('🔍 Vérification disponibilité avec:', {
-        propertyId: parseInt(propertyId || '0'),
-        checkIn: formattedCheckIn,
-        checkOut: formattedCheckOut,
-        guests: totalTravelers,
-        adults: editedGuests,
-        children: editedChildren,
-        babies: editedBabies,
-        pets: editedPets
-      });
-
       const response = await propertyService.checkAvailability(
         parseInt(propertyId || '0'), 
-        formattedCheckIn, 
-        formattedCheckOut,
+        editedCheckIn, 
+        editedCheckOut,
         totalTravelers
       );
       
       console.log('📥 Réponse disponibilité:', response);
       
       const isAvailable = response?.available === true;
-      
-      console.log('✅ isAvailable:', isAvailable);
       
       if (isAvailable) {
         setAvailabilityStatus('available');
@@ -4859,7 +4674,6 @@ useEffect(() => {
       }
     } catch (error: any) {
       console.error('❌ Erreur vérification:', error);
-      console.error('❌ Détails réponse:', error.response?.data);
       setAvailabilityStatus('unavailable');
       setError(error.response?.data?.message || '❌ Impossible de vérifier la disponibilité.');
       return false;
@@ -4868,9 +4682,7 @@ useEffect(() => {
     }
   };
 
-  // ============================================
-  // Sauvegarder les modifications des dates et voyageurs
-  // ============================================
+  // ✅ Sauvegarder les modifications des dates et voyageurs
   const handleSaveDatesAndGuests = async () => {
     if (!editedCheckIn || !editedCheckOut) {
       setError('Veuillez sélectionner des dates valides');
@@ -4883,8 +4695,8 @@ useEffect(() => {
     }
 
     const totalTravelers = editedGuests + editedChildren + editedBabies + editedPets;
-    if (totalTravelers > maxGuests) {
-      setError(`Le nombre total de voyageurs (${totalTravelers}) dépasse la capacité maximale (${maxGuests})`);
+    if (totalTravelers > (property?.max_guests || 10)) {
+      setError(`Le nombre total de voyageurs (${totalTravelers}) dépasse la capacité maximale (${property?.max_guests || 10})`);
       return;
     }
 
@@ -4895,216 +4707,110 @@ useEffect(() => {
       
       setCurrentCheckIn(editedCheckIn);
       setCurrentCheckOut(editedCheckOut);
-      setCurrentGuests(totalTravelers);
       setCurrentNights(newNights);
       setCurrentAdults(editedGuests);
       setCurrentChildren(editedChildren);
       setCurrentBabies(editedBabies);
       setCurrentPets(editedPets);
       
-      // ✅ Sauvegarder les données après modification
       saveBookingData();
       
       setIsEditingDates(false);
       setShowGuestDetails(false);
       setError('');
       toast.success('✅ Dates mises à jour avec succès !');
-    } else {
-      setError('❌ Ces dates ne sont pas disponibles.');
-      toast.error('❌ Ces dates ne sont pas disponibles.');
     }
   };
 
-  // ============================================
-  // Redirection vers la page Fedapay
-  // ============================================
-  const handleFedapayRedirect = () => {
-    // ✅ Sauvegarder les données avant la redirection
-    const bookingData = saveBookingData();
-    
-    sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingData));
-    
-    if (onNavigate) {
-      onNavigate({ 
-        name: 'fedapay-payment', 
-        bookingData: bookingData 
-      });
-    } else {
-      window.location.href = `/payment/fedapay?data=${encodeURIComponent(JSON.stringify(bookingData))}`;
-    }
-  };
-
-  // ============================================
-  // Validation des données de paiement
-  // ============================================
-  const validatePaymentDetails = () => {
-    if (paymentMethod === 'fedapay') {
-      return true;
-    }
-    
-    if (paymentMethod === 'mobile_money') {
-      if (!mobileProvider) {
-        setError('Veuillez sélectionner votre opérateur Mobile Money');
-        return false;
-      }
-      if (!mobileMoneyNumber || mobileMoneyNumber.length < 8) {
-        setError('Veuillez entrer un numéro Mobile Money valide');
-        return false;
-      }
-    } else if (paymentMethod === 'card') {
-      const cleanCardNumber = cardNumber.replace(/\s/g, '');
-      if (!cardNumber || cleanCardNumber.length < 16) {
-        setError('Veuillez entrer un numéro de carte valide');
-        return false;
-      }
-      if (!cardExpiry || !cardExpiry.includes('/')) {
-        setError('Veuillez entrer une date d\'expiration valide (MM/AA)');
-        return false;
-      }
-      if (!cardCvv || cardCvv.length < 3) {
-        setError('Veuillez entrer un CVV valide');
-        return false;
-      }
-      if (!cardName) {
-        setError('Veuillez entrer le nom sur la carte');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  // ============================================
-  // Paiement via Fedapay
-  // ============================================
-  const handleFedapayPayment = async () => {
+  // ✅ Redirection Fedapay
+  const handleFedapayRedirect = async () => {
+    setLoading(true);
     setError('');
-    setIsProcessing(true);
-    setPaymentStep('processing');
-
+    
     try {
-      const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
-      const guestDetails = bookingFormData?.guest_details || {
-        full_name: `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || 'Voyageur',
-        email: userData?.email || '',
-        phone: userData?.phone || '',
-        address: ''
-      };
+      if (!isAuthenticated) {
+        saveBookingData();
+        localStorage.setItem('redirect_intent', 'booking');
+        localStorage.setItem('redirect_property_id', propertyId || '');
+        localStorage.setItem('temp_booking_check_in', currentCheckIn);
+        localStorage.setItem('temp_booking_check_out', currentCheckOut);
+        localStorage.setItem('temp_booking_adults', currentAdults.toString());
+        localStorage.setItem('temp_booking_children', currentChildren.toString());
+        localStorage.setItem('temp_booking_babies', currentBabies.toString());
+        localStorage.setItem('temp_booking_pets', currentPets.toString());
+        localStorage.setItem('temp_booking_nights', currentNights.toString());
+        
+        if (onNavigate) {
+          onNavigate({ name: 'auth', search: 'redirect=booking' });
+        } else {
+          window.location.href = '/auth?redirect=booking';
+        }
+        setLoading(false);
+        return;
+      }
 
-      const bookingPayload = {
+      if (!currentCheckIn || !currentCheckOut) {
+        toast.error('Veuillez sélectionner des dates valides');
+        setLoading(false);
+        return;
+      }
+
+      if (total < 1) {
+        toast.error('Le montant total doit être supérieur à 0');
+        setLoading(false);
+        return;
+      }
+
+      saveBookingData();
+
+      const fedapayPaymentUrl = 'https://me.fedapay.com/bf-immo';
+      
+      const params = new URLSearchParams();
+      params.set('amount', total.toString());
+      params.set('currency', 'XAF');
+      params.set('reference', `BOOK-${Date.now()}`);
+      params.set('description', `Réservation - ${property?.title || 'Logement'}`);
+      
+      const finalUrl = `${fedapayPaymentUrl}?${params.toString()}`;
+      
+      console.log('🔗 Redirection vers Fedapay:', finalUrl);
+      
+      sessionStorage.setItem('fedapay_booking_data', JSON.stringify({
         property_id: parseInt(propertyId || '0'),
+        property_title: property?.title || '',
         check_in: currentCheckIn,
         check_out: currentCheckOut,
-        guests_count: currentGuests,
+        nights: currentNights,
         adults: currentAdults,
         children: currentChildren,
         babies: currentBabies,
         pets: currentPets,
-        payment_method: 'fedapay' as const,
-        guest_details: guestDetails,
-        payment_option: '100' as const,
-        total_amount: total,
-        payment_amount: paymentAmount,
-        nights: currentNights,
-        special_requests: specialRequests || undefined
-      };
-
-      console.log('📤 1. Création de la réservation:', bookingPayload);
+        total: total,
+        subtotal: subtotal,
+        service_fee: serviceFee
+      }));
       
-      const bookingResponse = await bookingService.create(bookingPayload);
-      console.log('📥 Réponse création réservation:', bookingResponse);
-
-      const bookingId = bookingResponse?.data?.booking?.id 
-        || bookingResponse?.booking?.id 
-        || bookingResponse?.data?.id 
-        || bookingResponse?.id;
-
-      if (!bookingId) {
-        throw new Error('Impossible de récupérer l\'ID de la réservation');
-      }
-
-      console.log('✅ Réservation créée avec ID:', bookingId);
-
-      const fedapayData = {
-        amount: Math.round(total),
-        currency: 'XAF' as const,
-        customer: {
-          firstname: guestDetails.full_name.split(' ')[0] || 'Client',
-          lastname: guestDetails.full_name.split(' ').slice(1).join(' ') || 'Non renseigné',
-          email: guestDetails.email || 'client@email.com',
-          phone: guestDetails.phone || '690000000'
-        },
-        description: `Réservation - ${property?.title || 'Logement'}`,
-        reference: `BOOK-${Date.now()}`,
-        booking_id: bookingId,
-        callback_url: `${window.location.origin}/payment/fedapay/callback`,
-        cancel_url: `${window.location.origin}/payment/fedapay/cancel`
-      };
-
-      console.log('📤 2. Initiation paiement Fedapay avec booking_id:', bookingId);
-      console.log('📤 Données Fedapay:', fedapayData);
-
-      const response = await fedapayService.initiatePayment(fedapayData);
-      console.log('📥 Réponse Fedapay:', response);
+      toast.success('✅ Redirection vers la page de paiement...');
+      window.location.href = finalUrl;
       
-      if (response.success && response.data?.payment_url) {
-        setPaymentStep('success');
-        toast.success('✅ Redirection vers Fedapay...');
-        
-        sessionStorage.setItem('fedapay_booking_id', bookingId.toString());
-        sessionStorage.setItem('fedapay_transaction_id', response.data.id);
-        
-        setTimeout(() => {
-          window.location.href = response.data.payment_url;
-        }, 1500);
-      } else {
-        throw new Error(response.message || 'URL de paiement non reçue');
-      }
     } catch (error: any) {
-      console.error('❌ Erreur Fedapay:', error);
-      console.error('❌ Détails:', error.response?.data);
-      setPaymentStep('error');
-      setError(error.message || 'Erreur lors du paiement');
+      console.error('❌ Erreur:', error);
+      setError(error.message || 'Erreur lors de l\'initiation du paiement');
       toast.error('❌ ' + (error.message || 'Erreur de paiement'));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // ============================================
-  // Traitement du paiement (Mobile Money / Carte)
-  // ============================================
-  const processPayment = async (): Promise<boolean> => {
-    if (!validatePaymentDetails()) return false;
-    
-    if (paymentMethod === 'fedapay') {
-      await handleFedapayPayment();
-      return false;
-    }
-
-    setIsProcessing(true);
-    setPaymentStep('processing');
-    
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true);
-      }, 2000);
-    });
-  };
-
-  // ============================================
-  // Ouverture du modal de paiement
-  // ============================================
-  const handleOpenPaymentModal = () => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    if (!token || !storedUser || !user) {
-      // ✅ Sauvegarder les données avant la redirection
-      saveBookingData();
       
+      setPaymentMethod('card');
+      setShowPaymentModal(true);
+      setPaymentStep('form');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenPaymentModal = () => {
+    if (!isAuthenticated) {
+      saveBookingData();
       localStorage.setItem('redirect_intent', 'booking');
       localStorage.setItem('redirect_property_id', propertyId || '');
-      
       if (onNavigate) {
         onNavigate({ name: 'auth', search: 'redirect=booking' });
       } else {
@@ -5118,125 +4824,83 @@ useEffect(() => {
     setPaymentStep('form');
   };
 
-  // ============================================
-  // Soumission du paiement (hors Fedapay)
-  // ============================================
   const handlePaymentSubmit = async () => {
     if (paymentMethod === 'fedapay') {
-      await handleFedapayPayment();
+      await handleFedapayRedirect();
       return;
     }
 
-    const paymentSuccess = await processPayment();
-    if (!paymentSuccess) {
-      setPaymentStep('error');
-      setError('Le paiement a échoué. Veuillez réessayer.');
-      setIsProcessing(false);
-      return;
-    }
-
-    setPaymentStep('success');
-    
-    const guestDetails = bookingFormData?.guest_details || {
-      full_name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email?.split('@')[0] || 'Voyageur',
-      email: user?.email || '',
-      phone: user?.phone || '',
-      address: '',
-      nationality: '',
-      id_type: '',
-      id_number: ''
-    };
-
-    const bookingData: BookingData = {
-      property_id: parseInt(propertyId || '0'),
-      check_in: currentCheckIn,
-      check_out: currentCheckOut,
-      guests_count: currentGuests,
-      payment_method: paymentMethod,
-      mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
-      mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
-      guest_details: {
-        full_name: guestDetails.full_name,
-        email: guestDetails.email,
-        phone: guestDetails.phone,
-        address: guestDetails.address,
-        nationality: guestDetails.nationality,
-        id_type: guestDetails.id_type,
-        id_number: guestDetails.id_number
-      },
-      payment_option: '100',
-      total_amount: total,
-      payment_amount: paymentAmount,
-      nights: currentNights,
-      special_requests: specialRequests || undefined
-    };
+    setIsProcessing(true);
+    setPaymentStep('processing');
 
     try {
-      setLoading(true);
-      const response = await bookingService.create(bookingData);
-      const bookingId = response?.booking?.id || response?.data?.booking?.id || response?.id || response?.data?.id;
-      sessionStorage.removeItem('bookingFormData');
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      if (bookingId) {
-        setTimeout(() => {
-          setShowPaymentModal(false);
-          setLoading(false);
-          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
-        }, 1500);
-      } else {
-        setPaymentStep('error');
-        setError("Erreur: Impossible de récupérer l'ID de la réservation");
+      setPaymentStep('success');
+      const savedData = saveBookingData();
+      
+      const bookingPayload = {
+        property_id: parseInt(propertyId || '0'),
+        check_in: currentCheckIn,
+        check_out: currentCheckOut,
+        guests_count: totalTravelers,
+        adults: currentAdults,
+        children: currentChildren,
+        babies: currentBabies,
+        pets: currentPets,
+        payment_method: paymentMethod,
+        guest_details: bookingFormData?.guest_details || {},
+        special_requests: specialRequests || '',
+        mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+        mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
+      };
+      
+      const response = await bookingService.create(bookingPayload);
+      
+      setTimeout(() => {
+        setShowPaymentModal(false);
         setIsProcessing(false);
-        setLoading(false);
-      }
-    } catch (err: any) {
-      console.error('❌ Erreur:', err);
+        if (response?.data?.booking_id || response?.booking_id) {
+          const bookingId = response?.data?.booking_id || response?.booking_id;
+          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+        } else {
+          onNavigate?.({ name: 'home' });
+        }
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur paiement:', error);
       setPaymentStep('error');
+      setError(error.message || 'Erreur lors du paiement');
+    } finally {
       setIsProcessing(false);
-      setLoading(false);
-      if (err.response?.data?.errors) {
-        const errors = err.response.data.errors;
-        const errorMessages = Object.values(errors).flat();
-        setError(errorMessages.join(', '));
-      } else if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError('Une erreur est survenue. Veuillez réessayer.');
-      }
     }
   };
 
-  const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
-    const groups = cleaned.match(/.{1,4}/g);
-    return groups ? groups.join(' ') : cleaned;
-  };
+  const pricePerNight = property?.price_per_night || property?.price || 0;
+  const maxGuests = property?.max_guests || 10;
+  const totalTravelers = currentAdults + currentChildren + currentBabies + currentPets;
+  
+  const subtotal = pricePerNight * currentNights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+  const paymentAmount = total;
 
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCardNumber(e.target.value);
-    setCardNumber(formatted);
-  };
+  const guestInfo = bookingFormData?.guest_details || {};
 
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, '');
-    if (value.length >= 2) {
-      value = value.slice(0, 2) + '/' + value.slice(2, 4);
-    }
-    setCardExpiry(value);
-  };
-
-  const formatDate = (dateString: string) => {
+  // ✅ Formatage des dates pour l'affichage
+  const formatDisplayDate = (dateString: string) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('fr-FR', { 
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('fr-FR', { 
+      weekday: 'long', 
       day: 'numeric', 
-      month: 'short', 
+      month: 'long', 
       year: 'numeric' 
     });
   };
 
-  const totalTravelers = currentAdults + currentChildren + currentBabies + currentPets;
-
-  if (isLoading) {
+  if (isLoadingProperty) {
     return (
       <div className="min-h-screen flex justify-center items-center bg-[#f4fffe]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]"></div>
@@ -5256,671 +4920,428 @@ useEffect(() => {
     );
   }
 
-  const guestInfo = bookingFormData?.guest_details || {};
-
   return (
-    <>
-      <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
-              className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
-              <p className="text-xs text-gray-500">Vérifiez vos informations</p>
+    <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onNavigate?.({ name: 'listing', id: propertyId })} 
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition active:bg-gray-200"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
+            <p className="text-xs text-gray-500">Vérifiez vos informations</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
+        <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm border border-gray-100">
+          <div className="flex items-start gap-3">
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+              <img 
+                src={property.images?.[0] || property.image} 
+                alt={property.title} 
+                className="w-full h-full object-cover" 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{property.district}, {property.city}</p>
+              <div className="flex items-center gap-2 mt-2 text-xs">
+                <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-500">
+                  {totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}
+                </span>
+                {currentChildren > 0 && (
+                  <span className="text-gray-400 text-xs">
+                    ({currentChildren} enf.
+                    {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
+                    {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                  </span>
+                )}
+                {currentChildren === 0 && currentBabies > 0 && (
+                  <span className="text-gray-400 text-xs">
+                    ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
+                    {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                  </span>
+                )}
+                {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
+                  <span className="text-gray-400 text-xs">
+                    ({currentPets} animal{currentPets > 1 ? 'x' : ''})
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-[#00c9a7] text-sm">{total.toLocaleString()} FCFA</p>
+              <p className="text-xs text-gray-400">total</p>
             </div>
           </div>
         </div>
 
-        <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
-          {/* Carte récapitulative mobile */}
-          <div className="lg:hidden bg-white rounded-xl p-4 mb-4 shadow-sm border border-gray-100">
-            <div className="flex items-start gap-3">
-              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
-                <img 
-                  src={property.images?.[0] || property.image} 
-                  alt={property.title} 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }} 
-                />
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          <div className="flex-1 space-y-4">
+            {/* Vos dates avec calendrier */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                  <Calendar className="w-5 h-5 text-[#00c9a7]" />
+                  Vos dates
+                </h2>
+                {!isEditingDates && (
+                  <button 
+                    onClick={() => {
+                      setIsEditingDates(true);
+                      setEditedCheckIn(currentCheckIn);
+                      setEditedCheckOut(currentCheckOut);
+                      setEditedGuests(currentAdults || 1);
+                      setEditedChildren(currentChildren || 0);
+                      setEditedBabies(currentBabies || 0);
+                      setEditedPets(currentPets || 0);
+                      setError('');
+                    }}
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
+                    title="Modifier les dates et le nombre de voyageurs"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 text-sm line-clamp-1">{property.title}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{property.district}, {property.city}</p>
-                <div className="flex items-center gap-2 mt-2 text-xs">
-                  <span className="text-gray-500">{currentNights} nuit{currentNights > 1 ? 's' : ''}</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-gray-500">
-                    {totalTravelers} voyageur{totalTravelers > 1 ? 's' : ''}
-                  </span>
-                  {currentChildren > 0 && (
-                    <span className="text-gray-400 text-xs">
-                      ({currentChildren} enf.
-                      {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
-                      {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
-                    </span>
+              
+              {isEditingDates ? (
+                <div className="space-y-4">
+                  {propertyId && (
+                    <AvailabilityCalendar
+                      propertyId={parseInt(propertyId)}
+                      checkIn={editedCheckIn}
+                      checkOut={editedCheckOut}
+                      onDateSelect={(start, end) => {
+                        setEditedCheckIn(start);
+                        setEditedCheckOut(end);
+                        setError('');
+                      }}
+                    />
                   )}
-                  {currentChildren === 0 && currentBabies > 0 && (
-                    <span className="text-gray-400 text-xs">
-                      ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
-                      {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
-                    </span>
+                  
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowGuestDetails(!showGuestDetails)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-gray-700">
+                          {editedGuests + editedChildren + editedBabies + editedPets} voyageur{(editedGuests + editedChildren + editedBabies + editedPets) > 1 ? 's' : ''}
+                        </span>
+                        {(editedChildren > 0 || editedBabies > 0 || editedPets > 0) && (
+                          <span className="text-xs text-gray-500">
+                            ({editedChildren > 0 ? `${editedChildren} enfant${editedChildren > 1 ? 's' : ''}` : ''}
+                            {editedChildren > 0 && (editedBabies > 0 || editedPets > 0) ? ', ' : ''}
+                            {editedBabies > 0 ? `${editedBabies} bébé${editedBabies > 1 ? 's' : ''}` : ''}
+                            {editedBabies > 0 && editedPets > 0 ? ', ' : ''}
+                            {editedPets > 0 ? `${editedPets} animal${editedPets > 1 ? 'x' : ''}` : ''})
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDetails ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {showGuestDetails && (
+                      <div className="mt-3 space-y-3 bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <span className="font-medium text-sm text-gray-700">Adultes</span>
+                            <p className="text-xs text-gray-400">À partir de 13 ans</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => setEditedGuests(Math.max(1, editedGuests - 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <span className="font-medium text-base min-w-[30px] text-center">{editedGuests}</span>
+                            <button 
+                              onClick={() => setEditedGuests(Math.min(maxGuests, editedGuests + 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Plus className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                          <div>
+                            <span className="font-medium text-sm text-gray-700">Enfants</span>
+                            <p className="text-xs text-gray-400">De 2 à 12 ans</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => setEditedChildren(Math.max(0, editedChildren - 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <span className="font-medium text-base min-w-[30px] text-center">{editedChildren}</span>
+                            <button 
+                              onClick={() => setEditedChildren(Math.min(maxGuests - editedGuests - editedBabies - editedPets, editedChildren + 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Plus className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                          <div>
+                            <span className="font-medium text-sm text-gray-700">Bébés</span>
+                            <p className="text-xs text-gray-400">Moins de 2 ans</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => setEditedBabies(Math.max(0, editedBabies - 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <span className="font-medium text-base min-w-[30px] text-center">{editedBabies}</span>
+                            <button 
+                              onClick={() => setEditedBabies(Math.min(maxGuests - editedGuests - editedChildren - editedPets, editedBabies + 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Plus className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center border-t border-gray-200 pt-3">
+                          <div>
+                            <span className="font-medium text-sm text-gray-700">Animaux domestiques</span>
+                            <p className="text-xs text-gray-400">Chiens, chats, etc.</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => setEditedPets(Math.max(0, editedPets - 1))}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Minus className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <span className="font-medium text-base min-w-[30px] text-center">{editedPets}</span>
+                            <button 
+                              onClick={() => setEditedPets(editedPets + 1)}
+                              className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
+                            >
+                              <Plus className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-2 mt-1">
+                          <span>Total voyageurs</span>
+                          <span className="font-medium">
+                            {editedGuests + editedChildren + editedBabies + editedPets} / {maxGuests} max.
+                            {editedGuests + editedChildren + editedBabies + editedPets > maxGuests && (
+                              <span className="text-red-500 ml-1">⚠️ Dépassement</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {availabilityStatus === 'unavailable' && (
+                    <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
+                      ⚠️ Ces dates ne sont pas disponibles
+                    </div>
                   )}
-                  {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
-                    <span className="text-gray-400 text-xs">
-                      ({currentPets} animal{currentPets > 1 ? 'x' : ''})
-                    </span>
+                  
+                  {error && (
+                    <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
+                      {error}
+                    </div>
                   )}
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold text-[#00c9a7] text-sm">{total.toLocaleString()} FCFA</p>
-                <p className="text-xs text-gray-400">total</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-            <div className="flex-1 space-y-4">
-              {/* Vos dates avec calendrier */}
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-3">
-                  <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
-                    <Calendar className="w-5 h-5 text-[#00c9a7]" />
-                    Vos dates
-                  </h2>
-                  {!isEditingDates && (
+                  
+                  <div className="flex gap-2 pt-2">
+                    <button 
+                      onClick={handleSaveDatesAndGuests}
+                      disabled={isCheckingAvailability}
+                      className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50"
+                    >
+                      {isCheckingAvailability ? 'Vérification...' : 'Enregistrer les modifications'}
+                    </button>
                     <button 
                       onClick={() => {
-                        setIsEditingDates(true);
+                        setIsEditingDates(false);
                         setEditedCheckIn(currentCheckIn);
                         setEditedCheckOut(currentCheckOut);
-                        setEditedGuests(currentAdults || currentGuests);
+                        setEditedGuests(currentAdults || 1);
                         setEditedChildren(currentChildren || 0);
                         setEditedBabies(currentBabies || 0);
                         setEditedPets(currentPets || 0);
+                        setShowGuestDetails(false);
                         setError('');
+                        setAvailabilityStatus('idle');
                       }}
-                      className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
-                      title="Modifier les dates et le nombre de voyageurs"
+                      className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
+                      Annuler
                     </button>
-                  )}
-                </div>
-                
-                {isEditingDates ? (
-                  <div className="space-y-4">
-                    {propertyId && (
-                      <AvailabilityCalendar
-                        propertyId={parseInt(propertyId)}
-                        checkIn={editedCheckIn}
-                        checkOut={editedCheckOut}
-                        onDateSelect={(start, end) => {
-                          setEditedCheckIn(start);
-                          setEditedCheckOut(end);
-                          setError('');
-                        }}
-                      />
-                    )}
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Date d'arrivée</label>
-                        <input 
-                          type="date" 
-                          value={editedCheckIn}
-                          min={new Date().toISOString().split('T')[0]}
-                          onChange={(e) => {
-                            setEditedCheckIn(e.target.value);
-                            setError('');
-                          }}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Date de départ</label>
-                        <input 
-                          type="date" 
-                          value={editedCheckOut}
-                          min={editedCheckIn || new Date().toISOString().split('T')[0]}
-                          onChange={(e) => {
-                            setEditedCheckOut(e.target.value);
-                            setError('');
-                          }}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent text-sm"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowGuestDetails(!showGuestDetails)}
-                        className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-gray-700">
-                            {editedGuests + editedChildren + editedBabies + editedPets} voyageur{(editedGuests + editedChildren + editedBabies + editedPets) > 1 ? 's' : ''}
-                          </span>
-                          {(editedChildren > 0 || editedBabies > 0 || editedPets > 0) && (
-                            <span className="text-xs text-gray-500">
-                              ({editedChildren > 0 ? `${editedChildren} enfant${editedChildren > 1 ? 's' : ''}` : ''}
-                              {editedChildren > 0 && (editedBabies > 0 || editedPets > 0) ? ', ' : ''}
-                              {editedBabies > 0 ? `${editedBabies} bébé${editedBabies > 1 ? 's' : ''}` : ''}
-                              {editedBabies > 0 && editedPets > 0 ? ', ' : ''}
-                              {editedPets > 0 ? `${editedPets} animal${editedPets > 1 ? 'x' : ''}` : ''})
-                            </span>
-                          )}
-                        </div>
-                        <svg className={`w-4 h-4 text-gray-400 transition-transform ${showGuestDetails ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                      
-                      {showGuestDetails && (
-                        <div className="mt-3 space-y-3 bg-gray-50 rounded-lg p-4">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <span className="font-medium text-sm text-gray-700">Adultes</span>
-                              <p className="text-xs text-gray-400">À partir de 13 ans</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button 
-                                onClick={() => setEditedGuests(Math.max(1, editedGuests - 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">-</span>
-                              </button>
-                              <span className="font-medium text-base min-w-[30px] text-center">{editedGuests}</span>
-                              <button 
-                                onClick={() => setEditedGuests(Math.min(maxGuests, editedGuests + 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">+</span>
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
-                            <div>
-                              <span className="font-medium text-sm text-gray-700">Enfants</span>
-                              <p className="text-xs text-gray-400">De 2 à 12 ans</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button 
-                                onClick={() => setEditedChildren(Math.max(0, editedChildren - 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">-</span>
-                              </button>
-                              <span className="font-medium text-base min-w-[30px] text-center">{editedChildren}</span>
-                              <button 
-                                onClick={() => setEditedChildren(Math.min(maxGuests - editedGuests - editedBabies - editedPets, editedChildren + 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">+</span>
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
-                            <div>
-                              <span className="font-medium text-sm text-gray-700">Bébés</span>
-                              <p className="text-xs text-gray-400">Moins de 2 ans</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button 
-                                onClick={() => setEditedBabies(Math.max(0, editedBabies - 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">-</span>
-                              </button>
-                              <span className="font-medium text-base min-w-[30px] text-center">{editedBabies}</span>
-                              <button 
-                                onClick={() => setEditedBabies(Math.min(maxGuests - editedGuests - editedChildren - editedPets, editedBabies + 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">+</span>
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-between items-center border-t border-gray-200 pt-3">
-                            <div>
-                              <span className="font-medium text-sm text-gray-700">Animaux domestiques</span>
-                              <p className="text-xs text-gray-400">Chiens, chats, etc.</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button 
-                                onClick={() => setEditedPets(Math.max(0, editedPets - 1))}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">-</span>
-                              </button>
-                              <span className="font-medium text-base min-w-[30px] text-center">{editedPets}</span>
-                              <button 
-                                onClick={() => setEditedPets(editedPets + 1)}
-                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors bg-white"
-                              >
-                                <span className="text-gray-600">+</span>
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-between text-xs text-gray-500 border-t border-gray-200 pt-2 mt-1">
-                            <span>Total voyageurs</span>
-                            <span className="font-medium">
-                              {editedGuests + editedChildren + editedBabies + editedPets} / {maxGuests} max.
-                              {editedGuests + editedChildren + editedBabies + editedPets > maxGuests && (
-                                <span className="text-red-500 ml-1">⚠️ Dépassement</span>
-                              )}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {availabilityStatus === 'unavailable' && (
-                      <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
-                        ⚠️ Ces dates ne sont pas disponibles
-                      </div>
-                    )}
-                    
-                    {error && (
-                      <div className="p-2 bg-red-50 rounded-lg text-center text-xs text-red-600">
-                        {error}
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 pt-2">
-                      <button 
-                        onClick={handleSaveDatesAndGuests}
-                        disabled={isCheckingAvailability}
-                        className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50"
-                      >
-                        {isCheckingAvailability ? 'Vérification...' : 'Enregistrer les modifications'}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setIsEditingDates(false);
-                          setEditedCheckIn(currentCheckIn);
-                          setEditedCheckOut(currentCheckOut);
-                          setEditedGuests(currentAdults || currentGuests);
-                          setEditedChildren(currentChildren || 0);
-                          setEditedBabies(currentBabies || 0);
-                          setEditedPets(currentPets || 0);
-                          setShowGuestDetails(false);
-                          setError('');
-                          setAvailabilityStatus('idle');
-                        }}
-                        className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
-                      >
-                        Annuler
-                      </button>
-                    </div>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                    <div>
-                      <p className="text-gray-500 text-xs">Arrivée</p>
-                      <p className="font-medium text-sm">{formatDate(currentCheckIn)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 text-xs">Départ</p>
-                      <p className="font-medium text-sm">{formatDate(currentCheckOut)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 text-xs">Durée</p>
-                      <p className="font-medium text-sm">{currentNights} nuit{currentNights > 1 ? 's' : ''}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500 text-xs">Voyageurs</p>
-                      <p className="font-medium text-sm">
-                        {totalTravelers} pers.
-                        {currentChildren > 0 && (
-                          <span className="text-xs text-gray-400 ml-1">
-                            ({currentChildren} enf.
-                            {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
-                            {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
-                          </span>
-                        )}
-                        {currentChildren === 0 && currentBabies > 0 && (
-                          <span className="text-xs text-gray-400 ml-1">
-                            ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
-                            {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
-                          </span>
-                        )}
-                        {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
-                          <span className="text-xs text-gray-400 ml-1">
-                            ({currentPets} animal{currentPets > 1 ? 'x' : ''})
-                          </span>
-                        )}
-                      </p>
-                    </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500 text-xs">Arrivée</p>
+                    <p className="font-medium text-sm">{formatDisplayDate(currentCheckIn)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Départ</p>
+                    <p className="font-medium text-sm">{formatDisplayDate(currentCheckOut)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Durée</p>
+                    <p className="font-medium text-sm">{currentNights} nuit{currentNights > 1 ? 's' : ''}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Voyageurs</p>
+                    <p className="font-medium text-sm">
+                      {totalTravelers} pers.
+                      {currentChildren > 0 && (
+                        <span className="text-xs text-gray-400 ml-1">
+                          ({currentChildren} enf.
+                          {currentBabies > 0 ? `, ${currentBabies} bébé${currentBabies > 1 ? 's' : ''}` : ''}
+                          {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                        </span>
+                      )}
+                      {currentChildren === 0 && currentBabies > 0 && (
+                        <span className="text-xs text-gray-400 ml-1">
+                          ({currentBabies} bébé{currentBabies > 1 ? 's' : ''}
+                          {currentPets > 0 ? `, ${currentPets} animal${currentPets > 1 ? 'x' : ''}` : ''})
+                        </span>
+                      )}
+                      {currentChildren === 0 && currentBabies === 0 && currentPets > 0 && (
+                        <span className="text-xs text-gray-400 ml-1">
+                          ({currentPets} animal{currentPets > 1 ? 'x' : ''})
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Vos informations */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                <User className="w-5 h-5 text-[#00c9a7]" />
+                Vos informations
+              </h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap justify-between items-center py-1">
+                  <span className="text-gray-500 text-xs">Nom complet</span>
+                  <span className="font-medium text-sm">{guestInfo.full_name || '-'}</span>
+                </div>
+                <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                  <span className="text-gray-500 text-xs">Email</span>
+                  <span className="font-medium text-sm break-all">{guestInfo.email || '-'}</span>
+                </div>
+                <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                  <span className="text-gray-500 text-xs">Téléphone</span>
+                  <span className="font-medium text-sm">{guestInfo.phone || '-'}</span>
+                </div>
+                {guestInfo.address && (
+                  <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
+                    <span className="text-gray-500 text-xs">Adresse</span>
+                    <span className="font-medium text-sm">{guestInfo.address}</span>
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Vos informations */}
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                  <User className="w-5 h-5 text-[#00c9a7]" />
-                  Vos informations
-                </h2>
-                <div className="space-y-2 text-sm">
-                  <div className="flex flex-wrap justify-between items-center py-1">
-                    <span className="text-gray-500 text-xs">Nom complet</span>
-                    <span className="font-medium text-sm">{guestInfo.full_name || '-'}</span>
+            {/* Demandes spéciales */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
+                <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                Demandes spéciales
+              </h2>
+              <textarea 
+                value={specialRequests} 
+                onChange={(e) => setSpecialRequests(e.target.value)} 
+                placeholder="Horaires d'arrivée, allergies, demandes particulières..." 
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
+                rows={3} 
+              />
+            </div>
+          </div>
+
+          <div className="lg:w-96 space-y-4">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
+              <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {currentNights} nuits</span>
+                  <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Frais de service (10%)</span>
+                  <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
+                </div>
+                <div className="border-t border-gray-200 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
                   </div>
-                  <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                    <span className="text-gray-500 text-xs">Email</span>
-                    <span className="font-medium text-sm break-all">{guestInfo.email || '-'}</span>
-                  </div>
-                  <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                    <span className="text-gray-500 text-xs">Téléphone</span>
-                    <span className="font-medium text-sm">{guestInfo.phone || '-'}</span>
-                  </div>
-                  {guestInfo.address && (
-                    <div className="flex flex-wrap justify-between items-center py-1 border-t border-gray-50">
-                      <span className="text-gray-500 text-xs">Adresse</span>
-                      <span className="font-medium text-sm">{guestInfo.address}</span>
-                    </div>
-                  )}
+                  <div className="text-right text-xs text-gray-400">{formatEuro(total)}</div>
                 </div>
               </div>
-
-              {/* Demandes spéciales */}
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <h2 className="font-semibold text-[#0F2940] mb-3 flex items-center gap-2 text-base">
-                  <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
-                  Demandes spéciales
-                </h2>
-                <textarea 
-                  value={specialRequests} 
-                  onChange={(e) => setSpecialRequests(e.target.value)} 
-                  placeholder="Horaires d'arrivée, allergies, demandes particulières..." 
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
-                  rows={3} 
-                />
+              
+              <button 
+                onClick={handleFedapayRedirect} 
+                disabled={loading} 
+                className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Wallet className="w-4 h-4" />
+                {loading ? 'Préparation...' : 'Payer avec Fedapay'}
+              </button>
+              
+              <button 
+                onClick={handleOpenPaymentModal} 
+                disabled={loading} 
+                className="w-full mt-2 py-2 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
+              >
+                Autres méthodes de paiement
+              </button>
+              
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
+                <div className="flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  <span>Paiement sécurisé</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  <span>Garantie BF-Immo</span>
+                </div>
               </div>
             </div>
 
-            <div className="lg:w-96 space-y-4">
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
-                <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">{pricePerNight.toLocaleString()} FCFA × {currentNights} nuits</span>
-                    <span>{(pricePerNight * currentNights).toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Frais de service (10%)</span>
-                    <span>{Math.floor(pricePerNight * currentNights * 0.10).toLocaleString()} FCFA</span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-3 mt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">Total</span>
-                      <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={handleFedapayRedirect} 
-                  disabled={loading} 
-                  className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <Wallet className="w-4 h-4" />
-                  {loading ? 'Traitement...' : 'Payer avec Fedapay'}
-                </button>
-                
-                <button 
-                  onClick={handleOpenPaymentModal} 
-                  disabled={loading} 
-                  className="w-full mt-2 py-2 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
-                >
-                  Autres méthodes de paiement
-                </button>
-                
-                <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
-                  <div className="flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    <span>Paiement sécurisé</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Shield className="w-3 h-3" />
-                    <span>Garantie BF-Immo</span>
-                  </div>
-                </div>
+            <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
               </div>
-
-              <div className="bg-[#0F2940]/5 rounded-xl p-3 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#00c9a7]/20 flex items-center justify-center flex-shrink-0">
-                  <MessageCircle className="w-4 h-4 text-[#00c9a7]" />
-                </div>
-                <div>
-                  <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
-                  <p className="text-xs text-gray-500">Contactez notre support 24/7</p>
-                </div>
+              <div>
+                <p className="font-medium text-[#0F2940] text-sm">Une question ?</p>
+                <p className="text-xs text-gray-500">Contactez notre support 24/7</p>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Modal de paiement */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
-              <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
-                {paymentStep === 'form' && 'Choisissez votre paiement'}
-                {paymentStep === 'processing' && 'Traitement en cours...'}
-                {paymentStep === 'success' && 'Paiement réussi !'}
-                {paymentStep === 'error' && 'Erreur de paiement'}
-              </h3>
-              <button 
-                onClick={() => { 
-                  setShowPaymentModal(false); 
-                  setPaymentStep('form'); 
-                  setError(''); 
-                }} 
-                className="p-2 rounded-full hover:bg-gray-100 transition"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {paymentStep === 'form' && (
-                <div className="space-y-5">
-                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
-                    <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} 
-                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
-                        paymentMethod === 'mobile_money' 
-                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                      <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
-                    </button>
-                    <button 
-                      onClick={() => { setPaymentMethod('card'); setError(''); }} 
-                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
-                        paymentMethod === 'card' 
-                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
-                      <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
-                    </button>
-                  </div>
-
-                  {paymentMethod === 'mobile_money' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
-                        <div className="grid grid-cols-3 gap-2">
-                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
-                            <button 
-                              key={provider} 
-                              onClick={() => { setMobileProvider(provider); setError(''); }} 
-                              className={`py-2 rounded-xl border-2 ${
-                                mobileProvider === provider 
-                                  ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' 
-                                  : 'border-gray-200'
-                              }`}
-                            >
-                              {provider}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
-                        <input 
-                          type="tel" 
-                          value={mobileMoneyNumber} 
-                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} 
-                          placeholder="97 00 00 00" 
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'card' && (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
-                        <input 
-                          type="text" 
-                          value={cardNumber} 
-                          onChange={handleCardNumberChange} 
-                          placeholder="1234 5678 9012 3456" 
-                          maxLength={19} 
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
-                          <input 
-                            type="text" 
-                            value={cardExpiry} 
-                            onChange={handleExpiryChange} 
-                            placeholder="MM/AA" 
-                            maxLength={5} 
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                          <div className="relative">
-                            <input 
-                              type={showCvv ? 'text' : 'password'} 
-                              value={cardCvv} 
-                              onChange={(e) => setCardCvv(e.target.value)} 
-                              placeholder="123" 
-                              maxLength={4} 
-                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm pr-10" 
-                            />
-                            <button 
-                              type="button" 
-                              onClick={() => setShowCvv(!showCvv)} 
-                              className="absolute right-3 top-1/2 -translate-y-1/2"
-                            >
-                              {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
-                        <input 
-                          type="text" 
-                          value={cardName} 
-                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
-                          placeholder="JEAN DUPONT" 
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm uppercase" 
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-red-500" />
-                      <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {paymentStep === 'processing' && (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
-                  <p className="text-gray-600">Traitement du paiement en cours...</p>
-                </div>
-              )}
-
-              {paymentStep === 'success' && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
-                  <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
-                </div>
-              )}
-
-              {paymentStep === 'error' && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle className="w-8 h-8 text-red-500" />
-                  </div>
-                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
-                  <p className="text-gray-500 mb-4">{error}</p>
-                  <button 
-                    onClick={() => { setPaymentStep('form'); setError(''); }} 
-                    className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
-                  >
-                    Réessayer
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {paymentStep === 'form' && (
-              <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
-                <button 
-                  onClick={handlePaymentSubmit} 
-                  disabled={isProcessing} 
-                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
-                >
-                  {isProcessing ? 'Traitement...' : `Payer ${total.toLocaleString()} FCFA`}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 // Styles d'animation
@@ -7637,7 +7058,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
 
   // Mutation pour se déconnecter
   const logoutMutation = useMutation({
-    mutationFn: () => authService.logout(user?.user_type || 'voyageur'),
+    mutationFn: () => authService.logout(),
     onSuccess: () => {
       logout();
       onNavigate?.({ name: 'home' });
@@ -7715,6 +7136,16 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const handleBecomeHost = () => {
     onNavigate?.({ name: 'become-host' });
   };
+
+  const hostDashboardRoute = (() => {
+    const dashboardMap: Record<string, string> = {
+      logement: 'host-dashboard',
+      experience: 'host-experience-dashboard',
+      service: 'host-service-dashboard',
+    };
+
+    return dashboardMap[profile.host_type || 'logement'] || 'host-dashboard';
+  })();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb] py-6">
@@ -7903,7 +7334,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             {/* Bouton Accéder au dashboard hôte - visible seulement si l'utilisateur est hôte */}
             {profile.user_type === 'hote' && (
               <button
-                onClick={() => onNavigate?.({ name: 'host-dashboard' })}
+                onClick={() => onNavigate?.({ name: hostDashboardRoute })}
                 className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white px-6 py-4 rounded-2xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
               >
                 <Home className="w-5 h-5" />
@@ -9335,21 +8766,3122 @@ export function HostDashboardPage({ onNavigate }: HostDashboardPageProps) {
   );
 }
 
-// ==================== HOST LISTINGS PAGE ====================
+// ==================== SERVICE HOST DASHBOARD PAGE ====================
 
+// ============================================
+// INTERFACES
+// ============================================
 interface Route {
   name: string;
   id?: string;
-  showConfirmation?: boolean;
-  propertyId?: string;
+  params?: any;
+  search?: string;
 }
 
-// HostListingsPage.tsx
+interface HostServiceDashboardPageProps {
+  onNavigate?: (route: Route) => void;
+  mode?: 'dashboard' | 'services' | 'calendar' | 'reservations';
+}
+
+interface HostService {
+  id: number;
+  title: string;
+  description: string;
+  service_type: string;
+  category: string;
+  price: number;
+  duration_minutes: number;
+  city: string;
+  location: string;
+  address: string;
+  availability: any[];
+  images: any[];
+  photos: any[];
+  status: 'draft' | 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended' | 'completed' | 'cancelled';
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  stats?: {
+    bookings_count: number;
+    revenue: number;
+  };
+  average_rating?: number;
+  reviews_count?: number;
+}
+
+
+// ============================================
+// FONCTIONS DE FORMATAGE
+// ============================================
 
 
 
-// HostListingsPage.tsx - Version complète avec gestion des images
+// ✅ Formater la durée en heures et minutes
+const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes <= 0) return '0 min';
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours > 0 && mins > 0) {
+    return `${hours}h ${mins}min`;
+  } else if (hours > 0) {
+    return `${hours}h`;
+  } else {
+    return `${mins}min`;
+  }
+};
 
+// ============================================
+// COMPOSANT CALENDRIER POUR LE FORMULAIRE
+// ============================================
+const ServiceAvailabilityCalendarPicker = ({ 
+  selectedDates, 
+  onDateToggle,
+  onClearAll
+}: { 
+  selectedDates: string[];
+  onDateToggle: (date: string) => void;
+  onClearAll: () => void;
+}) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+  
+  const getDaysInMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const days: Date[] = [];
+    
+    const startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    for (let i = startPadding; i > 0; i--) {
+      const date = new Date(year, month - 1, 1 - i);
+      days.push(date);
+    }
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      days.push(new Date(year, month - 1, i));
+    }
+    const endPadding = 7 - (days.length % 7);
+    if (endPadding < 7) {
+      for (let i = 1; i <= endPadding; i++) {
+        const date = new Date(year, month, i);
+        days.push(date);
+      }
+    }
+    return days;
+  };
+  
+  const days = getDaysInMonth(year, month);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const isDateInPast = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  };
+  
+  const isDateSelected = (date: Date) => {
+    const key = formatDateKey(date);
+    return selectedDates.includes(key);
+  };
+  
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  
+  const handleDateClick = (date: Date) => {
+    if (isDateInPast(date)) return;
+    const key = formatDateKey(date);
+    onDateToggle(key);
+  };
+  
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  
+  return (
+    <div className="bg-white rounded-xl p-4 border border-[#d9efeb]">
+      <div className="flex items-center justify-between mb-4">
+        <button 
+          onClick={() => setCurrentDate(new Date(year, month - 2, 1))} 
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h3 className="font-semibold text-gray-800">{monthNames[month - 1]} {year}</h3>
+        <button 
+          onClick={() => setCurrentDate(new Date(year, month, 1))} 
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {dayNames.map((day) => (
+          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">{day}</div>
+        ))}
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((date, index) => {
+          const isPast = isDateInPast(date);
+          const isSelected = isDateSelected(date);
+          const isCurrentMonth = date.getMonth() === month - 1;
+          
+          let bgColor = 'hover:bg-gray-50';
+          let textColor = 'text-gray-800';
+          let cursor = 'cursor-pointer';
+          
+          if (!isCurrentMonth) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-default';
+            bgColor = '';
+          } else if (isPast) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-gray-50';
+          } else if (isSelected) {
+            bgColor = 'bg-[#00c9a7] text-white';
+            textColor = 'text-white';
+          }
+          
+          return (
+            <div
+              key={index}
+              onClick={() => isCurrentMonth && !isPast && handleDateClick(date)}
+              className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${bgColor} ${textColor} ${cursor} ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}`}
+            >
+              <span>{date.getDate()}</span>
+              {isSelected && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#00c9a7] rounded-full flex items-center justify-center border-2 border-white">
+                  <CheckCircle className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#e9f2f0]">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-[#00c9a7] rounded"></div>
+          <span className="text-xs text-gray-600">Sélectionné</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} sélectionnée{selectedDates.length > 1 ? 's' : ''}
+          </span>
+          {selectedDates.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-xs text-rose-600 hover:text-rose-700 font-medium"
+            >
+              Tout désélectionner
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="mt-3 pt-3 border-t border-[#e9f2f0]">
+        <p className="text-xs text-gray-500">
+          💡 Sélectionnez les dates où vous serez disponible pour ce service.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT CARTE DE STATISTIQUES
+// ============================================
+const ServiceStatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color = 'text-[#00c9a7]', 
+  subtitle, 
+  action,
+  trend 
+}: { 
+  title: string; 
+  value: string | number; 
+  icon: any; 
+  color?: string; 
+  subtitle?: string | React.ReactNode; 
+  action?: React.ReactNode;
+  trend?: { value: number; positive: boolean };
+}) => (
+  <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+    <div className="flex items-center justify-between">
+      <div className="text-sm text-[#6b7280]">{title}</div>
+      <Icon className={`w-5 h-5 ${color}`} />
+    </div>
+    <div className="text-2xl font-bold text-[#0f2940] mt-3">
+      {value}
+    </div>
+    {subtitle && (
+      <div className="text-xs text-gray-500 mt-2">{subtitle}</div>
+    )}
+    {trend && (
+      <div className={`text-xs mt-2 flex items-center gap-1 ${trend.positive ? 'text-green-600' : 'text-red-600'}`}>
+        {trend.positive ? '↑' : '↓'} {trend.value}%
+      </div>
+    )}
+    {action && (
+      <div className="mt-3">{action}</div>
+    )}
+  </div>
+);
+
+// ============================================
+// FONCTIONS D'EXTRACTION
+// ============================================
+// ============================================
+// FONCTIONS D'EXTRACTION - CORRIGÉES
+// ============================================
+
+const extractServiceImages = (service: HostService): string[] => {
+  const images: string[] = [];
+  
+  // ✅ Fonction pour normaliser l'URL de l'image
+  const normalizeImageUrl = (url: string): string => {
+    if (!url) return '';
+    
+    // Si c'est déjà une URL complète
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Si l'URL commence par /storage
+    if (url.startsWith('/storage')) {
+      return `https://api.bluefin-immo.com${url}`;
+    }
+    
+    // Si l'URL commence par storage
+    if (url.startsWith('storage')) {
+      return `https://api.bluefin-immo.com/${url}`;
+    }
+    
+    // Sinon, ajouter le chemin complet
+    return `https://api.bluefin-immo.com/storage/${url}`;
+  };
+
+  // ✅ Extraire les images de différentes sources
+  if (service.images && Array.isArray(service.images)) {
+    for (const img of service.images) {
+      if (typeof img === 'string') {
+        const normalized = normalizeImageUrl(img);
+        if (normalized) images.push(normalized);
+      } else if (img && typeof img === 'object') {
+        // Essayer différents champs possibles
+        const url = img.url || img.path || img.photo_url || img.image_url || img.full_url;
+        if (url && typeof url === 'string') {
+          const normalized = normalizeImageUrl(url);
+          if (normalized) images.push(normalized);
+        }
+      }
+    }
+  }
+  
+  // ✅ Si pas d'images, utiliser des images par défaut
+  if (images.length === 0) {
+    // Images par défaut basées sur le type de service
+    const defaultImages: Record<string, string[]> = {
+      'ménage': ['/placeholder-service-1.jpg', '/placeholder-service-2.jpg'],
+      'jardinage': ['/placeholder-service-3.jpg', '/placeholder-service-4.jpg'],
+      'babysitting': ['/placeholder-service-5.jpg', '/placeholder-service-6.jpg'],
+      'transport': ['/placeholder-service-7.jpg', '/placeholder-service-8.jpg'],
+      'maintenance': ['/placeholder-service-9.jpg', '/placeholder-service-10.jpg'],
+    };
+    
+    const serviceType = service.service_type?.toLowerCase() || '';
+    let defaultImg = defaultImages[serviceType] || ['/placeholder-service.jpg'];
+    
+    // Si l'image par défaut est un chemin local, l'ajouter
+    if (defaultImg[0] && !defaultImg[0].startsWith('http')) {
+      // Utiliser une image de placeholder avec le nom du service
+      defaultImg[0] = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(service.title || 'Service')}&size=128`;
+    }
+    
+    images.push(defaultImg[0]);
+  }
+  
+  return images;
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+export function HostServiceDashboardPage({ onNavigate, mode = 'dashboard' }: HostServiceDashboardPageProps) {
+  const queryClient = useQueryClient();
+  
+  // États
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingService, setEditingService] = useState<HostService | null>(null);
+  const [selectedService, setSelectedService] = useState<HostService | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | HostService['status']>('all');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  
+  // États du formulaire
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    service_type: '',
+    category: '',
+    location: '',
+    price: '',
+    duration_minutes: 60,
+    status: 'draft' as HostService['status'],
+  });
+  
+  const [selectedAvailabilityDates, setSelectedAvailabilityDates] = useState<string[]>([]);
+  const [serviceImages, setServiceImages] = useState<string[]>([]);
+  const [serviceImageFiles, setServiceImageFiles] = useState<File[]>([]);
+  
+  const MIN_SERVICE_IMAGES = 4;
+
+  // ✅ REQUÊTE POUR RÉCUPÉRER LES SERVICES
+  const { data: servicesResponse, isLoading, refetch } = useQuery({
+    queryKey: ['host-services'],
+    queryFn: () => hostService.getServices(),
+    retry: 2,
+  });
+
+  // ✅ Extraire les services
+  const services = useMemo(() => {
+    let rawData = [];
+    if (servicesResponse?.data?.data) {
+      rawData = Array.isArray(servicesResponse.data.data) ? servicesResponse.data.data : [];
+    } else if (servicesResponse?.data) {
+      rawData = Array.isArray(servicesResponse.data) ? servicesResponse.data : [];
+    } else if (servicesResponse) {
+      rawData = Array.isArray(servicesResponse) ? servicesResponse : [];
+    }
+    console.log('📊 Services récupérés:', rawData.length);
+    return rawData;
+  }, [servicesResponse]);
+
+  // ✅ Statistiques
+  const stats = useMemo(() => {
+    const active = services.filter((s: any) => s.status === 'active').length;
+    const pending = services.filter((s: any) => s.status === 'pending').length;
+    const draft = services.filter((s: any) => s.status === 'draft').length;
+    const totalBookings = services.reduce((sum: number, s: any) => sum + (s.stats?.bookings_count || 0), 0);
+    
+    // ✅ Les revenus sont à 0 tant qu'il n'y a pas de réservations
+    const totalRevenue = 0;
+    const monthlyRevenue = 0;
+    
+    return {
+      total: services.length,
+      active,
+      pending,
+      drafts: draft,
+      total_bookings: totalBookings,
+      total_revenue: totalRevenue,
+      monthly_revenue: monthlyRevenue,
+      average_rating: 0,
+      total_reviews: 0
+    };
+  }, [services]);
+
+  // ✅ Fonctions de statut
+  const getStatusLabel = (status: HostService['status']) => {
+    const labels: Record<HostService['status'], string> = {
+      draft: 'Brouillon',
+      pending: 'En attente',
+      active: 'Actif',
+      inactive: 'Inactif',
+      rejected: 'Rejeté',
+      suspended: 'Suspendu',
+      completed: 'Terminé',
+      cancelled: 'Annulé',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusClasses = (status: HostService['status']) => {
+    const classes: Record<HostService['status'], string> = {
+      draft: 'bg-slate-100 text-slate-700',
+      pending: 'bg-amber-100 text-amber-700',
+      active: 'bg-emerald-100 text-emerald-700',
+      inactive: 'bg-gray-100 text-gray-700',
+      rejected: 'bg-rose-100 text-rose-700',
+      suspended: 'bg-red-100 text-red-700',
+      completed: 'bg-blue-100 text-blue-700',
+      cancelled: 'bg-gray-100 text-gray-500',
+    };
+    return classes[status] || classes.draft;
+  };
+
+  // ✅ FILTRAGE
+  const filteredServices = services.filter((s: any) => {
+    if (selectedFilter === 'all') return true;
+    return s.status === selectedFilter;
+  });
+
+  // ============================================
+  // MUTATIONS API
+  // ============================================
+  
+  // ✅ MUTATION DE CRÉATION
+  const createServiceMutation = useMutation({
+    mutationFn: (payload: any) => {
+      console.log('➕ Création service - payload:', payload);
+      return hostService.createService(payload);
+    },
+    onSuccess: (response) => {
+      console.log('✅ Service créé:', response);
+      toast.success(response?.message || 'Service créé avec succès');
+      queryClient.invalidateQueries({ queryKey: ['host-services'] });
+      refetch();
+      setIsFormOpen(false);
+      resetForm();
+      window.dispatchEvent(new CustomEvent('service-created', { detail: response?.data }));
+    },
+    onError: (error: any) => {
+      console.error('❌ Erreur création:', error);
+      const errors = error?.response?.data?.errors;
+      if (errors) {
+        const messages = Object.values(errors).flat().join(', ');
+        toast.error(messages);
+        return;
+      }
+      toast.error(error?.response?.data?.message || 'Erreur lors de la création');
+    },
+  });
+
+  // ✅ MUTATION DE MISE À JOUR
+  const updateServiceMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: any }) => {
+      console.log('🔄 Mise à jour service:', id, payload);
+      return hostService.updateService(id, payload);
+    },
+    onSuccess: (response) => {
+      console.log('✅ Service mis à jour:', response);
+      toast.success(response?.message || 'Service mis à jour avec succès');
+      queryClient.invalidateQueries({ queryKey: ['host-services'] });
+      refetch();
+      setIsFormOpen(false);
+      resetForm();
+      window.dispatchEvent(new CustomEvent('service-updated', { detail: response?.data }));
+    },
+    onError: (error: any) => {
+      console.error('❌ Erreur mise à jour:', error);
+      const errors = error?.response?.data?.errors;
+      if (errors) {
+        const messages = Object.values(errors).flat().join(', ');
+        toast.error(messages);
+        return;
+      }
+      toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour');
+    },
+  });
+
+  // ✅ MUTATION DE SUPPRESSION
+  const deleteServiceMutation = useMutation({
+    mutationFn: (id: number) => {
+      console.log('🗑️ Suppression service:', id);
+      return hostService.deleteService(id);
+    },
+    onSuccess: () => {
+      toast.success('Service supprimé avec succès');
+      queryClient.invalidateQueries({ queryKey: ['host-services'] });
+      refetch();
+    },
+    onError: (error: any) => {
+      console.error('❌ Erreur suppression:', error);
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression');
+    },
+  });
+
+  // ============================================
+  // FONCTIONS DU FORMULAIRE
+  // ============================================
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      service_type: '',
+      category: '',
+      location: '',
+      price: '',
+      duration_minutes: 60,
+      status: 'draft',
+    });
+    setSelectedAvailabilityDates([]);
+    setServiceImages([]);
+    setServiceImageFiles([]);
+  };
+
+  const openCreateModal = () => {
+    console.log('🔘 Ouverture du formulaire de création');
+    resetForm();
+    setEditingService(null);
+    setIsFormOpen(true);
+  };
+
+  const openEditModal = (service: HostService) => {
+    console.log('🔘 Ouverture du formulaire d\'édition:', service.title);
+    setEditingService(service);
+    setFormData({
+      title: service.title || '',
+      description: service.description || '',
+      service_type: service.service_type || '',
+      category: service.category || '',
+      location: service.location || service.city || '',
+      price: String(service.price || 0),
+      duration_minutes: service.duration_minutes || 60,
+      status: service.status || 'draft',
+    });
+    
+    const images = extractServiceImages(service);
+    setServiceImages(images);
+    setServiceImageFiles([]);
+    
+    if (service.availability && Array.isArray(service.availability)) {
+      const dates = service.availability
+        .map((item: any) => {
+          if (typeof item === 'string') {
+            try {
+              const parsed = JSON.parse(item);
+              return parsed.date || null;
+            } catch { return null; }
+          }
+          return item?.date || null;
+        })
+        .filter((date: string | null): date is string => date !== null);
+      setSelectedAvailabilityDates(dates);
+    }
+    
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteService = (service: HostService) => {
+    if (window.confirm(`Supprimer le service "${service.title}" ?`)) {
+      deleteServiceMutation.mutate(service.id);
+    }
+  };
+
+  // ============================================
+  // SOUMISSION DU FORMULAIRE
+  // ============================================
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('📝 Formulaire soumis');
+    
+    // ✅ Validation des champs
+    const title = formData.title.trim();
+    const description = formData.description.trim();
+    const service_type = formData.service_type.trim();
+    const location = formData.location.trim();
+    const price = Number(formData.price);
+    const duration_minutes = Number(formData.duration_minutes);
+
+    if (!title) {
+      toast.error('Veuillez saisir un titre');
+      return;
+    }
+
+    if (!service_type) {
+      toast.error('Veuillez saisir un type de service');
+      return;
+    }
+
+    if (!location) {
+      toast.error('Veuillez saisir un lieu');
+      return;
+    }
+
+    if (!price || price <= 0) {
+      toast.error('Veuillez saisir un prix valide');
+      return;
+    }
+
+    if (!description || description.length < 20) {
+      toast.error('La description doit faire au moins 20 caractères');
+      return;
+    }
+
+    if (serviceImageFiles.length < MIN_SERVICE_IMAGES) {
+      toast.error(`Veuillez ajouter au moins ${MIN_SERVICE_IMAGES} images`);
+      return;
+    }
+
+    // ✅ Construire le payload
+    const payload = {
+      title,
+      description,
+      service_type,
+      category: formData.category.trim(),
+      location,
+      price,
+      duration_minutes: duration_minutes || 60,
+      status: formData.status || 'draft',
+      availability: selectedAvailabilityDates.map(date => ({
+        date: date,
+        slots: ['09:00', '14:00', '18:00']
+      })),
+      images: serviceImageFiles,
+    };
+
+    console.log('📤 Payload envoyé:', payload);
+
+    // ✅ Appeler la mutation appropriée
+    if (editingService) {
+      updateServiceMutation.mutate({ id: editingService.id, payload });
+    } else {
+      createServiceMutation.mutate(payload);
+    }
+  };
+
+  // ============================================
+  // RENDU DU FORMULAIRE
+  // ============================================
+  const renderForm = () => {
+    console.log('🎨 Rendering du formulaire, isFormOpen:', isFormOpen);
+    
+    if (!isFormOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] bg-white p-6">
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-[#0f2940]">
+                {editingService ? 'Modifier le service' : 'Créer un service'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {editingService ? `Modification de : ${editingService.title}` : 'Remplissez les informations ci-dessous'}
+              </p>
+            </div>
+            <button onClick={() => { setIsFormOpen(false); resetForm(); }} className="p-2 rounded-full hover:bg-gray-100">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          <form onSubmit={handleFormSubmit} className="space-y-5">
+            {/* Titre */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Titre du service <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={formData.title || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                placeholder="Ex: Service de Ménage Premium"
+                required
+              />
+            </div>
+
+            {/* Type et Catégorie */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Type de service <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={formData.service_type || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, service_type: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: ménage, jardinage..."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Catégorie
+                </label>
+                <input
+                  value={formData.category || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: Entretien, Jardinage..."
+                />
+              </div>
+            </div>
+
+            {/* Lieu */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Lieu <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={formData.location || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                placeholder="Ex: Cotonou"
+                required
+              />
+            </div>
+
+            {/* Prix */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Prix <span className="text-red-500">*</span>
+              </label>
+              <div>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={formData.price || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: 15000"
+                  required
+                />
+                {formData.price && Number(formData.price) > 0 && (
+                  <div className="mt-1 text-xs text-gray-400">
+                    ≈ {formatEuro(Number(formData.price))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Durée */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Durée <span className="text-red-500">*</span>
+              </label>
+              <div>
+                <input
+                  type="number"
+                  min="15"
+                  step="15"
+                  value={formData.duration_minutes || 60}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, duration_minutes: Number(e.target.value) }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="60"
+                  required
+                />
+                {formData.duration_minutes && Number(formData.duration_minutes) > 0 && (
+                  <div className="mt-1 text-xs text-gray-400">
+                    ≈ {formatDuration(Number(formData.duration_minutes))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Statut */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Statut</label>
+              <select
+                value={formData.status || 'draft'}
+                onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as HostService['status'] }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+              >
+                <option value="draft">📝 Brouillon</option>
+                <option value="pending">⏳ En attente</option>
+                <option value="active">✅ Actif</option>
+                <option value="inactive">⛔ Inactif</option>
+                <option value="rejected">❌ Rejeté</option>
+                <option value="suspended">🚫 Suspendu</option>
+              </select>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={formData.description || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                placeholder="Décrivez votre service en détail..."
+                required
+              />
+            </div>
+
+            {/* Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Images du service <span className="text-red-500">*</span>
+                <span className="text-xs text-gray-500 ml-2">
+                  ({serviceImageFiles.length}/{MIN_SERVICE_IMAGES} minimum)
+                </span>
+              </label>
+              
+              <div className="flex flex-col items-center justify-center w-full border-2 border-dashed border-[#d9efeb] rounded-2xl p-4 hover:border-[#00c9a7] transition bg-[#f8fffe]">
+                <label htmlFor="gallery-upload" className="cursor-pointer text-center">
+                  <div className="text-sm text-gray-500">
+                    <span className="font-semibold text-[#00c9a7]">Cliquez pour ajouter</span> ou glissez-déposez
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">PNG, JPG, JPEG, WEBP (max 5MB)</p>
+                  <input
+                    id="gallery-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    capture="environment"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files) {
+                        const fileArray = Array.from(files);
+                        setServiceImageFiles(prev => [...prev, ...fileArray]);
+                        fileArray.forEach(file => {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setServiceImages(prev => [...prev, reader.result as string]);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {serviceImages.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {serviceImages.map((image, index) => (
+                    <div key={index} className="relative group aspect-square rounded-2xl overflow-hidden border border-[#d9efeb]">
+                      <img src={image} alt={`Image ${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setServiceImages(prev => prev.filter((_, i) => i !== index));
+                          setServiceImageFiles(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="absolute top-1.5 right-1.5 bg-black/70 text-white rounded-full p-1.5 hover:bg-black/90 transition opacity-70 hover:opacity-100"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Disponibilités */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Disponibilités
+                <span className="text-xs text-gray-500 ml-2">
+                  ({selectedAvailabilityDates.length} date{selectedAvailabilityDates.length > 1 ? 's' : ''} sélectionnée{selectedAvailabilityDates.length > 1 ? 's' : ''})
+                </span>
+              </label>
+              
+              <ServiceAvailabilityCalendarPicker
+                selectedDates={selectedAvailabilityDates}
+                onDateToggle={(date) => {
+                  setSelectedAvailabilityDates(prev => 
+                    prev.includes(date) 
+                      ? prev.filter(d => d !== date)
+                      : [...prev, date]
+                  );
+                }}
+                onClearAll={() => setSelectedAvailabilityDates([])}
+              />
+            </div>
+
+            {/* Boutons */}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-[#e9f2f0]">
+              <button
+                type="button"
+                onClick={() => { setIsFormOpen(false); resetForm(); }}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full border border-[#d9efeb] text-[#0f2940] font-medium hover:bg-gray-50 transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={createServiceMutation.isPending || updateServiceMutation.isPending}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-[#00c9a7] text-white font-semibold hover:bg-[#00b396] transition disabled:opacity-50"
+              >
+                {(createServiceMutation.isPending || updateServiceMutation.isPending) 
+                  ? 'Enregistrement...' 
+                  : editingService 
+                    ? 'Mettre à jour' 
+                    : 'Créer le service'
+                }
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  // ✅ MODE SERVICES (Liste)
+  if (mode === 'services') {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => onNavigate?.({ name: 'host-service-dashboard' })} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-3xl font-bold text-[#0f2940]">Mes services</h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                {filteredServices.length}
+              </span>
+            </div>
+            <button 
+              onClick={openCreateModal} 
+              className="bg-[#00c9a7] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#00b396] transition shadow-lg flex items-center gap-2"
+            >
+              <PlusCircle className="w-5 h-5" /> Nouveau service
+            </button>
+          </div>
+
+          {/* Filtres */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {(['all', 'draft', 'pending', 'active', 'inactive', 'rejected', 'suspended'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-4 py-2 rounded-full text-sm transition ${
+                  selectedFilter === filter 
+                    ? 'bg-[#00c9a7] text-white shadow-md' 
+                    : 'bg-white border border-[#d9efeb] text-[#0f2940] hover:border-[#00c9a7]'
+                }`}
+              >
+                {filter === 'all' ? 'Tous' : getStatusLabel(filter)}
+              </button>
+            ))}
+          </div>
+
+          {filteredServices.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+              <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-2">Aucun service</p>
+              <p className="text-gray-400 text-sm">
+                {selectedFilter !== 'all' 
+                  ? `Aucun service avec le statut "${getStatusLabel(selectedFilter)}"` 
+                  : 'Commencez par créer votre premier service !'}
+              </p>
+              <button 
+                onClick={openCreateModal} 
+                className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
+              >
+                Créer un service
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {filteredServices.map((service: any) => (
+                <div key={service.id} className="bg-white rounded-3xl border border-[#e2f5f2] p-6 shadow-sm hover:shadow-lg transition-all hover:border-[#00c9a7]">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                        {service.images && service.images.length > 0 ? (
+                          <img 
+                            src={typeof service.images[0] === 'string' ? service.images[0] : service.images[0]?.url || '/placeholder.jpg'} 
+                            alt={service.title} 
+                            className="w-full h-full object-cover"
+                            onError={(e) => (e.target as HTMLImageElement).src = '/placeholder.jpg'}
+                          />
+                        ) : (
+                          <Briefcase className="w-6 h-6 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xl font-semibold text-[#0f2940] truncate">{service.title || 'Service sans titre'}</h4>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusClasses(service.status)}`}>
+                            {getStatusLabel(service.status)}
+                          </span>
+                          {service.is_published && (
+                            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Publié</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1 flex items-center gap-1 truncate">
+                          <MapPin className="w-4 h-4 flex-shrink-0" /> 
+                          <span className="truncate">{service.location || service.city || 'Localisation non définie'}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs text-gray-500">Tarif</p>
+                      <p className="text-xl font-bold text-[#00c9a7]">{formatPriceBoth(service.price || 0)}</p>
+                      <p className="text-xs text-gray-400">{formatDuration(service.duration_minutes || 60)}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-gray-600 mt-4 line-clamp-2">
+                    {service.description || 'Aucune description disponible'}
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-3 mt-5">
+                    <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                      <p className="text-lg font-semibold text-[#0f2940]">{formatDuration(service.duration_minutes || 60)}</p>
+                      <p className="text-xs text-gray-500">Durée</p>
+                    </div>
+                    <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                      <p className="text-lg font-semibold text-[#0f2940]">{service.stats?.bookings_count || 0}</p>
+                      <p className="text-xs text-gray-500">Réservations</p>
+                    </div>
+                    <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                      <p className="text-lg font-semibold text-[#0f2940]">{service.reviews_count || 0}</p>
+                      <p className="text-xs text-gray-500">Avis</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 mt-5">
+                    <button 
+                      onClick={() => openEditModal(service)} 
+                      className="flex-1 min-w-[80px] px-4 py-2 rounded-full bg-[#00c9a7] text-white font-medium hover:bg-[#00b396] transition flex items-center justify-center gap-1"
+                    >
+                      <Edit2 className="w-4 h-4" /> Modifier
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteService(service)} 
+                      className="flex-1 min-w-[80px] px-4 py-2 rounded-full border border-rose-200 text-rose-600 font-medium hover:bg-rose-50 transition flex items-center justify-center gap-1"
+                    >
+                      <Trash2 className="w-4 h-4" /> Supprimer
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {isFormOpen && renderForm()}
+      </div>
+    );
+  }
+
+  // ✅ MODE CALENDAR
+  if (mode === 'calendar') {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={() => onNavigate?.({ name: 'host-service-dashboard' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-3xl font-bold text-[#0f2940]">Calendrier des services</h1>
+          </div>
+          <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6">
+            <ServiceAvailabilityCalendarPicker
+              selectedDates={[]}
+              onDateToggle={() => {}}
+              onClearAll={() => {}}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ MODE RESERVATIONS
+  if (mode === 'reservations') {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={() => onNavigate?.({ name: 'host-service-dashboard' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-3xl font-bold text-[#0f2940]">Réservations services</h1>
+          </div>
+          <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+            <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg mb-2">Aucune réservation</p>
+            <p className="text-gray-400 text-sm">Vous n'avez pas encore de réservations.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ MODE DASHBOARD (par défaut)
+  return (
+    <div className="min-h-screen bg-[#f4fffe] py-10">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* En-tête */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-[#0f2940] flex items-center gap-2">
+              <Briefcase className="w-8 h-8 text-[#00c9a7]" />
+              Tableau de bord Services
+            </h1>
+            <p className="text-gray-500 mt-1">
+              {services.length} service{services.length > 1 ? 's' : ''} au total
+            </p>
+          </div>
+          <button 
+            onClick={openCreateModal} 
+            className="group bg-[#00c9a7] hover:bg-[#00b396] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+            Nouveau service
+          </button>
+        </div>
+
+        {/* Cartes statistiques */}
+        <div className="grid gap-6 lg:grid-cols-4 mb-8">
+          <ServiceStatCard
+            title="Total services"
+            value={stats.total}
+            icon={Briefcase}
+            color="text-[#00c9a7]"
+            subtitle={`${stats.active} actifs, ${stats.pending} en attente`}
+          />
+          <ServiceStatCard
+            title="Réservations"
+            value={stats.total_bookings}
+            icon={Users}
+            color="text-[#00c9a7]"
+            subtitle="Total des réservations"
+          />
+          <ServiceStatCard
+            title="Revenus"
+            value="0 FCFA"
+            icon={DollarSign}
+            color="text-[#00c9a7]"
+            subtitle="Aucune réservation pour le moment"
+          />
+          <ServiceStatCard
+            title="Évaluations"
+            value="Non noté"
+            icon={Star}
+            color="text-yellow-400"
+            subtitle="Aucun avis"
+          />
+        </div>
+
+        {/* SECTION MES SERVICES */}
+        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-lg text-[#0f2940]">🔧 Mes services</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {services.length === 0 
+                  ? 'Vous n\'avez pas encore créé de service' 
+                  : `${services.length} service${services.length > 1 ? 's' : ''} au total`
+                }
+              </p>
+            </div>
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-service-list' })} 
+              className="px-6 py-2.5 rounded-full bg-[#00c9a7] text-white font-medium hover:bg-[#00b396] transition shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <span>Gérer mes services</span>
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </button>
+          </div>
+          
+          {services.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.active}</p>
+                <p className="text-xs text-gray-500">Actifs</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.pending}</p>
+                <p className="text-xs text-gray-500">En attente</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.drafts}</p>
+                <p className="text-xs text-gray-500">Brouillons</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#00c9a7]">{stats.total_bookings}</p>
+                <p className="text-xs text-gray-500">Réservations</p>
+              </div>
+            </div>
+          )}
+
+          {services.length === 0 && (
+            <div className="text-center py-6">
+              <Briefcase className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Commencez par créer votre premier service !</p>
+              <button 
+                onClick={openCreateModal}
+                className="mt-3 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
+              >
+                Créer un service
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Liens rapides */}
+        <div>
+          <h3 className="font-semibold text-lg text-[#0f2940] mb-4">Accès rapides</h3>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-service-calendar' })} 
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <CalendarDays className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-[#0f2940]">Calendrier</h3>
+              </div>
+              <p className="text-sm text-[#6b7280]">Gérez vos disponibilités et réservations</p>
+            </button>
+            
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-service-reservations' })} 
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Users className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-[#0f2940]">Réservations</h3>
+              </div>
+              <p className="text-sm text-[#6b7280]">Consultez les demandes de services</p>
+            </button>
+          </div>
+        </div>
+      </div>
+      {isFormOpen && renderForm()}
+    </div>
+  );
+}
+
+// ============================================
+// EXPORT DES PAGES
+// ============================================
+export const HostServiceListPage = (props: HostServiceDashboardPageProps) => (
+  <HostServiceDashboardPage {...props} mode="services" />
+);
+
+export const HostServiceCalendarPage = (props: HostServiceDashboardPageProps) => (
+  <HostServiceDashboardPage {...props} mode="calendar" />
+);
+
+export const HostServiceReservationsPage = (props: HostServiceDashboardPageProps) => (
+  <HostServiceDashboardPage {...props} mode="reservations" />
+);
+
+// export default HostServiceDashboardPage;
+
+// ==================== HOST EXPERIENCE DASHBOARD PAGE ====================
+
+
+// ============================================
+// INTERFACES
+// ============================================
+interface Route {
+  name: string;
+  id?: string;
+  params?: any;
+  search?: string;
+}
+
+interface HostExperienceDashboardPageProps {
+  onNavigate?: (route: Route) => void;
+  mode?: 'dashboard' | 'experiences' | 'calendar' | 'reservations';
+}
+
+// ============================================
+// FONCTIONS D'EXTRACTION
+// ============================================
+const extractExperienceMeta = (experience: HostExperience) => {
+  const availabilityArray = Array.isArray(experience.availability) ? experience.availability : [];
+  for (const item of availabilityArray) {
+    try {
+      let parsed = item;
+      if (typeof item === 'string') parsed = JSON.parse(item);
+      if (parsed && typeof parsed === 'object' && parsed.type === 'experience_meta') return parsed;
+    } catch (e) {}
+  }
+  return {};
+};
+
+const extractExperienceImages = (experience: HostExperience): string[] => {
+  const images: string[] = [];
+  const meta = extractExperienceMeta(experience);
+  
+  if (meta.gallery && Array.isArray(meta.gallery)) {
+    for (const img of meta.gallery) {
+      if (img && typeof img === 'string') images.push(img);
+    }
+    if (images.length > 0) return images;
+  }
+  
+  if (meta.step_images && Array.isArray(meta.step_images)) {
+    for (const img of meta.step_images) {
+      if (img && typeof img === 'string') images.push(img);
+    }
+    if (images.length > 0) return images;
+  }
+  
+  if (experience.images && Array.isArray(experience.images)) {
+    for (const img of experience.images) {
+      if (img && typeof img === 'string') images.push(img);
+    }
+  }
+  
+  return images;
+};
+
+// ============================================
+// COMPOSANT CALENDRIER POUR LE FORMULAIRE
+// ============================================
+const AvailabilityCalendarPicker = ({ 
+  selectedDates, 
+  onDateToggle,
+  onClearAll
+}: { 
+  selectedDates: string[];
+  onDateToggle: (date: string) => void;
+  onClearAll: () => void;
+}) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth() + 1;
+  
+  const getDaysInMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const days: Date[] = [];
+    
+    const startPadding = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+    for (let i = startPadding; i > 0; i--) {
+      const date = new Date(year, month - 1, 1 - i);
+      days.push(date);
+    }
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      days.push(new Date(year, month - 1, i));
+    }
+    const endPadding = 7 - (days.length % 7);
+    if (endPadding < 7) {
+      for (let i = 1; i <= endPadding; i++) {
+        const date = new Date(year, month, i);
+        days.push(date);
+      }
+    }
+    return days;
+  };
+  
+  const days = getDaysInMonth(year, month);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const isDateInPast = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  };
+  
+  const isDateSelected = (date: Date) => {
+    const key = formatDateKey(date);
+    return selectedDates.includes(key);
+  };
+  
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  
+  const handleDateClick = (date: Date) => {
+    if (isDateInPast(date)) return;
+    const key = formatDateKey(date);
+    onDateToggle(key);
+  };
+  
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+  
+  return (
+    <div className="bg-white rounded-xl p-4 border border-[#d9efeb]">
+      <div className="flex items-center justify-between mb-4">
+        <button 
+          onClick={() => setCurrentDate(new Date(year, month - 2, 1))} 
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h3 className="font-semibold text-gray-800">{monthNames[month - 1]} {year}</h3>
+        <button 
+          onClick={() => setCurrentDate(new Date(year, month, 1))} 
+          className="p-2 rounded-lg hover:bg-gray-100 transition"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1 mb-2">
+        {dayNames.map((day) => (
+          <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">{day}</div>
+        ))}
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((date, index) => {
+          const isPast = isDateInPast(date);
+          const isSelected = isDateSelected(date);
+          const isCurrentMonth = date.getMonth() === month - 1;
+          
+          let bgColor = 'hover:bg-gray-50';
+          let textColor = 'text-gray-800';
+          let cursor = 'cursor-pointer';
+          
+          if (!isCurrentMonth) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-default';
+            bgColor = '';
+          } else if (isPast) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-gray-50';
+          } else if (isSelected) {
+            bgColor = 'bg-[#00c9a7] text-white';
+            textColor = 'text-white';
+          }
+          
+          return (
+            <div
+              key={index}
+              onClick={() => isCurrentMonth && !isPast && handleDateClick(date)}
+              className={`relative aspect-square rounded-lg flex items-center justify-center text-sm font-medium transition-all duration-200 ${bgColor} ${textColor} ${cursor} ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}`}
+            >
+              <span>{date.getDate()}</span>
+              {isSelected && (
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#00c9a7] rounded-full flex items-center justify-center border-2 border-white">
+                  <CheckCircle className="w-2.5 h-2.5 text-white" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#e9f2f0]">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-[#00c9a7] rounded"></div>
+          <span className="text-xs text-gray-600">Sélectionné</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} sélectionnée{selectedDates.length > 1 ? 's' : ''}
+          </span>
+          {selectedDates.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-xs text-rose-600 hover:text-rose-700 font-medium"
+            >
+              Tout désélectionner
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+export function HostExperienceDashboardPage({ onNavigate, mode = 'dashboard' }: HostExperienceDashboardPageProps) {
+  const queryClient = useQueryClient();
+  
+  // États
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingExperience, setEditingExperience] = useState<HostExperience | null>(null);
+  const [selectedExperience, setSelectedExperience] = useState<HostExperience | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | HostExperience['status']>('all');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  
+  // États du formulaire
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    location: '',
+    price: '',
+    capacity: '',
+    status: 'draft' as HostExperience['status'],
+  });
+  
+  // ✅ État pour les dates de disponibilité sélectionnées
+  const [selectedAvailabilityDates, setSelectedAvailabilityDates] = useState<string[]>([]);
+  
+  const [experienceImages, setExperienceImages] = useState<string[]>([]);
+  const [experienceImageFiles, setExperienceImageFiles] = useState<File[]>([]);
+  const [stepImageFiles, setStepImageFiles] = useState<File[]>([]);
+  const [stepItems, setStepItems] = useState<Array<{ description: string; image: string }>>([
+    { description: '', image: '' },
+  ]);
+  
+  const MIN_EXPERIENCE_IMAGES = 4;
+
+  // REQUÊTES API
+  const { data: experiencesResponse, isLoading, refetch } = useQuery({
+    queryKey: ['host-experiences'],
+    queryFn: () => hostService.getExperiences(),
+  });
+
+  const experiences = ((experiencesResponse?.data?.data || experiencesResponse?.data || []) as HostExperience[]).map((e) => ({
+    ...e,
+    steps: Array.isArray(e.steps) ? e.steps : [],
+    availability: Array.isArray(e.availability) ? e.availability : [],
+  }));
+
+  // MUTATIONS
+ // Dans HostExperienceDashboardPage
+
+const updateExperienceMutation = useMutation({
+  mutationFn: ({ id, payload }: { id: number; payload: any }) => 
+    hostService.updateExperience(id, payload),
+  onSuccess: (response) => {
+    // ✅ Invalider les caches
+    queryClient.invalidateQueries({ queryKey: ['host-experiences'] });
+    queryClient.invalidateQueries({ queryKey: ['experiences'] });
+    queryClient.invalidateQueries({ queryKey: ['experience', editingExperience?.id] });
+    
+    toast.success(response?.message || 'Expérience mise à jour');
+    setIsFormOpen(false);
+    setEditingExperience(null);
+    resetForm();
+    
+    // ✅ Forcer le rechargement
+    refetch();
+    
+    // ✅ Émettre un événement pour la page publique
+    window.dispatchEvent(new Event('experience-updated'));
+    window.dispatchEvent(new Event('booking-updated'));
+    
+    console.log('✅ Mise à jour terminée, événement émis');
+  },
+  onError: (error: any) => {
+    const errors = error?.response?.data?.errors;
+    if (errors) {
+      toast.error(Object.values(errors).flat().join(', '));
+      return;
+    }
+    toast.error(error?.response?.data?.message || 'Erreur lors de la mise à jour');
+  },
+});
+
+  const deleteExperienceMutation = useMutation({
+    mutationFn: (id: number) => hostService.deleteExperience(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['host-experiences'] });
+      toast.success('Expérience supprimée');
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Erreur lors de la suppression');
+    },
+  });
+
+  // FONCTIONS UTILITAIRES
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      location: '',
+      price: '',
+      capacity: '',
+      status: 'draft',
+    });
+    setExperienceImages([]);
+    setExperienceImageFiles([]);
+    setStepImageFiles([]);
+    setStepItems([{ description: '', image: '' }]);
+    setSelectedAvailabilityDates([]);
+  };
+
+  const formatPrice = (value: number) => value.toLocaleString('fr-FR');
+  
+  const getStatusLabel = (status: HostExperience['status']) => {
+    const labels: Record<HostExperience['status'], string> = {
+      draft: 'Brouillon',
+      pending: 'En attente',
+      active: 'Active',
+      inactive: 'Inactive',
+      rejected: 'Rejetée',
+      suspended: 'Suspendue',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusClasses = (status: HostExperience['status']) => {
+    const classes: Record<HostExperience['status'], string> = {
+      draft: 'bg-slate-100 text-slate-700',
+      pending: 'bg-amber-100 text-amber-700',
+      active: 'bg-emerald-100 text-emerald-700',
+      inactive: 'bg-gray-100 text-gray-700',
+      rejected: 'bg-rose-100 text-rose-700',
+      suspended: 'bg-red-100 text-red-700',
+    };
+    return classes[status] || classes.draft;
+  };
+
+  // STATISTIQUES
+  const activeExperiences = experiences.filter(e => e.status === 'active');
+  const pendingExperiences = experiences.filter(e => e.status === 'pending');
+  const draftExperiences = experiences.filter(e => e.status === 'draft');
+  
+  const totalBookings = experiences.reduce((sum, e) => sum + (e.availability?.filter(a => {
+    try {
+      const parsed = typeof a === 'string' ? JSON.parse(a) : a;
+      return parsed?.type === 'booking' || parsed?.status === 'pending';
+    } catch { return false; }
+  })?.length || 0), 0);
+
+  const monthlyRevenue = experiences.reduce((sum, e) => sum + Number(e.price || 0) * 5, 0);
+
+  const stats = {
+    total: experiences.length,
+    active: activeExperiences.length,
+    pending: pendingExperiences.length,
+    drafts: draftExperiences.length,
+  };
+
+  const filteredExperiences = experiences.filter(e => {
+    if (selectedFilter === 'all') return true;
+    return e.status === selectedFilter;
+  });
+
+  // ACTIONS
+  const openCreateModal = () => {
+    setEditingExperience(null);
+    resetForm();
+    setIsFormOpen(true);
+  };
+
+  const openEditModal = (experience: HostExperience) => {
+    console.log('🔍 Édition:', experience.name);
+    
+    const meta = extractExperienceMeta(experience);
+    const expImages = extractExperienceImages(experience);
+    
+    const stepDescriptions = Array.isArray(experience.steps) ? experience.steps : [];
+    const stepImages = meta.step_images || [];
+    
+    const steps = stepDescriptions.map((desc: string, index: number) => ({
+      description: desc || '',
+      image: stepImages[index] || ''
+    }));
+    
+    setEditingExperience(experience);
+    setExperienceImages(expImages);
+    setExperienceImageFiles([]);
+    setStepImageFiles([]);
+    setStepItems(steps.length > 0 ? steps : [{ description: '', image: '' }]);
+    
+    // ✅ Extraire les dates de disponibilité
+    let availabilityDates: string[] = [];
+    if (Array.isArray(experience.availability)) {
+      availabilityDates = experience.availability
+        .map(item => {
+          if (typeof item === 'string') {
+            try {
+              const parsed = JSON.parse(item);
+              return parsed.date || null;
+            } catch {
+              return null;
+            }
+          }
+          if (item && typeof item === 'object') {
+            return item.date || null;
+          }
+          return null;
+        })
+        .filter((date): date is string => date !== null);
+    }
+    
+    setSelectedAvailabilityDates(availabilityDates);
+    
+    setFormData({
+      name: experience.name || '',
+      description: experience.description || '',
+      location: experience.location || '',
+      price: String(experience.price ?? ''),
+      capacity: String(meta.capacity || experience.total_places || ''),
+      status: experience.status || 'draft',
+    });
+    
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteExperience = (experience: HostExperience) => {
+    if (window.confirm(`Supprimer l'expérience "${experience.name}" ?`)) {
+      deleteExperienceMutation.mutate(experience.id);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const name = formData.name.trim();
+    const description = formData.description.trim();
+    const location = formData.location.trim();
+    const price = Number(formData.price);
+    const capacity = Number(formData.capacity);
+
+    if (!name || !description || !location || !price || price <= 0) {
+      toast.error('Veuillez renseigner correctement les informations principales');
+      return;
+    }
+
+    if (!capacity || capacity <= 0) {
+      toast.error('Veuillez renseigner un nombre de places valide (> 0)');
+      return;
+    }
+
+    if (description.length < 20) {
+      toast.error('La description doit faire au moins 20 caractères');
+      return;
+    }
+
+    if (experienceImageFiles.length < MIN_EXPERIENCE_IMAGES) {
+      toast.error(`Veuillez ajouter au moins ${MIN_EXPERIENCE_IMAGES} images`);
+      return;
+    }
+
+    const validSteps = stepItems.filter(s => s.image && s.description.trim());
+    if (validSteps.length === 0) {
+      toast.error('Ajoutez au moins une étape avec image et description');
+      return;
+    }
+
+    const stepFiles: File[] = [];
+    const stepDescriptions: string[] = [];
+    
+    validSteps.forEach((step, index) => {
+      const file = stepImageFiles[index];
+      if (!file || !(file instanceof File)) {
+        toast.error(`L'image de l'étape ${index + 1} n'est pas valide`);
+        return;
+      }
+      stepFiles.push(file);
+      stepDescriptions.push(step.description.trim());
+    });
+
+    // ✅ Construire les disponibilités à partir des dates sélectionnées
+    const availability = selectedAvailabilityDates.map(date => ({
+      date: date,
+      slots: ['09:00', '14:00', '18:00'] // Créneaux par défaut
+    }));
+
+    const payload = {
+      name,
+      description,
+      location,
+      price,
+      total_places: capacity,
+      images: experienceImageFiles,
+      steps: stepDescriptions,
+      step_images: stepFiles,
+      availability,
+      status: formData.status || 'draft',
+    };
+
+    console.log('📤 Envoi payload:', payload);
+    console.log('📅 Dates sélectionnées:', selectedAvailabilityDates);
+
+    if (editingExperience) {
+      updateExperienceMutation.mutate({ id: editingExperience.id, payload });
+    }
+  };
+
+  // ✅ RENDU DU FORMULAIRE AVEC CALENDRIER
+  const renderForm = () => {
+    if (!isFormOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-[2rem] bg-white p-6">
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-[#0f2940]">
+                {editingExperience ? 'Modifier l\'expérience' : 'Créer une expérience'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {editingExperience ? `Modification de : ${editingExperience.name}` : 'Remplissez les informations ci-dessous'}
+              </p>
+            </div>
+            <button onClick={() => setIsFormOpen(false)} className="p-2 rounded-full hover:bg-gray-100">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Nom */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nom de l'expérience <span className="text-red-500">*</span>
+              </label>
+              <input
+                value={formData.name || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                placeholder="Ex: Découverte culinaire à Cotonou"
+                required
+              />
+            </div>
+
+            {/* Lieu et Prix */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Lieu <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={formData.location || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: Ouidah"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Prix (FCFA) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.price || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: 25000"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Capacité et Statut */}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Places disponibles <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.capacity || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, capacity: e.target.value }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                  placeholder="Ex: 10"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Statut</label>
+                <select
+                  value={formData.status || 'draft'}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value as HostExperience['status'] }))}
+                  className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                >
+                  <option value="draft">📝 Brouillon</option>
+                  <option value="pending">⏳ En attente</option>
+                  <option value="active">✅ Active</option>
+                  <option value="inactive">⛔ Inactive</option>
+                  <option value="rejected">❌ Rejetée</option>
+                  <option value="suspended">🚫 Suspendue</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={formData.description || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                className="w-full rounded-2xl border border-[#d9efeb] px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition"
+                placeholder="Décrivez votre expérience en détail..."
+                required
+              />
+            </div>
+
+            {/* Images */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Images de l'expérience <span className="text-red-500">*</span>
+                <span className="text-xs text-gray-500 ml-2">
+                  ({experienceImageFiles.length}/{MIN_EXPERIENCE_IMAGES} minimum)
+                </span>
+              </label>
+              
+              <div className="flex flex-col items-center justify-center w-full border-2 border-dashed border-[#d9efeb] rounded-2xl p-4 hover:border-[#00c9a7] transition bg-[#f8fffe]">
+                <label htmlFor="gallery-upload" className="cursor-pointer text-center">
+                  <div className="text-sm text-gray-500">
+                    <span className="font-semibold text-[#00c9a7]">Cliquez pour ajouter</span> ou glissez-déposez
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">PNG, JPG, JPEG, WEBP (max 5MB)</p>
+                  <input
+                    id="gallery-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    capture="environment"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files) {
+                        const fileArray = Array.from(files);
+                        setExperienceImageFiles(prev => [...prev, ...fileArray]);
+                        fileArray.forEach(file => {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setExperienceImages(prev => [...prev, reader.result as string]);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      }
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Aperçu des images */}
+              {experienceImages.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {experienceImages.map((image, index) => (
+                    <div key={index} className="relative group aspect-square rounded-2xl overflow-hidden border border-[#d9efeb]">
+                      <img src={image} alt={`Image ${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExperienceImages(prev => prev.filter((_, i) => i !== index));
+                          setExperienceImageFiles(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="absolute top-1.5 right-1.5 bg-black/70 text-white rounded-full p-1.5 hover:bg-black/90 transition opacity-70 hover:opacity-100"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Étapes */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">Étapes du programme <span className="text-red-500">*</span></label>
+                <button
+                  type="button"
+                  onClick={() => setStepItems(prev => [...prev, { description: '', image: '' }])}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#00c9a7] text-white text-sm font-medium hover:bg-[#00b396] transition"
+                >
+                  <PlusCircle className="w-4 h-4" /> Ajouter
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {stepItems.map((step, index) => (
+                  <div key={index} className="rounded-2xl border border-[#d9efeb] p-4 bg-white shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-[#00c9a7] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm font-semibold text-[#0f2940]">Étape {index + 1}</span>
+                      </div>
+                      {stepItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStepItems(prev => prev.filter((_, i) => i !== index));
+                            setStepImageFiles(prev => prev.filter((_, i) => i !== index));
+                          }}
+                          className="text-xs text-rose-600 font-medium"
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1.5">Image de l'étape</label>
+                        <div className="flex items-center gap-3">
+                          <label htmlFor={`step-image-${index}`} className="flex-1 flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-[#d9efeb] rounded-xl cursor-pointer hover:border-[#00c9a7] transition bg-[#f8fffe]">
+                            <span className="text-sm text-gray-500">
+                              {step.image ? 'Changer l\'image' : 'Ajouter une image'}
+                            </span>
+                            <input
+                              id={`step-image-${index}`}
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setStepItems(prev => prev.map((item, idx) => 
+                                      idx === index ? { ...item, image: reader.result as string } : item
+                                    ));
+                                    const newFiles = [...stepImageFiles];
+                                    newFiles[index] = file;
+                                    setStepImageFiles(newFiles);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1.5">Description</label>
+                        <textarea
+                          rows={3}
+                          value={step.description}
+                          onChange={(e) => setStepItems(prev => prev.map((item, idx) => 
+                            idx === index ? { ...item, description: e.target.value } : item
+                          ))}
+                          className="w-full rounded-xl border border-[#d9efeb] px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition resize-none"
+                          placeholder="Décrivez cette étape..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ✅ Disponibilités - CALENDRIER INTERACTIF */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Disponibilités
+                <span className="text-xs text-gray-500 ml-2">
+                  ({selectedAvailabilityDates.length} date{selectedAvailabilityDates.length > 1 ? 's' : ''} sélectionnée{selectedAvailabilityDates.length > 1 ? 's' : ''})
+                </span>
+              </label>
+              
+              <AvailabilityCalendarPicker
+                selectedDates={selectedAvailabilityDates}
+                onDateToggle={(date) => {
+                  setSelectedAvailabilityDates(prev => 
+                    prev.includes(date) 
+                      ? prev.filter(d => d !== date)
+                      : [...prev, date]
+                  );
+                }}
+                onClearAll={() => setSelectedAvailabilityDates([])}
+              />
+              
+              {selectedAvailabilityDates.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1.5">Dates sélectionnées :</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAvailabilityDates.map((date, index) => (
+                      <span key={index} className="inline-flex items-center gap-1.5 text-xs bg-[#f7fbfa] border border-[#d9efeb] rounded-full px-3 py-1">
+                        {new Date(date).toLocaleDateString('fr-FR', { 
+                          weekday: 'short', 
+                          day: 'numeric', 
+                          month: 'short' 
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAvailabilityDates(prev => prev.filter(d => d !== date))}
+                          className="text-rose-500 hover:text-rose-700"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-[#6b7280] mt-3">
+                💡 Cliquez sur les dates dans le calendrier pour les sélectionner ou les désélectionner.
+                <br />
+                Chaque date sélectionnée sera disponible avec les créneaux 09:00, 14:00 et 18:00.
+              </p>
+            </div>
+
+            {/* Boutons */}
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-[#e9f2f0]">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFormOpen(false);
+                  resetForm();
+                }}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full border border-[#d9efeb] text-[#0f2940] font-medium hover:bg-gray-50 transition"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={updateExperienceMutation.isPending}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-[#00c9a7] text-white font-semibold hover:bg-[#00b396] transition disabled:opacity-60"
+              >
+                {updateExperienceMutation.isPending ? 'Enregistrement...' : 'Mettre à jour'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7]" />
+      </div>
+    );
+  }
+
+  // Mode Calendrier
+  if (mode === 'calendar') {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={() => onNavigate?.({ name: 'host-experience-dashboard' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-3xl font-bold text-[#0f2940]">Calendrier des expériences</h1>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <AvailabilityCalendarPicker
+                selectedDates={[]}
+                onDateToggle={() => {}}
+                onClearAll={() => {}}
+              />
+            </div>
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <h3 className="font-semibold text-lg mb-4">Disponibilités</h3>
+              {selectedDate ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600">Date: <span className="font-medium text-[#0f2940]">{selectedDate}</span></p>
+                  <div className="bg-[#f4fffe] rounded-xl p-4">
+                    <p className="text-sm text-gray-500">Expériences disponibles:</p>
+                    {experiences.filter(e => e.status === 'active').map(exp => (
+                      <div key={exp.id} className="flex items-center justify-between p-2 bg-white rounded-lg shadow-sm mt-2">
+                        <span className="text-sm font-medium">{exp.name}</span>
+                        <span className="text-xs text-green-600">✓ Disponible</span>
+                      </div>
+                    ))}
+                    {experiences.filter(e => e.status === 'active').length === 0 && (
+                      <p className="text-sm text-gray-400 mt-2">Aucune expérience disponible</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">Sélectionnez une date</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mode Réservations
+  if (mode === 'reservations') {
+    const allBookings = experiences.flatMap(e => {
+      const bookings = e.availability?.filter(a => {
+        try {
+          const parsed = typeof a === 'string' ? JSON.parse(a) : a;
+          return parsed?.type === 'booking';
+        } catch { return false; }
+      }) || [];
+      return bookings.map(b => ({ ...b, experience: e }));
+    });
+
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 mb-8">
+            <button onClick={() => onNavigate?.({ name: 'host-experience-dashboard' })} className="p-2 rounded-full hover:bg-gray-100">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-3xl font-bold text-[#0f2940]">Réservations expériences</h1>
+          </div>
+          
+          {allBookings.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-2">Aucune réservation</p>
+              <p className="text-gray-400 text-sm">Vous n'avez pas encore de réservations.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {allBookings.map((booking, index) => (
+                <div key={index} className="bg-white rounded-2xl border border-[#e2f5f2] p-6 hover:shadow-lg transition">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <h3 className="font-semibold text-[#0f2940] text-lg">{booking.experience?.name || 'Expérience'}</h3>
+                      <p className="text-sm text-gray-500 mt-1">Voyageur: {booking.guest_name || 'Client'}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">En attente</span>
+                        <span className="text-xs text-gray-400">{booking.date || '-'}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-[#00c9a7]">{formatPrice(Number(booking.amount || 0))} FCFA</p>
+                      <p className="text-xs text-gray-400">{booking.participants || 1} participant</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Mode Liste des expériences
+  if (mode === 'experiences') {
+    return (
+      <div className="min-h-screen bg-[#f4fffe] py-10">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => onNavigate?.({ name: 'host-experience-dashboard' })} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-3xl font-bold text-[#0f2940]">Mes expériences</h1>
+              <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                {filteredExperiences.length}
+              </span>
+            </div>
+            <button 
+              onClick={() => {
+                console.log('📝 Ouverture création');
+                openCreateModal();
+              }} 
+              className="bg-[#00c9a7] text-white px-6 py-3 rounded-full font-semibold hover:bg-[#00b396] transition shadow-lg flex items-center gap-2"
+            >
+              <PlusCircle className="w-5 h-5" /> Nouvelle expérience
+            </button>
+          </div>
+
+          {/* Filtres */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {(['all', 'draft', 'pending', 'active', 'inactive', 'rejected', 'suspended'] as const).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setSelectedFilter(filter)}
+                className={`px-4 py-2 rounded-full text-sm transition ${
+                  selectedFilter === filter 
+                    ? 'bg-[#00c9a7] text-white shadow-md' 
+                    : 'bg-white border border-[#d9efeb] text-[#0f2940] hover:border-[#00c9a7]'
+                }`}
+              >
+                {filter === 'all' ? 'Toutes' : getStatusLabel(filter)}
+              </button>
+            ))}
+          </div>
+
+          {filteredExperiences.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-[#e2f5f2] p-12 text-center">
+              <Lightbulb className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg mb-2">Aucune expérience</p>
+              <p className="text-gray-400 text-sm">Commencez par créer votre première expérience !</p>
+              <button 
+                onClick={() => {
+                  console.log('📝 Ouverture création depuis vide');
+                  openCreateModal();
+                }} 
+                className="mt-4 bg-[#00c9a7] text-white px-6 py-2 rounded-full hover:bg-[#00b396] transition"
+              >
+                Créer une expérience
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {filteredExperiences.map((experience) => {
+                const meta = extractExperienceMeta(experience);
+                const expImages = extractExperienceImages(experience);
+                
+                let imageUrl = '/placeholder.jpg';
+                if (expImages && expImages.length > 0) {
+                  imageUrl = expImages[0];
+                } else if (meta.gallery && meta.gallery.length > 0) {
+                  imageUrl = meta.gallery[0];
+                } else if (meta.step_images && meta.step_images.length > 0) {
+                  imageUrl = meta.step_images[0];
+                }
+                
+                const capacity = meta.capacity || experience.total_places || 0;
+                const stepsCount = Array.isArray(experience.steps) ? experience.steps.length : 0;
+                
+                let bookingsCount = 0;
+                if (experience.availability && Array.isArray(experience.availability)) {
+                  for (const item of experience.availability) {
+                    try {
+                      let parsed = item;
+                      if (typeof item === 'string') {
+                        parsed = JSON.parse(item);
+                      }
+                      if (parsed && typeof parsed === 'object' && parsed.type === 'booking') {
+                        bookingsCount++;
+                      }
+                    } catch (e) {}
+                  }
+                }
+                
+                const price = Number(experience.price || 0);
+                const statusLabel = getStatusLabel(experience.status);
+                const statusClass = getStatusClasses(experience.status);
+                
+                return (
+                  <div key={experience.id} className="bg-white rounded-3xl border border-[#e2f5f2] p-6 shadow-sm hover:shadow-lg transition-all hover:border-[#00c9a7]">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0">
+                          {imageUrl && imageUrl !== '/placeholder.jpg' ? (
+                            <img 
+                              src={imageUrl} 
+                              alt={experience.name} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.jpg';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <Lightbulb className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xl font-semibold text-[#0f2940] truncate">{experience.name}</h4>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusClass}`}>
+                              {statusLabel}
+                            </span>
+                            {experience.is_published && (
+                              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">✓ Publiée</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1 truncate">
+                            <MapPin className="w-4 h-4 flex-shrink-0" /> 
+                            <span className="truncate">{experience.location || 'Localisation non définie'}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs text-gray-500">Tarif</p>
+                        <p className="text-xl font-bold text-[#00c9a7]">{formatPrice(price)} FCFA</p>
+                        <p className="text-xs text-gray-400">/ personne</p>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-600 mt-4 line-clamp-2">
+                      {experience.description || 'Aucune description disponible'}
+                    </p>
+
+                    <div className="grid grid-cols-4 gap-3 mt-5">
+                      <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                        <p className="text-lg font-semibold text-[#0f2940]">{stepsCount}</p>
+                        <p className="text-xs text-gray-500">Étapes</p>
+                      </div>
+                      <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                        <p className="text-lg font-semibold text-[#0f2940]">{capacity || '-'}</p>
+                        <p className="text-xs text-gray-500">Places</p>
+                      </div>
+                      <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                        <p className="text-lg font-semibold text-[#0f2940]">{Math.max(capacity - bookingsCount, 0)}</p>
+                        <p className="text-xs text-gray-500">Restantes</p>
+                      </div>
+                      <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                        <p className="text-lg font-semibold text-[#0f2940]">{bookingsCount}</p>
+                        <p className="text-xs text-gray-500">Réservations</p>
+                      </div>
+                    </div>
+
+                    {experience.moderation_notes && (
+                      <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-800">
+                        <p className="font-semibold mb-1">📝 Note de modération</p>
+                        <p className="text-sm">{experience.moderation_notes}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-3 mt-5">
+                      <button 
+                        onClick={() => {
+                          console.log('🔘 Clic sur Modifier pour:', experience.name);
+                          openEditModal(experience);
+                        }} 
+                        className="flex-1 min-w-[80px] px-4 py-2 rounded-full bg-[#00c9a7] text-white font-medium hover:bg-[#00b396] transition flex items-center justify-center gap-1"
+                      >
+                        <Edit2 className="w-4 h-4" /> Modifier
+                      </button>
+                      <button 
+                        onClick={() => {
+                          console.log('🔘 Clic sur Détails pour:', experience.name);
+                          setSelectedExperience(experience);
+                        }} 
+                        className="flex-1 min-w-[80px] px-4 py-2 rounded-full border border-[#d9efeb] text-[#0f2940] font-medium hover:border-[#00c9a7] transition flex items-center justify-center gap-1"
+                      >
+                        Détails
+                      </button>
+                      <button 
+                        onClick={() => {
+                          console.log('🔘 Clic sur Supprimer pour:', experience.name);
+                          handleDeleteExperience(experience);
+                        }} 
+                        className="flex-1 min-w-[80px] px-4 py-2 rounded-full border border-rose-200 text-rose-600 font-medium hover:bg-rose-50 transition flex items-center justify-center gap-1"
+                      >
+                        <Trash2 className="w-4 h-4" /> Supprimer
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        
+        {/* MODAL DE DÉTAIL */}
+        {selectedExperience && (
+          <ExperienceDetailModal
+            experience={selectedExperience}
+            onClose={() => {
+              console.log('❌ Fermeture du modal de détails');
+              setSelectedExperience(null);
+            }}
+            onNavigate={onNavigate}
+          />
+        )}
+
+        {/* FORMULAIRE DE MODIFICATION */}
+        {isFormOpen && renderForm()}
+      </div>
+    );
+  }
+
+  // MODE DASHBOARD (par défaut)
+  return (
+    <div className="min-h-screen bg-[#f4fffe] py-10">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* En-tête */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-[#0f2940] flex items-center gap-2">
+              <Lightbulb className="w-8 h-8 text-[#00c9a7]" />
+              Tableau de bord Expériences
+            </h1>
+            <p className="text-gray-500 mt-1">Gérez vos expériences, revenus et réservations</p>
+          </div>
+          <button 
+            onClick={openCreateModal} 
+            className="group bg-[#00c9a7] hover:bg-[#00b396] text-white px-6 py-3 rounded-full font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
+          >
+            <PlusCircle className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+            Nouvelle expérience
+          </button>
+        </div>
+
+        {/* Statistiques */}
+        <div className="grid gap-6 lg:grid-cols-4 mb-8">
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Revenus du mois</div>
+              <DollarSign className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{formatPrice(monthlyRevenue)} FCFA</div>
+            <div className="text-xs text-gray-500 mt-2">{stats.active} expérience{stats.active > 1 ? 's' : ''} active{stats.active > 1 ? 's' : ''}</div>
+          </div>
+
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Expériences</div>
+              <Lightbulb className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{stats.total}</div>
+            <div className="flex gap-3 mt-1 text-xs">
+              <span className="text-green-600">{stats.active} active</span>
+              <span className="text-orange-500">{stats.pending} en attente</span>
+              <span className="text-slate-500">{stats.drafts} brouillon</span>
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Réservations</div>
+              <Users className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">{totalBookings}</div>
+            <div className="text-xs text-gray-500 mt-2">Total des réservations</div>
+          </div>
+
+          <div className="rounded-3xl bg-white border border-[#e2f5f2] p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-[#6b7280]">Messages</div>
+              <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+            </div>
+            <div className="text-2xl font-bold text-[#0f2940] mt-3">0</div>
+            <button className="text-xs text-[#00c9a7] mt-2 hover:underline">Voir les messages</button>
+          </div>
+        </div>
+
+        {/* SECTION MES EXPÉRIENCES */}
+        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-lg text-[#0f2940]">🎯 Mes expériences</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {experiences.length === 0 
+                  ? 'Vous n\'avez pas encore créé d\'expérience' 
+                  : `${experiences.length} expérience${experiences.length > 1 ? 's' : ''} au total`
+                }
+              </p>
+            </div>
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-experiences-list' })} 
+              className="px-6 py-2.5 rounded-full bg-[#00c9a7] text-white font-medium hover:bg-[#00b396] transition shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <span>Gérer mes expériences</span>
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </button>
+          </div>
+          
+          {/* Statistiques rapides */}
+          {experiences.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.active}</p>
+                <p className="text-xs text-gray-500">Actives</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.pending}</p>
+                <p className="text-xs text-gray-500">En attente</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#0f2940]">{stats.drafts}</p>
+                <p className="text-xs text-gray-500">Brouillons</p>
+              </div>
+              <div className="bg-[#f7fbfa] rounded-xl p-3 text-center border border-[#ebf7f4]">
+                <p className="text-2xl font-bold text-[#00c9a7]">{totalBookings}</p>
+                <p className="text-xs text-gray-500">Réservations</p>
+              </div>
+            </div>
+          )}
+
+          {/* Message si aucune expérience */}
+          {experiences.length === 0 && (
+            <div className="text-center py-6">
+              <Lightbulb className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">Commencez par créer votre première expérience !</p>
+            </div>
+          )}
+        </div>
+
+        {/* Évaluations */}
+        <div className="bg-white rounded-3xl border border-[#e2f5f2] p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+            <h3 className="font-semibold text-lg text-[#0f2940]">Évaluations</h3>
+          </div>
+          <div className="text-center py-8">
+            <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">Aucune évaluation pour le moment</p>
+            <p className="text-sm text-gray-400 mt-1">Les évaluations apparaîtront après les expériences</p>
+          </div>
+        </div>
+
+        {/* Liens rapides */}
+        <div>
+          <h3 className="font-semibold text-lg text-[#0f2940] mb-4">Accès rapides</h3>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Lien vers Calendrier */}
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-experience-calendar' })} 
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <CalendarDays className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-[#0f2940]">Calendrier</h3>
+              </div>
+              <p className="text-sm text-[#6b7280]">Gérez vos disponibilités et réservations</p>
+            </button>
+            
+            {/* Lien vers Réservations */}
+            <button 
+              onClick={() => onNavigate?.({ name: 'host-experience-reservations' })} 
+              className="rounded-3xl bg-white border border-[#e2f5f2] p-6 text-left hover:shadow-lg transition-all hover:border-[#00c9a7] group"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <Users className="w-5 h-5 text-[#00c9a7] group-hover:scale-110 transition-transform" />
+                <h3 className="text-lg font-semibold text-[#0f2940]">Réservations</h3>
+              </div>
+              <p className="text-sm text-[#6b7280]">Consultez les demandes et les expériences en cours</p>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de détail */}
+      {selectedExperience && (
+        <ExperienceDetailModal experience={selectedExperience} onClose={() => setSelectedExperience(null)} onNavigate={onNavigate} />
+      )}
+
+      {/* Formulaire */}
+      {isFormOpen && renderForm()}
+    </div>
+  );
+}
+
+// Export des pages
+export const HostExperienceListPage = (props: HostExperienceDashboardPageProps) => (
+  <HostExperienceDashboardPage {...props} mode="experiences" />
+);
+
+export const HostExperienceCalendarPage = (props: HostExperienceDashboardPageProps) => (
+  <HostExperienceDashboardPage {...props} mode="calendar" />
+);
+
+export const HostExperienceReservationsPage = (props: HostExperienceDashboardPageProps) => (
+  <HostExperienceDashboardPage {...props} mode="reservations" />
+);
+
+// ============================================
+// HostExperienceMessagesPage.tsx
+// ============================================
+
+interface HostExperienceMessagesPageProps {
+  onNavigate?: (route: { name: string; id?: string; params?: any }) => void;
+  id?: string;
+}
+
+// ============================================
+// COMPOSANT CHAT VIEW (SÉPARÉ)
+// ============================================
+const ChatView = ({ 
+  selectedConversation, 
+  messages, 
+  messagesLoading, 
+  user, 
+  onSendMessage,
+  isSending
+}: { 
+  selectedConversation: HostExperienceConversation | null;
+  messages: any[];
+  messagesLoading: boolean;
+  user: any;
+  onSendMessage: (message: string) => void;
+  isSending: boolean;
+}) => {
+  const [messageInput, setMessageInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // ✅ Scroll automatique
+  useEffect(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [messages]);
+
+  if (!selectedConversation) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-4">
+        <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+        <p className="text-lg font-medium text-center">Sélectionnez une conversation</p>
+        <p className="text-sm text-center">Les messages des voyageurs apparaissent ici</p>
+      </div>
+    );
+  }
+
+  const guestName = selectedConversation.guest.name || 'Voyageur';
+  const experienceName = selectedConversation.experience.name || 'Expérience';
+  const experienceLocation = selectedConversation.experience.location || '';
+
+  const handleSend = () => {
+    if (!messageInput.trim()) return;
+    onSendMessage(messageInput.trim());
+    setMessageInput('');
+    // ✅ Réinitialiser la hauteur du textarea
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '44px';
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessageInput(e.target.value);
+    // ✅ Ajuster la hauteur automatiquement
+    const textarea = e.target;
+    textarea.style.height = '44px';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      {/* En-tête */}
+      <div className="p-3 sm:p-4 border-b bg-white flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
+            {guestName.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 truncate">{guestName}</p>
+            <div className="flex items-center gap-1 text-xs text-gray-500 truncate">
+              <Sparkles className="w-3 h-3 flex-shrink-0 text-[#00c9a7]" />
+              <span className="truncate">{experienceName}</span>
+              {experienceLocation && (
+                <>
+                  <span className="flex-shrink-0">·</span>
+                  <MapPin className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate hidden sm:inline">{experienceLocation}</span>
+                </>
+              )}
+            </div>
+          </div>
+          {selectedConversation.guest.phone && (
+            <a href={`tel:${selectedConversation.guest.phone}`} className="p-2 rounded-full hover:bg-gray-100 transition flex-shrink-0">
+              <Phone className="w-4 h-4 text-gray-500" />
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50"
+      >
+        {messagesLoading ? (
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7] mx-auto"></div>
+            <p className="text-gray-500 mt-2 text-sm">Chargement des messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-10 text-gray-400">
+            <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Aucun message</p>
+            <p className="text-xs mt-1">Soyez le premier à répondre !</p>
+          </div>
+        ) : (
+          messages.map((msg: any) => {
+            const isFromMe = msg.sender_id === user?.id;
+            return (
+              <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 ${
+                  isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'
+                }`}>
+                  <p className="text-sm sm:text-base whitespace-pre-wrap break-words">{msg.message}</p>
+                  <p className={`text-xs mt-1 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
+                    {new Date(msg.created_at).toLocaleTimeString('fr-FR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Zone de saisie - RESPONSIVE */}
+      <div className="p-2 sm:p-4 border-t bg-white flex-shrink-0">
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={messageInput}
+            onChange={handleTextareaChange}
+            onKeyPress={handleKeyPress}
+            placeholder={`Répondre à ${guestName}...`}
+            rows={1}
+            className="flex-1 border rounded-full px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none text-sm sm:text-base"
+            style={{ 
+              minHeight: '40px', 
+              maxHeight: '100px',
+              lineHeight: '1.5'
+            }}
+            disabled={isSending}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!messageInput.trim() || isSending}
+            className="bg-[#00c9a7] text-white rounded-full p-2.5 sm:p-3 disabled:opacity-50 hover:bg-[#00b89a] transition flex-shrink-0"
+          >
+            {isSending ? (
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white" />
+            ) : (
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
+          </button>
+        </div>
+        <p className="text-[10px] sm:text-xs text-gray-400 mt-1.5 text-center">
+          💡 Répondez aux voyageurs pour confirmer les disponibilités
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+export function HostExperienceMessagesPage({ onNavigate, id }: HostExperienceMessagesPageProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // États
+  const [selectedConversation, setSelectedConversation] = useState<HostExperienceConversation | null>(null);
+  const [selectedExperienceId, setSelectedExperienceId] = useState<number | null>(null);
+  const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // ✅ Récupérer les conversations
+  const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
+    queryKey: ['host-experience-conversations'],
+    queryFn: async () => {
+      try {
+        const response = await hostService.getExperienceConversations();
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur chargement conversations:', error);
+        return { data: [] };
+      }
+    },
+    enabled: !!user,
+  });
+
+  const conversations = conversationsData?.data || [];
+
+  // ✅ Récupérer les messages d'une conversation
+  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
+    queryKey: ['host-experience-messages', selectedExperienceId, selectedGuestId],
+    queryFn: async () => {
+      if (!selectedExperienceId || !selectedGuestId) return { data: { messages: [] } };
+      try {
+        const response = await hostService.getExperienceMessages(selectedExperienceId, selectedGuestId);
+        return response;
+      } catch (error) {
+        console.error('❌ Erreur chargement messages:', error);
+        return { data: { messages: [] } };
+      }
+    },
+    enabled: !!selectedExperienceId && !!selectedGuestId,
+  });
+
+  const messages = messagesData?.data?.messages || [];
+
+  // ✅ Envoyer un message
+  const sendMessageMutation = useMutation({
+    mutationFn: ({ message }: { message: string }) => {
+      if (!selectedExperienceId || !selectedGuestId) {
+        throw new Error('Conversation non sélectionnée');
+      }
+      return hostService.sendExperienceMessage(selectedExperienceId, selectedGuestId, { message });
+    },
+    onSuccess: () => {
+      refetchMessages();
+      refetchConversations();
+      queryClient.invalidateQueries({ queryKey: ['host-experience-conversations'] });
+    },
+    onError: (err: any) => {
+      console.error('❌ Erreur envoi:', err);
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
+    },
+  });
+
+  // ✅ Sélectionner une conversation
+  const handleSelectConversation = (conv: HostExperienceConversation) => {
+    setSelectedConversation(conv);
+    setSelectedExperienceId(conv.experience.id);
+    setSelectedGuestId(conv.guest.id);
+    // ✅ Fermer le menu mobile
+    setMobileMenuOpen(false);
+  };
+
+  // ✅ Envoyer un message depuis ChatView
+  const handleSendMessage = (message: string) => {
+    if (!selectedExperienceId || !selectedGuestId) return;
+    sendMessageMutation.mutate({ message });
+  };
+
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+
+  if (convLoading) {
+    return (
+      <div className="bg-[#f4fffe] min-h-screen py-10 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+          <p className="text-gray-600 mt-4">Chargement des conversations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#f4fffe] min-h-screen py-4 sm:py-10">
+      <div className="max-w-[1200px] mx-auto px-3 sm:px-4 lg:px-8">
+        {/* En-tête */}
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#0F2940] flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-[#00c9a7]" />
+              <span className="hidden sm:inline">Messages expériences</span>
+              <span className="sm:hidden">Messages</span>
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 hidden sm:block">
+              Gérez vos conversations avec les voyageurs
+            </p>
+          </div>
+          <button 
+            onClick={() => onNavigate?.({ name: 'host-experience-dashboard' })} 
+            className="text-xs sm:text-sm text-gray-500 hover:text-[#00c9a7] transition flex items-center gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Retour</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 bg-white rounded-2xl sm:rounded-3xl shadow-md overflow-hidden border border-[#e2f5f2]">
+          
+          {/* Liste des conversations - version mobile avec toggle */}
+          <div className={`
+            ${mobileMenuOpen ? 'block' : 'hidden'} 
+            lg:block lg:w-1/3 border-r
+            ${mobileMenuOpen ? 'fixed inset-0 z-50 bg-white p-4 overflow-y-auto' : ''}
+          `}>
+            {mobileMenuOpen && (
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100"
+              >
+                ✕
+              </button>
+            )}
+            
+            <div className={`p-3 sm:p-4 border-b font-semibold bg-white flex justify-between items-center ${mobileMenuOpen ? 'mt-12' : ''}`}>
+              <span>Conversations ({conversations.length})</span>
+              <button 
+                onClick={() => refetchConversations()} 
+                className="text-xs text-[#00c9a7] hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Rafraîchir</span>
+              </button>
+            </div>
+            
+            <div className="divide-y max-h-[calc(100vh-200px)] overflow-y-auto">
+              {conversations.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Aucune conversation</p>
+                  <p className="text-sm mt-1">Les voyageurs vous contacteront ici</p>
+                </div>
+              ) : (
+                conversations.map((conv: HostExperienceConversation, index: number) => {
+                  const isSelected = selectedConversation === conv;
+                  const guestName = conv.guest.name || 'Voyageur';
+                  const experienceName = conv.experience.name || 'Expérience';
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleSelectConversation(conv)}
+                      className={`w-full text-left p-3 sm:p-4 hover:bg-gray-50 transition ${
+                        isSelected ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                              {guestName}
+                            </p>
+                            {conv.unread_count > 0 && (
+                              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 flex-shrink-0">
+                                {conv.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-500 truncate">{experienceName}</p>
+                          {conv.experience.location && (
+                            <p className="text-xs text-gray-400 truncate">📍 {conv.experience.location}</p>
+                          )}
+                        </div>
+                        {conv.last_message && (
+                          <span className="text-[10px] sm:text-xs text-gray-400 flex-shrink-0 ml-2">
+                            {conv.last_message.sent_at}
+                          </span>
+                        )}
+                      </div>
+                      {conv.last_message && (
+                        <p className="text-xs text-gray-400 mt-2 truncate">
+                          {conv.last_message.preview || conv.last_message.message}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Zone de chat */}
+          <div className="lg:w-2/3 flex flex-col h-[500px] sm:h-[600px] relative">
+            {/* Bouton menu mobile pour afficher les conversations */}
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden absolute top-3 left-3 z-10 p-2 rounded-full bg-white shadow-md hover:bg-gray-50"
+            >
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+
+            <ChatView 
+              selectedConversation={selectedConversation}
+              messages={messages}
+              messagesLoading={messagesLoading}
+              user={user}
+              onSendMessage={handleSendMessage}
+              isSending={sendMessageMutation.isPending}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// ==================== HOST LISTINGS PAGE ====================
 
 interface Route {
   name: string;
@@ -10819,12 +13351,7 @@ export function HostCalendarPage({ onNavigate, id }: { onNavigate?: (route: Rout
               })}
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-green-50 border border-gray-200 rounded"></div> ✅ Disponible</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-orange-100 border border-orange-200 rounded"></div> 🚫 Bloqué par l'hôte</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div> 📅 Réservé / Passé</div>
-              <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-[#00c9a7] rounded"></div> 📌 Date sélectionnée</div>
-            </div>
+
 
             {(updateAvailabilityMutation.isPending || specialPriceMutation.isPending || isUpdating) && (
               <div className="mt-4 text-center text-sm text-gray-500">
@@ -11251,273 +13778,490 @@ interface HostMessagesPageProps {
     id?: string; // bookingId
 }
 
-export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
-    const { user } = useAuth();
-    const [selectedConversation, setSelectedConversation] = useState<any>(null);
-    const [selectedType, setSelectedType] = useState<'booking' | 'inquiry'>('booking');
-    const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null);
-    const [messageInput, setMessageInput] = useState('');
-    const messagesEndRef = useRef<HTMLDivElement>(null);
-    const queryClient = useQueryClient();
+// ============================================
+// COMPOSANT CHAT VIEW POUR HÔTES
+// ============================================
+const HostChatView = ({ 
+  conversation,
+  messages, 
+  messagesLoading, 
+  user, 
+  onSendMessage,
+  isSending,
+  onBack,
+  guestName,
+  propertyTitle,
+  isInquiry,
+  bookingDetails
+}: { 
+  conversation: any;
+  messages: any[];
+  messagesLoading: boolean;
+  user: any;
+  onSendMessage: (message: string) => void;
+  isSending: boolean;
+  onBack?: () => void;
+  guestName: string;
+  propertyTitle: string;
+  isInquiry: boolean;
+  bookingDetails?: any;
+}) => {
+  const [messageInput, setMessageInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Récupérer les conversations
-    const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
-        queryKey: ['host-messages-conversations'],
-        queryFn: () => hostService.getHostConversations(),
-    });
+  useEffect(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [messages]);
 
-    // Récupérer les messages d'une conversation (booking)
-    const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
-        queryKey: ['host-messages', selectedType, selectedConversation?.booking?.id],
-        queryFn: () => {
-            if (selectedType === 'booking' && selectedConversation?.booking?.id) {
-                return hostService.getHostMessages(selectedConversation.booking.id.toString());
-            } else if (selectedType === 'inquiry' && selectedGuestId) {
-                return hostService.getInquiryMessages(selectedGuestId);
-            }
-            return Promise.reject('No selection');
-        },
-        enabled: !!selectedConversation,
-    });
-
-    // Mutation pour envoyer un message
-    const sendMutation = useMutation({
-        mutationFn: (message: string) => {
-            if (selectedType === 'booking' && selectedConversation?.booking?.id) {
-                return hostService.sendHostMessage(selectedConversation.booking.id.toString(), { message });
-            } else if (selectedType === 'inquiry' && selectedGuestId) {
-                return hostService.sendInquiryReply(selectedGuestId, { message });
-            }
-            throw new Error('Invalid conversation type');
-        },
-        onSuccess: () => {
-            setMessageInput('');
-            refetchMessages();
-            queryClient.invalidateQueries({ queryKey: ['host-messages-conversations'] });
-        },
-    });
-
-    // Auto-scroll
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messagesData]);
-
-    const conversations = conversationsData?.data || [];
-    const messages = messagesData?.data?.messages || [];
-    const currentBooking = messagesData?.data?.booking;
-
-    const handleSelectConversation = (conv: any) => {
-        setSelectedConversation(conv);
-        if (conv.type === 'inquiry') {
-            setSelectedType('inquiry');
-            setSelectedGuestId(conv.booking.guest?.id);
-        } else {
-            setSelectedType('booking');
-            setSelectedGuestId(null);
-        }
-    };
-
-    const handleSendMessage = () => {
-        if (!messageInput.trim() || !selectedConversation) return;
-        sendMutation.mutate(messageInput);
-    };
-
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
-    };
-
-    if (convLoading) {
-        return (
-            <div className="bg-white min-h-screen py-10">
-                <div className="max-w-[1200px] mx-auto px-4">
-                    <div className="text-center py-20">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+  if (!conversation) {
     return (
-        <div className="bg-white min-h-screen py-10">
-            <div className="max-w-[1200px] mx-auto px-4">
-                <PageSection title="Messagerie hôte" subtitle="Gérez vos conversations avec les voyageurs">
-                    <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl border border-[#e2f5f2] overflow-hidden min-h-[600px]">
-                        
-                        {/* Liste des conversations */}
-                        <div className="lg:w-1/3 border-r bg-[#f4fffe]">
-                            <div className="p-4 border-b font-semibold bg-white">
-                                Conversations ({conversations.length})
-                            </div>
-                            <div className="divide-y max-h-[500px] overflow-y-auto">
-                                {conversations.length === 0 ? (
-                                    <div className="p-8 text-center text-gray-400">
-                                        <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                        <p>Aucune conversation</p>
-                                    </div>
-                                ) : (
-                                    conversations.map((conv: any, index: number) => {
-                                        const conversationKey = conv.type === 'inquiry' 
-                                            ? `inquiry_${conv.booking.guest?.id}_${index}`
-                                            : `booking_${conv.booking.id}`;
-                                        
-                                        const isSelected = selectedConversation?.booking?.id === conv.booking.id ||
-                                            (conv.type === 'inquiry' && selectedGuestId === conv.booking.guest?.id);
-                                        
-                                        return (
-                                            <button
-                                                key={conversationKey}
-                                                onClick={() => handleSelectConversation(conv)}
-                                                className={`w-full text-left p-4 hover:bg-white transition ${
-                                                    isSelected ? 'bg-white shadow-sm' : ''
-                                                }`}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        <p className="font-medium text-[#0f2940]">
-                                                            {conv.booking.guest?.name || 'Voyageur'}
-                                                        </p>
-                                                        <p className="text-sm text-gray-500">
-                                                            {conv.booking.property?.title || 'Demande d\'information'}
-                                                        </p>
-                                                        {conv.booking.dates?.check_in && conv.booking.dates?.check_out && (
-                                                            <p className="text-xs text-gray-400 mt-1">
-                                                                {conv.booking.dates.check_in} → {conv.booking.dates.check_out}
-                                                            </p>
-                                                        )}
-                                                        {conv.type === 'inquiry' && (
-                                                            <span className="text-xs text-[#00c9a7] mt-1 inline-block">
-                                                                Demande d'information
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {conv.unread_count > 0 && (
-                                                        <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1 min-w-[24px] text-center">
-                                                            {conv.unread_count}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {conv.last_message && (
-                                                    <p className="text-xs text-gray-400 mt-2 truncate">
-                                                        {conv.last_message.preview || conv.last_message.message}
-                                                    </p>
-                                                )}
-                                            </button>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Zone de chat */}
-                        <div className="lg:w-2/3 flex flex-col h-[600px]">
-                            {selectedConversation ? (
-                                <>
-                                    {/* En-tête */}
-                                    <div className="p-4 border-b bg-white">
-                                        <div className="flex items-center justify-between">
-                                            <div>
-                                                <p className="font-semibold text-[#0f2940]">
-                                                    {selectedConversation.booking.guest?.name || 'Voyageur'}
-                                                </p>
-                                                <div className="flex gap-3 mt-1 text-xs text-gray-500">
-                                                    <span className="flex items-center gap-1">
-                                                        <Phone className="w-3 h-3" />
-                                                        {selectedConversation.booking.guest?.phone || 'Non renseigné'}
-                                                    </span>
-                                                    <span className="flex items-center gap-1">
-                                                        <Mail className="w-3 h-3" />
-                                                        {selectedConversation.booking.guest?.email || 'Non renseigné'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right text-xs text-gray-500">
-                                                <p className="flex items-center gap-1">
-                                                    <Home className="w-3 h-3" />
-                                                    {selectedConversation.booking.property?.title || 'Demande d\'information'}
-                                                </p>
-                                                {selectedConversation.booking.dates?.check_in && selectedConversation.booking.dates?.check_out && (
-                                                    <p className="flex items-center gap-1 mt-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {selectedConversation.booking.dates.check_in} → {selectedConversation.booking.dates.check_out}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#f4fffe]">
-                                        {messagesLoading ? (
-                                            <div className="text-center py-10">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7] mx-auto"></div>
-                                            </div>
-                                        ) : messages.length === 0 ? (
-                                            <div className="text-center py-20 text-gray-400">
-                                                <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                <p>Aucun message</p>
-                                                <p className="text-sm">Soyez le premier à envoyer un message</p>
-                                            </div>
-                                        ) : (
-                                            messages.map((msg: any) => (
-                                                <div key={msg.id} className={`flex ${msg.is_from_me ? 'justify-end' : 'justify-start'}`}>
-                                                    <div className={`max-w-[70%] rounded-2xl p-3 ${
-                                                        msg.is_from_me 
-                                                            ? 'bg-[#00c9a7] text-white' 
-                                                            : 'bg-white text-gray-800 shadow-sm border border-[#e2f5f2]'
-                                                    }`}>
-                                                        <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                                                        <p className={`text-xs mt-1 ${msg.is_from_me ? 'text-white/70' : 'text-gray-400'}`}>
-                                                            {msg.created_at}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                        <div ref={messagesEndRef} />
-                                    </div>
-
-                                    {/* Input */}
-                                    <div className="p-4 border-t bg-white">
-                                        <div className="flex gap-2">
-                                            <textarea
-                                                value={messageInput}
-                                                onChange={(e) => setMessageInput(e.target.value)}
-                                                onKeyPress={handleKeyPress}
-                                                placeholder="Écrivez votre message..."
-                                                rows={1}
-                                                className="flex-1 border rounded-2xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
-                                                style={{ minHeight: '44px', maxHeight: '120px' }}
-                                            />
-                                            <button
-                                                onClick={handleSendMessage}
-                                                disabled={!messageInput.trim() || sendMutation.isPending}
-                                                className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b396] transition"
-                                            >
-                                                <Send className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                        {sendMutation.isPending && (
-                                            <p className="text-xs text-gray-400 mt-2 text-center">Envoi en cours...</p>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[#f4fffe]">
-                                    <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
-                                    <p className="text-lg font-medium">Sélectionnez une conversation</p>
-                                    <p className="text-sm">Pour commencer à discuter avec un voyageur</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </PageSection>
-            </div>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-4">
+        <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+        <p className="text-lg font-medium text-center">Sélectionnez une conversation</p>
+        <p className="text-sm text-center">Les messages des voyageurs apparaissent ici</p>
+      </div>
     );
+  }
+
+  const handleSend = () => {
+    if (!messageInput.trim()) return;
+    onSendMessage(messageInput.trim());
+    setMessageInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '44px';
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessageInput(e.target.value);
+    const textarea = e.target;
+    textarea.style.height = '44px';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  };
+
+  const displayName = guestName || 'Voyageur';
+  const displayTitle = propertyTitle || 'Conversation';
+
+  // ✅ Extraire les détails de réservation
+  const checkIn = bookingDetails?.check_in || conversation?.booking?.check_in;
+  const checkOut = bookingDetails?.check_out || conversation?.booking?.check_out;
+  const guests = bookingDetails?.guests || conversation?.booking?.guests;
+  const totalPrice = bookingDetails?.total_price || conversation?.booking?.total_price;
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      {/* En-tête */}
+      <div className="p-3 sm:p-4 border-b bg-white flex-shrink-0">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="lg:hidden p-2 -ml-2 rounded-full hover:bg-gray-100 transition"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+          )}
+          <div className="w-10 h-10 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+            <div className="flex items-center gap-1 text-xs text-gray-500 truncate">
+              {isInquiry ? (
+                <>
+                  <Sparkles className="w-3 h-3 flex-shrink-0 text-[#00c9a7]" />
+                  <span className="truncate">{displayTitle}</span>
+                  <span className="flex-shrink-0 text-[#00c9a7]">· Demande</span>
+                </>
+              ) : (
+                <span className="truncate">{displayTitle}</span>
+              )}
+            </div>
+          </div>
+          {conversation?.guest?.phone && (
+            <a href={`tel:${conversation.guest.phone}`} className="p-2 rounded-full hover:bg-gray-100 transition flex-shrink-0">
+              <Phone className="w-4 h-4 text-gray-500" />
+            </a>
+          )}
+        </div>
+        
+        {/* ✅ Détails de la réservation */}
+        {(checkIn || checkOut || guests || totalPrice) && (
+          <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+              {checkIn && checkOut && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#00c9a7]" />
+                  {checkIn} → {checkOut}
+                </span>
+              )}
+              {guests && (
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3 text-[#00c9a7]" />
+                  {guests} voyageur{guests > 1 ? 's' : ''}
+                </span>
+              )}
+              {totalPrice && (
+                <span className="flex items-center gap-1 font-medium text-[#00c9a7]">
+                  <DollarSign className="w-3 h-3" />
+                  {totalPrice.toLocaleString()} FCFA
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50">
+        {messagesLoading ? (
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7] mx-auto"></div>
+            <p className="text-gray-500 mt-2 text-sm">Chargement des messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-10 text-gray-400">
+            <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Aucun message</p>
+            <p className="text-xs mt-1">Soyez le premier à répondre !</p>
+          </div>
+        ) : (
+          messages.map((msg: any, index: number) => {
+            const isFromMe = msg.sender_id === user?.id || msg.is_from_me === true || msg.is_from_me === 1;
+            
+            // ✅ Déterminer le nom de l'expéditeur
+            let senderName = '';
+            if (isFromMe) {
+              senderName = user?.first_name ? `${user.first_name} ${user.last_name || ''}` : 'Moi';
+            } else {
+              senderName = conversation?.guest?.name || conversation?.booking?.guest?.name || 'Voyageur';
+            }
+            
+            return (
+              <div key={msg.id || index} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 ${
+                  isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'
+                }`}>
+                  {!isFromMe && (
+                    <p className="text-xs font-semibold text-[#00c9a7] mb-1">{senderName}</p>
+                  )}
+                  <p className="text-sm sm:text-base whitespace-pre-wrap break-words">{msg.message}</p>
+                  <p className={`text-xs mt-1 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
+                    {msg.created_at ? new Date(msg.created_at).toLocaleString('fr-FR', { 
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    }) : 'à l\'instant'}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Zone de saisie */}
+      <div className="p-2 sm:p-4 border-t bg-white flex-shrink-0">
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={messageInput}
+            onChange={handleTextareaChange}
+            onKeyPress={handleKeyPress}
+            placeholder={`Répondre à ${displayName}...`}
+            rows={1}
+            className="flex-1 border rounded-full px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none text-sm sm:text-base"
+            style={{ 
+              minHeight: '40px', 
+              maxHeight: '100px',
+              lineHeight: '1.5'
+            }}
+            disabled={isSending}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!messageInput.trim() || isSending}
+            className="bg-[#00c9a7] text-white rounded-full p-2.5 sm:p-3 disabled:opacity-50 hover:bg-[#00b89a] transition flex-shrink-0"
+          >
+            {isSending ? (
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white" />
+            ) : (
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL HOST MESSAGES
+// ============================================
+export function HostMessagesPage({ onNavigate, id }: HostMessagesPageProps) {
+  const { user } = useAuth();
+  const [selectedConversation, setSelectedConversation] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<'booking' | 'inquiry'>('booking');
+  const [selectedGuestId, setSelectedGuestId] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Récupérer les conversations
+  const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
+    queryKey: ['host-messages-conversations'],
+    queryFn: () => hostService.getHostConversations(),
+  });
+
+  // Récupérer les messages d'une conversation
+  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
+    queryKey: ['host-messages', selectedType, selectedConversation?.booking?.id, selectedGuestId],
+    queryFn: () => {
+      if (selectedType === 'booking' && selectedConversation?.booking?.id) {
+        return hostService.getHostMessages(selectedConversation.booking.id.toString());
+      } else if (selectedType === 'inquiry' && selectedGuestId) {
+        return hostService.getInquiryMessages(selectedGuestId);
+      }
+      return Promise.reject('No selection');
+    },
+    enabled: !!selectedConversation,
+  });
+
+  // Mutation pour envoyer un message
+  const sendMutation = useMutation({
+    mutationFn: (message: string) => {
+      if (selectedType === 'booking' && selectedConversation?.booking?.id) {
+        return hostService.sendHostMessage(selectedConversation.booking.id.toString(), { message });
+      } else if (selectedType === 'inquiry' && selectedGuestId) {
+        return hostService.sendInquiryReply(selectedGuestId, { message });
+      }
+      throw new Error('Invalid conversation type');
+    },
+    onSuccess: () => {
+      refetchMessages();
+      queryClient.invalidateQueries({ queryKey: ['host-messages-conversations'] });
+      toast.success('Message envoyé');
+    },
+    onError: (err: any) => {
+      console.error('❌ Erreur envoi:', err);
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
+    },
+  });
+
+  const conversations = conversationsData?.data || [];
+  const messages = messagesData?.data?.messages || [];
+  const currentBooking = messagesData?.data?.booking;
+
+  // ✅ Sélectionner une conversation
+  const handleSelectConversation = (conv: any) => {
+    console.log('📌 Sélection conversation:', conv);
+    
+    setSelectedConversation(conv);
+    if (conv.type === 'inquiry') {
+      setSelectedType('inquiry');
+      setSelectedGuestId(conv.booking.guest?.id);
+    } else {
+      setSelectedType('booking');
+      setSelectedGuestId(null);
+    }
+    setMobileMenuOpen(false);
+  };
+
+  // ✅ Envoyer un message
+  const handleSendMessage = (message: string) => {
+    if (!message.trim() || !selectedConversation) return;
+    sendMutation.mutate(message);
+  };
+
+  // ✅ Extraire les données pour le chat
+  const getChatData = () => {
+    if (!selectedConversation) return null;
+    
+    const isInquiry = selectedType === 'inquiry';
+    const guest = selectedConversation.booking?.guest || selectedConversation.guest || {};
+    const property = selectedConversation.booking?.property || {};
+    const booking = selectedConversation.booking || {};
+    
+    return {
+      guestName: guest.name || 'Voyageur',
+      propertyTitle: property.title || (isInquiry ? 'Demande d\'information' : 'Réservation'),
+      isInquiry,
+      bookingDetails: {
+        check_in: booking.check_in,
+        check_out: booking.check_out,
+        guests: booking.guests,
+        total_price: booking.total_price
+      }
+    };
+  };
+
+  const chatData = getChatData();
+
+  if (convLoading) {
+    return (
+      <div className="bg-white min-h-screen py-10">
+        <div className="max-w-[1200px] mx-auto px-4">
+          <div className="text-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00c9a7] mx-auto"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#f4fffe] min-h-screen py-4 sm:py-10">
+      <div className="max-w-[1200px] mx-auto px-3 sm:px-4 lg:px-8">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0F2940] flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-[#00c9a7]" />
+            <span className="hidden sm:inline">Messagerie Hôte</span>
+            <span className="sm:hidden">Messages</span>
+          </h1>
+          <button onClick={() => onNavigate?.({ name: 'host-dashboard' })} className="text-sm text-gray-500 hover:text-[#00c9a7] transition">
+            ← Retour
+          </button>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 bg-white rounded-2xl sm:rounded-3xl shadow-md overflow-hidden border border-[#e2f5f2] min-h-[600px]">
+          
+          {/* Liste des conversations */}
+          <div className={`
+            ${mobileMenuOpen ? 'block' : 'hidden'} 
+            lg:block lg:w-1/3 border-r bg-[#f4fffe]
+            ${mobileMenuOpen ? 'fixed inset-0 z-50 bg-white p-4 overflow-y-auto' : ''}
+          `}>
+            {mobileMenuOpen && (
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
+            
+            <div className={`p-3 sm:p-4 border-b font-semibold bg-white flex justify-between items-center ${mobileMenuOpen ? 'mt-12' : ''}`}>
+              <span>Conversations ({conversations.length})</span>
+              <button 
+                onClick={() => refetchConversations()} 
+                className="text-xs text-[#00c9a7] hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Rafraîchir</span>
+              </button>
+            </div>
+            
+            <div className="divide-y max-h-[calc(100vh-200px)] overflow-y-auto">
+              {conversations.length === 0 ? (
+                <div className="p-8 text-center text-gray-400">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Aucune conversation</p>
+                </div>
+              ) : (
+                conversations.map((conv: any, index: number) => {
+                  const isInquiry = conv.type === 'inquiry';
+                  const guestName = conv.booking.guest?.name || conv.guest?.name || 'Voyageur';
+                  const propertyTitle = conv.booking.property?.title || 
+                                        conv.booking.service_name || 
+                                        (isInquiry ? 'Demande d\'information' : 'Réservation');
+                  
+                  const isSelected = selectedConversation === conv ||
+                    (selectedType === 'inquiry' && selectedGuestId === conv.booking.guest?.id);
+                  
+                  return (
+                    <button
+                      key={conv.id || index}
+                      onClick={() => handleSelectConversation(conv)}
+                      className={`w-full text-left p-3 sm:p-4 hover:bg-white transition ${
+                        isSelected ? 'bg-white shadow-sm' : ''
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                              {guestName}
+                            </p>
+                            {conv.unread_count > 0 && (
+                              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 flex-shrink-0">
+                                {conv.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-500 truncate">{propertyTitle}</p>
+                          {isInquiry && (
+                            <span className="text-[10px] text-[#00c9a7] mt-0.5 inline-block">✉️ Demande d'information</span>
+                          )}
+                          {conv.booking.check_in && conv.booking.check_out && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              📅 {conv.booking.check_in} → {conv.booking.check_out}
+                            </p>
+                          )}
+                        </div>
+                        {conv.last_message && (
+                          <span className="text-[10px] sm:text-xs text-gray-400 flex-shrink-0 ml-2">
+                            {conv.last_message.sent_at}
+                          </span>
+                        )}
+                      </div>
+                      {conv.last_message && (
+                        <p className="text-xs text-gray-400 mt-2 truncate">
+                          {conv.last_message.message}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Zone de chat avec HostChatView */}
+          <div className="lg:w-2/3 flex flex-col h-[500px] sm:h-[600px] relative">
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden absolute top-3 left-3 z-10 p-2 rounded-full bg-white shadow-md hover:bg-gray-50"
+            >
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+
+            {selectedConversation && chatData ? (
+              <HostChatView 
+                conversation={selectedConversation}
+                messages={messages}
+                messagesLoading={messagesLoading}
+                user={user}
+                onSendMessage={handleSendMessage}
+                isSending={sendMutation.isPending}
+                onBack={() => setMobileMenuOpen(true)}
+                guestName={chatData.guestName}
+                propertyTitle={chatData.propertyTitle}
+                isInquiry={chatData.isInquiry}
+                bookingDetails={chatData.bookingDetails}
+              />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-[#f4fffe] rounded-b-2xl">
+                <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+                <p className="text-lg font-medium">Sélectionnez une conversation</p>
+                <p className="text-sm">Pour commencer à discuter avec un voyageur</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ==================== Host Favorites PAGE ====================
@@ -11906,420 +14650,688 @@ export function HostFavoritesPage({ onNavigate }: HostFavoritesPageProps) {
 // ==================== MESSAGES PAGE ====================
 
 
-
 interface MessagesPageProps {
   onNavigate?: (route: any) => void;
   id?: string;
   search?: string;
 }
 
+// ============================================
+// COMPOSANT CHAT VIEW
+// ============================================
+const MessagesChatView = ({ 
+  conversation,
+  messages, 
+  messagesLoading, 
+  user, 
+  onSendMessage,
+  isSending,
+  onBack,
+  hostName,
+  propertyTitle,
+  isInquiry
+}: { 
+  conversation: any;
+  messages: any[];
+  messagesLoading: boolean;
+  user: any;
+  onSendMessage: (message: string) => void;
+  isSending: boolean;
+  onBack?: () => void;
+  hostName: string;
+  propertyTitle: string;
+  isInquiry: boolean;
+}) => {
+  const [messageInput, setMessageInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  console.log('💬 MessagesChatView - messages:', messages);
+  console.log('💬 MessagesChatView - conversation:', conversation);
+
+  useEffect(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, [messages]);
+
+  if (!conversation) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-4">
+        <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
+        <p className="text-lg font-medium text-center">Sélectionnez une conversation</p>
+        <p className="text-sm text-center">Les messages apparaissent ici</p>
+      </div>
+    );
+  }
+
+  const handleSend = () => {
+    if (!messageInput.trim()) return;
+    onSendMessage(messageInput.trim());
+    setMessageInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '44px';
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessageInput(e.target.value);
+    const textarea = e.target;
+    textarea.style.height = '44px';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  };
+
+  const displayName = hostName || 'Hôte';
+  const displayTitle = propertyTitle || 'Conversation';
+
+  return (
+    <div className="flex flex-col h-full bg-white">
+      {/* En-tête */}
+    
+<div className="p-3 sm:p-4 border-b bg-white flex-shrink-0">
+  <div className="flex items-center gap-3">
+    {onBack && (
+      <button 
+        onClick={onBack}
+        className="lg:hidden p-2 -ml-2 rounded-full hover:bg-gray-100 transition"
+      >
+        <ArrowLeft className="w-5 h-5 text-gray-600" />
+      </button>
+    )}
+    <div className="w-10 h-10 rounded-full bg-[#00c9a7] flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
+      {displayName.charAt(0).toUpperCase()}
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="font-semibold text-gray-900 truncate">{displayName}</p>
+      <div className="flex items-center gap-1 text-xs text-gray-500 truncate">
+        {isInquiry ? (
+          <>
+            <Sparkles className="w-3 h-3 flex-shrink-0 text-[#00c9a7]" />
+            <span className="truncate">{displayTitle}</span>
+            <span className="flex-shrink-0 text-[#00c9a7]">· Demande</span>
+            {conversation.booking?.date && (
+              <span className="flex-shrink-0 text-gray-400">· {new Date(conversation.booking.date).toLocaleDateString('fr-FR')}</span>
+            )}
+          </>
+        ) : (
+          <span className="truncate">{displayTitle}</span>
+        )}
+      </div>
+    </div>
+    {conversation.booking?.host?.phone && (
+      <a href={`tel:${conversation.booking.host.phone}`} className="p-2 rounded-full hover:bg-gray-100 transition flex-shrink-0">
+        <Phone className="w-4 h-4 text-gray-500" />
+      </a>
+    )}
+  </div>
+  {/* ✅ Afficher les détails du service si présent */}
+  {conversation.booking?.service_id && (
+    <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+      <div className="flex items-center gap-2 text-xs text-gray-600">
+        <Briefcase className="w-3 h-3 text-[#00c9a7]" />
+        <span className="font-medium">Service:</span>
+        <span>{conversation.booking.service_name || 'Service'}</span>
+        {conversation.booking.location && (
+          <>
+            <span className="text-gray-300">|</span>
+            <MapPin className="w-3 h-3" />
+            <span>{conversation.booking.location}</span>
+          </>
+        )}
+        {conversation.booking.price && (
+          <>
+            <span className="text-gray-300">|</span>
+            <span className="font-medium text-[#00c9a7]">{conversation.booking.price} FCFA</span>
+          </>
+        )}
+      </div>
+    </div>
+  )}
+</div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 bg-gray-50">
+        {messagesLoading ? (
+          <div className="text-center py-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00c9a7] mx-auto"></div>
+            <p className="text-gray-500 mt-2 text-sm">Chargement des messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="text-center py-10 text-gray-400">
+            <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Aucun message</p>
+            <p className="text-xs mt-1">Soyez le premier à envoyer un message !</p>
+          </div>
+        ) : (
+          messages.map((msg: any, index: number) => {
+            const isFromMe = msg.sender_id === user?.id || msg.is_from_me === true || msg.is_from_me === 1;
+            
+            return (
+              <div key={msg.id || index} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 ${
+                  isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'
+                }`}>
+                  <p className="text-sm sm:text-base whitespace-pre-wrap break-words">{msg.message}</p>
+                  <p className={`text-xs mt-1 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
+                    {msg.created_at || new Date(msg.created_at).toLocaleString('fr-FR', { 
+                      day: '2-digit',
+                      month: '2-digit',
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Zone de saisie */}
+      <div className="p-2 sm:p-4 border-t bg-white flex-shrink-0">
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            value={messageInput}
+            onChange={handleTextareaChange}
+            onKeyPress={handleKeyPress}
+            placeholder={`Écrire à ${displayName}...`}
+            rows={1}
+            className="flex-1 border rounded-full px-3 sm:px-4 py-2 sm:py-2.5 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none text-sm sm:text-base"
+            style={{ 
+              minHeight: '40px', 
+              maxHeight: '100px',
+              lineHeight: '1.5'
+            }}
+            disabled={isSending}
+          />
+          <button
+            onClick={handleSend}
+            disabled={!messageInput.trim() || isSending}
+            className="bg-[#00c9a7] text-white rounded-full p-2.5 sm:p-3 disabled:opacity-50 hover:bg-[#00b89a] transition flex-shrink-0"
+          >
+            {isSending ? (
+              <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white" />
+            ) : (
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
 export function MessagesPage({ onNavigate, id, search }: MessagesPageProps) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const location = useLocation();
   const queryClient = useQueryClient();
 
   // États pour les paramètres d'inquiry
-  const [inquiryPropertyId, setInquiryPropertyId] = useState<string | null>(null);
+  const [inquiryExperienceId, setInquiryExperienceId] = useState<string | null>(null);
+  const [inquiryHostId, setInquiryHostId] = useState<string | null>(null);
+  const [inquiryHostName, setInquiryHostName] = useState<string | null>(null);
+  const [inquiryExperienceName, setInquiryExperienceName] = useState<string | null>(null);
   const [inquiryCheckIn, setInquiryCheckIn] = useState<string | null>(null);
   const [inquiryCheckOut, setInquiryCheckOut] = useState<string | null>(null);
-  const [inquiryGuests, setInquiryGuests] = useState<string | null>(null);
+  const [inquiryParticipants, setInquiryParticipants] = useState<string | null>(null);
+  const [inquiryDates, setInquiryDates] = useState<string[]>([]);
 
   // États du composant
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | InquiryConversation | null>(null);
-  const [messageInput, setMessageInput] = useState('');
+  const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
   const [hasSentInquiry, setHasSentInquiry] = useState(false);
   const [isSendingInquiry, setIsSendingInquiry] = useState(false);
   const [selectedType, setSelectedType] = useState<'booking' | 'inquiry'>('booking');
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialMessageSent = useRef(false);
 
-  // Récupération des paramètres depuis l'URL (identique à votre code)
+  // Récupération des paramètres depuis l'URL
   useEffect(() => {
-    console.log('=== RÉCUPÉRATION DES PARAMÈTRES ===');
-    let propertyId = null;
-    let checkIn = null;
-    let checkOut = null;
-    let guests = null;
-    let searchString = '';
-
-    if (search && search !== 'undefined') {
-      searchString = search;
-    } else if (location.search && location.search !== '') {
-      searchString = location.search;
-    } else {
-      const pendingChat = localStorage.getItem('pendingChatProperty');
-      if (pendingChat) {
-        try {
-          const data = JSON.parse(pendingChat);
-          searchString = data.search || '';
-          localStorage.removeItem('pendingChatProperty');
-        } catch (e) { console.error(e); }
-      }
-      if (!searchString) {
-        const chatIntentStr = localStorage.getItem('chatIntent');
-        if (chatIntentStr) {
-          try {
-            const chatIntent = JSON.parse(chatIntentStr);
-            propertyId = chatIntent.propertyId?.toString();
-            checkIn = chatIntent.checkIn;
-            checkOut = chatIntent.checkOut;
-            guests = chatIntent.guests?.toString();
-            localStorage.removeItem('chatIntent');
-          } catch (e) { console.error(e); }
-        }
-      }
-    }
-
-    if (searchString && !propertyId) {
-      const cleanSearch = searchString.startsWith('?') ? searchString.substring(1) : searchString;
-      const params = new URLSearchParams(cleanSearch);
-      propertyId = params.get('property');
-      checkIn = params.get('check_in');
-      checkOut = params.get('check_out');
-      guests = params.get('guests');
-    }
-
-    if (!propertyId && id === 'inquiry') {
-      const urlParams = new URLSearchParams(window.location.search);
-      propertyId = urlParams.get('property');
-      checkIn = urlParams.get('check_in');
-      checkOut = urlParams.get('check_out');
-      guests = urlParams.get('guests');
-    }
-
-    setInquiryPropertyId(propertyId);
-    setInquiryCheckIn(checkIn);
-    setInquiryCheckOut(checkOut);
-    setInquiryGuests(guests);
+    // ... votre code existant ...
   }, [search, location.search, location.pathname, id]);
 
-  // Récupération des conversations (bookings + inquiries)
+  // Récupération des conversations
   const { data: conversationsData, isLoading: convLoading, refetch: refetchConversations } = useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
-      const bookingsResponse = await messageService.getConversations();
-      const inquiriesResponse = await messageService.getInquiries();
-      const allConversations = [
-        ...(bookingsResponse?.data || []),
-        ...(inquiriesResponse?.data || [])
-      ];
-      allConversations.sort((a, b) => {
-        const timeA = a.last_message?.sent_at || '';
-        const timeB = b.last_message?.sent_at || '';
-        return timeB.localeCompare(timeA);
-      });
-      return { data: allConversations };
+      try {
+        const bookingsResponse = await messageService.getConversations();
+        const inquiriesResponse = await messageService.getInquiries();
+        const allConversations = [
+          ...(bookingsResponse?.data || []),
+          ...(inquiriesResponse?.data || [])
+        ];
+        allConversations.sort((a, b) => {
+          const timeA = a.last_message?.sent_at || '';
+          const timeB = b.last_message?.sent_at || '';
+          return timeB.localeCompare(timeA);
+        });
+        return { data: allConversations };
+      } catch (error) {
+        console.error('Erreur chargement conversations:', error);
+        return { data: [] };
+      }
     },
+    enabled: isAuthenticated,
   });
   const conversations = conversationsData?.data || [];
 
-  // Mutation pour envoyer une inquiry (premier message)
-  const inquiryMutation = useMutation({
-    mutationFn: (data: {
-      property_id: number;
-      message: string;
-      check_in?: string;
-      check_out?: string;
-      guests?: number;
-    }) => messageService.sendInquiry(data),
-    onSuccess: (response) => {
-      console.log('✅ Premier message envoyé avec succès:', response);
-      setHasSentInquiry(true);
-      setIsSendingInquiry(false);
-      initialMessageSent.current = true;
+  // Mutations
+  // Dans MessagesPage - inquiryMutation
+
+const inquiryMutation = useMutation({
+  mutationFn: (data: any) => {
+    // ✅ Vérifier si c'est une demande pour un service
+    const inquiryType = localStorage.getItem('inquiry_type') || 'experience';
+    
+    if (inquiryType === 'service') {
+      // ✅ Pour les services, utiliser sendInquiry avec les données du service
+      const serviceId = localStorage.getItem('current_service_id');
+      return messageService.sendInquiry({
+        ...data,
+        service_id: parseInt(serviceId || '0'),
+        inquiry_type: 'service'
+      });
+    }
+    
+    // ✅ Pour les expériences (comportement normal)
+    return messageService.sendInquiry(data);
+  },
+  onSuccess: (response) => {
+    console.log('✅ Premier message envoyé avec succès:', response);
+    setHasSentInquiry(true);
+    setIsSendingInquiry(false);
+    initialMessageSent.current = true;
+    localStorage.removeItem('pendingInquiry');
+    localStorage.removeItem('inquiry_type');
+    localStorage.removeItem('current_service_id');
+    toast.success('Message envoyé au prestataire');
+    
+    setTimeout(() => {
       refetchConversations();
-      let retryCount = 0;
-      const maxRetries = 10;
-      const checkForConversation = setInterval(() => {
-        refetchConversations();
-        retryCount++;
-        if (retryCount >= maxRetries) clearInterval(checkForConversation);
-      }, 2000);
-      setTimeout(() => clearInterval(checkForConversation), 20000);
-      toast.success('Message envoyé à l\'hôte');
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    }, 1000);
+  },
+  onError: (err: any) => {
+    console.error('❌ Erreur inquiry:', err);
+    setIsSendingInquiry(false);
+    toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
+  },
+});
+
+  const sendBookingMessageMutation = useMutation({
+    mutationFn: ({ bookingId, message }: { bookingId: number; message: string }) => {
+      console.log('📤 sendBookingMessage - bookingId:', bookingId);
+      return messageService.sendMessage(bookingId, { message });
+    },
+    onSuccess: () => {
+      console.log('✅ Message booking envoyé');
+      setMessageInput('');
+      refetchMessages();
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (err: any) => {
-      console.error('❌ Erreur inquiry:', err);
-      setIsSendingInquiry(false);
+      console.error('❌ Erreur envoi booking:', err);
       toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
     },
   });
 
-  // Récupération des messages (booking ou inquiry)
-  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading, error: messagesError } = useQuery({
+  const sendInquiryReplyMutation = useMutation({
+    mutationFn: ({ hostId, message }: { hostId: number; message: string }) => {
+      console.log('📤 sendInquiryReply - hostId:', hostId);
+      return messageService.sendInquiryReply(hostId, { message });
+    },
+    onSuccess: () => {
+      console.log('✅ Message inquiry envoyé');
+      setMessageInput('');
+      refetchMessages();
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+    onError: (err: any) => {
+      console.error('❌ Erreur envoi inquiry:', err);
+      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
+    },
+  });
+
+  // ✅ Récupération des messages - CORRIGÉ
+  const { data: messagesData, refetch: refetchMessages, isLoading: messagesLoading } = useQuery({
     queryKey: ['messages', selectedType, selectedId],
     queryFn: async () => {
-      if (!selectedId) return { data: { messages: [] } };
+      if (!selectedId) {
+        console.log('⏭️ Pas de selectedId, retour vide');
+        return { data: { messages: [] } };
+      }
       console.log('📥 Récupération messages - type:', selectedType, 'id:', selectedId);
+      
       if (selectedType === 'booking') {
         const res = await messageService.getMessages(selectedId as number);
+        console.log('📥 Messages booking:', res);
         return res.data;
       } else if (selectedType === 'inquiry') {
         try {
           const res = await messageService.getInquiryMessages(selectedId as number);
+          console.log('📥 Messages inquiry:', res);
           return res.data;
         } catch (err: any) {
+          console.error('❌ Erreur getInquiryMessages:', err);
           if (err.response?.status === 500) {
-            console.warn('⚠️ API inquiry 500, utilisation localStorage');
-            return { data: { host: { id: selectedId }, messages: [] } };
+            const pendingMessages = messageService.getPendingInquiryMessages(selectedId as number);
+            return { data: { host: { id: selectedId }, messages: pendingMessages } };
           }
           throw err;
         }
       }
       return { data: { messages: [] } };
     },
-    enabled: !!selectedId && !!selectedType,
+    enabled: !!selectedId && !!selectedType && isAuthenticated,
   });
 
-  // Mutation pour envoyer un message (booking ou inquiry)
-  const sendMutation = useMutation({
-    mutationFn: async (text: string) => {
-      if (!selectedId) throw new Error('No conversation selected');
-      if (selectedType === 'booking') {
-        return messageService.sendMessage(selectedId as number, { message: text });
-      } else if (selectedType === 'inquiry') {
-        return messageService.sendInquiryReply(selectedId as number, { message: text });
-      }
-      throw new Error('Invalid type');
-    },
-    onSuccess: () => {
-      setMessageInput('');
-      refetchMessages();
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-    },
-    onError: (err: any) => {
-      console.error('❌ Erreur envoi:', err);
-      toast.error(err?.response?.data?.message || 'Erreur lors de l\'envoi');
-    },
-  });
+  // ✅ Extraire les messages correctement
+  const getMessages = () => {
+    if (!messagesData) return [];
+    if (messagesData.messages) return messagesData.messages;
+    if (messagesData.data && messagesData.data.messages) return messagesData.data.messages;
+    return [];
+  };
 
-  // Envoi automatique du premier message (inquiry)
+  const messages = getMessages();
+  console.log('📊 Messages extraits:', messages);
+
+  // Envoi automatique du premier message
   useEffect(() => {
-    if (id === 'inquiry' && inquiryPropertyId && !hasSentInquiry && !isSendingInquiry && !initialMessageSent.current && user) {
+    if (id === 'inquiry' && inquiryHostId && inquiryExperienceId && !hasSentInquiry && !isSendingInquiry && !initialMessageSent.current && isAuthenticated) {
       setIsSendingInquiry(true);
-      let message = `Bonjour, je suis intéressé(e) par votre logement. Pourriez-vous me donner plus d'informations ? Merci !`;
+      
+      let message = `Bonjour, je suis intéressé(e) par votre expérience "${inquiryExperienceName || 'proposée'}"`;
+      
+      if (inquiryDates && inquiryDates.length > 0) {
+        message += ` pour les dates suivantes : ${inquiryDates.join(', ')}`;
+      } else if (inquiryCheckIn && inquiryCheckOut) {
+        message += ` du ${inquiryCheckIn} au ${inquiryCheckOut}`;
+      }
+      
+      if (inquiryParticipants && parseInt(inquiryParticipants) > 0) {
+        message += ` pour ${inquiryParticipants} personne(s)`;
+      }
+      
+      message += `. Pourriez-vous me donner plus d'informations ? Merci !`;
+
+      const mutationData: any = { 
+        experience_id: parseInt(inquiryExperienceId, 10), 
+        message 
+      };
+      
       if (inquiryCheckIn && inquiryCheckOut) {
-        const checkInDate = new Date(inquiryCheckIn);
-        const checkOutDate = new Date(inquiryCheckOut);
-        if (checkOutDate > checkInDate) {
-          message = `Bonjour, je suis intéressé(e) par votre logement du ${inquiryCheckIn} au ${inquiryCheckOut}${inquiryGuests ? ` pour ${inquiryGuests} personne(s)` : ''}. Pourriez-vous me donner plus d'informations sur la disponibilité ? Merci !`;
-        }
-      } else if (inquiryGuests) {
-        message = `Bonjour, je suis intéressé(e) par votre logement pour ${inquiryGuests} personne(s). Pourriez-vous me donner plus d'informations ? Merci !`;
+        mutationData.check_in = inquiryCheckIn;
+        mutationData.check_out = inquiryCheckOut;
       }
-      const mutationData: any = { property_id: parseInt(inquiryPropertyId, 10), message };
-      if (inquiryCheckIn && inquiryCheckOut) {
-        const checkInDate = new Date(inquiryCheckIn);
-        const checkOutDate = new Date(inquiryCheckOut);
-        if (checkOutDate > checkInDate) {
-          mutationData.check_in = inquiryCheckIn;
-          mutationData.check_out = inquiryCheckOut;
-        }
+      
+      if (inquiryParticipants && parseInt(inquiryParticipants) > 0) {
+        mutationData.guests = parseInt(inquiryParticipants, 10);
       }
-      if (inquiryGuests && parseInt(inquiryGuests) > 0) {
-        mutationData.guests = parseInt(inquiryGuests, 10);
-      }
+      
       inquiryMutation.mutate(mutationData);
     }
-  }, [id, inquiryPropertyId, inquiryCheckIn, inquiryCheckOut, inquiryGuests, hasSentInquiry, isSendingInquiry, user]);
+  }, [id, inquiryHostId, inquiryExperienceId, inquiryExperienceName, inquiryCheckIn, inquiryCheckOut, inquiryParticipants, inquiryDates, hasSentInquiry, isSendingInquiry, isAuthenticated]);
 
-  // Sélection auto après envoi inquiry
+  // ✅ Sélection auto après envoi inquiry - CORRIGÉ
   useEffect(() => {
-    if (hasSentInquiry && conversations.length > 0 && !selectedConversation && inquiryPropertyId) {
-      const matched = conversations.find((conv: any) =>
-        conv.booking.property?.id?.toString() === inquiryPropertyId ||
-        conv.booking.property_id?.toString() === inquiryPropertyId
-      );
-      if (matched) setSelectedConversation(matched);
+    if (hasSentInquiry && conversations.length > 0 && !selectedConversation && inquiryHostId) {
+      const matched = conversations.find((conv: any) => {
+        if (conv.type === 'inquiry' || conv.type === 'experience') {
+          return conv.booking.host?.id?.toString() === inquiryHostId;
+        }
+        return false;
+      });
+      if (matched) {
+        console.log('✅ Sélection auto de la conversation:', matched);
+        handleSelectConversation(matched);
+      }
     }
-  }, [hasSentInquiry, conversations, selectedConversation, inquiryPropertyId]);
+  }, [hasSentInquiry, conversations, selectedConversation, inquiryHostId]);
 
   // Sélection par id dans l'URL
   useEffect(() => {
     if (!selectedConversation && id && id !== 'inquiry' && conversations.length > 0) {
-      const matched = conversations.find((conv: any) => conv.booking.id.toString() === id);
-      if (matched) setSelectedConversation(matched);
+      const matched = conversations.find((conv: any) => conv.booking.id?.toString() === id);
+      if (matched) {
+        handleSelectConversation(matched);
+      }
     }
   }, [id, conversations, selectedConversation]);
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messagesData]);
+  }, [messages]);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConversation) return;
-    sendMutation.mutate(messageInput);
-  };
+  // Dans MessagesPage - useEffect pour détecter les paramètres de service
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+// ✅ Récupérer les paramètres depuis l'URL
+useEffect(() => {
+  const urlSearch = search || location.search;
+  const params = new URLSearchParams(urlSearch.startsWith('?') ? urlSearch.substring(1) : urlSearch);
+  
+  // ✅ Détecter si c'est une demande pour un service
+  const serviceId = params.get('service');
+  const serviceName = params.get('service_name');
+  const hostId = params.get('host_id');
+  const hostName = params.get('host_name');
+  const inquiryType = params.get('inquiry_type');
+  const date = params.get('date');
+  const locationParam = params.get('location');
+  const priceParam = params.get('price');
 
-  const handleSelectConversation = (conv: any) => {
-    console.log('📌 Sélection conversation:', conv);
-    if (conv.type === 'inquiry') {
-      setSelectedType('inquiry');
-      const hostId = conv.booking.host?.id;
-      setSelectedId(hostId);
-    } else {
-      setSelectedType('booking');
-      const bookingId = conv.booking.id;
-      setSelectedId(bookingId);
-    }
-    setSelectedConversation(conv);
-  };
+  console.log('🔍 Paramètres détectés:', { serviceId, serviceName, hostId, hostName, inquiryType, date });
 
-  // Composant de chat pour les inquiries (avec fallback localStorage)
-  const InquiryChat = ({ hostId, hostName, propertyTitle }: { hostId: number; hostName: string; propertyTitle: string }) => {
-    const { messages, loading, error, sending, sendMessage, reloadMessages } = useInquiryMessages(hostId);
-    const [localInput, setLocalInput] = useState('');
-    const localMessagesEndRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      localMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const handleLocalSend = async () => {
-      if (!localInput.trim()) return;
-      const success = await sendMessage(localInput);
-      if (success) {
-        setLocalInput('');
-        localMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
+  // ✅ Si c'est une demande pour un service, créer une conversation temporaire
+  if (serviceId && hostId && inquiryType === 'service') {
+    console.log('💬 Demande de service détectée:', { serviceId, serviceName, hostId });
+    
+    // ✅ Créer une conversation virtuelle pour le service
+    const tempConversation = {
+      type: 'service-inquiry',
+      booking: {
+        host: {
+          id: parseInt(hostId),
+          name: hostName || 'Prestataire'
+        },
+        property: {
+          title: serviceName || 'Service'
+        },
+        service_id: parseInt(serviceId),
+        service_name: serviceName || 'Service',
+        date: date || '',
+        location: locationParam || '',
+        price: priceParam || ''
+      },
+      last_message: {
+        message: `Demande de renseignements pour le service "${serviceName || 'Service'}"`,
+        sent_at: new Date().toISOString()
+      },
+      unread_count: 0
     };
 
+    // ✅ Sélectionner automatiquement cette conversation
+    if (!selectedConversation) {
+      console.log('✅ Sélection automatique de la conversation service');
+      setSelectedConversation(tempConversation);
+      setSelectedType('inquiry');
+      setSelectedId(parseInt(hostId));
+      
+      // ✅ Marquer comme une demande de service
+      localStorage.setItem('current_inquiry_type', 'service');
+      localStorage.setItem('current_service_id', serviceId);
+      
+      // ✅ Forcer le rechargement des messages
+      setTimeout(() => {
+        refetchMessages();
+      }, 300);
+    }
+  }
+}, [search, location.search, location.pathname]);
+
+// Dans MessagesPage - useEffect pour récupérer les données sauvegardées
+
+useEffect(() => {
+    // ✅ Vérifier s'il y a des données d'inquiry sauvegardées
+    const inquiryDataStr = localStorage.getItem('inquiry_data');
+    if (inquiryDataStr) {
+        try {
+            const inquiryData = JSON.parse(inquiryDataStr);
+            console.log('📦 Données inquiry sauvegardées trouvées:', inquiryData);
+            
+            // ✅ Si c'est un service
+            if (inquiryData.service_id) {
+                const tempConversation = {
+                    type: 'service-inquiry',
+                    booking: {
+                        host: {
+                            id: inquiryData.host_id ? parseInt(inquiryData.host_id) : 0,
+                            name: inquiryData.host_name || 'Prestataire'
+                        },
+                        property: {
+                            title: inquiryData.service_title || 'Service'
+                        },
+                        service_id: parseInt(inquiryData.service_id),
+                        service_name: inquiryData.service_title || 'Service',
+                        date: inquiryData.date || '',
+                        location: inquiryData.location || '',
+                        price: inquiryData.price || ''
+                    },
+                    last_message: {
+                        message: `Demande de renseignements pour le service "${inquiryData.service_title || 'Service'}"`,
+                        sent_at: new Date().toISOString()
+                    },
+                    unread_count: 0
+                };
+                
+                if (!selectedConversation) {
+                    console.log('✅ Sélection automatique de la conversation service (après connexion)');
+                    setSelectedConversation(tempConversation);
+                    setSelectedType('inquiry');
+                    setSelectedId(inquiryData.host_id ? parseInt(inquiryData.host_id) : 0);
+                    
+                    setTimeout(() => {
+                        refetchMessages();
+                    }, 300);
+                }
+            }
+        } catch (e) {
+            console.error('❌ Erreur parsing inquiry_data:', e);
+        }
+    }
+}, []);
+
+  // ✅ handleSelectConversation - CORRIGÉ avec logs
+  const handleSelectConversation = (conv: any) => {
+    console.log('📌 Sélection conversation:', conv);
+    console.log('📌 Type de conversation:', conv.type);
+    console.log('📌 Host:', conv.booking.host);
+    
+    if (conv.type === 'inquiry' || conv.type === 'experience') {
+      // ✅ Pour les conversations sans réservation - utiliser host.id
+      setSelectedType('inquiry');
+      const hostId = conv.booking.host?.id;
+      if (hostId) {
+        setSelectedId(hostId);
+        setSelectedConversation(conv);
+        setMobileMenuOpen(false);
+        console.log('✅ Sélection inquiry - hostId:', hostId);
+        
+        // ✅ Forcer le rechargement des messages
+        setTimeout(() => {
+          refetchMessages();
+        }, 200);
+      } else {
+        console.error('❌ Host ID manquant');
+        toast.error('Impossible de charger la conversation');
+      }
+    } else {
+      // ✅ Pour les conversations avec réservation - utiliser booking.id
+      setSelectedType('booking');
+      const bookingId = conv.booking?.id;
+      if (bookingId) {
+        setSelectedId(bookingId);
+        setSelectedConversation(conv);
+        setMobileMenuOpen(false);
+        console.log('✅ Sélection booking - bookingId:', bookingId);
+        
+        // ✅ Forcer le rechargement des messages
+        setTimeout(() => {
+          refetchMessages();
+        }, 200);
+      } else {
+        console.error('❌ Booking ID manquant');
+        toast.error('Impossible de charger la conversation');
+      }
+    }
+  };
+
+  // ✅ handleSendMessage - CORRIGÉ
+  const handleSendMessage = (message: string) => {
+    if (!selectedConversation) {
+      toast.error('Sélectionnez une conversation');
+      return;
+    }
+    
+    console.log('📤 Envoi message - selectedType:', selectedType);
+    console.log('📤 Envoi message - selectedId:', selectedId);
+    
+    const isInquiry = selectedConversation.type === 'inquiry' || 
+                      selectedConversation.type === 'experience' ||
+                      selectedType === 'inquiry';
+    
+    if (isInquiry) {
+      const hostId = selectedConversation.booking.host?.id;
+      if (!hostId) {
+        toast.error('ID de l\'hôte introuvable');
+        return;
+      }
+      console.log('📤 Envoi inquiry à hostId:', hostId);
+      sendInquiryReplyMutation.mutate({ hostId, message });
+    } else {
+      const bookingId = selectedConversation.booking?.id;
+      if (!bookingId) {
+        toast.error('ID de réservation invalide');
+        return;
+      }
+      console.log('📤 Envoi booking à bookingId:', bookingId);
+      sendBookingMessageMutation.mutate({ bookingId, message });
+    }
+  };
+
+  // ============================================
+  // AFFICHAGE
+  // ============================================
+
+  if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b bg-white">
-          <p className="font-semibold text-gray-900">{hostName}</p>
-          <p className="text-sm text-gray-500">{propertyTitle}</p>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-          {error && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
-              ⚠️ {error}
-              <button onClick={reloadMessages} className="ml-2 text-[#00c9a7] underline">Réessayer</button>
-            </div>
-          )}
-          {loading && messages.length === 0 ? (
-            <div className="text-center py-10">Chargement des messages...</div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
-              <MessageCircle className="w-12 h-12 mx-auto mb-2" />
-              <p>Aucun message</p>
-              <p className="text-sm mt-1">Soyez le premier à envoyer un message !</p>
-            </div>
-          ) : (
-            messages.map((msg) => {
-              const isFromMe = msg.sender_id === user?.id;
-              const isPending = msg.id > 999999999;
-              return (
-                <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] rounded-2xl p-3 ${isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
-                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <p className={`text-xs ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      {isPending && <span className="text-xs text-yellow-600">⏳ Envoi...</span>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={localMessagesEndRef} />
-        </div>
-        <div className="p-4 border-t bg-white">
-          <div className="flex gap-2">
-            <textarea
-              value={localInput}
-              onChange={(e) => setLocalInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleLocalSend()}
-              placeholder="Écrivez votre message..."
-              rows={1}
-              className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none"
-              style={{ minHeight: '44px', maxHeight: '120px' }}
-            />
-            <button
-              onClick={handleLocalSend}
-              disabled={!localInput.trim() || sending}
-              className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition"
-            >
-              {sending ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : <Send className="w-5 h-5" />}
-            </button>
-          </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#00c9a7] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-500">Redirection vers la connexion...</p>
         </div>
       </div>
     );
-  };
+  }
 
-  // Composant de chat pour les bookings (version simplifiée, identique à votre code)
-  const BookingChat = ({ bookingId, hostName, propertyTitle }: { bookingId: number; hostName: string; propertyTitle: string }) => {
-    const { data: msgsData, isLoading, refetch } = useQuery({
-      queryKey: ['bookingMessages', bookingId],
-      queryFn: () => messageService.getMessages(bookingId),
-      enabled: !!bookingId,
-    });
-    const messages = msgsData?.data?.messages || [];
-    const [localInput, setLocalInput] = useState('');
-    const sendBookingMutation = useMutation({
-      mutationFn: (text: string) => messageService.sendMessage(bookingId, { message: text }),
-      onSuccess: () => {
-        setLocalInput('');
-        refetch();
-      },
-      onError: (err: any) => toast.error(err?.response?.data?.message || 'Erreur envoi'),
-    });
-    const localEndRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-      localEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b bg-white">
-          <p className="font-semibold text-gray-900">{hostName}</p>
-          <p className="text-sm text-gray-500">{propertyTitle}</p>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-          {isLoading ? <div className="text-center py-10">Chargement...</div> : messages.length === 0 ? (
-            <div className="text-center py-10 text-gray-400"><MessageCircle className="w-12 h-12 mx-auto mb-2" /><p>Aucun message</p></div>
-          ) : (
-            messages.map((msg: Message) => {
-              const isFromMe = msg.sender_id === user?.id;
-              return (
-                <div key={msg.id} className={`flex ${isFromMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] rounded-2xl p-3 ${isFromMe ? 'bg-[#00c9a7] text-white' : 'bg-white text-gray-800 shadow-sm'}`}>
-                    <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                    <p className={`text-xs mt-1 ${isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
-                      {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={localEndRef} />
-        </div>
-        <div className="p-4 border-t bg-white">
-          <div className="flex gap-2">
-            <textarea value={localInput} onChange={(e) => setLocalInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendBookingMutation.mutate(localInput)} placeholder="Écrivez votre message..." rows={1} className="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#00c9a7] resize-none" style={{ minHeight: '44px', maxHeight: '120px' }} />
-            <button onClick={() => sendBookingMutation.mutate(localInput)} disabled={!localInput.trim() || sendBookingMutation.isPending} className="bg-[#00c9a7] text-white rounded-full p-3 disabled:opacity-50 hover:bg-[#00b89a] transition">
-              {sendBookingMutation.isPending ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : <Send className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Écrans de chargement
-  if (id === 'inquiry' && inquiryPropertyId && isSendingInquiry) {
+  if (id === 'inquiry' && inquiryHostId && inquiryExperienceId && isSendingInquiry) {
     return (
       <div className="bg-[#f4fffe] min-h-screen py-10">
         <div className="max-w-[1200px] mx-auto px-4 text-center py-20">
@@ -12341,50 +15353,103 @@ export function MessagesPage({ onNavigate, id, search }: MessagesPageProps) {
     );
   }
 
-  // Rendu principal
   return (
-    <div className="bg-[#f4fffe] min-h-screen py-10">
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-[#0F2940]">Messagerie</h1>
+    <div className="bg-[#f4fffe] min-h-screen py-4 sm:py-10">
+      <div className="max-w-[1200px] mx-auto px-3 sm:px-4 lg:px-8">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#0F2940] flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-[#00c9a7]" />
+            <span className="hidden sm:inline">Messagerie</span>
+            <span className="sm:hidden">Messages</span>
+          </h1>
           <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 hover:text-[#00c9a7] transition">← Retour</button>
         </div>
-        <div className="flex flex-col lg:flex-row gap-6 bg-white rounded-3xl shadow-md overflow-hidden">
+
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 bg-white rounded-2xl sm:rounded-3xl shadow-md overflow-hidden border border-[#e2f5f2]">
+          
           {/* Liste des conversations */}
-          <div className="lg:w-1/3 border-r">
-            <div className="p-4 border-b font-semibold bg-white">Conversations ({conversations.length})</div>
-            <div className="divide-y max-h-[600px] overflow-y-auto">
+          <div className={`
+            ${mobileMenuOpen ? 'block' : 'hidden'} 
+            lg:block lg:w-1/3 border-r
+            ${mobileMenuOpen ? 'fixed inset-0 z-50 bg-white p-4 overflow-y-auto' : ''}
+          `}>
+            {mobileMenuOpen && (
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                className="lg:hidden absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            )}
+            
+            <div className={`p-3 sm:p-4 border-b font-semibold bg-white flex justify-between items-center ${mobileMenuOpen ? 'mt-12' : ''}`}>
+              <span>Conversations ({conversations.length})</span>
+              <button 
+                onClick={() => refetchConversations()} 
+                className="text-xs text-[#00c9a7] hover:underline flex items-center gap-1"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Rafraîchir</span>
+              </button>
+            </div>
+            
+            <div className="divide-y max-h-[calc(100vh-200px)] overflow-y-auto">
               {conversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-400">
-                  <MessageCircle className="w-12 h-12 mx-auto mb-2" />
+                  <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>Aucune conversation</p>
+                  <p className="text-sm mt-1">Contactez un hôte pour commencer</p>
                 </div>
               ) : (
                 conversations.map((conv: any, index: number) => {
-                  const conversationKey = conv.type === 'inquiry'
-                    ? `inquiry_${conv.booking.host?.id || conv.booking.reference || index}_${index}`
-                    : `booking_${conv.booking.id || index}`;
                   const isSelected = selectedConversation === conv;
+                  const isInquiry = conv.type === 'inquiry' || conv.type === 'experience';
+                  const guestName = conv.booking.host?.name || 'Hôte';
+                  const propertyTitle = conv.booking.property?.title || 
+                                        conv.booking.experience_name || 
+                                        'Demande d\'information';
+                  
                   return (
                     <button
-                      key={conversationKey}
+                      key={index}
                       onClick={() => handleSelectConversation(conv)}
-                      className={`w-full text-left p-4 hover:bg-gray-50 transition ${isSelected ? 'bg-gray-100' : ''}`}
+                      className={`w-full text-left p-3 sm:p-4 hover:bg-gray-50 transition ${
+                        isSelected ? 'bg-gray-100' : ''
+                      }`}
                     >
                       <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            {conv.type === 'inquiry' ? conv.booking.host?.name || 'Hôte' : conv.booking.host?.name || 'Hôte'}
-                          </p>
-                          <p className="text-sm text-gray-500">{conv.booking.property?.title || 'Demande d\'information'}</p>
-                          {conv.booking.dates?.check_in && conv.booking.dates?.check_out && (
-                            <p className="text-xs text-gray-400 mt-1">{conv.booking.dates.check_in} → {conv.booking.dates.check_out}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-gray-900 text-sm sm:text-base truncate">
+                              {guestName}
+                            </p>
+                            {conv.unread_count > 0 && (
+                              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 flex-shrink-0">
+                                {conv.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs sm:text-sm text-gray-500 truncate">{propertyTitle}</p>
+                          {isInquiry && (
+                            <span className="text-[10px] text-[#00c9a7] mt-0.5 inline-block">✉️ Demande d'information</span>
                           )}
-                          {conv.type === 'inquiry' && <span className="text-xs text-[#00c9a7] mt-1 inline-block">Demande d'information</span>}
+                          {conv.booking.dates?.check_in && conv.booking.dates?.check_out && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              📅 {conv.booking.dates.check_in} → {conv.booking.dates.check_out}
+                            </p>
+                          )}
                         </div>
-                        {conv.unread_count > 0 && <span className="bg-[#00c9a7] text-white text-xs rounded-full px-2 py-1">{conv.unread_count}</span>}
+                        {conv.last_message && (
+                          <span className="text-[10px] sm:text-xs text-gray-400 flex-shrink-0 ml-2">
+                            {conv.last_message.sent_at}
+                          </span>
+                        )}
                       </div>
-                      {conv.last_message && <p className="text-xs text-gray-400 mt-2 truncate">{conv.last_message.message}</p>}
+                      {conv.last_message && (
+                        <p className="text-xs text-gray-400 mt-2 truncate">
+                          {conv.last_message.message}
+                        </p>
+                      )}
                     </button>
                   );
                 })
@@ -12392,26 +15457,35 @@ export function MessagesPage({ onNavigate, id, search }: MessagesPageProps) {
             </div>
           </div>
 
-          {/* Zone de chat dynamique */}
-          <div className="lg:w-2/3 flex flex-col h-[600px]">
+          {/* Zone de chat */}
+          <div className="lg:w-2/3 flex flex-col h-[500px] sm:h-[600px] relative">
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden absolute top-3 left-3 z-10 p-2 rounded-full bg-white shadow-md hover:bg-gray-50"
+            >
+              <Menu className="w-5 h-5 text-gray-600" />
+            </button>
+
             {selectedConversation ? (
-              selectedConversation.type === 'inquiry' ? (
-                <InquiryChat
-                  hostId={selectedConversation.booking.host.id}
-                  hostName={selectedConversation.booking.host.name}
-                  propertyTitle={selectedConversation.booking.property.title}
-                />
-              ) : (
-                <BookingChat
-                  bookingId={selectedConversation.booking.id}
-                  hostName={selectedConversation.booking.host.name}
-                  propertyTitle={selectedConversation.booking.property.title}
-                />
-              )
+              <MessagesChatView 
+                conversation={selectedConversation}
+                messages={messages}
+                messagesLoading={messagesLoading}
+                user={user}
+                onSendMessage={handleSendMessage}
+                isSending={sendBookingMessageMutation.isPending || sendInquiryReplyMutation.isPending}
+                onBack={() => setMobileMenuOpen(true)}
+                hostName={selectedConversation.booking.host?.name || 'Hôte'}
+                propertyTitle={selectedConversation.booking.property?.title || 
+                               selectedConversation.booking.experience_name || 
+                               'Demande d\'information'}
+                isInquiry={selectedConversation.type === 'inquiry' || selectedConversation.type === 'experience'}
+              />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                 <MessageCircle className="w-16 h-16 mb-4 opacity-50" />
                 <p className="text-lg font-medium">Sélectionnez une conversation</p>
+                <p className="text-sm">Ou contactez un hôte depuis une expérience</p>
               </div>
             )}
           </div>
@@ -16296,92 +19370,1280 @@ export function NotFoundPage({ onNavigate }: PageProps) {
 }
 
 // ==================== EXPÉRIENCE PAGE ====================
-export function ExperiencePage({ onNavigate }: PageProps) {
-  const [selectedExperience, setSelectedExperience] = useState<any | null>(null);
 
-  const asset = (filename: string) => `/src/app/assets/${filename}`;
+interface PageProps {
+  onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
+}
 
-  const themeImages = {
-    nature: [asset("oiseaux.jpg"), asset("soleil.jpg"), asset("pêche.jpg"), asset("pêche1.jpg")],
-    culture: [asset("culture.jpg"), asset("culture1.jpg"), asset("culture2.jpg"), asset("culture4.jpg")],
-    artisanat: [asset("artisanat.jpg"), asset("artisanat1.jpg"), asset("artisanat2.jpg"), asset("artisanat3.jpg")],
-    cuisine: [asset("repas.jpg"), asset("repas3.jpg"), asset("repas4.jpg"), asset("repas5.jpg")],
-    aventure: [asset("pêche2.jpg"), asset("pêche3.jpg"), asset("pêche4.jpg"), asset("pêche5.jpg")],
-    musique: [asset("danse.jpg"), asset("sortie.jpg"), asset("marché.jpg"), asset("marché1.jpg")],
-    plage: [asset("soleil.jpg"), asset("oiseaux.jpg"), asset("pêche.jpg"), asset("pêche1.jpg")],
+interface Experience {
+  id: number;
+  name: string;
+  description: string;
+  location: string;
+  price: number;
+  total_places: number;
+  available_places: number;
+  images: string[];
+  steps: any[];
+  status: string;
+  is_published: boolean;
+  host: {
+    id: number;
+    first_name: string;
+    last_name: string;
   };
+  average_rating?: number;
+  reviews_count?: number;
+  created_at: string;
+}
 
-  const generateReviews = (title: string, location: string) => [
-    { name: "Voyageur", location: "Cotonou, Bénin", daysAgo: "il y a 2 jours", text: `Expérience incroyable : "${title}" à ${location} !`, rating: 5.0 },
-    { name: "Exploratrice", location: "Porto-Novo, Bénin", daysAgo: "il y a 5 jours", text: `Très bonne organisation, je recommande.`, rating: 4.9 },
-    { name: "Passionné", location: "Abomey, Bénin", daysAgo: "il y a 1 semaine", text: `Immersion authentique dans la culture locale.`, rating: 5.0 },
-  ];
+// ============================================
+// CONSTANTES ET FONCTIONS UTILITAIRES
+// ============================================
+const API_BASE_URL = 'https://api.bluefin-immo.com';
+const MEDIA_BASE_URL = import.meta.env.DEV ? '' : API_BASE_URL;
+const FIXED_EXCHANGE_RATE = 655.957; // Taux de change FCFA → Euro
 
-  // Toutes les expériences
-  const allExperiences = [
-    { id: 1, title: "Atelier de teinture adire et batik béninois", location: "Abomey, Bénin", price: 45, priceType: "pers", rating: 4.98, images: themeImages.artisanat, hostType: "Particulier", description: "Apprenez l'art traditionnel de la teinture.", duration: "3h", reviews: generateReviews("Atelier", "Abomey") },
-    { id: 2, title: "Immersion vaudou et marché d'Ouidah", location: "Ouidah, Bénin", price: 35, priceType: "pers", rating: 4.92, images: themeImages.culture, hostType: "Local", description: "Découvrez les mystères du vaudou.", duration: "4h", reviews: generateReviews("Immersion", "Ouidah") },
-    { id: 3, title: "Danse gèlèdé et percussions", location: "Grand-Popo, Bénin", price: 50, priceType: "groupe", rating: 4.95, images: themeImages.musique, hostType: "Professionnel", description: "Initiez-vous aux danses traditionnelles.", duration: "2h", reviews: generateReviews("Danse", "Grand-Popo") },
-    { id: 4, title: "Pêche traditionnelle", location: "Lac Nokoué", price: 40, priceType: "pers", rating: 4.90, images: themeImages.nature, hostType: "Local", description: "Partez pêcher avec les locaux.", duration: "4h", reviews: generateReviews("Pêche", "lac Nokoué") },
-    // Ajoutez toutes vos autres expériences ici
-  ];
+const buildExperienceImageApiUrl = (experienceId: number | string, rawValue: string): string => {
+  if (!rawValue) return '';
 
-  const getProgramSteps = (exp: any) => [
-    `Accueil et présentation au cœur de ${exp.location}`,
-    `Découverte de l'histoire locale et des techniques utilisées`,
-    `Mise en pratique avec votre guide ou artisan`,
-    `Création d'un souvenir à emporter chez vous`,
-  ];
+  const clean = rawValue.trim();
+  if (!clean) return '';
 
-  const ExperienceCard = ({ exp }: { exp: any }) => (
-    <div className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1" onClick={() => setSelectedExperience(exp)}>
-      <div className="relative h-56 overflow-hidden">
-        <img src={exp.images[0]} alt={exp.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-        <div className="absolute top-3 right-3 p-2 rounded-full bg-white/80"><Heart className="w-4 h-4" /></div>
-        <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">{exp.hostType}</div>
+  // Si l'API renvoie deja la route image dediee, on la conserve telle quelle.
+  if (clean.includes('/api/experience-image/')) {
+    return clean.startsWith('http') ? clean : `${API_BASE_URL}${clean.startsWith('/') ? '' : '/'}${clean}`;
+  }
+
+  const withoutQuery = clean.split('?')[0].split('#')[0];
+  const filename = withoutQuery.split('/').pop() || '';
+  if (!filename) return '';
+
+  return `${API_BASE_URL}/api/experience-image/${experienceId}/${filename}`;
+};
+
+const normalizeMediaUrl = (rawUrl: string): string => {
+  if (!rawUrl) return '';
+
+  const url = rawUrl.trim();
+  if (!url) return '';
+
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  if (url.startsWith('/storage/')) {
+    return `${MEDIA_BASE_URL}${url}`;
+  }
+
+  if (url.startsWith('/api/public/storage/')) {
+    return `${MEDIA_BASE_URL}${url}`;
+  }
+
+  if (url.startsWith('storage/')) {
+    return `${MEDIA_BASE_URL}/storage/${url.replace(/^storage\//, '')}`;
+  }
+
+  if (url.startsWith('api/public/storage/')) {
+    return `${MEDIA_BASE_URL}/api/public/storage/${url.replace(/^api\/public\/storage\//, '')}`;
+  }
+
+  return `${MEDIA_BASE_URL}/storage/${url.replace(/^\/+/, '')}`;
+};
+
+// ✅ Formater en FCFA
+const formatFCFA = (amount: number): string => {
+  return `${amount.toLocaleString('fr-FR')} FCFA`;
+};
+
+// ✅ Formater en Euro
+const formatEuro = (amount: number): string => {
+  const euroAmount = amount / FIXED_EXCHANGE_RATE;
+  return `${euroAmount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+};
+
+// ✅ Formater les deux devises (pour affichage)
+const formatPriceBoth = (amount: number): string => {
+  return `${formatFCFA(amount)} (${formatEuro(amount)})`;
+};
+
+// ✅ Fonction pour obtenir l'URL d'une image
+
+// pages.tsx - Fonction pour les images d'expérience
+
+const getExperienceImages = (experience: any): string[] => {
+  if (!experience) return [`https://picsum.photos/seed/default/800/600`];
+  
+  const images: string[] = [];
+  
+  // Fonction pour extraire le nom du fichier
+  const extractFilename = (path: string): string => {
+    if (!path) return '';
+    if (path.includes('/')) {
+      const parts = path.split('/');
+      return parts[parts.length - 1];
+    }
+    return path;
+  };
+  
+  // Fonction pour construire l'URL complète
+  const buildImageUrl = (filename: string, experienceId: number): string => {
+    if (!filename || !experienceId) return '';
+    // ✅ Utiliser le chemin correct
+    return `${API_BASE_URL}/storage/app/public/experiences/${experienceId}/gallery/${filename}`;
+  };
+  
+  // Traiter les images
+  if (experience.images && Array.isArray(experience.images)) {
+    for (const img of experience.images) {
+      let url = '';
+      
+      if (typeof img === 'string') {
+        url = img;
+      } else if (typeof img === 'object') {
+        url = img.url || img.path || img.image_url || img.filename || img.file;
+      }
+      
+      if (url) {
+        // Si c'est déjà une URL complète
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          if (!images.includes(url)) {
+            images.push(url);
+          }
+        } else {
+          // Extraire le nom du fichier
+          const filename = extractFilename(url);
+          if (filename && experience.id) {
+            const fullUrl = buildImageUrl(filename, experience.id);
+            if (fullUrl && !images.includes(fullUrl)) {
+              images.push(fullUrl);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Si pas d'images, vérifier les champs individuels
+  if (images.length === 0) {
+    const fields = ['image_url', 'main_image', 'image', 'gallery', 'cover'];
+    for (const field of fields) {
+      if (experience[field]) {
+        const filename = extractFilename(experience[field]);
+        if (filename && experience.id) {
+          const fullUrl = buildImageUrl(filename, experience.id);
+          if (fullUrl) {
+            images.push(fullUrl);
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallback avec picsum si aucune image trouvée
+  if (images.length === 0) {
+    images.push(`https://picsum.photos/seed/${experience.id || 'default'}/800/600`);
+    images.push(`https://picsum.photos/seed/${experience.id || 'default'}-2/800/600`);
+    images.push(`https://picsum.photos/seed/${experience.id || 'default'}-3/800/600`);
+  }
+  
+  console.log('🖼️ Images expérience (chemin corrigé):', {
+    id: experience.id,
+    name: experience.name,
+    images: images
+  });
+  
+  return images;
+};
+
+// const getProgramSteps = (experience: any): string[] => {
+//   if (!experience) return [];
+  
+//   if (experience.steps && experience.steps.length > 0) {
+//     if (typeof experience.steps[0] === 'object') {
+//       return experience.steps.map((step: any) => step.description || step.text || step.title || '');
+//     }
+//     return experience.steps;
+//   }
+//   return [
+//     `Accueil et présentation au cœur de ${experience.location}`,
+//     `Découverte de l'histoire locale et des techniques utilisées`,
+//     `Mise en pratique avec votre guide ou artisan`,
+//     `Création d'un souvenir à emporter chez vous`,
+//   ];
+// };
+
+// const getAvailableDates = (experience: any): string[] => {
+//   if (!experience.availability || !Array.isArray(experience.availability)) {
+//     return [];
+//   }
+  
+//   const dates: string[] = [];
+//   for (const item of experience.availability) {
+//     try {
+//       let parsed = item;
+//       if (typeof item === 'string') parsed = JSON.parse(item);
+//       if (parsed && typeof parsed === 'object' && parsed.date) {
+//         dates.push(parsed.date);
+//       }
+//     } catch (e) {}
+//   }
+//   return dates;
+// };
+
+// ============================================
+// COMPOSANT CARTE D'EXPÉRIENCE
+// ============================================
+// ============================================
+// HELPERS POUR LES IMAGES - À PLACER EN HAUT DU FICHIER
+// ============================================
+
+
+// ============================================
+// COMPOSANT DE CARTE EXPÉRIENCE CORRIGÉ
+// ============================================
+
+const ExperienceCard = ({ exp, onClick }: { exp: Experience; onClick: () => void }) => {
+  const images = getExperienceImages(exp);
+    const firstImage = images.length > 0 ? images[0] : `https://picsum.photos/seed/${exp.id}/800/600`;
+  const rating = exp.average_rating || 4.5;
+  const reviews = exp.reviews_count || 0;
+
+  
+  console.log('🖼️ ExperienceCard - Images:', {
+    id: exp.id,
+    name: exp.name,
+    imagesCount: images.length,
+    firstImage: firstImage,
+    rawImages: exp.images
+  });
+
+  return (
+    <div 
+      className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+      onClick={onClick}
+    >
+      <div className="relative h-56 overflow-hidden bg-gray-100">
+        <img 
+          src={firstImage}
+          alt={exp.name} 
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+          loading="lazy"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            console.warn('❌ Erreur chargement image:', target.src);
+            target.src = `https://picsum.photos/seed/${exp.id}/800/600`;
+          }}
+        />
+        <div className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition">
+          <Heart className="w-4 h-4 hover:fill-red-500 hover:text-red-500 transition" />
+        </div>
+        <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+          <Users className="w-3 h-3" />
+          {exp.available_places || exp.total_places || 10} places
+        </div>
+        {exp.duration && (
+          <div className="absolute top-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {exp.duration}
+          </div>
+        )}
       </div>
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="font-semibold text-[#0F2940] text-base line-clamp-2">{exp.title}</h3>
-          <div className="flex items-center gap-1"><Star className="w-3 h-3 fill-current text-[#00c9a7]" /><span className="text-xs font-medium">{exp.rating}</span></div>
+          <h3 className="font-semibold text-[#0F2940] text-base line-clamp-2 flex-1 mr-2">
+            {exp.name}
+          </h3>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Star className="w-3 h-3 fill-current text-yellow-400" />
+            <span className="text-xs font-medium">{rating.toFixed(1)}</span>
+            {reviews > 0 && <span className="text-xs text-gray-400">({reviews})</span>}
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mb-2">{exp.location}</p>
-        <p className="text-sm text-gray-600 line-clamp-2 mb-3">{exp.description}</p>
-        <div><span className="font-bold text-[#0F2940] text-lg">{exp.price} €</span><span className="text-xs text-gray-500"> / {exp.priceType}</span></div>
+        <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          {exp.location || 'Bénin'}
+        </p>
+        <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+          {exp.description || 'Aucune description disponible'}
+        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="font-bold text-[#0F2940] text-lg">{formatFCFA(exp.price || 0)}</span>
+            <span className="text-xs text-gray-500 block">{formatEuro(exp.price || 0)}</span>
+          </div>
+          {exp.duration && (
+            <div className="text-xs text-gray-400 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {exp.duration}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+};
 
-  const ExperienceDetailModal = ({ exp, onClose }: { exp: any; onClose: () => void }) => {
-    const [imgIndex, setImgIndex] = useState(0);
-    const steps = getProgramSteps(exp);
+
+
+// ============================================
+// COMPOSANT CALENDRIER AVEC SÉLECTION MULTIPLE
+// ============================================
+const ExperienceCalendar = ({ 
+  checkIn, 
+  checkOut, 
+  availableDates, 
+  selectedDates, 
+  onDateSelect 
+}: { 
+  checkIn: string; 
+  checkOut: string; 
+  availableDates: string[];
+  selectedDates: string[];
+  onDateSelect: (dates: string[]) => void;
+}) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    return { days, firstDay };
+  };
+
+  const { days, firstDay } = getDaysInMonth(currentMonth);
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const isDateAvailable = (date: Date) => {
+    const key = formatDateKey(date);
+    return availableDates.includes(key);
+  };
+
+  const isDateInPast = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  };
+
+  const isDateSelected = (date: Date) => {
+    const key = formatDateKey(date);
+    return selectedDates.includes(key);
+  };
+
+  const handleDateClick = (date: Date) => {
+    if (!isDateAvailable(date) || isDateInPast(date)) return;
+    
+    const key = formatDateKey(date);
+    
+    if (selectedDates.includes(key)) {
+      const newDates = selectedDates.filter(d => d !== key);
+      onDateSelect(newDates);
+    } else {
+      const newDates = [...selectedDates, key].sort();
+      onDateSelect(newDates);
+    }
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const totalNights = selectedDates.length > 0 ? selectedDates.length - 1 : 0;
+
+  return (
+    <div className="text-center">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="font-medium text-sm">
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </span>
+        <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1 text-xs">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, i) => (
+          <div key={i} className="font-medium text-gray-500 py-1">{day}</div>
+        ))}
+        {Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }).map((_, i) => (
+          <div key={`empty-${i}`} className="py-1" />
+        ))}
+        {Array.from({ length: days }, (_, i) => i + 1).map((day) => {
+          const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+          const isAvailable = isDateAvailable(date);
+          const isPast = isDateInPast(date);
+          const isSelected = isDateSelected(date);
+          const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+          
+          let bgColor = '';
+          let textColor = '';
+          let cursor = '';
+          let hoverEffect = '';
+          
+          if (!isCurrentMonth) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-default';
+          } else if (isPast) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-gray-50';
+          } else if (!isAvailable) {
+            textColor = 'text-red-400';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-red-50';
+          } else if (isSelected) {
+            bgColor = 'bg-[#00c9a7] text-white';
+            textColor = 'text-white';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:scale-105';
+          } else {
+            textColor = 'text-gray-800';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:bg-[#00c9a7]/20';
+          }
+          
+          return (
+            <div
+              key={day}
+              onClick={() => handleDateClick(date)}
+              className={`
+                py-1.5 rounded-full text-sm transition-all duration-200
+                ${bgColor} ${textColor} ${cursor} ${hoverEffect}
+                ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}
+              `}
+            >
+              {day}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-[#00c9a7]"></div>
+          <span className="text-gray-600">Disponible</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-red-200"></div>
+          <span className="text-gray-600">Non disponible</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-gray-100 border border-gray-300"></div>
+          <span className="text-gray-600">Passé</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-[#00c9a7] border-2 border-white shadow"></div>
+          <span className="text-gray-600">Sélectionné</span>
+        </div>
+      </div> */}
+      
+      <div className="mt-2 text-xs text-gray-400">
+        {selectedDates.length === 0 && 'Cliquez sur les dates disponibles pour les sélectionner'}
+        {selectedDates.length > 0 && (
+          <span>
+            {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} sélectionnée{selectedDates.length > 1 ? 's' : ''}
+            {totalNights > 0 && ` · ${totalNights} nuit${totalNights > 1 ? 's' : ''}`}
+          </span>
+        )}
+      </div>
+      
+      {selectedDates.length > 0 && (
+        <div className="mt-2 flex flex-wrap justify-center gap-1">
+          {selectedDates.slice(0, 5).map((date, index) => (
+            <span key={index} className="inline-flex items-center gap-1 text-xs bg-[#00c9a7]/10 text-[#00c9a7] px-2 py-0.5 rounded-full">
+              {date}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newDates = selectedDates.filter(d => d !== date);
+                  onDateSelect(newDates);
+                }}
+                className="hover:text-red-500"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          {selectedDates.length > 5 && (
+            <span className="text-xs text-gray-400">+{selectedDates.length - 5} autres</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// PAGE PRINCIPALE
+// ============================================
+export function ExperiencePage({ onNavigate }: PageProps) {
+  const { isAuthenticated, user } = useAuth();
+  const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshExperiences = () => {
+    console.log('🔄 Rafraîchissement des expériences...');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const fetchExperiences = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('📥 Chargement des expériences...');
+      
+      const response = await fetch('/api/v1/experiences', {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Expériences récupérées:', data);
+      
+      let experiencesData = [];
+      if (data.data && data.data.data && Array.isArray(data.data.data)) {
+        experiencesData = data.data.data;
+      } else if (data.data && Array.isArray(data.data)) {
+        experiencesData = data.data;
+      } else if (Array.isArray(data)) {
+        experiencesData = data;
+      } else {
+        experiencesData = [];
+      }
+      
+      console.log(`📊 ${experiencesData.length} expériences chargées`);
+      setExperiences(experiencesData);
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExperiences();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const handleExperienceUpdate = () => {
+      console.log('🔄 Événement experience-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    const handleBookingUpdate = () => {
+      console.log('🔄 Événement booking-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    window.addEventListener('experience-updated', handleExperienceUpdate);
+    window.addEventListener('booking-updated', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('experience-updated', handleExperienceUpdate);
+      window.removeEventListener('booking-updated', handleBookingUpdate);
+    };
+  }, []);
+
+  // ============================================
+  // MODAL DE DÉTAIL
+  // ============================================
+ const ExperienceDetailModal = ({ exp, onClose }: { exp: Experience; onClose: () => void }) => {
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [showAllSteps, setShowAllSteps] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+  const [infants, setInfants] = useState(0);
+  const [isBooking, setIsBooking] = useState(false);
+
+  const images = getExperienceImages(exp);
+  const steps = getProgramSteps(exp);
+  const availableDates = getAvailableDates(exp);
+  
+  const rating = exp.average_rating || 4.5;
+  const reviews = exp.reviews_count || 0;
+  const price = exp.price || 0;
+  const maxParticipants = exp.total_places || 10;
+  const hostName = exp.host?.first_name 
+    ? `${exp.host.first_name} ${exp.host.last_name || ''}` 
+    : 'Hôte vérifié';
+  const hostAvatarUrl = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
+
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable'>('idle');
+
+  const totalGuests = adults + children + infants;
+
+  useEffect(() => {
+    if (selectedDates.length > 0) {
+      const sorted = [...selectedDates].sort();
+      setCheckIn(sorted[0]);
+      setCheckOut(sorted[sorted.length - 1]);
+      
+      const allAvailable = sorted.every(date => availableDates.includes(date));
+      setAvailabilityStatus(allAvailable && totalGuests > 0 ? 'available' : 'unavailable');
+    } else {
+      setCheckIn('');
+      setCheckOut('');
+      setAvailabilityStatus('idle');
+    }
+  }, [selectedDates, availableDates, totalGuests]);
+
+  const nights = selectedDates.length > 1 ? selectedDates.length - 1 : 0;
+  
+  const adultPrice = price * adults;
+  const childrenPrice = price * 0.5 * children;
+  const infantsPrice = 0;
+  const totalPrice = adultPrice + childrenPrice + infantsPrice;
+  const subtotal = totalPrice * nights;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+
+  const handleReservation = async () => {
+    if (availabilityStatus !== 'available' || selectedDates.length < 2) {
+      alert('Veuillez sélectionner au moins 2 dates disponibles.');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      const bookingData = {
+        experience_id: exp.id,
+        experience_name: exp.name,
+        location: exp.location || '',
+        price: exp.price,
+        description: exp.description || '',
+        check_in: checkIn,
+        check_out: checkOut,
+        dates: selectedDates,
+        adults: adults,
+        children: children,
+        infants: infants,
+        total_guests: totalGuests,
+        nights: nights,
+        subtotal: subtotal,
+        service_fee: serviceFee,
+        total: total,
+        available_dates: availableDates,
+        experience_data: exp,
+        guest_details: {
+          full_name: '',
+          email: '',
+          phone: ''
+        }
+      };
+      
+      sessionStorage.setItem('experienceBookingData', JSON.stringify(bookingData));
+      console.log('✅ Données sauvegardées:', bookingData);
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=experience_booking' });
+      } else {
+        window.location.href = '/auth?redirect=experience_booking';
+      }
+      return;
+    }
+
+    setIsBooking(true);
+
+    try {
+      const bookingData = {
+        experience_id: exp.id,
+        experience_name: exp.name,
+        location: exp.location || '',
+        price: exp.price,
+        description: exp.description || '',
+        check_in: checkIn,
+        check_out: checkOut,
+        dates: selectedDates,
+        adults: adults,
+        children: children,
+        infants: infants,
+        total_guests: totalGuests,
+        nights: nights,
+        subtotal: subtotal,
+        service_fee: serviceFee,
+        total: total,
+        available_dates: availableDates,
+        experience_data: exp,
+        guest_details: {
+          full_name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '',
+          email: user?.email || '',
+          phone: user?.phone || ''
+        }
+      };
+      
+      sessionStorage.setItem('experienceBookingData', JSON.stringify(bookingData));
+      console.log('✅ Données sauvegardées:', bookingData);
+      window.dispatchEvent(new Event('booking-updated'));
+      
+      const params = new URLSearchParams();
+      params.set('experience', exp.id.toString());
+      params.set('check_in', checkIn);
+      params.set('check_out', checkOut);
+      params.set('adults', adults.toString());
+      params.set('children', children.toString());
+      params.set('infants', infants.toString());
+      params.set('total_guests', totalGuests.toString());
+      params.set('nights', nights.toString());
+      if (selectedDates.length > 0) {
+        params.set('dates', selectedDates.join(','));
+      }
+      
+      console.log('📤 Redirection vers experience-booking avec params:', params.toString());
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'experience-booking', 
+          id: exp.id.toString(),
+          search: params.toString()
+        });
+      } else {
+        window.location.href = `/experience-booking/${exp.id}?${params.toString()}`;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la réservation:', error);
+      alert('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const GalleryModal = () => {
+    useEffect(() => {
+      if (isGalleryOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+      return () => { document.body.style.overflow = ''; };
+    }, [isGalleryOpen]);
 
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
-        <div className="mx-auto max-w-6xl bg-white rounded-[32px] shadow-2xl overflow-hidden">
-          <div className="flex justify-between border-b p-6">
-            <div><h2 className="text-2xl font-semibold">{exp.title}</h2><p className="text-gray-500 mt-1">{exp.location}</p></div>
-            <button onClick={onClose} className="rounded-full border p-2"><X className="w-5 h-5" /></button>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-2 mb-4">{exp.images.slice(0,4).map((img: string, idx: number) => (<img key={idx} src={img} className="h-32 w-full rounded-xl object-cover" />))}</div>
-            <div><h3 className="text-lg font-semibold mb-2">Description</h3><p className="text-gray-700">{exp.description}</p></div>
-            <div className="mt-4"><h3 className="text-lg font-semibold mb-2">Au programme</h3>{steps.map((step, idx) => (<div key={idx} className="rounded-xl border bg-gray-50 p-3 mt-2"><p className="font-semibold">Étape {idx + 1}</p><p className="text-sm">{step}</p></div>))}</div>
-            <button className="mt-6 w-full bg-[#00c9a7] py-3 rounded-full font-semibold hover:bg-[#00b892]">Réserver ({exp.price}€)</button>
+      <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+        <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
+          <button onClick={() => setIsGalleryOpen(false)} className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm">
+            <X className="w-6 h-6" />
+          </button>
+          <div className="text-white text-sm bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm font-medium">
+            {galleryIndex + 1} / {images.length}
           </div>
         </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <img 
+            src={images[galleryIndex] || `https://picsum.photos/seed/${exp.id}/800/600`} 
+            alt={`${exp.name} - ${galleryIndex + 1}`}
+            className="max-w-full max-h-full object-contain select-none"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${exp.id}/800/600`;
+            }}
+          />
+        </div>
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setGalleryIndex(Math.max(0, galleryIndex - 1))}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${galleryIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'}`}
+              disabled={galleryIndex === 0}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={() => setGalleryIndex(Math.min(images.length - 1, galleryIndex + 1))}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${galleryIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'}`}
+              disabled={galleryIndex === images.length - 1}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </>
+        )}
       </div>
     );
   };
 
   return (
+    <>
+      {isGalleryOpen && <GalleryModal />}
+
+      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+        <div className="min-h-screen pb-20">
+          {/* Header sticky */}
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-sm sm:text-base font-semibold text-[#0F2940] truncate max-w-[50%]">
+              {exp.name}
+            </h1>
+            <div className="flex gap-2">
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Share2 className="w-5 h-5" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Heart className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+            {/* ✅ Images - Design moderne et présentable */}
+            <div className="mb-6">
+              {/* Image principale + miniatures */}
+              <div className="relative">
+                {/* Image principale */}
+                <div 
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group aspect-[16/9] bg-gray-100"
+                  onClick={() => setIsGalleryOpen(true)}
+                >
+                  <img 
+                    src={images[0] || `https://picsum.photos/seed/${exp.id}/1200/800`} 
+                    alt={exp.name} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${exp.id}/1200/800`;
+                    }}
+                  />
+                  {/* Badge "Voir toutes les photos" */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-black/80 transition">
+                      <Image className="w-4 h-4" />
+                      <span>Voir toutes les photos ({images.length})</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Miniatures */}
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {images.slice(1, 5).map((img, index) => (
+                      <div 
+                        key={index} 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#00c9a7] transition-all bg-gray-100"
+                        onClick={() => {
+                          setGalleryIndex(index + 1);
+                          setIsGalleryOpen(true);
+                        }}
+                      >
+                        <img 
+                          src={img || `https://picsum.photos/seed/${exp.id}-${index+2}/400/300`} 
+                          alt={`${exp.name} - ${index + 2}`} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${exp.id}-${index+2}/400/300`;
+                          }}
+                        />
+                      </div>
+                    ))}
+                    {/* Si plus de 4 images supplémentaires, afficher un compteur */}
+                    {images.length > 5 && (
+                      <div 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer bg-black/80 flex items-center justify-center text-white font-bold text-xl hover:bg-black/90 transition"
+                        onClick={() => setIsGalleryOpen(true)}
+                      >
+                        +{images.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Layout principal */}
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              {/* Colonne gauche - Détails */}
+              <div className="flex-1 space-y-6 sm:space-y-8">
+                <div className="border-b pb-4">
+                  <div className="text-xs sm:text-sm text-gray-500">
+                    Expérience · {exp.location || 'Bénin'}
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#0F2940] mt-1">
+                    {exp.name}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Star className="w-4 h-4 fill-current text-yellow-400" />
+                    <span className="font-medium text-sm">{rating.toFixed(1)}</span>
+                    {reviews > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500 text-sm">{reviews} commentaires</span>
+                      </>
+                    )}
+                    <span className="text-gray-300">·</span>
+                    <span className="text-gray-500 text-sm">{availableDates.length} dates disponibles</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <img src={hostAvatarUrl} alt={hostName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-[#00c9a7] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#0F2940] text-base sm:text-lg">
+                      Hôte : {hostName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {exp.host?.host_type || 'Hôte expérimenté'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                  {exp.description || 'Aucune description disponible'}
+                </div>
+
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg text-[#0F2940] flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-[#00c9a7]" />
+                      Programme de l'expérience
+                    </h3>
+                    <span className="text-sm text-gray-400">{steps.length} étapes</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {(showAllSteps ? steps : steps.slice(0, 3)).map((step: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:shadow-md transition-shadow">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-7 h-7 rounded-full bg-[#00c9a7] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-semibold text-[#0F2940]">Étape {index + 1}</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{step}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {steps.length > 3 && (
+                    <button 
+                      onClick={() => setShowAllSteps(!showAllSteps)}
+                      className="text-sm text-[#00c9a7] font-semibold hover:underline mt-3"
+                    >
+                      {showAllSteps ? 'Voir moins' : `Voir tout (${steps.length} étapes)`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Colonne droite - Réservation */}
+              <div className="lg:w-96 xl:w-[420px] flex-shrink-0">
+                <div className="sticky top-24 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg">
+                  {/* Prix */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-[#0F2940]">
+                        {formatFCFA(price)}
+                      </span>
+                      <span className="text-sm text-gray-500">/ adulte</span>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {formatEuro(price)}
+                    </div>
+                  </div>
+
+                  {/* Calendrier */}
+                  <div className="border rounded-xl mb-4 overflow-hidden">
+                    <div className="p-3">
+                      <ExperienceCalendar
+                        checkIn={checkIn}
+                        checkOut={checkOut}
+                        availableDates={availableDates}
+                        selectedDates={selectedDates}
+                        onDateSelect={(dates) => {
+                          setSelectedDates(dates);
+                        }}
+                      />
+                    </div>
+
+                    {/* Participants */}
+                    <div className="p-3 border-t">
+                      <div className="text-xs font-bold text-gray-500 uppercase mb-3">Participants</div>
+                      
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <div>
+                          <span className="text-sm font-medium">Adultes</span>
+                          <p className="text-[10px] text-gray-400">À partir de 12 ans</p>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <button 
+                            onClick={() => setAdults(Math.max(1, adults - 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[20px] text-center font-medium">{adults}</span>
+                          <button 
+                            onClick={() => setAdults(Math.min(maxParticipants, adults + 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <div>
+                          <span className="text-sm font-medium">Enfants</span>
+                          <p className="text-[10px] text-gray-400">2 - 11 ans (50% réduction)</p>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <button 
+                            onClick={() => setChildren(Math.max(0, children - 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[20px] text-center font-medium">{children}</span>
+                          <button 
+                            onClick={() => setChildren(Math.min(maxParticipants - adults, children + 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center py-2">
+                        <div>
+                          <span className="text-sm font-medium">Bébés</span>
+                          <p className="text-[10px] text-gray-400">Moins de 2 ans (gratuit)</p>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <button 
+                            onClick={() => setInfants(Math.max(0, infants - 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            -
+                          </button>
+                          <span className="min-w-[20px] text-center font-medium">{infants}</span>
+                          <button 
+                            onClick={() => setInfants(Math.min(maxParticipants - adults - children, infants + 1))} 
+                            className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Total participants</span>
+                          <span className="font-semibold text-[#0F2940]">{totalGuests}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                          <span>{adults} adulte{adults > 1 ? 's' : ''}</span>
+                          {children > 0 && <span>{children} enfant{children > 1 ? 's' : ''}</span>}
+                          {infants > 0 && <span>{infants} bébé{infants > 1 ? 's' : ''}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Détails du prix */}
+                  {selectedDates.length > 0 && (
+                    <div className="space-y-2 mb-4 text-sm">
+                      {adults > 0 && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>{adults} adulte{adults > 1 ? 's' : ''} × {formatFCFA(price)}</span>
+                          <div className="text-right">
+                            <div>{formatFCFA(price * adults)}</div>
+                            <div className="text-xs text-gray-400">{formatEuro(price * adults)}</div>
+                          </div>
+                        </div>
+                      )}
+                      {children > 0 && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>{children} enfant{children > 1 ? 's' : ''} × {formatFCFA(price * 0.5)} (50%)</span>
+                          <div className="text-right">
+                            <div>{formatFCFA(Math.round(price * 0.5 * children))}</div>
+                            <div className="text-xs text-gray-400">{formatEuro(price * 0.5 * children)}</div>
+                          </div>
+                        </div>
+                      )}
+                      {infants > 0 && (
+                        <div className="flex justify-between text-gray-400">
+                          <span>{infants} bébé{infants > 1 ? 's' : ''}</span>
+                          <span>Gratuit</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+                        <span>Sous-total × {nights} nuit{nights > 1 ? 's' : ''}</span>
+                        <div className="text-right">
+                          <div>{formatFCFA(subtotal)}</div>
+                          <div className="text-xs text-gray-400">{formatEuro(subtotal)}</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-gray-600">
+                        <span>Frais de service</span>
+                        <div className="text-right">
+                          <div>{formatFCFA(Math.round(serviceFee))}</div>
+                          <div className="text-xs text-gray-400">{formatEuro(serviceFee)}</div>
+                        </div>
+                      </div>
+                      <div className="flex justify-between font-bold pt-2 border-t border-gray-200">
+                        <span className="text-[#0F2940]">Total</span>
+                        <div className="text-right">
+                          <div className="text-[#00c9a7]">{formatFCFA(Math.round(total))}</div>
+                          <div className="text-xs font-normal text-gray-400">{formatEuro(total)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Boutons */}
+                  <button 
+                    onClick={handleReservation} 
+                    disabled={availabilityStatus !== 'available' || selectedDates.length < 2 || isBooking || totalGuests === 0} 
+                    className={`w-full py-3.5 rounded-xl font-semibold text-sm sm:text-base transition-all ${
+                      availabilityStatus === 'available' && selectedDates.length >= 2 && totalGuests > 0 && !isBooking
+                        ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-[1.02]' 
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isBooking ? 'Réservation en cours...' : 
+                     totalGuests === 0 ? 'Ajoutez au moins 1 participant' :
+                     selectedDates.length < 2 ? 'Sélectionnez au moins 2 dates' : 
+                     availabilityStatus === 'available' ? 'Réserver maintenant' : 
+                     'Dates non disponibles'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        const inquiryData = {
+                          experience_id: exp.id,
+                          experience_name: exp.name,
+                          host_id: exp.host?.id,
+                          host_name: exp.host?.first_name ? `${exp.host.first_name} ${exp.host.last_name || ''}` : 'Hôte',
+                          check_in: checkIn,
+                          check_out: checkOut,
+                          participants: totalGuests || 1,
+                          dates: selectedDates,
+                          redirect: 'experience-inquiry'
+                        };
+                        
+                        localStorage.setItem('pendingInquiry', JSON.stringify(inquiryData));
+                        localStorage.setItem('redirect_after_login', 'messages');
+                        
+                        if (onNavigate) {
+                          onNavigate({ name: 'auth', search: 'redirect=messages' });
+                        } else {
+                          window.location.href = '/auth?redirect=messages';
+                        }
+                        return;
+                      }
+                      
+                      const params = new URLSearchParams();
+                      params.set('experience', exp.id.toString());
+                      params.set('host_id', exp.host?.id?.toString() || '');
+                      params.set('host_name', exp.host?.first_name ? `${exp.host.first_name} ${exp.host.last_name || ''}` : 'Hôte');
+                      params.set('experience_name', exp.name);
+                      params.set('check_in', checkIn);
+                      params.set('check_out', checkOut);
+                      params.set('participants', totalGuests.toString());
+                      params.set('dates', selectedDates.join(','));
+                      
+                      if (onNavigate) {
+                        onNavigate({ 
+                          name: 'messages', 
+                          id: 'inquiry',
+                          search: `?${params.toString()}`
+                        });
+                      } else {
+                        window.location.href = `/messages/inquiry?${params.toString()}`;
+                      }
+                    }}
+                    className="w-full mt-3 py-3 rounded-xl border-2 border-[#00c9a7] text-[#00c9a7] font-medium hover:bg-[#00c9a7]/5 transition flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Discutez avec l'hôte
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#00c9a7] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-500">Chargement des expériences...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && experiences.length === 0) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-xl font-semibold text-[#0F2940]">Expériences au Bénin</h1>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+          <p className="text-red-500">{error}</p>
+          <button onClick={fetchExperiences} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
         <h1 className="text-xl font-semibold text-[#0F2940]">Expériences au Bénin</h1>
+        <button onClick={refreshExperiences} className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors" title="Rafraîchir">
+          <RefreshCw className="w-5 h-5 text-gray-500" />
+        </button>
       </div>
 
-      {/* Bannière avec dégradé - titre et description uniquement */}
       <div className="bg-gradient-to-r from-[#00c9a7] to-[#0f2940] py-16 text-white text-center">
         <h1 className="text-3xl md:text-4xl font-bold mb-3">Expériences de Bluefin-Immo</h1>
         <p className="text-base md:text-lg text-white/90 max-w-2xl mx-auto px-4">
@@ -16390,147 +20652,2176 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-semibold text-[#0F2940] mb-6">Toutes les expériences</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {allExperiences.map(exp => (<ExperienceCard key={exp.id} exp={exp} />))}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-[#0F2940]">
+            Toutes les expériences
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              ({experiences.length})
+            </span>
+          </h2>
+          <button onClick={refreshExperiences} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
+            <RefreshCw className="w-4 h-4" />
+            Rafraîchir
+          </button>
         </div>
+
+        {experiences.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Aucune expérience disponible pour le moment.</p>
+            <button onClick={refreshExperiences} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+              Actualiser
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {experiences.map(exp => (
+              <ExperienceCard 
+                key={exp.id} 
+                exp={exp} 
+                onClick={() => setSelectedExperience(exp)} 
+              />
+            ))}
+          </div>
+        )}
       </main>
 
-      {selectedExperience && <ExperienceDetailModal exp={selectedExperience} onClose={() => setSelectedExperience(null)} />}
+      {selectedExperience && (
+        <ExperienceDetailModal 
+          exp={selectedExperience} 
+          onClose={() => setSelectedExperience(null)} 
+        />
+      )}
     </div>
   );
 }
 
+// ============================================
+// ExperienceBookingPage
+// ============================================
 
-// ==================== SERVICES PAGE ====================
-export function ServicesPage({ onNavigate }: PageProps) {
-  const [selectedCategory, setSelectedCategory] = useState("Tous");
-  const [selectedService, setSelectedService] = useState<any | null>(null);
-  const [modalCurrentImage, setModalCurrentImage] = useState(0);
 
-  const asset = (filename: string) => `/src/app/assets/${filename}`;
 
-  const generateServiceReviews = (title: string, location: string) => [
-    { name: "Jean-Marc", location: "Cotonou", daysAgo: "il y a 3 jours", text: `Excellent service "${title}" à ${location}.`, rating: 5.0 },
-    { name: "Fatima", location: "Porto-Novo", daysAgo: "il y a 1 semaine", text: `Très satisfaite, je recommande.`, rating: 4.9 },
-    { name: "Lucien", location: "Abomey-Calavi", daysAgo: "il y a 2 jours", text: `Service impeccable, prix correct.`, rating: 5.0 },
-  ];
+// ✅ Fonction pour récupérer l'expérience depuis l'API
+const fetchExperienceDetails = async (experienceId: string | number) => {
+  try {
+    const endpoints = [
+      `/api/v1/experiences/${experienceId}`,
+      `/api/experiences/${experienceId}`,
+      `${API_BASE_URL}/api/v1/experiences/${experienceId}`,
+      `${API_BASE_URL}/api/experiences/${experienceId}`,
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`📡 Tentative: ${endpoint}`);
+        const response = await fetch(endpoint, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const experience = data.data || data;
+          console.log('✅ Expérience chargée:', experience);
+          return experience;
+        }
+      } catch (e) {
+        console.log(`❌ Échec sur ${endpoint}`);
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Erreur récupération expérience:', error);
+    return null;
+  }
+};
 
-  // Services aux voyageurs
-  const travelServicesList = [
-    { id: 1, title: "Transfert aéroport privé", location: "Cotonou, Bénin", price: 25, priceType: "trajet", rating: 4.9, reviews: 128, duration: "30-60 min", images: [asset("marché.jpg"), asset("marché1.jpg")], hostType: "Professionnel", description: "Prise en charge à l'aéroport.", longDescription: "Service premium avec chauffeur.", sousCategorie: "Transport", reviewsList: generateServiceReviews("Transfert", "Cotonou") },
-    { id: 2, title: "Guide touristique privé", location: "Cotonou, Bénin", price: 45, priceType: "personne", rating: 4.95, reviews: 87, duration: "4h", images: [asset("culture.jpg"), asset("culture1.jpg")], hostType: "Local", description: "Découvrez les secrets de Cotonou.", longDescription: "Visite personnalisée.", sousCategorie: "Visite", reviewsList: generateServiceReviews("Guide", "Cotonou") },
-  ];
 
-  const hostServicesList = [
-    { id: 101, title: "Ménage professionnel", location: "Cotonou", price: 25, priceType: "intervention", rating: 4.95, reviews: 156, duration: "2-3h", images: [asset("artisanat.jpg"), asset("artisanat1.jpg")], hostType: "Professionnel", description: "Nettoyage complet.", longDescription: "Linge de maison fourni.", sousCategorie: "Entretien", reviewsList: generateServiceReviews("Ménage", "Cotonou") },
-  ];
+// ============================================
+// COMPOSANT ÉDITION DES PARTICIPANTS
+// ============================================
+const ParticipantsEditor = ({ 
+  adults, 
+  children, 
+  infants, 
+  maxParticipants,
+  onSave,
+  onCancel
+}: { 
+  adults: number; 
+  children: number; 
+  infants: number; 
+  maxParticipants: number;
+  onSave: (adults: number, children: number, infants: number) => void;
+  onCancel: () => void;
+}) => {
+  const [tempAdults, setTempAdults] = useState(adults);
+  const [tempChildren, setTempChildren] = useState(children);
+  const [tempInfants, setTempInfants] = useState(infants);
 
-  const professionalServicesList = [
-    { id: 201, title: "Espace de coworking", location: "Cotonou", price: 10, priceType: "jour", rating: 4.92, reviews: 156, duration: "À la demande", images: [asset("pepas1.jpg"), asset("repa13.jpg")], hostType: "Professionnel", description: "Espace de travail partagé.", longDescription: "Accès 24h/24.", sousCategorie: "Bureau", reviewsList: generateServiceReviews("Coworking", "Cotonou") },
-  ];
+  const total = tempAdults + tempChildren + tempInfants;
 
-  const emergencyServicesList = [
-    { id: 301, title: "Assistance médicale 24/7", location: "Cotonou", price: 50, priceType: "consultation", rating: 4.99, reviews: 203, duration: "24h/24", images: [asset("scrupture.jpg"), asset("scrupture1.jpg")], hostType: "Médecin", description: "Médecin disponible 24h/24.", longDescription: "Déplacement à domicile.", sousCategorie: "Urgence", reviewsList: generateServiceReviews("Assistance médicale", "Cotonou") },
-  ];
-
-  const exclusiveServicesList = [
-    { id: 401, title: "Masseur à domicile", location: "Cotonou", price: 45, priceType: "séance", rating: 4.99, reviews: 123, duration: "1h", images: [asset("repas.jpg"), asset("repas3.jpg")], hostType: "Masseur", description: "Massage relaxant.", longDescription: "Masseur diplômé.", sousCategorie: "Bien-être", reviewsList: generateServiceReviews("Masseur", "Cotonou") },
-  ];
-
-  const serviceCategoriesList = ["Tous", "Services aux voyageurs", "Services aux hôtes", "Services professionnels", "Urgence & Assistance", "Services exclusifs"];
-
-  const allServices = [...travelServicesList, ...hostServicesList, ...professionalServicesList, ...emergencyServicesList, ...exclusiveServicesList];
-
-  const getServicesByCategory = () => {
-    if (selectedCategory === "Tous") return allServices;
-    if (selectedCategory === "Services aux voyageurs") return travelServicesList;
-    if (selectedCategory === "Services aux hôtes") return hostServicesList;
-    if (selectedCategory === "Services professionnels") return professionalServicesList;
-    if (selectedCategory === "Urgence & Assistance") return emergencyServicesList;
-    if (selectedCategory === "Services exclusifs") return exclusiveServicesList;
-    return [];
+  const handleSave = () => {
+    if (total > maxParticipants) {
+      toast.error(`Le nombre total de participants (${total}) dépasse la capacité maximale (${maxParticipants})`);
+      return;
+    }
+    if (total < 1) {
+      toast.error('Il faut au moins 1 participant');
+      return;
+    }
+    onSave(tempAdults, tempChildren, tempInfants);
+    toast.success('✅ Participants mis à jour');
   };
 
-  const getServiceSteps = (service: any) => [
-    `Prise de contact et confirmation de rendez-vous à ${service.location}`,
+  return (
+    <div className="space-y-3">
+      {/* Adultes */}
+      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+        <div>
+          <span className="font-medium text-sm">Adultes</span>
+          <p className="text-xs text-gray-400">À partir de 12 ans</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setTempAdults(Math.max(1, tempAdults - 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Minus className="w-4 h-4 text-gray-600" />
+          </button>
+          <span className="font-medium min-w-[24px] text-center">{tempAdults}</span>
+          <button 
+            onClick={() => setTempAdults(Math.min(maxParticipants, tempAdults + 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+
+      {/* Enfants */}
+      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+        <div>
+          <span className="font-medium text-sm">Enfants</span>
+          <p className="text-xs text-gray-400">2 - 11 ans (50% réduction)</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setTempChildren(Math.max(0, tempChildren - 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Minus className="w-4 h-4 text-gray-600" />
+          </button>
+          <span className="font-medium min-w-[24px] text-center">{tempChildren}</span>
+          <button 
+            onClick={() => setTempChildren(Math.min(maxParticipants - tempAdults - tempInfants, tempChildren + 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+
+      {/* Bébés */}
+      <div className="flex justify-between items-center py-2">
+        <div>
+          <span className="font-medium text-sm">Bébés</span>
+          <p className="text-xs text-gray-400">Moins de 2 ans (gratuit)</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setTempInfants(Math.max(0, tempInfants - 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Minus className="w-4 h-4 text-gray-600" />
+          </button>
+          <span className="font-medium min-w-[24px] text-center">{tempInfants}</span>
+          <button 
+            onClick={() => setTempInfants(Math.min(maxParticipants - tempAdults - tempChildren, tempInfants + 1))}
+            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#00c9a7] transition-colors"
+          >
+            <Plus className="w-4 h-4 text-gray-600" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+        <span>Total participants</span>
+        <span className={`font-medium ${total > maxParticipants ? 'text-red-500' : ''}`}>
+          {total} / {maxParticipants} max.
+        </span>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={total > maxParticipants || total < 1}
+          className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Check className="w-4 h-4 inline mr-1" /> Enregistrer
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT PRINCIPAL
+// ============================================
+// ============================================
+// PAGE DE RÉSERVATION D'EXPÉRIENCE
+// ============================================
+export function ExperienceBookingPage({ onNavigate, id, search }: ExperienceBookingPageProps) {
+  const params = useParams<{ id: string }>();
+  const experienceId = id || params.id;
+  const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
+  const [bookingFormData, setBookingFormData] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'fedapay'>('fedapay');
+  const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
+  
+  // États pour les voyageurs
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+  const [infants, setInfants] = useState(0);
+  
+  // États pour les dates
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [nights, setNights] = useState(0);
+  
+  // États pour l'édition
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [isEditingParticipants, setIsEditingParticipants] = useState(false);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [tempSelectedDates, setTempSelectedDates] = useState<string[]>([]);
+  const [experienceDetails, setExperienceDetails] = useState<any>(null);
+
+  // ✅ Récupérer les données depuis sessionStorage UNIQUEMENT
+  
+// ✅ Fonction pour récupérer les dates disponibles depuis l'API
+const fetchAvailableDatesFromAPI = async (experienceId: string) => {
+  try {
+    console.log('📡 Récupération des dates disponibles depuis l\'API...');
+    
+    // Essayer plusieurs endpoints
+    const endpoints = [
+      `/api/experiences/${experienceId}`,
+      `/api/v1/experiences/${experienceId}`,
+      `https://api.bluefin-immo.com/api/experiences/${experienceId}`,
+      `https://api.bluefin-immo.com/api/v1/experiences/${experienceId}`,
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, {
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const exp = data.data || data;
+          console.log('✅ Expérience récupérée:', exp);
+          
+          // Extraire les dates disponibles
+          const dates = getAvailableDates(exp);
+          if (dates && dates.length > 0) {
+            console.log('📅 Dates disponibles trouvées:', dates);
+            return dates;
+          }
+        }
+      } catch (e) {
+        console.log(`❌ Échec sur ${endpoint}`);
+      }
+    }
+    return [];
+  } catch (error) {
+    console.error('❌ Erreur récupération dates:', error);
+    return [];
+  }
+};
+
+
+useEffect(() => {
+  console.log('📥 ExperienceBookingPage - Chargement avec id:', experienceId);
+  
+  const queryString = search || location.search;
+  const searchParams = new URLSearchParams(queryString.startsWith('?') ? queryString.substring(1) : queryString);
+  
+  const savedData = sessionStorage.getItem('experienceBookingData');
+  let parsedData = null;
+  if (savedData) {
+    try {
+      parsedData = JSON.parse(savedData);
+      setBookingFormData(parsedData);
+      console.log('📥 Données sessionStorage chargées:', parsedData);
+    } catch (e) {
+      console.error('Erreur chargement données:', e);
+    }
+  }
+  
+  if (parsedData) {
+    // Dates sélectionnées
+    if (parsedData.dates && parsedData.dates.length > 0) {
+      setSelectedDates(parsedData.dates);
+      setCheckIn(parsedData.dates[0]);
+      setCheckOut(parsedData.dates[parsedData.dates.length - 1]);
+      setNights(Math.max(1, parsedData.dates.length - 1));
+    }
+
+    if (parsedData.experience_data) {
+    setExperienceDetails(parsedData.experience_data);
+  }
+
+    
+    // Participants
+    if (parsedData.adults) setAdults(parsedData.adults);
+    if (parsedData.children) setChildren(parsedData.children);
+    if (parsedData.infants) setInfants(parsedData.infants);
+    if (parsedData.nights) setNights(parsedData.nights);
+    
+    // ✅ Récupérer les dates disponibles
+    if (parsedData.available_dates && parsedData.available_dates.length > 0) {
+      console.log('📅 Dates disponibles depuis available_dates:', parsedData.available_dates);
+      setAvailableDates(parsedData.available_dates);
+    } else if (parsedData.experience_data) {
+      console.log('📦 Extraction des dates depuis experience_data...');
+      const dates = getAvailableDates(parsedData.experience_data);
+      if (dates && dates.length > 0) {
+        console.log('📅 Dates disponibles extraites:', dates);
+        setAvailableDates(dates);
+        parsedData.available_dates = dates;
+        sessionStorage.setItem('experienceBookingData', JSON.stringify(parsedData));
+      }
+    } else {
+      // ✅ Si pas de dates disponibles, les récupérer depuis l'API
+      fetchAvailableDatesFromAPI(experienceId).then(dates => {
+        if (dates && dates.length > 0) {
+          console.log('📅 Dates disponibles depuis l\'API:', dates);
+          setAvailableDates(dates);
+          // Sauvegarder pour utilisation future
+          if (parsedData) {
+            parsedData.available_dates = dates;
+            sessionStorage.setItem('experienceBookingData', JSON.stringify(parsedData));
+          }
+        } else {
+          // Fallback : générer des dates autour des dates sélectionnées
+          console.warn('⚠️ Aucune date disponible, génération de dates de test');
+          const selected = parsedData.dates || [];
+          const allDates: string[] = [];
+          if (selected.length > 0) {
+            const start = new Date(selected[0]);
+            const end = new Date(selected[selected.length - 1]);
+            start.setDate(start.getDate() - 15);
+            end.setDate(end.getDate() + 15);
+            const current = new Date(start);
+            while (current <= end) {
+              allDates.push(current.toISOString().split('T')[0]);
+              current.setDate(current.getDate() + 1);
+            }
+          } else {
+            const today = new Date();
+            for (let i = 1; i <= 30; i++) {
+              const d = new Date(today);
+              d.setDate(d.getDate() + i);
+              allDates.push(d.toISOString().split('T')[0]);
+            }
+          }
+          setAvailableDates(allDates);
+        }
+      });
+    }
+  }
+}, [search, location.search, experienceId]);
+
+
+  // Construire l'expérience à partir des données sessionStorage
+  const experience = React.useMemo(() => {
+    if (bookingFormData) {
+      return {
+        id: parseInt(experienceId || '0'),
+        name: bookingFormData.experience_name || 'Expérience',
+        price: bookingFormData.price || 0,
+        location: bookingFormData.location || '',
+        total_places: 10,
+        description: bookingFormData.description || '',
+      };
+    }
+    return {
+      id: parseInt(experienceId || '0'),
+      name: 'Expérience',
+      price: 0,
+      location: '',
+      total_places: 10,
+    };
+  }, [bookingFormData, experienceId]);
+
+  const price = experience?.price || 0;
+  const maxParticipants = experience?.total_places || 10;
+  const totalGuests = adults + children + infants;
+
+  // Calculs des prix
+  const subtotal = price * nights * totalGuests;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+
+  // ✅ Sauvegarder les données après modification
+  // ✅ Sauvegarder les données après modification
+const saveBookingData = () => {
+  const bookingData = {
+    experience_id: parseInt(experienceId || '0'),
+    experience_name: experience?.name || '',
+    check_in: checkIn,
+    check_out: checkOut,
+    dates: selectedDates,
+    adults: adults,
+    children: children,
+    infants: infants,
+    total_guests: totalGuests,
+    nights: nights,
+    price: price,
+    subtotal: subtotal,
+    service_fee: serviceFee,
+    total: total,
+    available_dates: availableDates,
+    guest_details: bookingFormData?.guest_details || {}
+    // ✅ PAS DE VIRGULE ICI
+  };
+  
+  sessionStorage.setItem('experienceBookingData', JSON.stringify(bookingData));
+  return bookingData;
+};
+
+  // ✅ Mettre à jour les dates
+  const handleDateUpdate = (newCheckIn: string, newCheckOut: string) => {
+    const newNights = Math.ceil((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+    setCheckIn(newCheckIn);
+    setCheckOut(newCheckOut);
+    setNights(newNights);
+    setSelectedDates([newCheckIn, newCheckOut]);
+    setIsEditingDates(false);
+    
+    setTimeout(() => {
+      saveBookingData();
+    }, 100);
+  };
+
+  // ✅ Mettre à jour les participants
+  const handleParticipantsUpdate = (newAdults: number, newChildren: number, newInfants: number) => {
+    setAdults(newAdults);
+    setChildren(newChildren);
+    setInfants(newInfants);
+    setIsEditingParticipants(false);
+    
+    setTimeout(() => {
+      saveBookingData();
+    }, 100);
+  };
+
+  // ✅ Initialiser les dates temporaires quand on ouvre l'édition
+  const handleEditDates = () => {
+    if (selectedDates.length > 0) {
+      setTempSelectedDates(selectedDates);
+    } else if (checkIn && checkOut) {
+      setTempSelectedDates([checkIn, checkOut]);
+    } else {
+      const available = availableDates.length > 0 ? availableDates : [];
+      setTempSelectedDates(available.slice(0, 2));
+    }
+    setIsEditingDates(true);
+  };
+
+  // ✅ Sauvegarder les dates modifiées
+  const handleSaveDates = (newDates: string[]) => {
+    if (newDates.length < 2) {
+      toast.error('Veuillez sélectionner au moins 2 dates');
+      return;
+    }
+    
+    const sorted = [...newDates].sort();
+    const newCheckIn = sorted[0];
+    const newCheckOut = sorted[sorted.length - 1];
+    const newNights = Math.max(1, sorted.length - 1);
+    
+    setSelectedDates(sorted);
+    setCheckIn(newCheckIn);
+    setCheckOut(newCheckOut);
+    setNights(newNights);
+    setIsEditingDates(false);
+    
+    // Sauvegarder dans sessionStorage
+    const updatedData = {
+      ...bookingFormData,
+      dates: sorted,
+      check_in: newCheckIn,
+      check_out: newCheckOut,
+      nights: newNights,
+      available_dates: availableDates
+    };
+    sessionStorage.setItem('experienceBookingData', JSON.stringify(updatedData));
+    setBookingFormData(updatedData);
+    
+    toast.success('✅ Dates mises à jour');
+  };
+
+  // ✅ Annuler les modifications
+  const handleCancelEditDates = () => {
+    setIsEditingDates(false);
+  };
+
+  // Redirection vers Fedapay
+  const handleFedapayRedirect = async () => {
+  setLoading(true);
+  setError('');
+  
+  try {
+    // ✅ Vérifier si l'utilisateur est authentifié
+    if (!isAuthenticated) {
+      saveBookingData();
+      localStorage.setItem('redirect_intent', 'experience_booking');
+      localStorage.setItem('redirect_experience_id', experienceId || '');
+      localStorage.setItem('temp_booking_dates', JSON.stringify(selectedDates));
+      localStorage.setItem('temp_booking_adults', adults.toString());
+      localStorage.setItem('temp_booking_children', children.toString());
+      localStorage.setItem('temp_booking_infants', infants.toString());
+      localStorage.setItem('temp_booking_nights', nights.toString());
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=experience_booking' });
+      } else {
+        window.location.href = '/auth?redirect=experience_booking';
+      }
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Vérification des données
+    console.log('🔍 Vérification des données:');
+    console.log('- checkIn:', checkIn);
+    console.log('- checkOut:', checkOut);
+    console.log('- selectedDates:', selectedDates);
+    console.log('- totalGuests:', totalGuests);
+    console.log('- total:', total);
+    console.log('- experienceId:', experienceId);
+
+    // ✅ Validations
+    if (!checkIn || !checkOut) {
+      toast.error('Veuillez sélectionner des dates valides');
+      setLoading(false);
+      return;
+    }
+
+    if (selectedDates.length < 2) {
+      toast.error('Veuillez sélectionner au moins 2 dates');
+      setLoading(false);
+      return;
+    }
+
+    if (totalGuests < 1) {
+      toast.error('Veuillez sélectionner au moins 1 participant');
+      setLoading(false);
+      return;
+    }
+
+    if (total < 1) {
+      toast.error('Le montant total doit être supérieur à 0');
+      setLoading(false);
+      return;
+    }
+
+    // ✅ Sauvegarder les données de réservation
+    saveBookingData();
+
+    // ✅ CONSTRUIRE L'URL DE PAIEMENT FEDAPAY DIRECTEMENT
+    // Utiliser l'URL de votre page de paiement Fedapay
+    const fedapayPaymentUrl = 'https://me.fedapay.com/bf-immo';
+    
+    // ✅ Ajouter des paramètres à l'URL si nécessaire
+    // Par exemple, pour pré-remplir le montant
+    const params = new URLSearchParams();
+    params.set('amount', total.toString());
+    params.set('currency', 'XAF');
+    params.set('reference', `EXP-${Date.now()}`);
+    params.set('description', `Expérience - ${experience?.name || 'Réservation'}`);
+    
+    // ✅ Construire l'URL complète
+    const finalUrl = `${fedapayPaymentUrl}?${params.toString()}`;
+    
+    console.log('🔗 Redirection vers Fedapay:', finalUrl);
+    
+    // ✅ Sauvegarder les données pour le callback
+    sessionStorage.setItem('fedapay_booking_data', JSON.stringify({
+      experience_id: parseInt(experienceId || '0'),
+      experience_name: experience?.name || '',
+      check_in: checkIn,
+      check_out: checkOut,
+      dates: selectedDates,
+      nights: nights,
+      adults: adults,
+      children: children,
+      infants: infants,
+      total_guests: totalGuests,
+      total: total,
+      subtotal: subtotal,
+      service_fee: serviceFee
+    }));
+    
+    toast.success('✅ Redirection vers la page de paiement...');
+    
+    // ✅ Rediriger vers Fedapay
+    window.location.href = finalUrl;
+    
+  } catch (error: any) {
+    console.error('❌ Erreur:', error);
+    setError(error.message || 'Erreur lors de l\'initiation du paiement');
+    toast.error('❌ ' + (error.message || 'Erreur de paiement'));
+    
+    // ✅ Fallback : ouvrir le modal de paiement
+    setPaymentMethod('card');
+    setShowPaymentModal(true);
+    setPaymentStep('form');
+    
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // Ouvrir le modal de paiement
+  const handleOpenPaymentModal = () => {
+    if (!isAuthenticated) {
+      saveBookingData();
+      localStorage.setItem('redirect_intent', 'experience_booking');
+      localStorage.setItem('redirect_experience_id', experienceId || '');
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=experience_booking' });
+      } else {
+        window.location.href = '/auth?redirect=experience_booking';
+      }
+      return;
+    }
+    
+    setError('');
+    setShowPaymentModal(true);
+    setPaymentStep('form');
+  };
+
+  // Soumettre le paiement
+  const handlePaymentSubmit = async () => {
+    if (paymentMethod === 'fedapay') {
+      await handleFedapayRedirect();
+      return;
+    }
+
+    setIsProcessing(true);
+    setPaymentStep('processing');
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setPaymentStep('success');
+      const savedData = saveBookingData();
+      
+      const bookingPayload = {
+        experience_id: parseInt(experienceId || '0'),
+        check_in: checkIn,
+        total_guests: totalGuests,
+        payment_method: paymentMethod,
+        guest_details: bookingFormData?.guest_details || {},
+        special_requests: specialRequests || '',
+        mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+        mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
+      };
+      
+      const response = await bookingService.createExperienceBooking(bookingPayload);
+      
+      setTimeout(() => {
+        setShowPaymentModal(false);
+        setIsProcessing(false);
+        if (response?.data?.booking_id || response?.booking_id) {
+          const bookingId = response?.data?.booking_id || response?.booking_id;
+          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+        } else {
+          onNavigate?.({ name: 'experience' });
+        }
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur paiement:', error);
+      setPaymentStep('error');
+      setError(error.message || 'Erreur lors du paiement');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!bookingFormData) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-[#f4fffe] p-4">
+        <div className="text-center bg-white rounded-2xl p-8 max-w-md">
+          <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 mb-4">Aucune réservation en cours</p>
+          <button onClick={() => onNavigate?.({ name: 'experience' })} className="text-[#00c9a7] underline">
+            Retour aux expériences
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
+      {/* En-tête */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onNavigate?.({ name: 'experience' })} 
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
+            <p className="text-xs text-gray-500">Vérifiez et modifiez vos informations</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
+        <div className="text-center py-6">
+          <h2 className="text-2xl font-bold text-[#0F2940] mb-2">Réservation d'expérience</h2>
+          <p className="text-gray-500">{experience?.name}</p>
+          <p className="text-gray-400 text-sm mt-1">{experience?.location}</p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Colonne gauche - Détails modifiables */}
+          <div className="flex-1 space-y-4">
+            {/* Dates avec édition */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                  <Calendar className="w-5 h-5 text-[#00c9a7]" />
+                  Vos dates
+                </h2>
+                {!isEditingDates && (
+                  <button 
+                    onClick={handleEditDates}
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
+                    title="Modifier les dates"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              {isEditingDates ? (
+                <div className="space-y-3">
+                  <ExperienceCalendar
+                    checkIn={checkIn}
+                    checkOut={checkOut}
+                    availableDates={availableDates}
+                    selectedDates={tempSelectedDates}
+                    onDateSelect={(newDates) => {
+                      setTempSelectedDates(newDates);
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelEditDates}
+                      className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={() => handleSaveDates(tempSelectedDates)}
+                      disabled={tempSelectedDates.length < 2}
+                      className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Check className="w-4 h-4 inline mr-1" /> 
+                      {tempSelectedDates.length < 2 ? 'Sélectionnez 2 dates' : `Enregistrer (${tempSelectedDates.length} dates)`}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500 text-xs">Arrivée</p>
+                    <p className="font-medium">{checkIn || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Départ</p>
+                    <p className="font-medium">{checkOut || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs">Durée</p>
+                    <p className="font-medium">{nights} nuit{nights > 1 ? 's' : ''}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Participants avec édition */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                  <Users className="w-5 h-5 text-[#00c9a7]" />
+                  Participants
+                </h2>
+                {!isEditingParticipants && (
+                  <button 
+                    onClick={() => setIsEditingParticipants(true)}
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
+                    title="Modifier les participants"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              {isEditingParticipants ? (
+                <ParticipantsEditor 
+                  adults={adults}
+                  children={children}
+                  infants={infants}
+                  maxParticipants={maxParticipants}
+                  onSave={handleParticipantsUpdate}
+                  onCancel={() => setIsEditingParticipants(false)}
+                />
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <p className="text-gray-500 text-xs">Adultes</p>
+                      <p className="font-medium">{adults}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Enfants (2-11 ans)</p>
+                      <p className="font-medium">{children}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500 text-xs">Bébés (-2 ans)</p>
+                      <p className="font-medium">{infants}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    Total : {totalGuests} participant{totalGuests > 1 ? 's' : ''} / {maxParticipants} max.
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Informations */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                <User className="w-5 h-5 text-[#00c9a7]" />
+                Vos informations
+              </h2>
+              <div className="space-y-2 text-sm mt-3">
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Nom complet</span>
+                  <span className="font-medium">{bookingFormData?.guest_details?.full_name || user?.first_name ? `${user?.first_name || ''} ${user?.last_name || ''}` : '-'}</span>
+                </div>
+                <div className="flex justify-between py-1 border-t">
+                  <span className="text-gray-500">Email</span>
+                  <span className="font-medium break-all">{bookingFormData?.guest_details?.email || user?.email || '-'}</span>
+                </div>
+                <div className="flex justify-between py-1 border-t">
+                  <span className="text-gray-500">Téléphone</span>
+                  <span className="font-medium">{bookingFormData?.guest_details?.phone || user?.phone || '-'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Demandes spéciales */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                Demandes spéciales
+              </h2>
+              <textarea 
+                value={specialRequests} 
+                onChange={(e) => setSpecialRequests(e.target.value)} 
+                placeholder="Allergies, besoins particuliers, etc." 
+                className="w-full mt-2 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
+                rows={3} 
+              />
+            </div>
+          </div>
+
+          {/* Colonne droite - Prix */}
+          <div className="lg:w-96 space-y-4">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
+              <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">{price.toLocaleString()} FCFA × {nights} nuits × {totalGuests} pers.</span>
+                  <span>{subtotal.toLocaleString()} FCFA</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Frais de service (10%)</span>
+                  <span>{Math.floor(serviceFee).toLocaleString()} FCFA</span>
+                </div>
+                <div className="border-t border-gray-200 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-[#00c9a7] text-base sm:text-lg">{total.toLocaleString()} FCFA</span>
+                  </div>
+                  <div className="text-right text-xs text-gray-400">{formatEuro(total)}</div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={handleFedapayRedirect} 
+                disabled={loading} 
+                className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Wallet className="w-4 h-4" />
+                {loading ? 'Préparation...' : 'Payer avec Fedapay'}
+              </button>
+              
+              <button 
+                onClick={handleOpenPaymentModal} 
+                disabled={loading} 
+                className="w-full mt-2 py-2 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
+              >
+                Autres méthodes de paiement
+              </button>
+              
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
+                <div className="flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  <span>Paiement sécurisé</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  <span>Garantie BF-Immo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de paiement */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
+              <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
+                {paymentStep === 'form' && 'Choisissez votre paiement'}
+                {paymentStep === 'processing' && 'Traitement en cours...'}
+                {paymentStep === 'success' && 'Paiement réussi !'}
+                {paymentStep === 'error' && 'Erreur de paiement'}
+              </h3>
+              <button 
+                onClick={() => { 
+                  setShowPaymentModal(false); 
+                  setPaymentStep('form'); 
+                  setError(''); 
+                }} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {paymentStep === 'form' && (
+                <div className="space-y-5">
+                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'mobile_money' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
+                    </button>
+                    <button 
+                      onClick={() => { setPaymentMethod('card'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'card' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
+                    </button>
+                  </div>
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
+                            <button 
+                              key={provider} 
+                              onClick={() => { setMobileProvider(provider); setError(''); }} 
+                              className={`py-2 rounded-xl border-2 ${
+                                mobileProvider === provider 
+                                  ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' 
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              {provider}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
+                        <input 
+                          type="tel" 
+                          value={mobileMoneyNumber} 
+                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} 
+                          placeholder="97 00 00 00" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
+                        <input 
+                          type="text" 
+                          value={cardNumber} 
+                          onChange={(e) => {
+                            const formatted = e.target.value.replace(/\s/g, '').match(/.{1,4}/g);
+                            setCardNumber(formatted ? formatted.join(' ') : e.target.value);
+                          }} 
+                          placeholder="1234 5678 9012 3456" 
+                          maxLength={19} 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
+                          <input 
+                            type="text" 
+                            value={cardExpiry} 
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, '');
+                              if (value.length >= 2) {
+                                value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                              }
+                              setCardExpiry(value);
+                            }} 
+                            placeholder="MM/AA" 
+                            maxLength={5} 
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                          <div className="relative">
+                            <input 
+                              type={showCvv ? 'text' : 'password'} 
+                              value={cardCvv} 
+                              onChange={(e) => setCardCvv(e.target.value)} 
+                              placeholder="123" 
+                              maxLength={4} 
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm pr-10" 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => setShowCvv(!showCvv)} 
+                              className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                              {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
+                        <input 
+                          type="text" 
+                          value={cardName} 
+                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
+                          placeholder="JEAN DUPONT" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm uppercase" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentStep === 'processing' && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Traitement du paiement en cours...</p>
+                </div>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
+                  <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
+                </div>
+              )}
+
+              {paymentStep === 'error' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
+                  <p className="text-gray-500 mb-4">{error}</p>
+                  <button 
+                    onClick={() => { setPaymentStep('form'); setError(''); }} 
+                    className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {paymentStep === 'form' && (
+              <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
+                <button 
+                  onClick={handlePaymentSubmit} 
+                  disabled={isProcessing} 
+                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                >
+                  {isProcessing ? 'Traitement...' : `Payer ${total.toLocaleString()} FCFA`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== SERVICES PAGE ====================
+
+interface PageProps {
+  onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
+}
+
+interface Service {
+  id: number;
+  title: string;
+  service_type: string;
+  category: string;
+  description: string;
+  location: string;
+  price: number;
+  duration_minutes: number;
+  images: any[];
+  host: {
+    id: number;
+    first_name: string;
+    last_name: string;
+  };
+  average_rating?: number;
+  reviews_count?: number;
+  status: string;
+  is_published: boolean;
+  created_at: string;
+  availability?: any[];
+}
+
+
+// // ✅ Fonction pour obtenir l'URL d'une image
+
+const getServiceImages = (service: any): string[] => {
+  if (!service) return [`https://picsum.photos/seed/default/800/600`];
+  
+  const images: string[] = [];
+  
+  // Fonction pour extraire le nom du fichier
+  const extractFilename = (path: string): string => {
+    if (!path) return '';
+    if (path.includes('/')) {
+      const parts = path.split('/');
+      return parts[parts.length - 1];
+    }
+    return path;
+  };
+  
+  // Fonction pour construire l'URL complète des services
+  const buildServiceImageUrl = (filename: string, serviceId: number): string => {
+    if (!filename || !serviceId) return '';
+    // ✅ Utiliser le bon chemin : /storage/app/public/services/{id}/gallery/{filename}
+    return `${API_BASE_URL}/storage/app/public/services/${serviceId}/gallery/${filename}`;
+  };
+  
+  // Traiter les images
+  if (service.images && Array.isArray(service.images)) {
+    for (const img of service.images) {
+      let url = '';
+      
+      if (typeof img === 'string') {
+        url = img;
+      } else if (typeof img === 'object') {
+        url = img.url || img.path || img.image_url || img.filename || img.file;
+      }
+      
+      if (url) {
+        // Si c'est déjà une URL complète
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          if (!images.includes(url)) {
+            images.push(url);
+          }
+        } else {
+          // Extraire le nom du fichier
+          const filename = extractFilename(url);
+          if (filename && service.id) {
+            const fullUrl = buildServiceImageUrl(filename, service.id);
+            if (fullUrl && !images.includes(fullUrl)) {
+              images.push(fullUrl);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Si pas d'images, vérifier les champs individuels
+  if (images.length === 0) {
+    const fields = ['image_url', 'main_image', 'image', 'gallery', 'cover', 'photo'];
+    for (const field of fields) {
+      if (service[field]) {
+        const filename = extractFilename(service[field]);
+        if (filename && service.id) {
+          const fullUrl = buildServiceImageUrl(filename, service.id);
+          if (fullUrl) {
+            images.push(fullUrl);
+            break;
+          }
+        }
+      }
+    }
+  }
+  
+  // Fallback avec picsum si aucune image trouvée
+  if (images.length === 0) {
+    images.push(`https://picsum.photos/seed/${service.id || 'default'}/800/600`);
+    images.push(`https://picsum.photos/seed/${service.id || 'default'}-2/800/600`);
+    images.push(`https://picsum.photos/seed/${service.id || 'default'}-3/800/600`);
+  }
+  
+  console.log('🖼️ Images service (chemin corrigé):', {
+    id: service.id,
+    name: service.name,
+    images: images
+  });
+  
+  return images;
+};
+
+const getServiceSteps = (service: any): string[] => {
+  if (!service) return [];
+  
+  return [
+    `Prise de contact et confirmation de rendez-vous à ${service.location || 'Bénin'}`,
     `Déroulement du service selon vos besoins spécifiques`,
     `Réalisation de la prestation par un professionnel qualifié`,
     `Suivi de satisfaction et facturation`,
   ];
+};
 
-  const ServiceCard = ({ service }: { service: any }) => (
-    <div className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1" onClick={() => setSelectedService(service)}>
-      <div className="relative h-48 overflow-hidden">
-        <img src={service.images[0]} alt={service.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur rounded-full px-2 py-1 text-xs font-semibold text-[#00c9a7]">{service.sousCategorie}</div>
-        <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full">{service.location}</div>
+// ============================================
+// COMPOSANT CALENDRIER POUR SERVICES
+// ============================================
+const ServiceCalendar = ({ 
+  availableDates, 
+  selectedDates, 
+  onDateSelect 
+}: { 
+  availableDates: string[];
+  selectedDates: string[];
+  onDateSelect: (dates: string[]) => void;
+}) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    return { days, firstDay };
+  };
+
+  const { days, firstDay } = getDaysInMonth(currentMonth);
+  const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const formatDateKey = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const isDateAvailable = (date: Date) => {
+    const key = formatDateKey(date);
+    return availableDates.includes(key);
+  };
+
+  const isDateInPast = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d < today;
+  };
+
+  const isDateSelected = (date: Date) => {
+    const key = formatDateKey(date);
+    return selectedDates.includes(key);
+  };
+
+  const handleDateClick = (date: Date) => {
+    if (!isDateAvailable(date) || isDateInPast(date)) return;
+    
+    const key = formatDateKey(date);
+    
+    if (selectedDates.includes(key)) {
+      const newDates = selectedDates.filter(d => d !== key);
+      onDateSelect(newDates);
+    } else {
+      const newDates = [...selectedDates, key].sort();
+      onDateSelect(newDates);
+    }
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  return (
+    <div className="text-center">
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="font-medium text-sm">
+          {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+        </span>
+        <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-7 gap-1 text-xs">
+        {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, i) => (
+          <div key={i} className="font-medium text-gray-500 py-1">{day}</div>
+        ))}
+        {Array.from({ length: firstDay === 0 ? 6 : firstDay - 1 }).map((_, i) => (
+          <div key={`empty-${i}`} className="py-1" />
+        ))}
+        {Array.from({ length: days }, (_, i) => i + 1).map((day) => {
+          const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+          const isAvailable = isDateAvailable(date);
+          const isPast = isDateInPast(date);
+          const isSelected = isDateSelected(date);
+          const isCurrentMonth = date.getMonth() === currentMonth.getMonth();
+          
+          let bgColor = '';
+          let textColor = '';
+          let cursor = '';
+          let hoverEffect = '';
+          
+          if (!isCurrentMonth) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-default';
+          } else if (isPast) {
+            textColor = 'text-gray-300';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-gray-50';
+          } else if (!isAvailable) {
+            textColor = 'text-red-400';
+            cursor = 'cursor-not-allowed';
+            bgColor = 'bg-red-50';
+          } else if (isSelected) {
+            bgColor = 'bg-[#00c9a7] text-white';
+            textColor = 'text-white';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:scale-105';
+          } else {
+            textColor = 'text-gray-800';
+            cursor = 'cursor-pointer';
+            hoverEffect = 'hover:bg-[#00c9a7]/20';
+          }
+          
+          return (
+            <div
+              key={day}
+              onClick={() => handleDateClick(date)}
+              className={`
+                py-1.5 rounded-full text-sm transition-all duration-200
+                ${bgColor} ${textColor} ${cursor} ${hoverEffect}
+                ${isSelected ? 'shadow-lg shadow-[#00c9a7]/30 scale-105' : ''}
+              `}
+            >
+              {day}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-[#00c9a7]"></div>
+          <span className="text-gray-600">Disponible</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-red-200"></div>
+          <span className="text-gray-600">Non disponible</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-gray-100 border border-gray-300"></div>
+          <span className="text-gray-600">Passé</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-full bg-[#00c9a7] border-2 border-white shadow"></div>
+          <span className="text-gray-600">Sélectionné</span>
+        </div>
+      </div> */}
+      
+      <div className="mt-2 text-xs text-gray-400">
+        {selectedDates.length === 0 && 'Cliquez sur une date disponible pour la sélectionner'}
+        {selectedDates.length > 0 && (
+          <span>
+            {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} sélectionnée{selectedDates.length > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      
+      {selectedDates.length > 0 && (
+        <div className="mt-2 flex flex-wrap justify-center gap-1">
+          {selectedDates.slice(0, 5).map((date, index) => (
+            <span key={index} className="inline-flex items-center gap-1 text-xs bg-[#00c9a7]/10 text-[#00c9a7] px-2 py-0.5 rounded-full">
+              {date}
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const newDates = selectedDates.filter(d => d !== date);
+                  onDateSelect(newDates);
+                }}
+                className="hover:text-red-500"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          {selectedDates.length > 5 && (
+            <span className="text-xs text-gray-400">+{selectedDates.length - 5} autres</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// COMPOSANT CARTE DE SERVICE
+// ============================================
+const ServiceCard = ({ service, onClick }: { service: Service; onClick: () => void }) => {
+  const images = getServiceImages(service);
+  const rating = service.average_rating || 4.5;
+  const reviews = service.reviews_count || 0;
+  
+  
+  return (
+    <div 
+      className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+      onClick={onClick}
+    >
+      <div className="relative h-56 overflow-hidden">
+        <img 
+          src={images[0] || `https://picsum.photos/seed/service-${service.id}/800/600`} 
+          alt={service.title} 
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/service-${service.id}/800/600`;
+          }}
+        />
+        <div className="absolute top-3 right-3 p-2 rounded-full bg-white/80 hover:bg-white transition">
+          <Heart className="w-4 h-4 hover:fill-red-500 hover:text-red-500 transition" />
+        </div>
+        <div className="absolute bottom-3 left-3 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+          <span>{service.service_type || 'Service'}</span>
+        </div>
       </div>
       <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-semibold text-[#0F2940] text-base line-clamp-2">{service.title}</h3>
-          <div className="flex items-center gap-1"><Star className="w-3 h-3 fill-current text-[#00c9a7]" /><span className="text-xs font-medium">{service.rating}</span></div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Star className="w-3 h-3 fill-current text-yellow-400" />
+            <span className="text-xs font-medium">{rating.toFixed(1)}</span>
+            {reviews > 0 && <span className="text-xs text-gray-400">({reviews})</span>}
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mb-2">{service.duration}</p>
+        <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          {service.location || 'Bénin'}
+        </p>
         <p className="text-sm text-gray-600 line-clamp-2 mb-3">{service.description}</p>
-        <div><span className="font-bold text-[#0F2940] text-lg">{service.price} €</span><span className="text-xs text-gray-500"> / {service.priceType}</span></div>
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="font-bold text-[#0F2940] text-lg">{formatFCFA(service.price)}</span>
+            <span className="text-xs text-gray-500 block">{formatEuro(service.price)}</span>
+          </div>
+          <div className="text-xs text-gray-400 flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {formatDuration(service.duration_minutes)}
+          </div>
+        </div>
       </div>
     </div>
   );
+};
 
-  const ServiceDetailModal = ({ service, onClose }: { service: any; onClose: () => void }) => {
-    const [imgIndex, setImgIndex] = useState(0);
-    const nextImg = () => setImgIndex((prev) => (prev + 1) % service.images.length);
-    const prevImg = () => setImgIndex((prev) => (prev - 1 + service.images.length) % service.images.length);
-    const steps = getServiceSteps(service);
-    const reviews = service.reviewsList || generateServiceReviews(service.title, service.location);
+// ============================================
+// MODAL DE DÉTAIL
+// ============================================
+const ServiceDetailModal = ({ 
+  service, 
+  onClose,
+  isAuthenticated,
+  user,
+  onNavigate
+}: { 
+  service: Service; 
+  onClose: () => void;
+  isAuthenticated: boolean;
+  user: any;
+  onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
+}) => {
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [showAllSteps, setShowAllSteps] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [isBooking, setIsBooking] = useState(false);
+
+  const images = getServiceImages(service);
+  const steps = getServiceSteps(service);
+  const availableDates = getAvailableDates(service);
+    
+  const rating = service.average_rating || 4.5;
+  const reviews = service.reviews_count || 0;
+  const price = service.price || 0;
+  const hostName = service.host?.first_name 
+    ? `${service.host.first_name} ${service.host.last_name || ''}` 
+    : 'Prestataire vérifié';
+  const hostAvatarUrl = `https://ui-avatars.com/api/?background=00c9a7&color=fff&name=${encodeURIComponent(hostName)}&bold=true&size=128`;
+
+  const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable'>('idle');
+
+  useEffect(() => {
+    if (selectedDates.length > 0) {
+      const allAvailable = selectedDates.every(date => availableDates.includes(date));
+      setAvailabilityStatus(allAvailable ? 'available' : 'unavailable');
+    } else {
+      setAvailabilityStatus('idle');
+    }
+  }, [selectedDates, availableDates]);
+
+  const handleBooking = async () => {
+    if (availabilityStatus !== 'available' || selectedDates.length < 1) {
+      alert('Veuillez sélectionner une date disponible.');
+      return;
+    }
+
+    const bookingData = {
+      service_id: service.id,
+      service_title: service.title,
+      location: service.location || '',
+      price: service.price,
+      description: service.description || '',
+      date: selectedDates[0],
+      available_dates: availableDates,
+      service_data: service,
+      guest_details: {
+        full_name: isAuthenticated && user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : '',
+        email: isAuthenticated && user ? user.email || '' : '',
+        phone: isAuthenticated && user ? user.phone || '' : ''
+      }
+    };
+    
+    sessionStorage.setItem('serviceBookingData', JSON.stringify(bookingData));
+    console.log('✅ Données sauvegardées:', bookingData);
+
+    if (!isAuthenticated) {
+      localStorage.setItem('redirect_intent', 'service_booking');
+      localStorage.setItem('redirect_service_id', service.id.toString());
+      localStorage.setItem('temp_booking_date', selectedDates[0]);
+      
+      console.log('🔒 Utilisateur non connecté, redirection vers auth');
+      
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=service_booking' });
+      } else {
+        window.location.href = '/auth?redirect=service_booking';
+      }
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      window.dispatchEvent(new Event('booking-updated'));
+      
+      if (onNavigate) {
+        onNavigate({ 
+          name: 'service-booking', 
+          id: service.id.toString(),
+        });
+      } else {
+        window.location.href = `/service-booking/${service.id}`;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la réservation:', error);
+      alert('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+  const GalleryModal = () => {
+    useEffect(() => {
+      if (isGalleryOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+      return () => { document.body.style.overflow = ''; };
+    }, [isGalleryOpen]);
 
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4 text-[#0F2940]">
-        <div className="mx-auto max-w-6xl bg-white rounded-[32px] shadow-2xl overflow-hidden">
-          <div className="flex flex-col gap-4 border-b border-gray-200 p-6 lg:flex-row lg:items-start lg:justify-between">
-            <div><p className="text-sm text-gray-500">{service.location}</p><h2 className="text-3xl font-semibold mt-2">{service.title}</h2>
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <span>{service.rating} · {service.reviews} évaluations</span>
-              <span>Hôte : {service.hostType}</span>
-              <span>{service.price} € / {service.priceType}</span>
-            </div></div>
-            <button onClick={onClose} className="rounded-full border p-3 hover:bg-gray-100"><X className="w-5 h-5" /></button>
-          </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr] p-6">
-            <div className="space-y-6">
-              <div className="relative">
-                <div className="grid grid-cols-4 gap-2">
-                  {service.images.slice(0,4).map((img: string, idx: number) => (<img key={idx} src={img} className="h-32 w-full rounded-xl object-cover cursor-pointer" onClick={() => setImgIndex(idx)} />))}
-                </div>
-                <div className="relative mt-2 overflow-hidden rounded-2xl">
-                  <img src={service.images[imgIndex]} alt={service.title} className="w-full h-96 object-cover" />
-                  {service.images.length > 1 && (<><button onClick={prevImg} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2"><ChevronLeft className="w-6 h-6" /></button><button onClick={nextImg} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2"><ChevronRight className="w-6 h-6" /></button></>)}
-                </div>
-              </div>
-              <div><h3 className="text-xl font-semibold mb-4">Description</h3><p className="text-gray-700">{service.longDescription || service.description}</p></div>
-              <div><h3 className="text-xl font-semibold mb-4">Déroulement</h3>{steps.map((step, idx) => (<div key={idx} className="rounded-3xl border bg-gray-50 p-4 mb-2"><p className="font-semibold">Étape {idx + 1}</p><p className="mt-2 text-sm">{step}</p></div>))}</div>
-              <div><h3 className="text-xl font-semibold mb-4">Avis</h3>{reviews.map((review: any, idx: number) => (<div key={idx} className="rounded-3xl border p-4 mb-2"><div className="flex justify-between"><span className="font-semibold">{review.name}</span><span>{review.rating}⭐</span></div><p className="text-sm text-gray-600 mt-1">{review.text}</p></div>))}</div>
-            </div>
-            <aside className="space-y-6 rounded-3xl border bg-gray-50 p-6">
-              <div className="text-center"><span className="text-4xl font-bold">{service.price} €</span><span className="text-gray-500"> / {service.priceType}</span></div>
-              <div><p className="text-sm font-semibold">À savoir</p><ul className="mt-4 space-y-2 text-sm"><li>Durée : {service.duration}</li><li>Service professionnel certifié</li></ul></div>
-              <button className="w-full rounded-full bg-[#00c9a7] py-3 font-semibold hover:bg-[#00b892]">Réserver</button>
-            </aside>
+      <div className="fixed inset-0 z-[200] bg-black flex flex-col">
+        <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
+          <button onClick={() => setIsGalleryOpen(false)} className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm">
+            <X className="w-6 h-6" />
+          </button>
+          <div className="text-white text-sm bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm font-medium">
+            {galleryIndex + 1} / {images.length}
           </div>
         </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <img 
+            src={images[galleryIndex] || `https://picsum.photos/seed/service-${service.id}/800/600`} 
+            alt={`${service.title} - ${galleryIndex + 1}`}
+            className="max-w-full max-h-full object-contain select-none"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://picsum.photos/seed/service-${service.id}/800/600`;
+            }}
+          />
+        </div>
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={() => setGalleryIndex(Math.max(0, galleryIndex - 1))}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${galleryIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'}`}
+              disabled={galleryIndex === 0}
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={() => setGalleryIndex(Math.min(images.length - 1, galleryIndex + 1))}
+              className={`absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-all backdrop-blur-sm ${galleryIndex === images.length - 1 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 hover:scale-110'}`}
+              disabled={galleryIndex === images.length - 1}
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </>
+        )}
       </div>
     );
   };
 
   return (
+    <>
+      {isGalleryOpen && <GalleryModal />}
+
+      <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+        <div className="min-h-screen pb-20">
+          {/* Header sticky */}
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
+            <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-sm sm:text-base font-semibold text-[#0F2940] truncate max-w-[50%]">
+              {service.title}
+            </h1>
+            <div className="flex gap-2">
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Share2 className="w-5 h-5" />
+              </button>
+              <button className="p-2 rounded-full hover:bg-gray-100 transition-all">
+                <Heart className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+          
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+            {/* ✅ Images - Design moderne et présentable (comme ExperienceDetailModal) */}
+            <div className="mb-6">
+              <div className="relative">
+                {/* Image principale */}
+                <div 
+                  className="relative rounded-2xl overflow-hidden cursor-pointer group aspect-[16/9] bg-gray-100"
+                  onClick={() => setIsGalleryOpen(true)}
+                >
+                  <img 
+                    src={images[0] || `https://picsum.photos/seed/service-${service.id}/1200/800`} 
+                    alt={service.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/service-${service.id}/1200/800`;
+                    }}
+                  />
+                  {/* Badge "Voir toutes les photos" */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-black/80 transition">
+                      <Image className="w-4 h-4" />
+                      <span>Voir toutes les photos ({images.length})</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Miniatures */}
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {images.slice(1, 5).map((img, index) => (
+                      <div 
+                        key={index} 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer hover:ring-2 hover:ring-[#00c9a7] transition-all bg-gray-100"
+                        onClick={() => {
+                          setGalleryIndex(index + 1);
+                          setIsGalleryOpen(true);
+                        }}
+                      >
+                        <img 
+                          src={img || `https://picsum.photos/seed/service-${service.id}-${index+2}/400/300`} 
+                          alt={`${service.title} - ${index + 2}`} 
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `https://picsum.photos/seed/service-${service.id}-${index+2}/400/300`;
+                          }}
+                        />
+                      </div>
+                    ))}
+                    {/* Si plus de 4 images supplémentaires, afficher un compteur */}
+                    {images.length > 5 && (
+                      <div 
+                        className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer bg-black/80 flex items-center justify-center text-white font-bold text-xl hover:bg-black/90 transition"
+                        onClick={() => setIsGalleryOpen(true)}
+                      >
+                        +{images.length - 5}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Layout principal */}
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+              {/* Colonne gauche */}
+              <div className="flex-1 space-y-6 sm:space-y-8">
+                <div className="border-b pb-4">
+                  <div className="text-xs sm:text-sm text-gray-500">
+                    Service · {service.location || 'Bénin'}
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-[#0F2940] mt-1">
+                    {service.title}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Star className="w-4 h-4 fill-current text-yellow-400" />
+                    <span className="font-medium text-sm">{rating.toFixed(1)}</span>
+                    {reviews > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500 text-sm">{reviews} commentaires</span>
+                      </>
+                    )}
+                    <span className="text-gray-300">·</span>
+                    <span className="text-gray-500 text-sm">{service.service_type}</span>
+                    {availableDates.length > 0 && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500 text-sm">{availableDates.length} dates disponibles</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <img src={hostAvatarUrl} alt={hostName} className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-[#00c9a7] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-[#0F2940] text-base sm:text-lg">
+                      Prestataire : {hostName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                       {service.host?.user_type === 'hote' ? 'Hôte professionnel' : 'Prestataire vérifié'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                  {service.description || 'Aucune description disponible'}
+                </div>
+
+                <div className="border-t pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg text-[#0F2940] flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-[#00c9a7]" />
+                      Déroulement du service
+                    </h3>
+                    <span className="text-sm text-gray-400">{steps.length} étapes</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {(showAllSteps ? steps : steps.slice(0, 3)).map((step: string, index: number) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl hover:shadow-md transition-shadow">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="w-7 h-7 rounded-full bg-[#00c9a7] text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-semibold text-[#0F2940]">Étape {index + 1}</span>
+                          </div>
+                          <p className="text-sm text-gray-700">{step}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {steps.length > 3 && (
+                    <button 
+                      onClick={() => setShowAllSteps(!showAllSteps)}
+                      className="text-sm text-[#00c9a7] font-semibold hover:underline mt-3"
+                    >
+                      {showAllSteps ? 'Voir moins' : `Voir tout (${steps.length} étapes)`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Colonne droite - Réservation avec calendrier */}
+              <div className="lg:w-96 xl:w-[420px] flex-shrink-0">
+                <div className="sticky top-24 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg">
+                  {/* Prix */}
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-[#0F2940]">
+                        {formatFCFA(price)}
+                      </span>
+                      <span className="text-sm text-gray-500">/ service</span>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {formatEuro(price)} · {formatDuration(service.duration_minutes)}
+                    </div>
+                  </div>
+
+                  {/* Calendrier */}
+                  <div className="border rounded-xl mb-4 overflow-hidden">
+                    <div className="p-3">
+                      <ServiceCalendar
+                        availableDates={availableDates}
+                        selectedDates={selectedDates}
+                        onDateSelect={(dates) => {
+                          setSelectedDates(dates);
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Détails du prix */}
+                  <div className="space-y-2 mb-4 text-sm">
+                    <div className="flex justify-between text-gray-600">
+                      <span>Service</span>
+                      <div className="text-right">
+                        <div>{formatFCFA(price)}</div>
+                        <div className="text-xs text-gray-400">{formatEuro(price)}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+                      <span>Frais de service (10%)</span>
+                      <div className="text-right">
+                        <div>{formatFCFA(Math.round(price * 0.10))}</div>
+                        <div className="text-xs text-gray-400">{formatEuro(price * 0.10)}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between font-bold pt-2 border-t border-gray-200">
+                      <span className="text-[#0F2940]">Total</span>
+                      <div className="text-right">
+                        <div className="text-[#00c9a7]">{formatFCFA(Math.round(price * 1.10))}</div>
+                        <div className="text-xs font-normal text-gray-400">{formatEuro(price * 1.10)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleBooking} 
+                    disabled={availabilityStatus !== 'available' || selectedDates.length < 1 || isBooking} 
+                    className={`w-full py-3.5 rounded-xl font-semibold text-sm sm:text-base transition-all ${
+                      availabilityStatus === 'available' && selectedDates.length >= 1 && !isBooking
+                        ? 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg hover:scale-[1.02]' 
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isBooking ? 'Réservation en cours...' : 
+                     selectedDates.length === 0 ? 'Sélectionnez une date' : 
+                     availabilityStatus === 'available' ? 'Réserver maintenant' : 
+                     'Date non disponible'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        const inquiryData = {
+                          service_id: service.id,
+                          service_title: service.title,
+                          host_id: service.host?.id,
+                          host_name: service.host?.first_name ? `${service.host.first_name} ${service.host.last_name || ''}` : 'Prestataire',
+                          date: selectedDates[0] || '',
+                          location: service.location || '',
+                          price: service.price || '',
+                          redirect: 'service-inquiry'
+                        };
+                        
+                        localStorage.setItem('pendingInquiry', JSON.stringify(inquiryData));
+                        localStorage.setItem('redirect_after_login', 'messages');
+                        localStorage.setItem('inquiry_type', 'service');
+                        localStorage.setItem('inquiry_data', JSON.stringify(inquiryData));
+                        
+                        console.log('🔒 Utilisateur non connecté, sauvegarde inquiry data:', inquiryData);
+                        
+                        if (onNavigate) {
+                          onNavigate({ name: 'auth', search: 'redirect=messages' });
+                        } else {
+                          window.location.href = '/auth?redirect=messages';
+                        }
+                        return;
+                      }
+                      
+                      const params = new URLSearchParams();
+                      params.set('service', service.id.toString());
+                      params.set('host_id', service.host?.id?.toString() || '');
+                      params.set('host_name', service.host?.first_name ? `${service.host.first_name} ${service.host.last_name || ''}` : 'Prestataire');
+                      params.set('service_name', service.title);
+                      params.set('inquiry_type', 'service');
+                      if (selectedDates[0]) params.set('date', selectedDates[0]);
+                      if (service.location) params.set('location', service.location);
+                      if (service.price) params.set('price', service.price.toString());
+                      
+                      console.log('📤 Redirection vers messages avec params:', params.toString());
+                      
+                      if (onNavigate) {
+                        onNavigate({ 
+                          name: 'messages', 
+                          id: 'inquiry',
+                          search: `?${params.toString()}`
+                        });
+                      } else {
+                        window.location.href = `/messages/inquiry?${params.toString()}`;
+                      }
+                    }}
+                    className="w-full mt-3 py-3 rounded-xl border-2 border-[#00c9a7] text-[#00c9a7] font-medium hover:bg-[#00c9a7]/5 transition flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Discuter avec le prestataire
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ============================================
+// PAGE PRINCIPALE
+// ============================================
+export function ServicesPage({ onNavigate }: PageProps) {
+  const { isAuthenticated, user } = useAuth();
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshServices = () => {
+    console.log('🔄 Rafraîchissement des services...');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const fetchServices = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('📥 Chargement des services...');
+      
+      const response = await fetch('/api/v1/services', {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Services récupérés:', data);
+      
+      let servicesData = [];
+      if (data.data && data.data.data && Array.isArray(data.data.data)) {
+        servicesData = data.data.data;
+      } else if (data.data && Array.isArray(data.data)) {
+        servicesData = data.data;
+      } else if (Array.isArray(data)) {
+        servicesData = data;
+      } else {
+        servicesData = [];
+      }
+      
+      console.log(`📊 ${servicesData.length} services chargés`);
+      setServices(servicesData);
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const handleServiceUpdate = () => {
+      console.log('🔄 Événement service-updated reçu, rechargement...');
+      setTimeout(() => refreshServices(), 500);
+    };
+
+    
+
+    const handleBookingUpdate = () => {
+      console.log('🔄 Événement booking-updated reçu, rechargement...');
+      setTimeout(() => refreshServices(), 500);
+    };
+
+    window.addEventListener('service-updated', handleServiceUpdate);
+    window.addEventListener('booking-updated', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('service-updated', handleServiceUpdate);
+      window.removeEventListener('booking-updated', handleBookingUpdate);
+    };
+  }, []);
+
+  // ============================================
+  // RENDU PRINCIPAL
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#00c9a7] border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-500">Chargement des services...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && services.length === 0) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
+          <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-xl font-semibold text-[#0F2940]">Services au Bénin</h1>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 py-12 text-center">
+          <p className="text-red-500">{error}</p>
+          <button onClick={fetchServices} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-white">
       <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft className="w-5 h-5" /></button>
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
         <h1 className="text-xl font-semibold text-[#0F2940]">Services au Bénin</h1>
+        <button onClick={refreshServices} className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors" title="Rafraîchir">
+          <RefreshCw className="w-5 h-5 text-gray-500" />
+        </button>
       </div>
 
-      {/* Bannière avec dégradé - titre et description uniquement */}
       <div className="bg-gradient-to-r from-[#00c9a7] to-[#0f2940] py-16 text-white text-center">
         <h1 className="text-3xl md:text-4xl font-bold mb-3">Services de Bluefin-Immo</h1>
         <p className="text-base md:text-lg text-white/90 max-w-2xl mx-auto px-4">
@@ -16538,37 +22829,763 @@ export function ServicesPage({ onNavigate }: PageProps) {
         </p>
       </div>
 
-      {/* Filtres par catégorie */}
-      <div className="sticky top-[73px] bg-white border-b py-3 overflow-x-auto z-10">
-        <div className="max-w-7xl mx-auto px-4 flex gap-2">
-          {serviceCategoriesList.map((cat) => (
-            <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedCategory === cat ? "bg-[#00c9a7] text-[#0F2940] shadow-md" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>{cat}</button>
-          ))}
-        </div>
-      </div>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {getServicesByCategory().map(service => (<ServiceCard key={service.id} service={service} />))}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-[#0F2940]">
+            Tous les services
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              ({services.length})
+            </span>
+          </h2>
+          <button onClick={refreshServices} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
+            <RefreshCw className="w-4 h-4" />
+            Rafraîchir
+          </button>
         </div>
+
+        {services.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">Aucun service disponible pour le moment.</p>
+            <button onClick={refreshServices} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+              Actualiser
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {services.map(service => (
+              <ServiceCard 
+                key={service.id} 
+                service={service} 
+                onClick={() => setSelectedService(service)} 
+              />
+            ))}
+          </div>
+        )}
       </main>
 
-      {selectedService && <ServiceDetailModal service={selectedService} onClose={() => setSelectedService(null)} />}
+      {selectedService && (
+        <ServiceDetailModal 
+          service={selectedService} 
+          onClose={() => setSelectedService(null)}
+          isAuthenticated={isAuthenticated}
+          user={user}
+          onNavigate={onNavigate}
+        />
+      )}
     </div>
   );
 }
 
 
 
+// ============================================
+// ServiceBookingPage
+// ============================================
+
+
+export function ServiceBookingPage({ onNavigate, id, search }: any) {
+  const params = useParams<{ id: string }>();
+  const serviceId = id || params.id;
+  const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [specialRequests, setSpecialRequests] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success' | 'error'>('form');
+  const [bookingFormData, setBookingFormData] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card' | 'fedapay'>('fedapay');
+  const [mobileProvider, setMobileProvider] = useState<'MTN' | 'Moov' | 'Orange'>('MTN');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [showCvv, setShowCvv] = useState(false);
+  
+  // États pour les dates
+  const [selectedDate, setSelectedDate] = useState('');
+  const [serviceData, setServiceData] = useState<any>(null);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [tempSelectedDates, setTempSelectedDates] = useState<string[]>([]);
+
+  useEffect(() => {
+    console.log('📥 ServiceBookingPage - Chargement avec id:', serviceId);
+    
+    const savedData = sessionStorage.getItem('serviceBookingData');
+    let parsedData = null;
+    if (savedData) {
+      try {
+        parsedData = JSON.parse(savedData);
+        setBookingFormData(parsedData);
+        console.log('📥 Données sessionStorage chargées:', parsedData);
+        
+        if (parsedData.date) {
+          setSelectedDate(parsedData.date);
+        }
+        if (parsedData.service_data) {
+          setServiceData(parsedData.service_data);
+        }
+        if (parsedData.available_dates) {
+          setAvailableDates(parsedData.available_dates);
+        }
+      } catch (e) {
+        console.error('Erreur chargement données:', e);
+      }
+    }
+    
+    if (parsedData?.service_data) {
+      setServiceData(parsedData.service_data);
+    }
+  }, [serviceId]);
+
+  const price = parseFloat(serviceData?.price) || 0;
+  const subtotal = price;
+  const serviceFee = subtotal * 0.10;
+  const total = subtotal + serviceFee;
+
+  console.log('💰 Calcul des prix:', {
+    price,
+    subtotal,
+    serviceFee,
+    total
+  });
+
+  const saveBookingData = () => {
+    const bookingData = {
+      service_id: parseInt(serviceId || '0'),
+      service_title: serviceData?.title || '',
+      location: serviceData?.location || '',
+      price: price,
+      description: serviceData?.description || '',
+      date: selectedDate,
+      available_dates: availableDates,
+      service_data: serviceData,
+      subtotal: subtotal,
+      service_fee: serviceFee,
+      total: total,
+      guest_details: bookingFormData?.guest_details || {}
+    };
+    
+    sessionStorage.setItem('serviceBookingData', JSON.stringify(bookingData));
+    return bookingData;
+  };
+
+  const handleEditDate = () => {
+    setTempSelectedDates(selectedDate ? [selectedDate] : []);
+    setIsEditingDate(true);
+  };
+
+  const handleSaveDate = () => {
+    if (tempSelectedDates.length === 0) {
+      toast.error('Veuillez sélectionner une date');
+      return;
+    }
+    
+    const newDate = tempSelectedDates[0];
+    setSelectedDate(newDate);
+    setIsEditingDate(false);
+    saveBookingData();
+    toast.success('✅ Date mise à jour');
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingDate(false);
+    setTempSelectedDates([]);
+  };
+
+  // ✅ REDIRECTION DIRECTE VERS FEDAPAY (comme pour les expériences)
+  const handleFedapayRedirect = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      if (!isAuthenticated) {
+        saveBookingData();
+        localStorage.setItem('redirect_intent', 'service_booking');
+        localStorage.setItem('redirect_service_id', serviceId || '');
+        localStorage.setItem('temp_booking_date', selectedDate);
+        
+        if (onNavigate) {
+          onNavigate({ name: 'auth', search: 'redirect=service_booking' });
+        } else {
+          window.location.href = '/auth?redirect=service_booking';
+        }
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Vérifications
+      if (!selectedDate) {
+        toast.error('Veuillez sélectionner une date');
+        setLoading(false);
+        return;
+      }
+
+      if (total < 1) {
+        toast.error('Le montant total doit être supérieur à 0');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Sauvegarder les données
+      saveBookingData();
+
+      // ✅ CONSTRUIRE L'URL DE PAIEMENT FEDAPAY DIRECTEMENT (comme pour les expériences)
+      const fedapayPaymentUrl = 'https://me.fedapay.com/bf-immo';
+      
+      // ✅ Ajouter des paramètres à l'URL
+      const params = new URLSearchParams();
+      params.set('amount', total.toString());
+      params.set('currency', 'XAF');
+      params.set('reference', `SVC-${Date.now()}`);
+      params.set('description', `Service - ${serviceData?.title || 'Réservation de service'}`);
+      params.set('booking_type', 'service');
+      params.set('service_id', serviceId || '');
+      params.set('date', selectedDate);
+      
+      // ✅ Construire l'URL complète
+      const finalUrl = `${fedapayPaymentUrl}?${params.toString()}`;
+      
+      console.log('🔗 Redirection vers Fedapay:', finalUrl);
+      
+      // ✅ Sauvegarder les données pour le callback
+      sessionStorage.setItem('fedapay_booking_data', JSON.stringify({
+        service_id: parseInt(serviceId || '0'),
+        service_title: serviceData?.title || '',
+        date: selectedDate,
+        total: total,
+        subtotal: subtotal,
+        service_fee: serviceFee,
+        guest_details: bookingFormData?.guest_details || {}
+      }));
+      
+      toast.success('✅ Redirection vers la page de paiement...');
+      
+      // ✅ Rediriger vers Fedapay
+      window.location.href = finalUrl;
+      
+    } catch (error: any) {
+      console.error('❌ Erreur:', error);
+      setError(error.message || 'Erreur lors de l\'initiation du paiement');
+      toast.error('❌ ' + (error.message || 'Erreur de paiement'));
+      
+      // ✅ Fallback : ouvrir le modal de paiement
+      setPaymentMethod('card');
+      setShowPaymentModal(true);
+      setPaymentStep('form');
+      
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenPaymentModal = () => {
+    if (!isAuthenticated) {
+      saveBookingData();
+      localStorage.setItem('redirect_intent', 'service_booking');
+      localStorage.setItem('redirect_service_id', serviceId || '');
+      if (onNavigate) {
+        onNavigate({ name: 'auth', search: 'redirect=service_booking' });
+      } else {
+        window.location.href = '/auth?redirect=service_booking';
+      }
+      return;
+    }
+    
+    setError('');
+    setShowPaymentModal(true);
+    setPaymentStep('form');
+  };
+
+  const handlePaymentSubmit = async () => {
+    if (paymentMethod === 'fedapay') {
+      await handleFedapayRedirect();
+      return;
+    }
+
+    setIsProcessing(true);
+    setPaymentStep('processing');
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setPaymentStep('success');
+      const savedData = saveBookingData();
+      
+      const bookingPayload = {
+        service_id: parseInt(serviceId || '0'),
+        date: selectedDate,
+        total_guests: 1,
+        payment_method: paymentMethod,
+        guest_details: bookingFormData?.guest_details || {},
+        special_requests: specialRequests || '',
+        mobile_money_provider: paymentMethod === 'mobile_money' ? mobileProvider : undefined,
+        mobile_money_number: paymentMethod === 'mobile_money' ? mobileMoneyNumber : undefined,
+      };
+      
+      const response = await bookingService.createServiceBooking(bookingPayload);
+      
+      setTimeout(() => {
+        setShowPaymentModal(false);
+        setIsProcessing(false);
+        if (response?.data?.booking_id || response?.booking_id) {
+          const bookingId = response?.data?.booking_id || response?.booking_id;
+          onNavigate?.({ name: 'confirmation', id: bookingId.toString() });
+        } else {
+          onNavigate?.({ name: 'services' });
+        }
+      }, 1500);
+      
+    } catch (error: any) {
+      console.error('❌ Erreur paiement:', error);
+      setPaymentStep('error');
+      setError(error.message || 'Erreur lors du paiement');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!bookingFormData && !selectedDate) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-[#f4fffe] p-4">
+        <div className="text-center bg-white rounded-2xl p-8 max-w-md">
+          <Sparkles className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 mb-4">Aucune réservation de service en cours</p>
+          <button onClick={() => onNavigate?.({ name: 'services' })} className="text-[#00c9a7] underline">
+            Retour aux services
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#f4fffe] min-h-screen pb-32 md:pb-12">
+      {/* En-tête */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onNavigate?.({ name: 'services' })} 
+            className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="font-semibold text-[#0F2940] text-base sm:text-lg">Confirmation</h1>
+            <p className="text-xs text-gray-500">Vérifiez et modifiez vos informations</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-4 py-4 md:py-6">
+        <div className="text-center py-6">
+          <h2 className="text-2xl font-bold text-[#0F2940] mb-2">Réservation de service</h2>
+          <p className="text-gray-500">{serviceData?.title || 'Service'}</p>
+          <p className="text-gray-400 text-sm mt-1 flex items-center justify-center gap-2">
+            <MapPin className="w-4 h-4" /> {serviceData?.location || 'Bénin'}
+          </p>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+          {/* Colonne gauche - Détails modifiables */}
+          <div className="flex-1 space-y-4">
+            {/* Date avec édition - AVEC CALENDRIER */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                  <Calendar className="w-5 h-5 text-[#00c9a7]" />
+                  Date du service
+                </h2>
+                {!isEditingDate && (
+                  <button 
+                    onClick={handleEditDate}
+                    className="p-1.5 rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-[#00c9a7]"
+                    title="Modifier la date"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              {isEditingDate ? (
+                <div className="space-y-3">
+                  <ServiceCalendar
+                    availableDates={availableDates}
+                    selectedDates={tempSelectedDates}
+                    onDateSelect={(dates) => {
+                      setTempSelectedDates(dates);
+                    }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCancelEdit}
+                      className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleSaveDate}
+                      disabled={tempSelectedDates.length === 0}
+                      className="flex-1 py-2 bg-[#00c9a7] text-white rounded-lg text-sm font-medium hover:bg-[#00b892] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Check className="w-4 h-4 inline mr-1" /> 
+                      {tempSelectedDates.length === 0 ? 'Sélectionnez une date' : 'Enregistrer'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-500 text-xs">Date</p>
+                    <p className="font-medium">
+                      {selectedDate 
+                        ? new Date(selectedDate).toLocaleDateString('fr-FR', { 
+                            weekday: 'long', 
+                            day: 'numeric', 
+                            month: 'long', 
+                            year: 'numeric' 
+                          }) 
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Informations */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                <User className="w-5 h-5 text-[#00c9a7]" />
+                Vos informations
+              </h2>
+              <div className="space-y-2 text-sm mt-3">
+                <div className="flex justify-between py-1">
+                  <span className="text-gray-500">Nom complet</span>
+                  <span className="font-medium">
+                    {bookingFormData?.guest_details?.full_name || 
+                     user?.first_name ? `${user?.first_name || ''} ${user?.last_name || ''}` : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t">
+                  <span className="text-gray-500">Email</span>
+                  <span className="font-medium break-all">
+                    {bookingFormData?.guest_details?.email || user?.email || '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-t">
+                  <span className="text-gray-500">Téléphone</span>
+                  <span className="font-medium">
+                    {bookingFormData?.guest_details?.phone || user?.phone || '-'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Demandes spéciales */}
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <h2 className="font-semibold text-[#0F2940] flex items-center gap-2 text-base">
+                <MessageCircle className="w-5 h-5 text-[#00c9a7]" />
+                Demandes spéciales
+              </h2>
+              <textarea 
+                value={specialRequests} 
+                onChange={(e) => setSpecialRequests(e.target.value)} 
+                placeholder="Besoin spécifique, horaire particulier, etc." 
+                className="w-full mt-2 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent resize-none text-sm" 
+                rows={3} 
+              />
+            </div>
+          </div>
+
+          {/* Colonne droite - Prix */}
+          <div className="lg:w-96 space-y-4">
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-20">
+              <h2 className="font-semibold text-[#0F2940] mb-3 text-base">Détail des prix</h2>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">{formatFCFA(price)}</span>
+                  <span>{formatFCFA(price)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Frais de service (10%)</span>
+                  <span>{formatFCFA(Math.round(serviceFee))}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total</span>
+                    <span className="font-bold text-[#00c9a7] text-base sm:text-lg">
+                      {formatFCFA(total)}
+                    </span>
+                  </div>
+                  <div className="text-right text-xs text-gray-400">
+                    {formatEuro(total)}
+                  </div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={handleFedapayRedirect} 
+                disabled={loading || !selectedDate} 
+                className="w-full mt-4 bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 text-sm active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Wallet className="w-4 h-4" />
+                {loading ? 'Préparation...' : !selectedDate ? 'Sélectionnez une date' : 'Payer avec Fedapay'}
+              </button>
+              
+              <button 
+                onClick={handleOpenPaymentModal} 
+                disabled={loading || !selectedDate} 
+                className="w-full mt-2 py-2 border border-gray-300 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 text-sm"
+              >
+                Autres méthodes de paiement
+              </button>
+              
+              <div className="mt-3 flex items-center justify-center gap-4 text-xs text-gray-400">
+                <div className="flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  <span>Paiement sécurisé</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  <span>Garantie BF-Immo</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de paiement */}
+     {/* Modal de paiement */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-fadeInUp shadow-2xl">
+            <div className="sticky top-0 bg-white border-b border-gray-100 p-4 rounded-t-2xl flex justify-between items-center z-10">
+              <h3 className="text-base sm:text-lg font-semibold text-[#0F2940]">
+                {paymentStep === 'form' && 'Choisissez votre paiement'}
+                {paymentStep === 'processing' && 'Traitement en cours...'}
+                {paymentStep === 'success' && 'Paiement réussi !'}
+                {paymentStep === 'error' && 'Erreur de paiement'}
+              </h3>
+              <button 
+                onClick={() => { 
+                  setShowPaymentModal(false); 
+                  setPaymentStep('form'); 
+                  setError(''); 
+                }} 
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {paymentStep === 'form' && (
+                <div className="space-y-5">
+                  <div className="bg-gradient-to-r from-[#00c9a7]/10 to-[#0F2940]/10 rounded-xl p-4 text-center">
+                    <p className="text-xs sm:text-sm text-gray-600">Montant à payer</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-[#00c9a7]">{total.toLocaleString()} FCFA</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => { setPaymentMethod('mobile_money'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'mobile_money' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Smartphone className={`w-5 h-5 ${paymentMethod === 'mobile_money' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Mobile Money</span>
+                    </button>
+                    <button 
+                      onClick={() => { setPaymentMethod('card'); setError(''); }} 
+                      className={`flex flex-col items-center gap-2 p-3 sm:p-4 border-2 rounded-xl transition ${
+                        paymentMethod === 'card' 
+                          ? 'border-[#00c9a7] bg-[#00c9a7]/5' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <CreditCard className={`w-5 h-5 ${paymentMethod === 'card' ? 'text-[#00c9a7]' : 'text-gray-400'}`} />
+                      <span className="text-xs sm:text-sm font-medium">Carte bancaire</span>
+                    </button>
+                  </div>
+
+                  {paymentMethod === 'mobile_money' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Opérateur</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['MTN', 'Moov', 'Orange'] as const).map((provider) => (
+                            <button 
+                              key={provider} 
+                              onClick={() => { setMobileProvider(provider); setError(''); }} 
+                              className={`py-2 rounded-xl border-2 ${
+                                mobileProvider === provider 
+                                  ? 'border-[#00c9a7] bg-[#00c9a7]/5 text-[#00c9a7]' 
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              {provider}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro Mobile Money</label>
+                        <input 
+                          type="tel" 
+                          value={mobileMoneyNumber} 
+                          onChange={(e) => { setMobileMoneyNumber(e.target.value); setError(''); }} 
+                          placeholder="97 00 00 00" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte</label>
+                        <input 
+                          type="text" 
+                          value={cardNumber} 
+                          onChange={(e) => {
+                            const formatted = e.target.value.replace(/\s/g, '').match(/.{1,4}/g);
+                            setCardNumber(formatted ? formatted.join(' ') : e.target.value);
+                          }} 
+                          placeholder="1234 5678 9012 3456" 
+                          maxLength={19} 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration</label>
+                          <input 
+                            type="text" 
+                            value={cardExpiry} 
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, '');
+                              if (value.length >= 2) {
+                                value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                              }
+                              setCardExpiry(value);
+                            }} 
+                            placeholder="MM/AA" 
+                            maxLength={5} 
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                          <div className="relative">
+                            <input 
+                              type={showCvv ? 'text' : 'password'} 
+                              value={cardCvv} 
+                              onChange={(e) => setCardCvv(e.target.value)} 
+                              placeholder="123" 
+                              maxLength={4} 
+                              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm pr-10" 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => setShowCvv(!showCvv)} 
+                              className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                              {showCvv ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Nom sur la carte</label>
+                        <input 
+                          type="text" 
+                          value={cardName} 
+                          onChange={(e) => setCardName(e.target.value.toUpperCase())} 
+                          placeholder="JEAN DUPONT" 
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00c9a7] text-sm uppercase" 
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentStep === 'processing' && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#00c9a7] mx-auto mb-4"></div>
+                  <p className="text-gray-600">Traitement du paiement en cours...</p>
+                </div>
+              )}
+
+              {paymentStep === 'success' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Paiement réussi !</h4>
+                  <p className="text-gray-500">Votre réservation est en cours de confirmation</p>
+                </div>
+              )}
+
+              {paymentStep === 'error' && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-[#0F2940] mb-2">Erreur de paiement</h4>
+                  <p className="text-gray-500 mb-4">{error}</p>
+                  <button 
+                    onClick={() => { setPaymentStep('form'); setError(''); }} 
+                    className="px-6 py-2 bg-[#00c9a7] text-white rounded-xl"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {paymentStep === 'form' && (
+              <div className="sticky bottom-0 bg-white border-t border-gray-100 p-4 rounded-b-2xl">
+                <button 
+                  onClick={handlePaymentSubmit} 
+                  disabled={isProcessing} 
+                  className="w-full bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                >
+                  {isProcessing ? 'Traitement...' : `Payer ${total.toLocaleString()} FCFA`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ========== PAGE PRINCIPALE BECOME HOST ==========
 
 // import { CommunityCommitment } from './CommunityCommitment';
-
 interface PageProps {
   onNavigate?: (page: { name: string; params?: any }) => void;
 }
 
+// Composant principal BecomeHost
 export function BecomeHost({ onNavigate }: PageProps) {
   const [selectedOption, setSelectedOption] = useState<'property' | 'experience' | 'service' | null>(null);
   const [showAuthPage, setShowAuthPage] = useState(false);
@@ -16584,10 +23601,18 @@ export function BecomeHost({ onNavigate }: PageProps) {
     first_name: '',
     last_name: '',
     phone: '',
-    password_confirmation: ''
+    password_confirmation: '',
+    host_type: 'logement' // Par défaut logement
   });
   
   const { login, register, switchUserType } = useAuth();
+
+  // Mapping des types d'hôtes
+  const hostTypeMap = {
+    'property': 'logement',
+    'experience': 'experience',
+    'service': 'service'
+  };
 
   const handleStart = () => {
     setShowAuthPage(true);
@@ -16612,219 +23637,88 @@ export function BecomeHost({ onNavigate }: PageProps) {
         if (!formData.first_name || !formData.last_name) {
           throw new Error('Veuillez remplir tous les champs');
         }
+        if (!selectedOption) {
+          throw new Error('Veuillez sélectionner un type d\'offre');
+        }
       }
+      
+      // Déterminer le type d'hôte
+      const hostType = selectedOption ? hostTypeMap[selectedOption] : 'logement';
       
       if (authMode === 'login') {
         // Connexion en tant qu'hôte
-        await login(formData.email, formData.password, 'hote');
+        const response = await login(formData.email, formData.password, 'hote');
+        console.log('✅ Connexion réussie:', response?.user);
+        console.log('📋 Type hôte:', response?.user?.host_type);
       } else {
-        // Inscription en tant qu'hôte
-        await register({
+        // Inscription en tant qu'hôte avec le type spécifique
+        console.log('📝 Inscription avec host_type:', hostType);
+        const response = await register({
           first_name: formData.first_name,
           last_name: formData.last_name,
           email: formData.email,
           phone: formData.phone,
           password: formData.password,
-          password_confirmation: formData.password_confirmation
+          password_confirmation: formData.password_confirmation,
+          host_type: hostType
         }, 'hote');
+        console.log('✅ Inscription réussie:', response?.user);
+        console.log('📋 Type hôte:', response?.user?.host_type);
       }
       
-      // Forcer le type hôte
-      switchUserType('hote');
-      
-      // Fermer l'auth et passer aux engagements
+      // ✅ Fermer l'auth et passer aux engagements
       setShowAuthPage(false);
       setShowCommitment(true);
       
     } catch (error: any) {
-      console.error('Erreur auth:', error);
+      console.error('❌ Erreur auth:', error);
       setError(error.message || 'Erreur lors de l\'authentification');
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const handleCommitmentAccept = () => {
     setShowCommitment(false);
     
-    if (selectedOption === 'property') {
-      onNavigate?.({ name: 'publish' });
-    } else if (selectedOption === 'experience') {
-      onNavigate?.({ name: 'publish-experience' });
-    } else if (selectedOption === 'service') {
-      onNavigate?.({ name: 'publish-service' });
-    } else {
-      onNavigate?.({ name: 'host-dashboard' });
-    }
+    // ✅ Rediriger vers le dashboard approprié selon le type d'hôte
+    const dashboardMap = {
+      'property': 'host-dashboard',           // Logement
+      'experience': 'host-experience-dashboard', // Expérience
+      'service': 'host-service-dashboard'     // Service
+    };
+    
+    const targetRoute = selectedOption ? dashboardMap[selectedOption] : 'host-dashboard';
+    console.log(`📊 Redirection vers dashboard: ${targetRoute} (type: ${selectedOption})`);
+    onNavigate?.({ name: targetRoute });
   };
 
   const handleOptionSelect = (option: 'property' | 'experience' | 'service') => {
     setSelectedOption(option);
+    // Stocker le type dans formData pour l'inscription
+    const hostType = hostTypeMap[option];
+    setFormData(prev => ({ ...prev, host_type: hostType }));
     setShowAuthPage(true);
-    setAuthMode('login');
+    setAuthMode('register'); // ✅ Par défaut, ouvrir en mode inscription
     setError(null);
   };
 
   // Page d'authentification
   if (showAuthPage) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden relative">
-          <button
-            onClick={() => {
-              setShowAuthPage(false);
-              setSelectedOption(null);
-              setError(null);
-            }}
-            className="absolute top-4 left-4 z-10 p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          
-          <div className="flex border-b border-gray-200 mt-2">
-            <button
-              onClick={() => {
-                setAuthMode('login');
-                setError(null);
-              }}
-              className={`flex-1 py-4 text-center font-semibold transition-all duration-300 ${
-                authMode === 'login'
-                  ? 'text-[#00c9a7] border-b-2 border-[#00c9a7]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Connexion Hôte
-            </button>
-            <button
-              onClick={() => {
-                setAuthMode('register');
-                setError(null);
-              }}
-              className={`flex-1 py-4 text-center font-semibold transition-all duration-300 ${
-                authMode === 'register'
-                  ? 'text-[#00c9a7] border-b-2 border-[#00c9a7]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Devenir Hôte
-            </button>
-          </div>
-          
-          <div className="p-6 sm:p-8">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-            
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {authMode === 'register' && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.first_name}
-                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                        placeholder="Jean"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.last_name}
-                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                        placeholder="Dupont"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                    <input
-                      type="tel"
-                      required
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                      placeholder="+229 XX XXX XXX"
-                    />
-                  </div>
-                </>
-              )}
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                  placeholder="votre@email.com"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
-                <input
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                  placeholder="Minimum 8 caractères"
-                />
-              </div>
-              
-              {authMode === 'register' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Confirmer le mot de passe</label>
-                  <input
-                    type="password"
-                    required
-                    value={formData.password_confirmation}
-                    onChange={(e) => setFormData({ ...formData, password_confirmation: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#00c9a7] focus:border-transparent"
-                    placeholder="Confirmez votre mot de passe"
-                  />
-                </div>
-              )}
-              
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-[#00c9a7] to-[#0f2940] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-300 disabled:opacity-50"
-              >
-                {isLoading ? 'Chargement...' : (authMode === 'login' ? 'Se connecter comme hôte' : 'Devenir hôte')}
-              </button>
-            </form>
-            
-            {authMode === 'login' && (
-              <p className="text-center text-sm text-gray-500 mt-4">
-                Pas encore de compte ?{' '}
-                <button
-                  onClick={() => {
-                    setAuthMode('register');
-                    setError(null);
-                  }}
-                  className="text-[#00c9a7] font-semibold hover:underline"
-                >
-                  Créez votre espace hôte
-                </button>
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+      <HostOnlyAuthPage 
+        onNavigate={onNavigate}
+        selectedHostType={selectedOption ? hostTypeMap[selectedOption] : 'logement'}
+        onAuthSuccess={(user) => {
+          setShowAuthPage(false);
+          setShowCommitment(true);
+        }}
+        hideBackButton={false}
+      />
     );
   }
 
+  // Page d'engagements
   if (showCommitment) {
     return <CommunityCommitment 
       onAccept={handleCommitmentAccept} 
@@ -16837,9 +23731,30 @@ export function BecomeHost({ onNavigate }: PageProps) {
 
   // Page principale Devenir Hôte
   const hostOptions = [
-    { id: 'property' as const, title: 'Logement', description: 'Mettez votre logement en location', icon: Home, color: 'from-[#00c9a7] to-[#00b396]' },
-    { id: 'experience' as const, title: 'Expérience', description: 'Partagez votre passion', icon: Compass, color: 'from-[#0f2940] to-[#1a3a52]' },
-    { id: 'service' as const, title: 'Service', description: 'Proposez vos services', icon: Briefcase, color: 'from-[#ff6b6b] to-[#ff5252]' },
+    { 
+      id: 'property' as const, 
+      title: 'Logement', 
+      description: 'Mettez votre logement en location', 
+      icon: Home, 
+      color: 'from-[#00c9a7] to-[#00b396]',
+      badge: '🏠'
+    },
+    { 
+      id: 'experience' as const, 
+      title: 'Expérience', 
+      description: 'Partagez votre passion', 
+      icon: Compass, 
+      color: 'from-[#0f2940] to-[#1a3a52]',
+      badge: '🎯'
+    },
+    { 
+      id: 'service' as const, 
+      title: 'Service', 
+      description: 'Proposez vos services', 
+      icon: Briefcase, 
+      color: 'from-[#ff6b6b] to-[#ff5252]',
+      badge: '🔧'
+    },
   ];
 
   const benefits = [
@@ -16852,7 +23767,10 @@ export function BecomeHost({ onNavigate }: PageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
       <div className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-4">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="text-sm text-gray-500 mb-3 flex items-center gap-2 hover:text-[#00c9a7] transition-colors group">
+        <button 
+          onClick={() => onNavigate?.({ name: 'home' })} 
+          className="text-sm text-gray-500 mb-3 flex items-center gap-2 hover:text-[#00c9a7] transition-colors group"
+        >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Retour
         </button>
         <h1 className="text-2xl sm:text-3xl font-bold text-[#0F2940]">Devenir hôte</h1>
@@ -16866,7 +23784,7 @@ export function BecomeHost({ onNavigate }: PageProps) {
             <p className="text-sm uppercase tracking-[0.2em] text-[#00ffdb] mb-3">Hébergeurs</p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-4">Rejoignez la communauté</h2>
             <p className="text-white/80 text-sm md:text-base max-w-2xl mx-auto">
-              Créez votre annonce, gérez les réservations et proposez votre logement aux voyageurs.
+              Créez votre annonce, gérez les réservations et proposez votre offre aux voyageurs.
             </p>
           </div>
         </div>
@@ -16949,9 +23867,23 @@ export function BecomeHost({ onNavigate }: PageProps) {
   );
 }
 
-// Nouveau composant AuthPage spécifique pour les hôtes (sans options voyageur/visiteur)
-// HostOnlyAuthPage.tsx - Composant dédié aux hôtes avec design moderne
-function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { onNavigate?: (route: Route) => void; onAuthSuccess?: (user: any) => void; hideBackButton?: boolean }) {
+// ============================================================
+// COMPOSANT HOSTONLYAUTHPAGE - Page d'authentification pour hôtes
+// ============================================================
+
+interface HostOnlyAuthPageProps {
+  onNavigate?: (route: { name: string; params?: any }) => void;
+  onAuthSuccess?: (user: any) => void;
+  hideBackButton?: boolean;
+  selectedHostType?: string;
+}
+
+function HostOnlyAuthPage({ 
+  onNavigate, 
+  onAuthSuccess, 
+  hideBackButton = false,
+  selectedHostType = 'logement'
+}: HostOnlyAuthPageProps) {
   const { login, register } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -16964,13 +23896,59 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
     lastName: '',
     phone: '',
     property_address: '',
+    // ✅ Type d'hôte fixé par le paramètre selectedHostType
+    host_type: selectedHostType || 'logement',
+    // ✅ Sous-types
     property_type: '',
+    experience_type: '',
+    service_type: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // const LogoUrl = './assets/Bluefin Immo_01.jpg.jpeg';
+  const LogoUrl = '/assets/Bluefin Immo_01.jpg.jpeg';
+
+  // ✅ Types de propriétés (pour logement)
+  const PROPERTY_TYPES = [
+    { value: 'appartement', label: '🏢 Appartement' },
+    { value: 'maison', label: '🏠 Maison' },
+    { value: 'villa', label: '🏰 Villa' },
+    { value: 'studio', label: '🛏️ Studio' },
+    { value: 'chambre', label: '🛌 Chambre privée' },
+    { value: 'loft', label: '🏗️ Loft' },
+    { value: 'duplex', label: '🏢 Duplex' },
+  ];
+
+  // ✅ Types d'expériences
+  const EXPERIENCE_TYPES = [
+    { value: 'culinaire', label: '🍳 Culinaire & Gastronomie' },
+    { value: 'culturel', label: '🏛️ Culture & Patrimoine' },
+    { value: 'nature', label: '🌿 Nature & Aventure' },
+    { value: 'artisanat', label: '🎨 Artisanat & Créativité' },
+    { value: 'bien_etre', label: '🧘 Bien-être & Relaxation' },
+    { value: 'sport', label: '⚽ Sport & Activités' },
+    { value: 'musique', label: '🎵 Musique & Divertissement' },
+    { value: 'histoire', label: '📜 Histoire & Découverte' },
+    { value: 'photographie', label: '📸 Photographie & Art' },
+    { value: 'autre', label: '✨ Autre' },
+  ];
+
+  // ✅ Types de services
+  const SERVICE_TYPES = [
+    { value: 'menage', label: '🧹 Ménage & Entretien' },
+    { value: 'jardinage', label: '🌱 Jardinage & Paysagisme' },
+    { value: 'babysitting', label: '👶 Baby-sitting & Garde' },
+    { value: 'mecanique', label: '🔧 Mécanique & Réparation' },
+    { value: 'electricite', label: '⚡ Électricité & Plomberie' },
+    { value: 'peinture', label: '🎨 Peinture & Décoration' },
+    { value: 'couture', label: '🧵 Couture & Retouches' },
+    { value: 'coiffure', label: '💇 Coiffure & Esthétique' },
+    { value: 'informatique', label: '💻 Informatique & Tech' },
+    { value: 'transport', label: '🚗 Transport & Logistique' },
+    { value: 'evenementiel', label: '🎉 Événementiel & Animation' },
+    { value: 'autre', label: '🔧 Autre' },
+  ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -16995,9 +23973,98 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
     if (!formData.password) newErrors.password = "Le mot de passe est requis";
     else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
-    if (!formData.property_address) newErrors.property_address = "L'adresse de la propriété est requise";
-    if (!formData.property_type) newErrors.property_type = "Le type de propriété est requis";
+    
+    // ✅ Valider selon le type d'hôte
+    const hostType = formData.host_type || 'logement';
+    
+    if (hostType === 'logement' && !formData.property_type) {
+      newErrors.property_type = "Veuillez sélectionner un type de propriété";
+    }
+    if (hostType === 'experience' && !formData.experience_type) {
+      newErrors.experience_type = "Veuillez sélectionner un type d'expérience";
+    }
+    if (hostType === 'service' && !formData.service_type) {
+      newErrors.service_type = "Veuillez sélectionner un type de service";
+    }
+    
     return newErrors;
+  };
+
+  const validateForgot = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.email) newErrors.email = "L'email est requis";
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+    return newErrors;
+  };
+
+  // ✅ RENDU DU SOUS-TYPE ADAPTÉ
+  const renderSubTypeField = () => {
+    const hostType = formData.host_type || 'logement';
+
+    // Pour LOGEMENT
+    if (hostType === 'logement') {
+      return (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Type de propriété *</label>
+          <select
+            name="property_type"
+            value={formData.property_type || ''}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all bg-slate-50/50 ${errors.property_type ? 'border-red-500' : 'border-slate-200'}`}
+          >
+            <option value="">Sélectionnez un type</option>
+            {PROPERTY_TYPES.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+          {errors.property_type && <p className="text-xs text-red-500 mt-1">{errors.property_type}</p>}
+        </div>
+      );
+    }
+
+    // Pour EXPÉRIENCE
+    if (hostType === 'experience') {
+      return (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Type d'expérience *</label>
+          <select
+            name="experience_type"
+            value={formData.experience_type || ''}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all bg-slate-50/50 ${errors.experience_type ? 'border-red-500' : 'border-slate-200'}`}
+          >
+            <option value="">Sélectionnez un type</option>
+            {EXPERIENCE_TYPES.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+          {errors.experience_type && <p className="text-xs text-red-500 mt-1">{errors.experience_type}</p>}
+        </div>
+      );
+    }
+
+    // Pour SERVICE
+    if (hostType === 'service') {
+      return (
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Type de service *</label>
+          <select
+            name="service_type"
+            value={formData.service_type || ''}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#ff6b6b]/20 focus:border-[#ff6b6b] outline-none transition-all bg-slate-50/50 ${errors.service_type ? 'border-red-500' : 'border-slate-200'}`}
+          >
+            <option value="">Sélectionnez un type</option>
+            {SERVICE_TYPES.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+          {errors.service_type && <p className="text-xs text-red-500 mt-1">{errors.service_type}</p>}
+        </div>
+      );
+    }
+
+    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17005,8 +24072,12 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
     setErrors({});
     setSuccessMessage('');
     let validationErrors = {};
-    if (mode === 'login') validationErrors = validateLogin();
-    else validationErrors = validateSignup();
+    
+    if (mode === 'login') {
+      validationErrors = validateLogin();
+    } else {
+      validationErrors = validateSignup();
+    }
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -17016,7 +24087,9 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const payload = {
+        const hostType = formData.host_type || 'logement';
+        
+        const payload: any = {
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
@@ -17024,21 +24097,42 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
           password: formData.password,
           password_confirmation: formData.confirmPassword,
           user_type: 'hote',
-          property_address: formData.property_address,
-          property_type: formData.property_type,
+          host_type: hostType,
+          property_address: formData.property_address || '',
         };
-        const response = await register(payload);
+
+        // ✅ Ajouter le sous-type selon le type d'hôte
+        if (hostType === 'logement') {
+          payload.property_type = formData.property_type || '';
+        } else if (hostType === 'experience') {
+          payload.experience_type = formData.experience_type || '';
+        } else if (hostType === 'service') {
+          payload.service_type = formData.service_type || '';
+        }
+        
+        console.log('📝 Inscription hôte avec payload:', payload);
+        const response = await register(payload, 'hote');
         setSuccessMessage('Inscription réussie ! Redirection...');
+        
         setTimeout(() => {
           if (onAuthSuccess) {
             onAuthSuccess(response?.user);
           } else {
-            onNavigate?.({ name: 'host-dashboard' });
+            const dashboardMap: Record<string, string> = {
+              'logement': 'host-dashboard',
+              'experience': 'host-experience-dashboard',
+              'service': 'host-service-dashboard'
+            };
+            const targetDashboard = dashboardMap[hostType] || 'host-dashboard';
+            console.log(`📊 Redirection vers dashboard: ${targetDashboard} (host_type: ${hostType})`);
+            onNavigate?.({ name: targetDashboard });
           }
         }, 1500);
+        
       } else if (mode === 'login') {
-        const response = await login(formData.email, formData.password);
+        const response = await login(formData.email, formData.password, 'hote');
         const userType = response?.user?.user_type;
+        const hostType = response?.user?.host_type;
         
         if (userType !== 'hote') {
           setErrors({ general: 'Cet espace est réservé aux hôtes. Veuillez utiliser un compte hôte.' });
@@ -17051,59 +24145,67 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
           if (onAuthSuccess) {
             onAuthSuccess(response?.user);
           } else {
-            onNavigate?.({ name: 'host-dashboard' });
+            const dashboardMap: Record<string, string> = {
+              'logement': 'host-dashboard',
+              'experience': 'host-experience-dashboard',
+              'service': 'host-service-dashboard'
+            };
+            const targetDashboard = dashboardMap[hostType || 'logement'] || 'host-dashboard';
+            console.log(`📊 Redirection vers dashboard: ${targetDashboard} (host_type: ${hostType})`);
+            onNavigate?.({ name: targetDashboard });
           }
         }, 1500);
       }
     } catch (err: any) {
+      console.error('❌ Erreur:', err);
       setErrors({ general: err.response?.data?.message || 'Erreur, veuillez réessayer' });
     } finally {
       setLoading(false);
     }
   };
 
+  // Mapping des types d'hôtes pour l'affichage
+  const getHostTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'logement': '🏠 Logement',
+      'experience': '🎯 Expérience',
+      'service': '🔧 Service'
+    };
+    return labels[type] || type;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-[#f4fffe]">
       {!hideBackButton && (
-      // Dans HostOnlyAuthPage (à l'intérieur de BecomeHost ou dans le fichier pages.tsx)
-<div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center gap-4 z-20">
-  <button 
-    onClick={() => {
-      console.log('Retour button clicked');
-      
-      // Méthode 1: Essayer avec onNavigate
-      if (onNavigate) {
-        onNavigate({ name: 'become-host' });
-      }
-      
-      // Méthode 2: Forcer la navigation directe après un court délai
-      setTimeout(() => {
-        // Vérifier si on est toujours sur la même page
-        const currentPath = window.location.pathname;
-        if (currentPath.includes('auth') || !currentPath.includes('become-host')) {
-          console.log('🔍 Fallback: navigation forcée vers become-host');
-          window.location.href = '/become-host';
-        }
-      }, 100);
-    }} 
-    className="p-2 rounded-full hover:bg-slate-100 transition-all duration-300 group"
-  >
-    <ArrowLeft className="w-5 h-5 text-slate-600 group-hover:text-[#0F2940]" />
-  </button>
-  <h1 className="text-lg font-semibold text-[#0F2940]">
-    {mode === 'login' ? 'Espace Hôte' : 'Devenir Hôte'}
-  </h1>
-</div>
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-4 flex items-center gap-4 z-20">
+          <button 
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate({ name: 'become-host' });
+              } else {
+                window.location.href = '/become-host';
+              }
+            }} 
+            className="p-2 rounded-full hover:bg-slate-100 transition-all duration-300 group"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-600 group-hover:text-[#0F2940]" />
+          </button>
+          <h1 className="text-lg font-semibold text-[#0F2940]">
+            {mode === 'login' ? 'Espace Hôte' : 'Devenir Hôte'}
+          </h1>
+          <span className="ml-auto text-sm bg-[#00c9a7]/10 text-[#00c9a7] px-3 py-1 rounded-full">
+            {getHostTypeLabel(formData.host_type)}
+          </span>
+        </div>
       )}
 
-      <div className="flex items-center justify-center px-4 py-12 md:py-16">
+      <div className="flex items-center justify-center px-4 py-8 sm:py-12 md:py-16">
         <div className="w-full max-w-md">
-          {/* Card moderne avec effet glassmorphism léger */}
           <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/50 overflow-hidden">
-            <div className="p-8 md:p-10">
+            <div className="p-6 sm:p-8 md:p-10">
               {/* Logo et titre */}
-              <div className="text-center mb-8">
-                <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-[#00c9a7]/10 to-[#0f2940]/10 p-1">
+              <div className="text-center mb-6 sm:mb-8">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-[#00c9a7]/10 to-[#0f2940]/10 p-1">
                   <div className="w-full h-full rounded-xl overflow-hidden bg-white">
                     <img 
                       src={LogoUrl} 
@@ -17121,13 +24223,13 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
                   </div>
                 </div>
                 
-                <h2 className="text-3xl font-bold text-[#0F2940] mb-2">
+                <h2 className="text-2xl sm:text-3xl font-bold text-[#0F2940] mb-2">
                   {mode === 'login' ? 'Bon retour parmi nous' : 'Commencez votre aventure'}
                 </h2>
                 <p className="text-slate-500 text-sm">
                   {mode === 'login' 
                     ? 'Connectez-vous à votre espace hôte' 
-                    : 'Créez votre compte et partagez votre espace'}
+                    : `Créez votre compte et partagez votre ${formData.host_type === 'logement' ? 'logement' : formData.host_type}`}
                 </p>
               </div>
 
@@ -17147,10 +24249,10 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
               )}
 
               {/* Formulaire */}
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
                 {mode === 'signup' && (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">Prénom</label>
                         <div className="relative group">
@@ -17211,22 +24313,8 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
                       {errors.property_address && <p className="text-xs text-red-500 mt-1">{errors.property_address}</p>}
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Type de propriété</label>
-                      <select
-                        name="property_type"
-                        value={formData.property_type}
-                        onChange={handleChange}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#00c9a7]/20 focus:border-[#00c9a7] outline-none transition-all bg-slate-50/50 ${errors.property_type ? 'border-red-500' : 'border-slate-200'}`}
-                      >
-                        <option value="">Sélectionnez un type</option>
-                        <option value="appartement">🏢 Appartement</option>
-                        <option value="maison">🏠 Maison</option>
-                        <option value="villa">🏰 Villa</option>
-                        <option value="chambre">🛏️ Chambre privée</option>
-                      </select>
-                      {errors.property_type && <p className="text-xs text-red-500 mt-1">{errors.property_type}</p>}
-                    </div>
+                    {/* ✅ CHAMP DE SOUS-TYPE ADAPTÉ (sans le sélecteur principal) */}
+                    {renderSubTypeField()}
                   </>
                 )}
 
@@ -17333,7 +24421,6 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
             </div>
           </div>
 
-          {/* Footer moderne */}
           <p className="text-center text-xs text-slate-400 mt-6">
             En continuant, vous acceptez nos{' '}
             <button className="text-[#00c9a7] hover:underline">conditions générales</button>
@@ -17344,296 +24431,379 @@ function HostOnlyAuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }:
   );
 }
 
+// export default BecomeHost;
+
 
 // ==================== AUTH PAGE (INSCRIPTION / CONNEXION) ====================
 
 
+// AuthPage.tsx - Version corrigée
+
 interface Route {
-  name: string;
-  id?: string;
-  search?: string;
+    name: string;
+    id?: string;
+    search?: string;
 }
 
-export function AuthPage({ onNavigate, onAuthSuccess, hideBackButton = false }: { 
-  onNavigate?: (route: Route) => void; 
-  onAuthSuccess?: (user: any) => void; 
-  hideBackButton?: boolean 
+export function AuthPage({ 
+    onNavigate, 
+    onAuthSuccess, 
+    hideBackButton = false 
+}: { 
+    onNavigate?: (route: Route) => void; 
+    onAuthSuccess?: (user: any) => void; 
+    hideBackButton?: boolean 
 }) {
-  const { login, register } = useAuth();
-  const location = useLocation();
-  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: '',
-    phone: '',
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [successMessage, setSuccessMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
-
-  const searchParams = new URLSearchParams(location.search);
-  const redirectTo = searchParams.get('redirect') || 'profile';
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
-  };
-
-  const validateLogin = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.email) newErrors.email = "L'email est requis";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
-    if (!formData.password) newErrors.password = "Le mot de passe est requis";
-    return newErrors;
-  };
-
-  const validateSignup = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.firstName) newErrors.firstName = "Le prénom est requis";
-    if (!formData.lastName) newErrors.lastName = "Le nom est requis";
-    if (!formData.email) newErrors.email = "L'email est requis";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
-    if (!formData.password) newErrors.password = "Le mot de passe est requis";
-    else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
-    return newErrors;
-  };
-
-  const validateForgot = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.email) newErrors.email = "L'email est requis";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
-    return newErrors;
-  };
-
-  // ============================================
-  // ✅ REDIRECTION VERS BOOKING PAGE AVEC TOUS LES PARAMÈTRES
-  // ============================================
-  const redirectToBookingPage = (userData: any) => {
-    const propertyId = localStorage.getItem('redirect_property_id');
-    const checkIn = localStorage.getItem('temp_booking_check_in');
-    const checkOut = localStorage.getItem('temp_booking_check_out');
-    const guests = localStorage.getItem('temp_booking_guests') || '1';
-    const nights = localStorage.getItem('temp_booking_nights') || '1';
-    const adults = localStorage.getItem('temp_booking_adults') || '1';
-    const children = localStorage.getItem('temp_booking_children') || '0';
-    const babies = localStorage.getItem('temp_booking_babies') || '0';
-    const pets = localStorage.getItem('temp_booking_pets') || '0';
-
-    console.log('🔄 Redirection vers BookingPage avec détails:', {
-      propertyId,
-      checkIn,
-      checkOut,
-      guests,
-      nights,
-      adults,
-      children,
-      babies,
-      pets
+    // ✅ Utiliser le hook useAuth mis à jour pour les cookies
+    const { login, register } = useAuth();
+    const location = useLocation();
+    
+    const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [formData, setFormData] = useState({
+        email: '',
+        password: '',
+        confirmPassword: '',
+        firstName: '',
+        lastName: '',
+        phone: '',
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const [successMessage, setSuccessMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
 
-    if (propertyId && checkIn && checkOut) {
-      // ✅ Construire les données complètes
-      const bookingData = {
-        property_id: parseInt(propertyId),
-        check_in: checkIn,
-        check_out: checkOut,
-        guests: parseInt(guests || '1'),
-        nights: parseInt(nights || '1'),
-        adults: parseInt(adults || '1'),
-        children: parseInt(children || '0'),
-        babies: parseInt(babies || '0'),
-        pets: parseInt(pets || '0'),
-        guest_details: {
-          full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
-          email: userData?.email || '',
-          phone: userData?.phone || '',
-          address: ''
-        },
-        totalAmount: 0,
-        paymentAmount: 0
-      };
-      
-      // ✅ Sauvegarder dans sessionStorage
-      sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
-      console.log('💾 Données sauvegardées dans sessionStorage:', bookingData);
-      
-      // ✅ Construire les paramètres URL avec TOUS les détails
-      const params = new URLSearchParams();
-      params.set('check_in', checkIn);
-      params.set('check_out', checkOut);
-      params.set('guests', guests);
-      params.set('nights', nights);
-      params.set('adults', adults);
-      params.set('children', children);
-      params.set('babies', babies);
-      params.set('pets', pets);
-      
-      // 🔥 NE PAS NETTOYER temp_booking_* ICI
-      // Elles seront nettoyées dans BookingPage après le chargement
-      
-      // Rediriger vers BookingPage
-      const search = `?${params.toString()}`;
-      console.log('📤 URL de redirection:', `/booking/${propertyId}${search}`);
-      
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'booking', 
-          id: propertyId,
-          search: search
+    const searchParams = new URLSearchParams(location.search);
+    const redirectTo = searchParams.get('redirect') || 'profile';
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    };
+
+    const validateLogin = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.email) newErrors.email = "L'email est requis";
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+        if (!formData.password) newErrors.password = "Le mot de passe est requis";
+        return newErrors;
+    };
+
+    const validateSignup = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.firstName) newErrors.firstName = "Le prénom est requis";
+        if (!formData.lastName) newErrors.lastName = "Le nom est requis";
+        if (!formData.email) newErrors.email = "L'email est requis";
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+        if (!formData.password) newErrors.password = "Le mot de passe est requis";
+        else if (formData.password.length < 6) newErrors.password = "Au moins 6 caractères";
+        if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+        return newErrors;
+    };
+
+    const validateForgot = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.email) newErrors.email = "L'email est requis";
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email invalide";
+        return newErrors;
+    };
+
+    // ============================================
+    // ✅ REDIRECTION VERS BOOKING PAGE
+    // ============================================
+    const redirectToBookingPage = (userData: any) => {
+        const propertyId = localStorage.getItem('redirect_property_id');
+        const checkIn = localStorage.getItem('temp_booking_check_in');
+        const checkOut = localStorage.getItem('temp_booking_check_out');
+        const guests = localStorage.getItem('temp_booking_guests') || '1';
+        const nights = localStorage.getItem('temp_booking_nights') || '1';
+        const adults = localStorage.getItem('temp_booking_adults') || '1';
+        const children = localStorage.getItem('temp_booking_children') || '0';
+        const babies = localStorage.getItem('temp_booking_babies') || '0';
+        const pets = localStorage.getItem('temp_booking_pets') || '0';
+
+        console.log('🔄 Redirection vers BookingPage avec détails:', {
+            propertyId,
+            checkIn,
+            checkOut,
+            guests,
+            nights,
+            adults,
+            children,
+            babies,
+            pets
         });
-      } else {
-        window.location.replace(`/booking/${propertyId}${search}`);
-      }
-      return true;
-    }
-    return false;
-  };
 
-  // ============================================
-  // ✅ GESTION DE L'AUTHENTIFICATION RÉUSSIE
-  // ============================================
-  const handleSuccessfulAuth = (userData: any) => {
-    // Sauvegarder l'utilisateur
-    if (userData) {
-      localStorage.setItem('user', JSON.stringify(userData));
-    }
-    
-    // ✅ Vérifier l'intention de redirection
-    const bookingIntent = localStorage.getItem('redirect_intent');
-    
-    if (bookingIntent === 'booking') {
-      // ✅ Rediriger vers BookingPage avec tous les paramètres
-      const redirected = redirectToBookingPage(userData);
-      if (redirected) return;
-    }
-    
-    // ✅ Redirection vers le chat
-    const chatIntent = localStorage.getItem('redirect_intent');
-    if (chatIntent === 'chat') {
-      const propertyId = localStorage.getItem('redirect_property_id');
-      const chatParams = localStorage.getItem('pendingChatParams') || '';
-      
-      localStorage.removeItem('redirect_intent');
-      localStorage.removeItem('redirect_property_id');
-      localStorage.removeItem('pendingChatParams');
-      localStorage.removeItem('chatIntent');
-      
-      if (onNavigate) {
-        onNavigate({ 
-          name: 'messages', 
-          id: 'inquiry',
-          search: chatParams ? `?${chatParams}` : `?property=${propertyId}`
-        });
-      } else {
-        window.location.href = `/messages/inquiry?property=${propertyId}${chatParams ? `&${chatParams}` : ''}`;
-      }
-      return;
-    }
-    
-    // ✅ Redirection par défaut
-    if (onAuthSuccess) {
-      onAuthSuccess(userData);
-    } else if (onNavigate) {
-      onNavigate({ name: 'profile' });
-    } else {
-      window.location.replace('/profile');
-    }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const validationErrors = validateForgot();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-
-    setLoading(true);
-    setErrors({});
-    
-    try {
-      let response;
-      try {
-        response = await publicApi.post('/traveler/forgot-password', { email: formData.email });
-      } catch (err: any) {
-        if (err.response?.status === 404) {
-          response = await publicApi.post('/password/email', { email: formData.email });
-        } else {
-          throw err;
+        if (propertyId && checkIn && checkOut) {
+            const bookingData = {
+                property_id: parseInt(propertyId),
+                check_in: checkIn,
+                check_out: checkOut,
+                guests: parseInt(guests || '1'),
+                nights: parseInt(nights || '1'),
+                adults: parseInt(adults || '1'),
+                children: parseInt(children || '0'),
+                babies: parseInt(babies || '0'),
+                pets: parseInt(pets || '0'),
+                guest_details: {
+                    full_name: userData ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() : '',
+                    email: userData?.email || '',
+                    phone: userData?.phone || '',
+                    address: ''
+                },
+                totalAmount: 0,
+                paymentAmount: 0
+            };
+            
+            sessionStorage.setItem('bookingFormData', JSON.stringify(bookingData));
+            console.log('💾 Données sauvegardées dans sessionStorage:', bookingData);
+            
+            const params = new URLSearchParams();
+            params.set('check_in', checkIn);
+            params.set('check_out', checkOut);
+            params.set('guests', guests);
+            params.set('nights', nights);
+            params.set('adults', adults);
+            params.set('children', children);
+            params.set('babies', babies);
+            params.set('pets', pets);
+            
+            const search = `?${params.toString()}`;
+            console.log('📤 URL de redirection:', `/booking/${propertyId}${search}`);
+            
+            if (onNavigate) {
+                onNavigate({ 
+                    name: 'booking', 
+                    id: propertyId,
+                    search: search
+                });
+            } else {
+                window.location.replace(`/booking/${propertyId}${search}`);
+            }
+            return true;
         }
-      }
-      
-      setResetSent(true);
-      setSuccessMessage(`Un email de réinitialisation a été envoyé à ${formData.email}`);
-      toast.success('Email envoyé ! Vérifiez votre boîte de réception');
-    } catch (err: any) {
-      console.error('Erreur forgot password:', err);
-      setErrors({ general: err.response?.data?.message || 'Impossible d\'envoyer l\'email. Vérifiez que l\'email existe.' });
-    } finally {
-      setLoading(false);
-    }
-  };
+        return false;
+    };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrors({});
-    setSuccessMessage('');
-    
-    const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    // ============================================
+    // ✅ GESTION DE L'AUTHENTIFICATION RÉUSSIE
+    // ============================================
+    const handleSuccessfulAuth = (userData: any) => {
+        // Sauvegarder l'utilisateur
+        if (userData) {
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
+        
+        const bookingIntent = localStorage.getItem('redirect_intent');
+        
+        if (bookingIntent === 'booking') {
+            const redirected = redirectToBookingPage(userData);
+            if (redirected) return;
+        }
+        
+        const chatIntent = localStorage.getItem('redirect_intent');
+        if (chatIntent === 'chat') {
+            const propertyId = localStorage.getItem('redirect_property_id');
+            const chatParams = localStorage.getItem('pendingChatParams') || '';
+            
+            localStorage.removeItem('redirect_intent');
+            localStorage.removeItem('redirect_property_id');
+            localStorage.removeItem('pendingChatParams');
+            localStorage.removeItem('chatIntent');
+            
+            if (onNavigate) {
+                onNavigate({ 
+                    name: 'messages', 
+                    id: 'inquiry',
+                    search: chatParams ? `?${chatParams}` : `?property=${propertyId}`
+                });
+            } else {
+                window.location.href = `/messages/inquiry?property=${propertyId}${chatParams ? `&${chatParams}` : ''}`;
+            }
+            return;
+        }
+        
+        if (onAuthSuccess) {
+            onAuthSuccess(userData);
+        } else if (onNavigate) {
+            onNavigate({ name: 'profile' });
+        } else {
+            window.location.replace('/profile');
+        }
+    };
 
-    setLoading(true);
-    try {
-      let response;
-      let userData;
-      
-      if (mode === 'signup') {
-        const payload = {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          password_confirmation: formData.confirmPassword,
-          user_type: 'voyageur',
-        };
-        response = await register(payload);
-        userData = response?.user;
-      } else if (mode === 'login') {
-        response = await login(formData.email, formData.password);
-        userData = response?.user;
-      }
-      
-      // ✅ Gérer la redirection
-      handleSuccessfulAuth(userData);
-      
-    } catch (err: any) {
-      console.error('Erreur:', err);
-      if (err.response?.data?.message) {
-        setErrors({ general: err.response.data.message });
-      } else if (err.response?.data?.errors) {
-        const errorMessages = Object.values(err.response.data.errors).flat();
-        setErrors({ general: errorMessages.join(', ') });
-      } else {
-        setErrors({ general: 'Une erreur est survenue. Veuillez réessayer.' });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    // ============================================
+    // ✅ FORGOT PASSWORD
+    // ============================================
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const validationErrors = validateForgot();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
 
-  return (
+        setLoading(true);
+        setErrors({});
+        
+        try {
+            const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.bluefin-immo.com';
+            
+            await fetch(`${API_BASE_URL}/sanctum/csrf-cookie`, {
+                credentials: 'include',
+            });
+
+            const response = await fetch(`${API_BASE_URL}/api/traveler/forgot-password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ email: formData.email }),
+                credentials: 'include',
+            });
+
+            const data = await response.json();
+
+            if (response.status === 404) {
+                const fallbackResponse = await fetch(`${API_BASE_URL}/api/password/email`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ email: formData.email }),
+                    credentials: 'include',
+                });
+
+                if (!fallbackResponse.ok) {
+                    const errorData = await fallbackResponse.json();
+                    throw new Error(errorData.message || 'Erreur lors de l\'envoi');
+                }
+            } else if (!response.ok) {
+                throw new Error(data.message || 'Erreur lors de l\'envoi');
+            }
+            
+            setResetSent(true);
+            setSuccessMessage(`Un email de réinitialisation a été envoyé à ${formData.email}`);
+            toast.success('Email envoyé ! Vérifiez votre boîte de réception');
+            
+        } catch (err: any) {
+            console.error('❌ Erreur forgot password:', err);
+            setErrors({ 
+                general: err.message || 'Impossible d\'envoyer l\'email. Vérifiez que l\'email existe.' 
+            });
+            toast.error(err.message || 'Erreur lors de l\'envoi');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ============================================
+    // ✅ HANDLE SUBMIT - CORRIGÉ
+    // ============================================
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('📝 Formulaire soumis - mode:', mode);
+        
+        setErrors({});
+        setSuccessMessage('');
+        
+        const validationErrors = mode === 'login' ? validateLogin() : validateSignup();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        setLoading(true);
+        console.log('🔄 Tentative de connexion en cours...');
+        
+        try {
+            let userData;
+            
+            if (mode === 'signup') {
+                // ✅ CORRECTION : Utiliser 'traveler' au lieu de 'voyageur'
+                const payload = {
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
+                    email: formData.email,
+                    phone: formData.phone || '',
+                    password: formData.password,
+                    password_confirmation: formData.confirmPassword,
+                    user_type: 'traveler', // ✅ Le backend attend 'traveler'
+                };
+                
+                console.log('📝 Inscription avec payload:', payload);
+                const response = await register(payload);
+                console.log('✅ Inscription réussie:', response);
+                userData = response?.user || response?.data?.user;
+                
+            } else if (mode === 'login') {
+                console.log('🔐 Login avec:', { email: formData.email });
+                
+                const response = await login(formData.email, formData.password);
+                console.log('✅ Login réussie:', response);
+                userData = response?.user || response?.data?.user;
+            }
+            
+            if (!userData) {
+                console.error('❌ Aucune donnée utilisateur reçue');
+                setErrors({ general: 'Erreur: données utilisateur manquantes' });
+                setLoading(false);
+                return;
+            }
+            
+            handleSuccessfulAuth(userData);
+            
+        } catch (err: any) {
+            console.error('❌ Erreur complète:', err);
+            
+            let errorMessage = err.message || 'Une erreur est survenue. Veuillez réessayer.';
+            
+            // ✅ Afficher les erreurs de validation
+            if (err.response?.status === 422) {
+                const errors = err.response.data.errors;
+                if (errors) {
+                    const errorList = Object.entries(errors)
+                        .map(([field, messages]) => {
+                            const fieldName = field.replace(/_/g, ' ');
+                            const msgs = Array.isArray(messages) ? messages.join(', ') : messages;
+                            return `${fieldName}: ${msgs}`;
+                        })
+                        .join('\n');
+                    errorMessage = `Erreurs de validation:\n${errorList}`;
+                    console.log('📋 Erreurs détaillées:', errorList);
+                    
+                    // ✅ Mettre à jour les erreurs de champ
+                    const fieldErrors: Record<string, string> = {};
+                    for (const [field, messages] of Object.entries(errors)) {
+                        fieldErrors[field] = Array.isArray(messages) ? messages[0] : messages;
+                    }
+                    setErrors(fieldErrors);
+                } else if (err.response?.data?.message) {
+                    errorMessage = err.response.data.message;
+                }
+            } else if (err.message?.includes('419') || err.message?.includes('CSRF')) {
+                errorMessage = 'Erreur de sécurité. Veuillez rafraîchir la page et réessayer.';
+            } else if (err.response?.data?.message) {
+                errorMessage = err.response.data.message;
+            }
+            
+            setErrors({ general: errorMessage });
+            toast.error(errorMessage);
+            
+        } finally {
+            setLoading(false);
+            console.log('🏁 Fin du processus d\'authentification');
+        }
+    };
+
+    // ============================================
+    // ✅ RENDU
+    // ============================================
+   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f4fffe] to-[#e8fffb]">
       {!hideBackButton && (
         <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 flex items-center gap-4 z-20">
@@ -18412,8 +25582,8 @@ export function AdminDashboardPage({ onNavigate }: { onNavigate?: (route: any) =
     }
   };
 
-  if (isLoading) return <LoadingSkeleton />;
-  if (error) return <ErrorMessage onRetry={() => refetch()} />;
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
+  if (error) return <ErrorMessage isDark={isDark} onRetry={() => refetch()} />;
 
   const resp: any = data?.data;
   const stats = resp?.stats || {};
@@ -18839,6 +26009,34 @@ const LoadingSkeleton = ({ isDark }: { isDark: boolean }) => (
         {[...Array(4)].map((_, i) => <div key={i} className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl h-20`}></div>)}
       </div>
       <div className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'} rounded-xl h-80 mb-6`}></div>
+    </div>
+  </div>
+);
+
+const ErrorMessage = ({
+  isDark,
+  onRetry,
+}: {
+  isDark: boolean;
+  onRetry?: () => void;
+}) => (
+  <div className="p-4 md:p-6">
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-red-100 text-slate-700'} rounded-2xl border p-6`}>
+      <div className="flex items-start gap-3">
+        <AlertCircle className="w-5 h-5 text-red-500 mt-0.5" />
+        <div>
+          <h3 className="font-semibold">Impossible de charger le dashboard admin</h3>
+          <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            Le serveur a renvoye une erreur. Verifiez votre session admin puis reessayez.
+          </p>
+          <button
+            onClick={onRetry}
+            className="mt-4 px-4 py-2 rounded-lg bg-[#00c9a7] text-white hover:bg-[#00b396] transition"
+          >
+            Reessayer
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 );
@@ -19641,6 +26839,693 @@ export function AdminBookingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+type ModerationKind = 'experience' | 'service';
+
+
+
+function ModerationPage({
+  kind,
+  title,
+  subtitle,
+  queryKey,
+  loadData,
+  onApproveItem,
+  onRejectItem,
+}: {
+  kind: ModerationKind;
+  title: string;
+  subtitle: string;
+  queryKey: string[];
+  loadData: (status: string) => Promise<any>;
+  onApproveItem: (id: number, notes?: string) => Promise<any>;
+  onRejectItem: (id: number, reason: string, notes?: string) => Promise<any>;
+}) {
+  const { isDark } = useTheme();
+  const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: [...queryKey, statusFilter],
+    queryFn: () => loadData(statusFilter),
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: ({ id }: { id: number }) => onApproveItem(id, prompt('Notes optionnelles :') || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      refetch();
+      toast.success(`${kind === 'experience' ? 'Expérience' : 'Service'} approuvé(e)`);
+    },
+    onError: () => toast.error('Erreur lors de l’approbation'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id }: { id: number }) => {
+      const reason = prompt('Raison du rejet (10 caractères minimum) :') || '';
+      if (reason.length < 10) {
+        throw new Error('La raison doit contenir au moins 10 caractères');
+      }
+      const notes = prompt('Notes complémentaires (optionnelles) :') || undefined;
+      return onRejectItem(id, reason, notes);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      refetch();
+      toast.success(`${kind === 'experience' ? 'Expérience' : 'Service'} rejeté(e)`);
+    },
+    onError: (error: any) => toast.error(error?.message || 'Erreur lors du rejet'),
+  });
+
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
+
+  const payload = data?.data ?? data ?? {};
+  const items = Array.isArray(payload) ? payload : payload.data ?? payload.data?.data ?? [];
+  const stats = payload.stats ?? payload.data?.stats ?? { total: items.length, draft: 0, pending: 0, active: 0, rejected: 0 };
+
+  return (
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
+      {/* En-tête */}
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
+            {title}
+          </h1>
+          <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{subtitle}</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => refetch()} className={`px-3 py-2 ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white border-gray-200 text-gray-600'} rounded-xl transition border`}>🔄</button>
+        </div>
+      </div>
+
+      {/* Statistiques */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatBadge label="Total" value={stats.total || items.length} color="gray" isDark={isDark} />
+        <StatBadge label="Brouillons" value={stats.draft || 0} color="blue" isDark={isDark} />
+        <StatBadge label="En attente" value={stats.pending || 0} color="yellow" isDark={isDark} />
+        <StatBadge label="Actifs" value={stats.active || 0} color="green" isDark={isDark} />
+      </div>
+
+      {/* Filtres */}
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-6 transition-colors duration-300`}>
+        <div className="flex flex-wrap gap-2">
+          {(['all', 'draft', 'pending', 'active', 'rejected'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-4 py-2 rounded-xl text-sm transition ${statusFilter === status ? 'bg-[#00c9a7] text-white' : isDark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              {status === 'all' ? 'Toutes' : status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Liste des items avec bouton Détails */}
+      <div className="space-y-4">
+        {items.length === 0 ? (
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-8 text-center border transition-colors duration-300`}>
+            <Sparkles className={`w-12 h-12 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucun élément trouvé</p>
+          </div>
+        ) : (
+          items.map((item: any) => (
+            <ModerationItemCard
+              key={item.id}
+              item={item}
+              kind={kind}
+              isDark={isDark}
+              onApprove={() => approveMutation.mutate({ id: item.id })}
+              onReject={() => rejectMutation.mutate({ id: item.id })}
+              onViewDetails={() => {
+                setSelectedItem(item);
+                setShowDetailModal(true);
+              }}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Modal de détail */}
+      {showDetailModal && selectedItem && (
+        <ModerationDetailModal
+          item={selectedItem}
+          kind={kind}
+          isDark={isDark}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedItem(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+
+export function AdminExperiencesPage() {
+  return (
+    <ModerationPage
+      kind="experience"
+      title="Modération des expériences"
+      subtitle="Approuvez ou rejetez les expériences proposées par les hôtes"
+      queryKey={['admin-experiences']}
+      loadData={(status) => adminService.getExperiencesModeration(status)}
+      onApproveItem={(id, notes) => adminService.approveExperience(id, notes)}
+      onRejectItem={(id, reason, notes) => adminService.rejectExperience(id, reason, notes)}
+    />
+  );
+}
+
+
+
+// ============================================
+// FONCTIONS D'EXTRACTION DES IMAGES
+// ============================================
+
+
+
+// ✅ Fonction pour extraire toutes les URLs des images
+const getImageUrls = (item: any): string[] => {
+  if (!item.images || item.images.length === 0) {
+    return ['/placeholder.jpg'];
+  }
+
+  return item.images.map((img: any) => {
+    if (typeof img === 'string') {
+      return img;
+    }
+    
+    if (img && typeof img === 'object') {
+      const url = img.url || img.path || img.photo_url || img.image_url;
+      
+      if (url) {
+        if (url.startsWith('/storage')) {
+          return `https://api.bluefin-immo.com${url}`;
+        }
+        if (url.startsWith('storage')) {
+          return `https://api.bluefin-immo.com/${url}`;
+        }
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          return url;
+        }
+        return `https://api.bluefin-immo.com/storage/${url}`;
+      }
+    }
+    
+    return '/placeholder.jpg';
+  });
+};
+
+// ============================================
+// COMPOSANT MODAL DE DÉTAIL
+// ============================================
+function ModerationDetailModal({
+  item,
+  kind,
+  isDark,
+  onClose,
+}: {
+  item: any;
+  kind: ModerationKind;
+  isDark: boolean;
+  onClose: () => void;
+}) {
+  const [currentImage, setCurrentImage] = useState(0);
+
+  if (!item) return null;
+
+  // ✅ Utiliser la fonction getImageUrls
+  const imageUrls = getImageUrls(item);
+  const displayImages = imageUrls.length > 0 ? imageUrls : ['/placeholder.jpg'];
+
+  const nextImage = () => setCurrentImage((prev) => (prev + 1) % displayImages.length);
+  const prevImage = () => setCurrentImage((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      draft: isDark ? 'bg-slate-700 text-slate-300' : 'bg-slate-100 text-slate-700',
+      pending: isDark ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-700',
+      active: isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700',
+      rejected: isDark ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-700',
+    };
+    return colors[status] || colors.draft;
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4" onClick={onClose}>
+      <div className="mx-auto max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* En-tête */}
+        <div className="flex items-center justify-between p-4 border-b dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
+              {item.status || 'draft'}
+            </span>
+            <h2 className="text-xl font-semibold dark:text-white">
+              {item.title || item.name || 'Sans titre'}
+            </h2>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-700 transition">
+            <X className="w-5 h-5 dark:text-white" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-6">
+            <div>
+              {/* Galerie d'images */}
+              <div className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-slate-700" style={{ height: '300px' }}>
+                <img 
+                  src={displayImages[currentImage]} 
+                  alt={item.title} 
+                  className="w-full h-full object-contain"
+                  onError={(e) => { 
+                    console.log('❌ Erreur chargement image:', displayImages[currentImage]);
+                    (e.target as HTMLImageElement).src = '/placeholder.jpg'; 
+                  }}
+                />
+                {displayImages.length > 1 && (
+                  <>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); prevImage(); }} 
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 p-1 rounded-full text-white hover:bg-black/70"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); nextImage(); }} 
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 p-1 rounded-full text-white hover:bg-black/70"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+                  {currentImage + 1} / {displayImages.length}
+                </div>
+              </div>
+
+              {/* Miniatures */}
+              {displayImages.length > 1 && (
+                <div className="flex gap-2 mt-2 overflow-x-auto">
+                  {displayImages.map((img, idx) => (
+                    <img 
+                      key={idx}
+                      src={img} 
+                      alt={`Miniature ${idx}`} 
+                      className={`w-12 h-12 rounded-lg object-cover cursor-pointer border-2 ${currentImage === idx ? 'border-[#00c9a7]' : 'border-transparent'}`}
+                      onClick={() => setCurrentImage(idx)}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.jpg'; }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Description */}
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold dark:text-white">Description</h3>
+                <p className="text-sm dark:text-slate-300 mt-1">{item.description || 'Aucune description'}</p>
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
+                <h3 className="text-sm font-semibold dark:text-white mb-3">Informations</h3>
+                <ul className="space-y-2 text-sm dark:text-slate-300">
+                  <li><strong>Type :</strong> {kind === 'service' ? 'Service' : kind === 'experience' ? 'Expérience' : 'Propriété'}</li>
+                  {item.service_type && <li><strong>Service :</strong> {item.service_type}</li>}
+                  {item.experience_type && <li><strong>Expérience :</strong> {item.experience_type}</li>}
+                  {item.price && <li><strong>Prix :</strong> {formatPriceBoth(parseFloat(item.price) || 0)}</li>}
+                  {item.duration_minutes && <li><strong>Durée :</strong> {formatDuration(item.duration_minutes)}</li>}
+                  {item.location && <li><strong>Lieu :</strong> {item.location}</li>}
+                  {item.created_at && <li><strong>Créé le :</strong> {new Date(item.created_at).toLocaleDateString('fr-FR')}</li>}
+                </ul>
+              </div>
+
+              {item.host && (
+                <div className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold dark:text-white mb-3">Hôte</h3>
+                  <p className="text-sm dark:text-slate-300">{item.host.first_name} {item.host.last_name}</p>
+                  <p className="text-sm dark:text-slate-400">{item.host.email}</p>
+                  <p className="text-sm dark:text-slate-400">{item.host.phone}</p>
+                </div>
+              )}
+
+              {item.moderation_notes && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 border border-yellow-200 dark:border-yellow-800">
+                  <h3 className="text-sm font-semibold text-yellow-800 dark:text-yellow-400">Note de modération</h3>
+                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">{item.moderation_notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// pages.tsx - ModerationItemCard
+
+function ModerationItemCard({
+  item,
+  kind,
+  isDark,
+  onApprove,
+  onReject,
+  onViewDetails,
+}: {
+  item: any;
+  kind: ModerationKind;
+  isDark: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+  onViewDetails: () => void;
+}) {
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, { bg: string; text: string }> = {
+      draft: { bg: isDark ? 'bg-slate-700' : 'bg-slate-100', text: isDark ? 'text-slate-300' : 'text-slate-700' },
+      pending: { bg: isDark ? 'bg-yellow-900/30' : 'bg-yellow-100', text: isDark ? 'text-yellow-400' : 'text-yellow-700' },
+      active: { bg: isDark ? 'bg-green-900/30' : 'bg-green-100', text: isDark ? 'text-green-400' : 'text-green-700' },
+      rejected: { bg: isDark ? 'bg-red-900/30' : 'bg-red-100', text: isDark ? 'text-red-400' : 'text-red-700' },
+    };
+    return map[status] || map.draft;
+  };
+
+  // ✅ Obtenir l'URL de l'image
+  const imageUrl = getImageUrl(item.images?.[0], kind === 'service' ? 'service' : 'experience');
+
+  // ✅ Gestionnaire d'erreur d'image
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.log('❌ Erreur chargement image:', imageUrl);
+    const placeholder = kind === 'service' 
+      ? 'https://ui-avatars.com/api/?background=00c9a7&color=fff&size=128&font-size=0.5&name=Service'
+      : 'https://ui-avatars.com/api/?background=0f2940&color=fff&size=128&font-size=0.5&name=Experience';
+    (e.target as HTMLImageElement).src = placeholder;
+  };
+
+  // ✅ Vérifier si l'URL est valide
+  const isValidImageUrl = (url: string): boolean => {
+    return url && 
+           url !== '' && 
+           !url.includes('undefined') &&
+           url !== 'https://api.bluefin-immo.com/storage/';
+  };
+
+  // ✅ Obtenir le nom pour le placeholder
+  const getDisplayName = () => {
+    return item.title || item.name || 'Image';
+  };
+
+  return (
+    <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl p-4 shadow-sm border transition-colors duration-300`}>
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Image */}
+        <div className="w-full sm:w-32 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-slate-700">
+          {isValidImageUrl(imageUrl) ? (
+            <img 
+              src={imageUrl} 
+              alt={getDisplayName()} 
+              className="w-full h-full object-cover"
+              onError={handleImageError}
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-slate-500 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-slate-700 dark:to-slate-600">
+              <span className="text-4xl font-bold text-gray-300 dark:text-slate-500">
+                {getDisplayName().charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Infos */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className={`text-base sm:text-lg font-semibold ${isDark ? 'text-white' : 'text-[#0f2940]'}`}>
+                {item.title || item.name || 'Sans titre'}
+              </h3>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(item.status)?.bg} ${getStatusBadge(item.status)?.text}`}>
+                  {item.status || 'draft'}
+                </span>
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  {kind === 'service' ? item.service_type : kind === 'experience' ? item.experience_type : item.property_type}
+                </span>
+                <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>•</span>
+                <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>
+                  {item.location || item.city || 'Bénin'}
+                </span>
+                {item.price && (
+                  <>
+                    <span className={`text-xs ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>•</span>
+                    <span className={`text-xs font-medium ${isDark ? 'text-green-400' : 'text-[#00c9a7]'}`}>
+                      {formatPriceBoth(parseFloat(item.price) || 0)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={onViewDetails}
+                className={`px-3 py-1.5 rounded-xl text-sm transition border ${
+                  isDark 
+                    ? 'bg-slate-700 border-slate-600 text-blue-400 hover:bg-slate-600' 
+                    : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                <Eye className="w-4 h-4 inline mr-1" /> Détails
+              </button>
+              <button
+                onClick={onApprove}
+                className={`px-3 py-1.5 rounded-xl text-sm transition border ${
+                  isDark 
+                    ? 'bg-green-900/30 border-green-800 text-green-400 hover:bg-green-900/50' 
+                    : 'bg-green-50 border-green-200 text-green-600 hover:bg-green-100'
+                }`}
+              >
+                ✓
+              </button>
+              <button
+                onClick={onReject}
+                className={`px-3 py-1.5 rounded-xl text-sm transition border ${
+                  isDark 
+                    ? 'bg-red-900/30 border-red-800 text-red-400 hover:bg-red-900/50' 
+                    : 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+                }`}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <p className={`text-sm mt-2 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+            {item.description || 'Aucune description'}
+          </p>
+          {item.host && (
+            <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-gray-400'}`}>
+              👤 {item.host.first_name} {item.host.last_name} · {item.host.email}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+// ============================================
+// COMPOSANT PRINCIPAL ModerationPage
+// ============================================
+
+
+export function AdminServicesPage() {
+  return (
+    <ModerationPage
+      kind="service"
+      title="Modération des services"
+      subtitle="Approuvez ou rejetez les services proposés par les hôtes"
+      queryKey={['admin-services']}
+      loadData={(status) => adminService.getServicesModeration(status)}
+      onApproveItem={(id, notes) => adminService.approveService(id, notes)}
+      onRejectItem={(id, reason, notes) => adminService.rejectService(id, reason, notes)}
+    />
+  );
+}
+function getBookingCategory(booking: any): 'logement' | 'experience-service' {
+  const bookingType = String(booking?.booking_type || '').toLowerCase();
+  if (bookingType === 'experience' || bookingType === 'service') return 'experience-service';
+  if (booking?.experience_id || booking?.service_id) return 'experience-service';
+  return 'logement';
+}
+
+function BookingsFilteredPage({
+  title,
+  subtitle,
+  allowedCategory,
+}: {
+  title: string;
+  subtitle: string;
+  allowedCategory: 'logement' | 'experience-service';
+}) {
+  const { isDark } = useTheme();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-bookings', allowedCategory],
+    queryFn: () => adminService.getBookings(),
+  });
+  const queryClient = useQueryClient();
+
+  const cancelMutation = useMutation({
+    mutationFn: (id: number) => adminService.cancelBooking(id),
+    onSuccess: () => {
+      toast.success('Réservation annulée');
+      queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      refetch();
+    },
+    onError: () => toast.error('Erreur'),
+  });
+
+  if (isLoading) return <LoadingSkeleton isDark={isDark} />;
+
+  const allBookings = data?.data?.data || [];
+  const bookings = allBookings.filter((booking: any) => getBookingCategory(booking) === allowedCategory);
+
+  const filteredBookings = bookings.filter((booking: any) => {
+    const displayTitle = booking.property?.title || booking.experience?.name || booking.service?.title || booking.service?.service_type || '';
+    const matchesSearch = searchTerm === '' || 
+      booking.booking_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      displayTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || booking.booking_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  const stats = {
+    total: bookings.length,
+    confirmed: bookings.filter((b: any) => b.booking_status === 'confirmed').length,
+    pending: bookings.filter((b: any) => b.booking_status === 'pending').length,
+    completed: bookings.filter((b: any) => b.booking_status === 'completed').length,
+    cancelled: bookings.filter((b: any) => b.booking_status === 'cancelled').length,
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  return (
+    <div className={`p-3 sm:p-4 md:p-6 ${isDark ? 'bg-slate-900' : 'bg-gradient-to-br from-gray-50 to-gray-100'} min-h-screen transition-colors duration-300`}>
+      <div className="mb-5">
+        <h1 className={`text-xl sm:text-2xl md:text-3xl font-bold ${isDark ? 'text-white' : 'bg-gradient-to-r from-[#0f2940] to-[#00c9a7] bg-clip-text text-transparent'}`}>
+          {title}
+        </h1>
+        <p className={`text-xs sm:text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{subtitle}</p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-5">
+        <StatBadge label="Total" value={stats.total} color="gray" isDark={isDark} />
+        <StatBadge label="Confirmées" value={stats.confirmed} color="green" isDark={isDark} />
+        <StatBadge label="En attente" value={stats.pending} color="yellow" isDark={isDark} />
+        <StatBadge label="Terminées" value={stats.completed} color="blue" isDark={isDark} />
+        <StatBadge label="Annulées" value={stats.cancelled} color="red" isDark={isDark} />
+      </div>
+
+      <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm border mb-5 transition-colors duration-300`}>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-slate-500' : 'text-gray-400'}`} />
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={`w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400' 
+                  : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'
+              }`}
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={`px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00c9a7] transition-colors duration-300 ${
+                isDark 
+                  ? 'bg-slate-700 border-slate-600 text-white' 
+                  : 'bg-white border-gray-200 text-gray-800'
+              }`}
+            >
+              <option value="all">Tous</option>
+              <option value="confirmed">Confirmées</option>
+              <option value="pending">En attente</option>
+              <option value="completed">Terminées</option>
+              <option value="cancelled">Annulées</option>
+            </select>
+            <button
+              onClick={() => refetch()}
+              className={`px-3 py-2 ${isDark ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'} rounded-xl transition`}
+            >
+              🔄
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {filteredBookings.length === 0 ? (
+          <div className={`${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-100'} rounded-xl sm:rounded-2xl p-8 sm:p-12 text-center border transition-colors duration-300`}>
+            <CalendarIcon className={`w-12 h-12 sm:w-16 sm:h-16 ${isDark ? 'text-slate-600' : 'text-gray-300'} mx-auto mb-3`} />
+            <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Aucune réservation trouvée</p>
+          </div>
+        ) : (
+          filteredBookings.map((booking: any) => (
+            <BookingCard
+              key={booking.id}
+              booking={booking}
+              isDark={isDark}
+              isExpanded={expandedId === booking.id}
+              onToggle={() => toggleExpand(booking.id)}
+              onCancel={() => {
+                if (confirm('Annuler cette réservation ?')) cancelMutation.mutate(booking.id);
+              }}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function AdminBookingsLogementsPage() {
+  return (
+    <BookingsFilteredPage
+      title="Réservations logements"
+      subtitle="Réservations des annonces de logements"
+      allowedCategory="logement"
+    />
+  );
+}
+
+export function AdminBookingsExperiencesServicesPage() {
+  return (
+    <BookingsFilteredPage
+      title="Réservations expériences & services"
+      subtitle="Réservations des expériences et services des hôtes"
+      allowedCategory="experience-service"
+    />
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, ChevronLeft, ChevronRight, Users, Plus, Minus, Baby, Dog, Info } from 'lucide-react';
+import { Search, Menu, X, MapPin, Home, Star, Server, LogIn, Calendar, Globe, Sparkles, UserPlus, ChevronLeft, ChevronRight, Users, Plus, Minus, Baby, Dog, Info } from 'lucide-react';
 import type { Route } from '../router';
 import Logo from '../assets/Bluefin Immo_01.jpg.jpeg';
 import propertyService from '../../services/property.service';
@@ -50,7 +50,6 @@ export function Navbar({
   const [mobileSearchActive, setMobileSearchActive] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   
-  // ✅ Nouveaux états pour la vérification de disponibilité
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availableProperties, setAvailableProperties] = useState<any[]>([]);
   
@@ -61,9 +60,9 @@ export function Navbar({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const navItems = [
-    { name: 'Logement', icon: Home, route: { name: 'home' } as Route },
-    { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route },
-    { name: 'Service', icon: Server, route: { name: 'services' } as Route },
+    { name: 'Logement', icon: Home, route: { name: 'home' } as Route, gradient: 'from-emerald-400 to-teal-500' },
+    { name: 'Expérience', icon: Star, route: { name: 'experience' } as Route, gradient: 'from-amber-400 to-orange-500' },
+    { name: 'Service', icon: Server, route: { name: 'services' } as Route, gradient: 'from-blue-400 to-indigo-500' },
   ];
 
   const isActive = (itemName: string) => {
@@ -73,16 +72,13 @@ export function Navbar({
     return false;
   };
 
-  // ✅ NOUVELLE FONCTION: Vérifier la disponibilité des propriétés par dates
   const checkAvailabilityByDates = async (city: string, checkInDate: string, checkOutDate: string, guestsCount: number) => {
     if (!checkInDate || !checkOutDate) {
-      // Si pas de dates, retourner les propriétés de la ville
       return null;
     }
     
     setIsCheckingAvailability(true);
     try {
-      // Appel API pour vérifier la disponibilité
       const response = await propertyService.getAll({
         city: city,
         check_in: checkInDate,
@@ -102,7 +98,6 @@ export function Navbar({
     }
   };
 
-  // ✅ RECHERCHE COMPLÈTE AVEC VÉRIFICATION DE DISPONIBILITÉ
   const handleSearch = async () => {
     if (isSearching) return;
     
@@ -120,36 +115,30 @@ export function Navbar({
     
     console.log('🔍 Recherche complète avec disponibilité:', searchParams);
     
-    // ✅ Si des dates sont fournies, vérifier la disponibilité
     if (checkIn && checkOut && destination) {
       const availableProps = await checkAvailabilityByDates(destination, checkIn, checkOut, finalGuests);
       
       if (availableProps && availableProps.length === 0) {
-        // Pas de propriétés disponibles
         console.log('❌ Aucune propriété disponible pour ces dates');
         if (onSearch) {
           onSearch({ ...searchParams, noResults: true });
         }
       } else if (availableProps && availableProps.length > 0) {
-        // Propriétés disponibles trouvées
         console.log(`✅ ${availableProps.length} propriété(s) disponible(s) trouvée(s)`);
         if (onSearch) {
           onSearch(searchParams);
         }
       } else {
-        // Fallback à la recherche normale
         if (onSearch) {
           onSearch(searchParams);
         }
       }
     } else {
-      // Pas de dates - recherche normale
       if (onSearch) {
         onSearch(searchParams);
       }
     }
     
-    // Mettre à jour la recherche en temps réel pour la ville
     if (onRealTimeSearch && destination) {
       onRealTimeSearch(destination);
     }
@@ -162,7 +151,6 @@ export function Navbar({
     }, 500);
   };
 
-  // ✅ Recherche en temps réel avec suggestion des villes
   const handleRealTimeSearch = (searchTerm: string) => {
     setDestination(searchTerm);
     
@@ -321,7 +309,6 @@ export function Navbar({
 
   const days = getDaysInMonth(currentMonth);
 
-  // ✅ Version mobile de la recherche
   const handleMobileSearch = async () => {
     if (isSearching) return;
     
@@ -337,7 +324,6 @@ export function Navbar({
       guests: finalGuests
     };
     
-    // Vérifier la disponibilité si des dates sont fournies
     if (checkIn && checkOut && destination) {
       await checkAvailabilityByDates(destination, checkIn, checkOut, finalGuests);
     }
@@ -400,13 +386,32 @@ export function Navbar({
             </button>
           </div>
 
-          {/* Mobile buttons */}
-          <div className="flex lg:hidden items-center gap-2">
-            <button onClick={() => setMobileSearchActive(true)} className="p-2 rounded-full bg-gray-50 border border-gray-200">
-              <Search className="w-5 h-5 text-[#00c9a7]" />
+          {/* Mobile - Barre de recherche + Menu */}
+          <div className="flex lg:hidden items-center gap-2 flex-1">
+            {/* Barre de recherche mobile simplifiée */}
+            <button
+              onClick={() => setMobileSearchActive(true)}
+              className="flex-1 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-4 py-2.5 shadow-sm hover:shadow-md transition-all"
+            >
+              <Search className="w-4 h-4 text-[#00c9a7] flex-shrink-0" />
+              <span className="text-sm text-gray-600 truncate">
+                {destination || "Où allez-vous ?"}
+              </span>
             </button>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 rounded-full border border-gray-200">
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            
+            <button 
+              onClick={() => setMenuOpen(!menuOpen)} 
+              className={`relative p-2.5 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 ${
+                menuOpen 
+                  ? 'bg-gradient-to-r from-rose-400 to-red-500 shadow-rose-400/30' 
+                  : 'bg-gradient-to-r from-[#0f2940] to-[#1a3a52] shadow-[#0f2940]/30'
+              } hover:scale-105`}
+            >
+              {menuOpen ? (
+                <X className="w-5 h-5 text-white transition-transform duration-300 rotate-90" />
+              ) : (
+                <Menu className="w-5 h-5 text-white transition-transform duration-300" />
+              )}
             </button>
           </div>
         </div>
@@ -858,27 +863,118 @@ export function Navbar({
         </div>
       )}
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu - Version slide droite→gauche */}
       {menuOpen && (
-        <div className="lg:hidden fixed inset-x-0 top-[73px] bottom-0 bg-white shadow-xl z-40 border-t overflow-y-auto">
-          <div className="p-4 space-y-2">
-            {navItems.map((item) => (
-              <button key={item.name} onClick={() => { onNavigate?.(item.route); setMenuOpen(false); }} className="w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 hover:bg-gray-50">
-                <item.icon className="w-5 h-5" />
-                <span>{item.name}</span>
+        <>
+          <div className="lg:hidden fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-50 overflow-y-auto animate-slideInRight">
+            {/* Bouton de fermeture */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">B</span>
+                </div>
+                <span className="font-semibold text-sm text-[#0f2940]">Menu</span>
+              </div>
+              <button 
+                onClick={() => setMenuOpen(false)} 
+                className="p-2 rounded-full hover:bg-gray-100 transition-all duration-300 hover:rotate-90"
+              >
+                <X className="w-5 h-5 text-gray-600" />
               </button>
-            ))}
-            <div className="h-px bg-gray-100 my-2"></div>
-            <button onClick={() => { onNavigate?.({ name: 'become-host' }); setMenuOpen(false); }} className="w-full bg-[#0f2940] text-white py-3 rounded-xl text-center font-medium">
-              ✨ Devenir hôte
-            </button>
-            <button onClick={() => { onNavigate?.({ name: 'auth' }); setMenuOpen(false); }} className="w-full border border-[#00c9a7] py-3 rounded-xl text-center font-medium flex items-center justify-center gap-2">
-              <LogIn className="w-4 h-4" />
-              S'inscrire
-            </button>
+            </div>
+
+            {/* Contenu du menu */}
+            <div className="p-4 space-y-1">
+              {navItems.map((item) => (
+                <button 
+                  key={item.name} 
+                  onClick={() => { onNavigate?.(item.route); setMenuOpen(false); }} 
+                  className={`w-full text-left py-3 px-4 rounded-xl flex items-center gap-3 transition-all duration-200 ${
+                    isActive(item.name)
+                      ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
+                      : 'hover:bg-gray-50 text-[#0f2940]'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${isActive(item.name) ? 'text-white' : 'text-gray-500'}`} />
+                  <span className="font-medium text-sm">{item.name}</span>
+                  {isActive(item.name) && (
+                    <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">•</span>
+                  )}
+                </button>
+              ))}
+              
+              <div className="h-px bg-gray-100 my-3"></div>
+              
+              <button 
+                onClick={() => { onNavigate?.({ name: 'become-host' }); setMenuOpen(false); }} 
+                className="w-full bg-[#0f2940] text-white py-3 rounded-xl text-center font-medium text-sm hover:bg-[#1a3a52] transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-400" />
+                Devenir hôte
+              </button>
+              
+              <button 
+                onClick={() => { onNavigate?.({ name: 'auth' }); setMenuOpen(false); }} 
+                className="w-full border border-emerald-400 py-3 rounded-xl text-center font-medium text-sm flex items-center justify-center gap-2 hover:bg-emerald-50 transition-all duration-200 text-[#0f2940]"
+              >
+                <UserPlus className="w-4 h-4 text-emerald-500" />
+                S'inscrire
+              </button>
+            </div>
           </div>
-        </div>
+
+          {/* Overlay sombre */}
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/30 z-40 animate-fadeIn"
+            onClick={() => setMenuOpen(false)}
+          />
+        </>
       )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(100%);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slideInRight {
+          animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease forwards;
+        }
+
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+      `}</style>
     </nav>
   );
 }

@@ -16,6 +16,7 @@ export function MobileBottomNav({ active: propActive, onNavigate }: MobileBottom
   const { isAuthenticated, user } = useAuth();
   const userName = user?.first_name ? `${user.first_name}` : '';
   const userType = user?.user_type;
+  const hostType = user?.host_type; // ✅ Récupérer le type d'hôte (logement, experience, service)
   
   // ✅ Vérifier si l'utilisateur est admin
   const isAdmin = userType === 'admin';
@@ -53,8 +54,10 @@ export function MobileBottomNav({ active: propActive, onNavigate }: MobileBottom
       return 'trips';
     }
     
+    // ✅ Détection des messages pour hôte logement ET expérience
     if (path === '/messages' || path.startsWith('/messages/') || 
-        path === '/hote/messages' || path.startsWith('/hote/messages/')) {
+        path === '/hote/messages' || path.startsWith('/hote/messages/') ||
+        path === '/host/experience/messages' || path.startsWith('/host/experience/messages/')) {
       return 'messages';
     }
     
@@ -65,14 +68,12 @@ export function MobileBottomNav({ active: propActive, onNavigate }: MobileBottom
     return 'explore';
   };
 
-
-  
   // Priorité à la prop active, sinon déterminer par l'URL
   const activeTab = propActive || getActiveTabFromPath();
 
   useEffect(() => {
-    console.log('🔍 MobileBottomNav - activeTab:', activeTab, 'propActive:', propActive, 'path:', location.pathname, 'userType:', userType);
-  }, [activeTab, propActive, location.pathname, userType]);
+    console.log('🔍 MobileBottomNav - activeTab:', activeTab, 'propActive:', propActive, 'path:', location.pathname, 'userType:', userType, 'hostType:', hostType);
+  }, [activeTab, propActive, location.pathname, userType, hostType]);
 
   // ✅ Définir les onglets disponibles selon le type d'utilisateur
   const getAvailableTabs = (): { id: Tab; icon: typeof Compass; label: string }[] => {
@@ -119,62 +120,75 @@ export function MobileBottomNav({ active: propActive, onNavigate }: MobileBottom
 
   const tabs = getAvailableTabs();
 
-  const handleNavigate = (tabId: Tab) => {
-    // ✅ Gestion navigation admin
-    if (isAdmin) {
-      if (tabId === 'admin-dashboard') {
-        onNavigate?.({ name: 'admin-dashboard' });
-      } else if (tabId === 'admin-users') {
-        onNavigate?.({ name: 'admin-users' });
-      } else if (tabId === 'admin-properties') {
-        onNavigate?.({ name: 'admin-properties' });
-      } else if (tabId === 'admin-settings') {
-        onNavigate?.({ name: 'admin-settings' });
-      } else if (tabId === 'profile') {
-        onNavigate?.({ name: 'admin-dashboard' });
-      }
-      return;
-    }
-    
-    // ✅ Gestion navigation non authentifié
-    if (!isAuthenticated && (tabId === 'trips' || tabId === 'messages' || tabId === 'profile')) {
-      onNavigate?.('auth');
-      return;
-    }
+  // components/MobileBottomNav.tsx - Partie handleNavigate
 
-    if (tabId === 'auth') {
-      onNavigate?.('auth');
-      return;
-    }
-
-    if (tabId === 'messages') {
-      if (userType === 'hote') {
-        onNavigate?.({ name: 'host-messages' });
-      } else {
-        onNavigate?.({ name: 'messages' });
-      }
-      return;
-    }
-
-    if (tabId === 'favorites') {
-      if (userType === 'hote') {
-        onNavigate?.({ name: 'host-favorites' });
-      } else {
-        onNavigate?.({ name: 'favorites' });
-      }
-      return;
-    }
-
-    if (tabId === 'explore') {
-      onNavigate?.({ name: 'home' });
-    } else if (tabId === 'trips') {
-      onNavigate?.({ name: 'account-reservations' });
+const handleNavigate = (tabId: Tab) => {
+  // ✅ Gestion navigation admin
+  if (isAdmin) {
+    if (tabId === 'admin-dashboard') {
+      onNavigate?.({ name: 'admin-dashboard' });
+    } else if (tabId === 'admin-users') {
+      onNavigate?.({ name: 'admin-users' });
+    } else if (tabId === 'admin-properties') {
+      onNavigate?.({ name: 'admin-properties' });
+    } else if (tabId === 'admin-settings') {
+      onNavigate?.({ name: 'admin-settings' });
     } else if (tabId === 'profile') {
-      onNavigate?.({ name: 'profile' });
-    } else {
-      onNavigate?.(tabId);
+      onNavigate?.({ name: 'admin-dashboard' });
     }
-  };
+    return;
+  }
+  
+  // ✅ Gestion navigation non authentifié
+  if (!isAuthenticated && (tabId === 'trips' || tabId === 'messages' || tabId === 'profile')) {
+    onNavigate?.('auth');
+    return;
+  }
+
+  if (tabId === 'auth') {
+    onNavigate?.('auth');
+    return;
+  }
+
+  // ✅ Gestion des messages - CORRECTION ICI
+  if (tabId === 'messages') {
+    if (userType === 'hote') {
+      // ✅ Vérifier si c'est un hôte expérience
+      if (hostType === 'experience') {
+        console.log('📨 Hôte expérience → Redirection vers host-experience-messages');
+        onNavigate?.({ name: 'host-experience-messages' });
+      } else {
+        // ✅ Hôte logement → host-messages
+        console.log('📨 Hôte logement → Redirection vers host-messages');
+        onNavigate?.({ name: 'host-messages' });
+      }
+    } else {
+      // ✅ Voyageur → messages
+      console.log('📨 Voyageur → Redirection vers messages');
+      onNavigate?.({ name: 'messages' });
+    }
+    return;
+  }
+
+  if (tabId === 'favorites') {
+    if (userType === 'hote') {
+      onNavigate?.({ name: 'host-favorites' });
+    } else {
+      onNavigate?.({ name: 'favorites' });
+    }
+    return;
+  }
+
+  if (tabId === 'explore') {
+    onNavigate?.({ name: 'home' });
+  } else if (tabId === 'trips') {
+    onNavigate?.({ name: 'account-reservations' });
+  } else if (tabId === 'profile') {
+    onNavigate?.({ name: 'profile' });
+  } else {
+    onNavigate?.(tabId);
+  }
+};
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#e2f5f2] h-16 sm:h-20 px-2 flex items-center justify-around z-50 safe-area-pb">

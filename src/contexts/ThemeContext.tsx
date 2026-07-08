@@ -17,7 +17,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (isDark) {
+    const isAdminRoute = window.location.pathname.startsWith('/admin');
+
+    if (isDark && isAdminRoute) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('admin-theme', 'dark');
     } else {

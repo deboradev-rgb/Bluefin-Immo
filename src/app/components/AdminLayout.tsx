@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHeader } from './AdminHeader';
 import { ThemeProvider, useTheme } from '../../contexts/ThemeContext';
+import { AuthProvider } from '../../contexts/AuthContext';
 
 function AdminLayoutContent() {
   const { isDark } = useTheme();
@@ -21,8 +22,10 @@ function AdminLayoutContent() {
 
 export function AdminLayout() {
   return (
-    <ThemeProvider>
-      <AdminLayoutContent />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <AdminLayoutContent />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

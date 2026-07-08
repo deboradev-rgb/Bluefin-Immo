@@ -1,5 +1,6 @@
-// services/admin.service.ts
-import { publicApi, v1Api } from './api';
+// services/admin.service.ts - Version améliorée
+
+import { v1Api } from './api';
 
 export interface DashboardStats {
   users: { total: number; new_today: number };
@@ -27,16 +28,43 @@ export interface PendingProperty {
   cover_photo?: any;
 }
 
+// ✅ INTERFACE UTILISATEUR AMÉLIORÉE AVEC HOST_TYPE
 export interface User {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
   phone: string;
-  user_type: string;
+  user_type: 'voyageur' | 'hote' | 'admin';
+  host_type?: 'logement' | 'experience' | 'service' | null; // ✅ NOUVEAU
   is_active: boolean;
-  verification_status: string;
+  verification_status: 'pending' | 'verified' | 'rejected';
   created_at: string;
+  updated_at: string;
+  last_login_at?: string;
+  profile_photo?: string;
+  profile_photo_url?: string;
+  total_properties?: number;
+  total_bookings?: number;
+  total_reviews?: number;
+  average_rating?: number;
+  suspended_until?: string;
+  suspension_reason?: string;
+}
+
+// ✅ INTERFACE POUR LES STATISTIQUES DES HÔTES
+export interface HostStats {
+  total_hosts: number;
+  hosts_by_type: {
+    logement: number;
+    experience: number;
+    service: number;
+    undefined: number;
+  };
+  verified_hosts: number;
+  pending_hosts: number;
+  active_hosts: number;
+  inactive_hosts: number;
 }
 
 export interface Booking {
@@ -79,6 +107,14 @@ export interface SummaryReport {
   total_revenue: number;
 }
 
+export interface AdminModerationStats {
+  total: number;
+  draft: number;
+  pending: number;
+  active: number;
+  rejected: number;
+}
+
 // ==================== INTERFACES PAIEMENTS HÔTES ====================
 export interface HostPaymentInfo {
   id: string;
@@ -88,6 +124,7 @@ export interface HostPaymentInfo {
     name: string;
     email: string;
     phone: string;
+    host_type?: 'logement' | 'experience' | 'service'; // ✅ NOUVEAU
   };
   paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
   fullName: string;
@@ -155,45 +192,56 @@ export interface HostPaymentListResponse {
   stats: HostPaymentStats;
 }
 
+
+// ============================================
+// SERVICE ADMIN
+// ============================================
+
 class AdminService {
+ 
+  private api = v1Api;
+
   // ==================== AUTHENTIFICATION ====================
+  
   async login(email: string, password: string) {
-    const response = await publicApi.post('/admin/login', { email, password });
+    const response = await this.api.post('/admin/login', { email, password });
     return response.data;
   }
 
   async logout() {
-    const response = await v1Api.post('/admin/logout');
+    const response = await this.api.post('/admin/logout');
     return response.data;
   }
 
   // ==================== DASHBOARD ====================
+  
   async getDashboard(): Promise<{ data: { stats: DashboardStats; recent_activities: RecentActivity[] } }> {
-    const response = await v1Api.get('/admin/dashboard');
+    const response = await this.api.get('/admin/dashboard');
     return response.data;
   }
 
   async getNotifications() {
-    const response = await v1Api.get('/admin/notifications');
+    const response = await this.api.get('/admin/notifications');
     return response.data;
   }
 
   async markNotificationRead(id: number) {
-    const response = await v1Api.post(`/admin/notifications/${id}/read`);
+    const response = await this.api.post(`/admin/notifications/${id}/read`);
     return response.data;
   }
 
   async markAllNotificationsRead() {
-    const response = await v1Api.post('/admin/notifications/read-all');
+    const response = await this.api.post('/admin/notifications/read-all');
     return response.data;
   }
 
   // ==================== MODÉRATION DES PROPRIÉTÉS ====================
+  
   async getPendingProperties() {
     console.log('🔍 Appel API: /admin/properties/pending');
     
     try {
-      const response = await v1Api.get('/admin/properties/pending');
+      const response = await this.api.get('/admin/properties/pending');
       
       console.log('✅ Réponse API complète:', response.data);
       
@@ -226,12 +274,12 @@ class AdminService {
   }
 
   async getPropertyForModeration(id: number) {
-    const response = await v1Api.get(`/admin/properties/${id}/moderate`);
+    const response = await this.api.get(`/admin/properties/${id}/moderate`);
     return response.data;
   }
 
   async approveProperty(id: number, notes?: string, featured?: boolean, isHotelPromoted?: boolean) {
-    const response = await v1Api.post(`/admin/properties/${id}/approve`, { 
+    const response = await this.api.post(`/admin/properties/${id}/approve`, { 
       notes, 
       featured,
       is_hotel_promoted: isHotelPromoted 
@@ -240,19 +288,19 @@ class AdminService {
   }
 
   async toggleHotelPromotion(id: number, isHotelPromoted: boolean) {
-    const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
+    const response = await this.api.patch(`/admin/properties/${id}/promote-hotel`, { 
       is_hotel_promoted: isHotelPromoted 
     });
     return response.data;
   }
 
   async rejectProperty(id: number, reason: string, notes?: string) {
-    const response = await v1Api.post(`/admin/properties/${id}/reject`, { reason, notes });
+    const response = await this.api.post(`/admin/properties/${id}/reject`, { reason, notes });
     return response.data;
   }
 
   async requestModifications(id: number, feedback: string, changesNeeded: string[]) {
-    const response = await v1Api.post(`/admin/properties/${id}/request-modifications`, {
+    const response = await this.api.post(`/admin/properties/${id}/request-modifications`, {
       feedback,
       changes_needed: changesNeeded,
     });
@@ -260,43 +308,109 @@ class AdminService {
   }
 
   async bulkApprove(propertyIds: number[]) {
-    const response = await v1Api.post('/admin/properties/bulk-approve', { property_ids: propertyIds });
+    const response = await this.api.post('/admin/properties/bulk-approve', { property_ids: propertyIds });
     return response.data;
   }
 
   async getModerationStats() {
-    const response = await v1Api.get('/admin/properties/moderation/stats');
+    const response = await this.api.get('/admin/properties/moderation/stats');
     return response.data;
   }
 
   async reassignHost(propertyId: number, newHostId: number) {
-    const response = await v1Api.post(`/admin/properties/${propertyId}/reassign-host`, { new_host_id: newHostId });
+    const response = await this.api.post(`/admin/properties/${propertyId}/reassign-host`, { new_host_id: newHostId });
     return response.data;
   }
 
   async fixPublishedStatus(propertyId: number) {
-    const response = await v1Api.post(`/admin/properties/${propertyId}/fix-publish`);
+    const response = await this.api.post(`/admin/properties/${propertyId}/fix-publish`);
+    return response.data;
+  }
+
+  // ==================== MODÉRATION DES EXPÉRIENCES ====================
+  
+  async getExperiencesModeration(status?: string) {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') {
+      params.set('status', status);
+    }
+
+    const response = await this.api.get(`/admin/experiences${params.toString() ? `?${params.toString()}` : ''}`);
+    return response.data;
+  }
+
+  async getExperienceForModeration(id: number) {
+    const response = await this.api.get(`/admin/experiences/${id}`);
+    return response.data;
+  }
+
+  async approveExperience(id: number, notes?: string) {
+    const response = await this.api.post(`/admin/experiences/${id}/approve`, { notes });
+    return response.data;
+  }
+
+  async rejectExperience(id: number, reason: string, notes?: string) {
+    const response = await this.api.post(`/admin/experiences/${id}/reject`, { reason, notes });
+    return response.data;
+  }
+
+  // ==================== MODÉRATION DES SERVICES ====================
+  
+  async getServicesModeration(status?: string) {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') {
+      params.set('status', status);
+    }
+
+    const response = await this.api.get(`/admin/services${params.toString() ? `?${params.toString()}` : ''}`);
+    return response.data;
+  }
+
+  async getServiceForModeration(id: number) {
+    const response = await this.api.get(`/admin/services/${id}`);
+    return response.data;
+  }
+
+  async approveService(id: number, notes?: string) {
+    const response = await this.api.post(`/admin/services/${id}/approve`, { notes });
+    return response.data;
+  }
+
+  async rejectService(id: number, reason: string, notes?: string) {
+    const response = await this.api.post(`/admin/services/${id}/reject`, { reason, notes });
     return response.data;
   }
 
   // ==================== GESTION DES UTILISATEURS ====================
+  
   async getUsers() {
-    const response = await v1Api.get('/admin/users');
+    const response = await this.api.get('/admin/users');
     return response.data;
   }
 
   async getUser(id: number) {
-    const response = await v1Api.get(`/admin/users/${id}`);
+    const response = await this.api.get(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async getHostsByType(hostType?: 'logement' | 'experience' | 'service') {
+    const params = hostType ? `?host_type=${hostType}` : '';
+    const response = await this.api.get(`/admin/hosts${params}`);
+    return response.data;
+  }
+
+  async getHostStats(): Promise<HostStats> {
+    const response = await this.api.get('/admin/hosts/stats');
     return response.data;
   }
 
   async verifyUser(id: number) {
-    const response = await v1Api.post(`/admin/users/${id}/verify`);
+    const response = await this.api.post(`/admin/users/${id}/verify`);
     return response.data;
   }
 
   async suspendUser(id: number, durationDays: number, reason?: string) {
-    const response = await v1Api.post(`/admin/users/${id}/suspend`, {
+    const response = await this.api.post(`/admin/users/${id}/suspend`, {
       duration_days: durationDays,
       reason,
     });
@@ -304,69 +418,84 @@ class AdminService {
   }
 
   async activateUser(id: number) {
-    const response = await v1Api.post(`/admin/users/${id}/activate`);
+    const response = await this.api.post(`/admin/users/${id}/activate`);
     return response.data;
   }
 
   async deleteUser(id: number) {
-    const response = await v1Api.delete(`/admin/users/${id}`);
+    const response = await this.api.delete(`/admin/users/${id}`);
+    return response.data;
+  }
+
+  async updateUserHostType(userId: number, hostType: 'logement' | 'experience' | 'service') {
+    const response = await this.api.patch(`/admin/users/${userId}/host-type`, {
+      host_type: hostType
+    });
     return response.data;
   }
 
   // ==================== SURVEILLANCE DES RÉSERVATIONS ====================
+  
   async getBookings(filters?: { status?: string; start_date?: string; end_date?: string }) {
-    const params = new URLSearchParams(filters);
-    const response = await v1Api.get(`/admin/bookings?${params.toString()}`);
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.start_date) params.append('start_date', filters.start_date);
+    if (filters?.end_date) params.append('end_date', filters.end_date);
+    
+    const response = await this.api.get(`/admin/bookings?${params.toString()}`);
     return response.data;
   }
 
   async getBooking(id: number) {
-    const response = await v1Api.get(`/admin/bookings/${id}`);
+    const response = await this.api.get(`/admin/bookings/${id}`);
     return response.data;
   }
 
   async cancelBooking(id: number, reason?: string) {
-    const response = await v1Api.post(`/admin/bookings/${id}/cancel`, { reason });
+    const response = await this.api.post(`/admin/bookings/${id}/cancel`, { reason });
     return response.data;
   }
 
   // ==================== SURVEILLANCE DES PAIEMENTS ====================
+  
   async getPayments() {
-    const response = await v1Api.get('/admin/payments');
+    const response = await this.api.get('/admin/payments');
     return response.data;
   }
 
   async getPayment(id: number) {
-    const response = await v1Api.get(`/admin/payments/${id}`);
+    const response = await this.api.get(`/admin/payments/${id}`);
     return response.data;
   }
 
   async refundPayment(id: number) {
-    const response = await v1Api.post(`/admin/payments/${id}/refund`);
+    const response = await this.api.post(`/admin/payments/${id}/refund`);
     return response.data;
   }
 
   // ==================== SURVEILLANCE DES MESSAGES ====================
+  
   async getMessages() {
-    const response = await v1Api.get('/admin/messages');
+    const response = await this.api.get('/admin/messages');
     return response.data;
   }
 
   async getConversation(user1Id: number, user2Id: number) {
-    const response = await v1Api.get(`/admin/messages/conversation/${user1Id}/${user2Id}`);
+    const response = await this.api.get(`/admin/messages/conversation/${user1Id}/${user2Id}`);
     return response.data;
   }
 
   async getSuspiciousConversations() {
-    const response = await v1Api.get('/admin/messages/suspicious');
+    const response = await this.api.get('/admin/messages/suspicious');
     return response.data;
   }
 
   // ==================== RAPPORTS ====================
+  
   async getSummaryReport(params: { period: string; start_date?: string; end_date?: string }) {
     console.log('📤 getSummaryReport - Paramètres:', params);
     try {
-      const response = await v1Api.get('/admin/reports/summary', { params });
+      const response = await this.api.get('/admin/reports/summary', { params });
       console.log('📥 getSummaryReport - Réponse:', response.data);
       return response.data;
     } catch (error) {
@@ -377,27 +506,27 @@ class AdminService {
 
   async getPropertiesReport(params: { period: string; start_date?: string; end_date?: string }) {
     console.log('📤 Appel API properties report');
-    const response = await v1Api.get('/admin/reports/properties', { params });
+    const response = await this.api.get('/admin/reports/properties', { params });
     console.log('📥 Réponse properties:', response.data);
     return response.data;
   }
 
   async getUsersReport(params: { period: string; start_date?: string; end_date?: string }) {
     console.log('📤 Appel API users report');
-    const response = await v1Api.get('/admin/reports/users', { params });
+    const response = await this.api.get('/admin/reports/users', { params });
     console.log('📥 Réponse users:', response.data);
     return response.data;
   }
 
   async getBookingsReport(params: { period: string; start_date?: string; end_date?: string }) {
     console.log('📤 Appel API bookings report');
-    const response = await v1Api.get('/admin/reports/bookings', { params });
+    const response = await this.api.get('/admin/reports/bookings', { params });
     console.log('📥 Réponse bookings:', response.data);
     return response.data;
   }
 
   async exportReport(period: string, format: string, dates?: { start_date?: string; end_date?: string }) {
-    const response = await v1Api.post(`/admin/reports/export/${format}`, {
+    const response = await this.api.post(`/admin/reports/export/${format}`, {
       period,
       ...dates
     }, { responseType: 'blob' });
@@ -405,18 +534,19 @@ class AdminService {
   }
 
   // ==================== PARAMÈTRES ====================
+  
   async getSettings() {
-    const response = await v1Api.get('/admin/settings');
+    const response = await this.api.get('/admin/settings');
     return response.data;
   }
 
   async updateSettings(settings: any) {
-    const response = await v1Api.put('/admin/settings', settings);
+    const response = await this.api.put('/admin/settings', settings);
     return response.data;
   }
 
   async updatePropertyPromotion(id: number, isHotelPromoted: boolean) {
-    const response = await v1Api.patch(`/admin/properties/${id}/promote-hotel`, { 
+    const response = await this.api.patch(`/admin/properties/${id}/promote-hotel`, { 
       is_hotel_promoted: isHotelPromoted 
     });
     return response.data;
@@ -424,17 +554,11 @@ class AdminService {
 
   // ==================== PAIEMENTS HÔTES ====================
 
-  /**
-   * Récupère les statistiques des paiements des hôtes
-   */
   async getHostPaymentStats(): Promise<{ data: HostPaymentStats }> {
-    const response = await v1Api.get('/admin/hosts/payments/stats');
+    const response = await this.api.get('/admin/hosts/payments/stats');
     return response.data;
   }
 
-  /**
-   * Récupère tous les paiements des hôtes avec filtres
-   */
   async getAllHostPayments(params?: {
     status?: 'all' | 'paid' | 'unpaid';
     search?: string;
@@ -459,21 +583,15 @@ class AdminService {
       queryParams.append('per_page', params.per_page.toString());
     }
     
-    const response = await v1Api.get(`/admin/hosts/payments?${queryParams.toString()}`);
+    const response = await this.api.get(`/admin/hosts/payments?${queryParams.toString()}`);
     return response.data;
   }
 
-  /**
-   * Récupère les informations de paiement d'un hôte spécifique
-   */
   async getHostPaymentInfo(hostId: string): Promise<{ data: HostPaymentInfo }> {
-    const response = await v1Api.get(`/admin/hosts/${hostId}/payment-info`);
+    const response = await this.api.get(`/admin/hosts/${hostId}/payment-info`);
     return response.data;
   }
 
-  /**
-   * Sauvegarde ou met à jour les informations de paiement d'un hôte
-   */
   async saveHostPaymentInfo(hostId: string, data: {
     paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
     fullName: string;
@@ -485,13 +603,10 @@ class AdminService {
     bic?: string;
     paypalEmail?: string;
   }): Promise<{ success: boolean; data: HostPaymentInfo; message: string }> {
-    const response = await v1Api.post(`/admin/hosts/${hostId}/payment-info`, data);
+    const response = await this.api.post(`/admin/hosts/${hostId}/payment-info`, data);
     return response.data;
   }
 
-  /**
-   * Met à jour tous les paiements hebdomadaires (pour tous les hôtes)
-   */
   async updateAllWeeklyPayments(): Promise<{ 
     success: boolean; 
     updated: number; 
@@ -500,91 +615,64 @@ class AdminService {
     week_start: string;
     week_end: string;
   }> {
-    const response = await v1Api.post('/admin/hosts/payments/update-weekly');
+    const response = await this.api.post('/admin/hosts/payments/update-weekly');
     return response.data;
   }
 
-  /**
-   * Met à jour les paiements hebdomadaires d'un hôte spécifique
-   */
   async updateHostWeeklyPayments(hostId: string): Promise<{ success: boolean; data: HostPaymentInfo }> {
-    const response = await v1Api.post(`/admin/hosts/${hostId}/payments/update-weekly`);
+    const response = await this.api.post(`/admin/hosts/${hostId}/payments/update-weekly`);
     return response.data;
   }
 
-  /**
-   * Marque un paiement comme payé
-   */
   async markPaymentAsPaid(historyId: string, paymentReference: string): Promise<{ 
     success: boolean; 
     data: HostPaymentHistory; 
     message: string 
   }> {
-    const response = await v1Api.put(`/admin/hosts/payments/${historyId}/mark-paid`, {
+    const response = await this.api.put(`/admin/hosts/payments/${historyId}/mark-paid`, {
       payment_reference: paymentReference
     });
     return response.data;
   }
 
-  /**
-   * Marque tous les paiements d'une semaine comme payés pour un hôte
-   */
   async markAllPaymentsAsPaid(hostId: string, weekStartDate: string, paymentReference: string): Promise<{ 
     success: boolean; 
     message: string 
   }> {
-    const response = await v1Api.put(`/admin/hosts/${hostId}/payments/mark-all-paid`, {
+    const response = await this.api.put(`/admin/hosts/${hostId}/payments/mark-all-paid`, {
       week_start_date: weekStartDate,
       payment_reference: paymentReference
     });
     return response.data;
   }
 
-  /**
-   * Annule un paiement marqué comme payé (si erreur)
-   */
   async undoHostPayment(historyId: string, reason: string): Promise<{ success: boolean; message: string }> {
-    const response = await v1Api.post(`/admin/hosts/payments/${historyId}/undo`, { reason });
+    const response = await this.api.post(`/admin/hosts/payments/${historyId}/undo`, { reason });
     return response.data;
   }
 
-  /**
-   * Récupère l'historique des paiements d'un hôte
-   */
   async getHostPaymentHistory(hostId: string, limit?: number): Promise<{ data: HostPaymentHistory[] }> {
     const params = new URLSearchParams();
     if (limit) params.append('limit', limit.toString());
-    const response = await v1Api.get(`/admin/hosts/${hostId}/payments/history?${params.toString()}`);
+    const response = await this.api.get(`/admin/hosts/${hostId}/payments/history?${params.toString()}`);
     return response.data;
   }
 
-  /**
-   * Récupère les paiements en retard (plus de 7 jours)
-   */
   async getOverduePayments(): Promise<{ data: HostPaymentInfo[] }> {
-    const response = await v1Api.get('/admin/hosts/payments/overdue');
+    const response = await this.api.get('/admin/hosts/payments/overdue');
     return response.data;
   }
 
-  /**
-   * Envoie un rappel de paiement à un hôte
-   */
   async sendPaymentReminder(hostId: string): Promise<{ success: boolean; message: string }> {
-    const response = await v1Api.post(`/admin/hosts/${hostId}/payments/reminder`);
+    const response = await this.api.post(`/admin/hosts/${hostId}/payments/reminder`);
     return response.data;
   }
 
-  /**
-   * Envoie des rappels de paiement à tous les hôtes concernés
-   */
   async sendBulkPaymentReminders(): Promise<{ success: boolean; sent: number; message: string }> {
-    const response = await v1Api.post('/admin/hosts/payments/send-reminders');
+    const response = await this.api.post('/admin/hosts/payments/send-reminders');
     return response.data;
   }
 
-  /**
-   * Exporte les paiements des hôtes en CSV
-   */
   async exportHostPayments(params?: {
     status?: 'all' | 'paid' | 'unpaid';
     start_date?: string;
@@ -601,15 +689,12 @@ class AdminService {
       queryParams.append('end_date', params.end_date);
     }
     
-    const response = await v1Api.get(`/admin/hosts/payments/export?${queryParams.toString()}`, {
+    const response = await this.api.get(`/admin/hosts/payments/export?${queryParams.toString()}`, {
       responseType: 'blob'
     });
     return response.data;
   }
 
-  /**
-   * Récupère un résumé des paiements pour un hôte spécifique
-   */
   async getHostPaymentSummary(hostId: string): Promise<{ 
     data: {
       total_all_time: number;
@@ -622,9 +707,11 @@ class AdminService {
       last_payout_date: string | null;
     }
   }> {
-    const response = await v1Api.get(`/admin/hosts/${hostId}/payments/summary`);
+    const response = await this.api.get(`/admin/hosts/${hostId}/payments/summary`);
     return response.data;
   }
 }
+
+
 
 export default new AdminService();

@@ -1,41 +1,34 @@
-// src/app/pages/FedapayPaymentPage.tsx
+// FedapayPaymentPage.tsx - Version complète corrigée
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { 
   CreditCard, Loader2, CheckCircle, XCircle, ArrowLeft,
   Shield, Lock, Banknote, Smartphone, Wallet, Home, AlertCircle,
-  Calendar
+  Calendar, User, Mail, Phone
 } from 'lucide-react';
 import { fedapayService } from '../../services/fedapay.service';
 import bookingService from '../../services/booking.service';
 import propertyService from '../../services/property.service';
 import { useAuth } from '../../contexts/AuthContext';
+import { refreshCsrfToken, getCookie, v1Api } from '../../services/api';
 
 interface FedapayPaymentPageProps {
   onNavigate?: (route: any) => void;
   bookingData?: any;
 }
 
-// ✅ Fonction de formatage du téléphone pour Fedapay - Version CORRIGÉE
+// ✅ Fonction de formatage du téléphone pour Fedapay
 const formatPhoneForFedapay = (phone: string): string => {
   if (!phone) return '+22969000000';
   
-  // Nettoyer : garder uniquement les chiffres et le +
-  let cleaned = phone.replace(/[^0-9+]/g, '');
+  // Nettoyer : garder uniquement les chiffres
+  let cleaned = phone.replace(/[^0-9]/g, '');
   
-  // Si déjà formaté avec +, retourner
-  if (cleaned.startsWith('+')) {
-    return cleaned;
-  }
-  
-  // Enlever tous les non-chiffres
-  cleaned = cleaned.replace(/[^0-9]/g, '');
-  
-  // 🔥 CAS SPÉCIAL : 0150036568 → 50036568
+  // Cas spécial: 0150036568 → 50036568
   if (cleaned.startsWith('01') && cleaned.length === 10) {
-    return '+229' + cleaned.substring(2);
+    cleaned = cleaned.substring(2);
   }
   
   // Si commence par 0, l'enlever
@@ -43,8 +36,13 @@ const formatPhoneForFedapay = (phone: string): string => {
     cleaned = cleaned.substring(1);
   }
   
-  // Si commence par 1 (après avoir enlevé 0)
+  // Si commence par 1 et a 9 chiffres
   if (cleaned.startsWith('1') && cleaned.length === 9) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  // Si commence par 1 et a 10 chiffres
+  if (cleaned.startsWith('1') && cleaned.length === 10) {
     cleaned = cleaned.substring(1);
   }
   
@@ -65,7 +63,8 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated, refreshUser, logout } = useAuth();
+  
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'pending' | 'processing' | 'success' | 'failed'>('idle');
   const [paymentMethod, setPaymentMethod] = useState<'mobile_money' | 'card'>('mobile_money');
@@ -73,12 +72,158 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
   const [localBookingData, setLocalBookingData] = useState<any>(null);
   const [error, setError] = useState('');
   const [transactionId, setTransactionId] = useState('');
-  const [redirectUrl, setRedirectUrl] = useState('');
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'idle' | 'available' | 'unavailable' | 'checking'>('idle');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [propertyPrice, setPropertyPrice] = useState<number>(0);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Charger les données de réservation
+  // ============================================
+  // ✅ FONCTION DE VÉRIFICATION D'AUTHENTIFICATION
+  // ============================================
+  const checkAuthentication = useCallback(async (): Promise<boolean> => {
+    const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
+    const storedUser = localStorage.getItem('user');
+    
+    console.log('🔍 Vérification auth:', {
+      hasSessionCookie: !!sessionCookie,
+      hasUser: !!user,
+      hasStoredUser: !!storedUser,
+      isAuthenticated,
+    });
+
+    // ✅ Si pas de cookie de session, essayer de le récupérer
+    if (!sessionCookie) {
+      console.log('🔄 Tentative de récupération de session...');
+      await refreshCsrfToken();
+      
+      // Vérifier à nouveau
+      const newSessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
+      if (!newSessionCookie) {
+        console.error('❌ Impossible de récupérer la session');
+        toast.error('❌ Veuillez vous reconnecter');
+        
+        localStorage.removeItem('user');
+        localStorage.removeItem('userType');
+        
+        await logout();
+        
+        if (onNavigate) {
+          onNavigate({ name: 'auth', search: 'redirect=payment&session_expired=true' });
+        } else {
+          window.location.href = '/auth?redirect=payment&session_expired=true';
+        }
+        return false;
+      }
+    }
+
+    // ✅ Si l'utilisateur n'est pas dans le contexte mais dans localStorage
+    if (!user && storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        await refreshUser();
+        return true;
+      } catch (e) {
+        console.error('❌ Erreur parsing user:', e);
+        return false;
+      }
+    }
+
+    // ✅ Vérifier que l'utilisateur est valide
+    if (user && user.id) {
+      return true;
+    }
+
+    return false;
+  }, [user, isAuthenticated, refreshUser, logout, onNavigate]);
+
+  // ============================================
+  // ✅ VÉRIFICATION DE L'AUTHENTIFICATION
+  // ============================================
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log('🔍 Vérification de l\'authentification pour le paiement...');
+      console.log('📊 État auth:', { isAuthenticated, user: user?.email });
+      
+      // ✅ Si pas authentifié, rediriger
+      if (!isAuthenticated || !user) {
+        console.warn('⚠️ Utilisateur non authentifié, redirection vers login');
+        
+        // Sauvegarder les données
+        const currentData = localBookingData || sessionStorage.getItem('fedapay_booking_data');
+        if (currentData) {
+          sessionStorage.setItem('fedapay_booking_data', 
+            typeof currentData === 'string' ? currentData : JSON.stringify(currentData)
+          );
+        }
+        
+        if (onNavigate) {
+          onNavigate({ name: 'auth', search: 'redirect=payment' });
+        } else {
+          navigate('/auth?redirect=payment');
+        }
+        return;
+      }
+      
+      // ✅ Vérifier le cookie de session
+      const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
+      if (!sessionCookie) {
+        console.warn('⚠️ Cookie de session manquant, tentative de récupération...');
+        await refreshCsrfToken();
+        
+        // Vérifier à nouveau
+        const newSessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
+        if (!newSessionCookie) {
+          console.error('❌ Impossible de récupérer la session');
+          if (onNavigate) {
+            onNavigate({ name: 'auth', search: 'redirect=payment&session_expired=true' });
+          } else {
+            navigate('/auth?redirect=payment&session_expired=true');
+          }
+          return;
+        }
+      }
+      
+      // ✅ Tout est bon
+      if (user && user.id) {
+        console.log('✅ Utilisateur authentifié:', user);
+        setAuthChecked(true);
+      }
+    };
+    
+    checkAuth();
+  }, [isAuthenticated, user, onNavigate, navigate, localBookingData]);
+
+  // ✅ Vérification périodique du cookie
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const interval = setInterval(() => {
+        const hasSession = getCookie('laravel_session') || getCookie('PHPSESSID');
+        if (!hasSession) {
+          console.warn('⚠️ Cookie de session perdu');
+          // Rafraîchir silencieusement
+          refreshCsrfToken().then(() => {
+            const newSession = getCookie('laravel_session') || getCookie('PHPSESSID');
+            if (!newSession) {
+              console.error('❌ Session perdue');
+              toast.error('Session expirée, veuillez vous reconnecter');
+              if (onNavigate) {
+                onNavigate({ name: 'auth', search: 'redirect=payment&session_expired=true' });
+              } else {
+                navigate('/auth?redirect=payment&session_expired=true');
+              }
+            }
+          });
+        }
+      }, 30000); // Toutes les 30 secondes
+      
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, user, onNavigate, navigate]);
+
+  // ============================================
+  // ✅ CHARGEMENT DES DONNÉES DE RÉSERVATION
+  // ============================================
   useEffect(() => {
     console.log('🔍 Chargement des données de réservation...');
     console.log('📦 bookingData prop:', bookingData);
@@ -139,18 +284,51 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
     }
 
     console.warn('⚠️ Aucune donnée de réservation trouvée');
+    setError('Aucune donnée de réservation trouvée');
   }, [bookingData, location.search]);
 
-  // Vérifier la disponibilité UNIQUEMENT quand les données sont chargées
+  // ============================================
+  // ✅ RÉCUPÉRATION DU PRIX
+  // ============================================
   useEffect(() => {
-    if (isDataLoaded && localBookingData?.property_id && localBookingData?.check_in && localBookingData?.check_out) {
-      console.log('✅ Données prêtes, vérification de la disponibilité...');
-      checkAvailability();
-    }
+    const fetchPropertyPrice = async () => {
+      if (!isDataLoaded || !localBookingData?.property_id) return;
+      
+      // Si le prix est déjà présent dans les données, l'utiliser
+      if (localBookingData.price_per_night && localBookingData.price_per_night > 0) {
+        setPropertyPrice(localBookingData.price_per_night);
+        console.log('✅ Prix récupéré depuis les données:', localBookingData.price_per_night);
+        return;
+      }
+
+      try {
+        console.log('🔍 Récupération du prix depuis l\'API pour la propriété:', localBookingData.property_id);
+        const response = await propertyService.getById(localBookingData.property_id);
+        const property = response?.data || response;
+        
+        if (property?.price_per_night) {
+          const price = Number(property.price_per_night);
+          setPropertyPrice(price);
+          setLocalBookingData((prev: any) => ({
+            ...prev,
+            price_per_night: price
+          }));
+          console.log('✅ Prix récupéré depuis l\'API:', price);
+        } else {
+          console.warn('⚠️ Aucun prix trouvé pour cette propriété');
+        }
+      } catch (error) {
+        console.error('❌ Erreur récupération du prix:', error);
+      }
+    };
+
+    fetchPropertyPrice();
   }, [isDataLoaded, localBookingData?.property_id]);
 
-  // ✅ Vérifier la disponibilité des dates
-  const checkAvailability = async () => {
+  // ============================================
+  // ✅ VÉRIFICATION DE LA DISPONIBILITÉ
+  // ============================================
+  const checkAvailability = useCallback(async () => {
     if (!localBookingData?.property_id || !localBookingData?.check_in || !localBookingData?.check_out) {
       setError('Données de réservation incomplètes');
       return false;
@@ -205,60 +383,28 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
     } finally {
       setIsCheckingAvailability(false);
     }
-  };
+  }, [localBookingData]);
 
-  // Vérifier les paramètres de retour Fedapay
+  // Déclencher la vérification automatiquement
   useEffect(() => {
-    const transId = searchParams.get('transaction_id');
-    const statusParam = searchParams.get('status');
-    const bookingIdParam = searchParams.get('booking_id');
-    
-    if (transId && statusParam) {
-      setTransactionId(transId);
-      
-      if (bookingIdParam) {
-        sessionStorage.setItem('fedapay_booking_id', bookingIdParam);
-      }
-      
-      if (statusParam === 'success') {
-        setStatus('success');
-        toast.success('✅ Paiement réussi !');
-        
-        if (bookingIdParam) {
-          fedapayService.confirmPayment(transId, bookingIdParam)
-            .then(() => {
-              console.log('✅ Paiement confirmé côté serveur');
-            })
-            .catch((err) => {
-              console.error('❌ Erreur confirmation:', err);
-            });
-        }
-        
-        setTimeout(() => {
-          if (onNavigate) {
-            onNavigate({ name: 'home' });
-          } else {
-            navigate('/');
-          }
-        }, 3000);
-      } else if (statusParam === 'cancelled') {
-        setStatus('failed');
-        setError('Paiement annulé par l\'utilisateur');
-        toast.error('❌ Paiement annulé');
-      } else {
-        setStatus('failed');
-        setError('Le paiement a échoué');
-        toast.error('❌ Paiement échoué');
-      }
+    if (isDataLoaded && localBookingData?.property_id && localBookingData?.check_in && localBookingData?.check_out) {
+      console.log('✅ Données prêtes, vérification de la disponibilité...');
+      checkAvailability();
     }
-  }, [searchParams, onNavigate]);
+  }, [isDataLoaded, localBookingData?.property_id, checkAvailability]);
 
-  // ✅ Initier le paiement - Version CORRIGÉE
+  // ============================================
+  // ✅ INITIATE PAYMENT - CORRIGÉ AVEC AXIOS
+  // ============================================
   const initiatePayment = async () => {
     if (!localBookingData) {
       toast.error('❌ Données de réservation manquantes');
       return;
     }
+
+    // ✅ Vérifier l'authentification
+    const isAuthValid = await checkAuthentication();
+    if (!isAuthValid) return;
 
     if (paymentMethod === 'mobile_money' && (!phoneNumber || phoneNumber.length < 8)) {
       setError('Veuillez entrer un numéro Mobile Money valide');
@@ -270,7 +416,19 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
     setError('');
 
     try {
-      // ✅ ÉTAPE 1 : Vérifier la disponibilité D'ABORD
+      // ✅ ÉTAPE 1 : Rafraîchir le CSRF token
+      console.log('🔄 Rafraîchissement du token CSRF...');
+      await refreshCsrfToken();
+      
+      // ✅ Vérifier que le cookie XSRF-TOKEN est présent
+      const xsrfToken = getCookie('XSRF-TOKEN');
+      if (!xsrfToken) {
+        console.warn('⚠️ XSRF-TOKEN non trouvé, tentative de récupération...');
+        await refreshCsrfToken();
+      }
+      console.log('✅ CSRF cookie prêt');
+
+      // ✅ ÉTAPE 2 : Vérifier la disponibilité
       const isAvailable = await checkAvailability();
       
       if (!isAvailable) {
@@ -280,7 +438,36 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         return;
       }
 
-      // ✅ ÉTAPE 2 : Créer la réservation UNIQUEMENT si disponible
+      // ✅ ÉTAPE 3 : Récupérer le prix
+      let pricePerNight = propertyPrice || localBookingData.price_per_night || 0;
+      
+      if (pricePerNight === 0 && localBookingData.property_id) {
+        try {
+          console.log('🔍 Récupération du prix depuis l\'API...');
+          const response = await propertyService.getById(localBookingData.property_id);
+          const property = response?.data || response;
+          if (property?.price_per_night) {
+            pricePerNight = Number(property.price_per_night);
+            setPropertyPrice(pricePerNight);
+            setLocalBookingData((prev: any) => ({
+              ...prev,
+              price_per_night: pricePerNight
+            }));
+            console.log('✅ Prix récupéré depuis l\'API:', pricePerNight);
+          }
+        } catch (error) {
+          console.error('❌ Erreur récupération prix:', error);
+        }
+      }
+
+      if (pricePerNight <= 0) {
+        toast.error('❌ Le prix de ce logement n\'est pas disponible');
+        setStatus('failed');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ ÉTAPE 4 : Calculer les montants
       const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
       const guestDetails = localBookingData?.guest_details || {
         full_name: `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim() || 'Voyageur',
@@ -289,8 +476,6 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         address: ''
       };
 
-      // ✅ Calculer les montants avec frais de service à 10%
-      const pricePerNight = localBookingData.price_per_night || 0;
       const nights = localBookingData.nights || 1;
       const subtotal = pricePerNight * nights;
       const serviceFee = Math.round(subtotal * 0.10);
@@ -304,6 +489,14 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         totalAmount
       });
 
+      if (totalAmount <= 0) {
+        toast.error('❌ Le montant total est invalide');
+        setStatus('failed');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ ÉTAPE 5 : Créer la réservation avec AXIOS
       const bookingPayload = {
         property_id: localBookingData.property_id,
         check_in: localBookingData.check_in,
@@ -318,28 +511,6 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         special_requests: localBookingData.special_requests || undefined
       };
 
-      console.log('📤 Création de la réservation:', bookingPayload);
-
-      const bookingResponse = await bookingService.create(bookingPayload);
-      console.log('📥 Réponse création réservation:', bookingResponse);
-
-      // ✅ Récupérer l'ID depuis la réponse
-      const bookingDataFromResponse = bookingResponse?.data?.booking || bookingResponse?.booking || bookingResponse?.data;
-      const bookingId = bookingDataFromResponse?.id || bookingResponse?.data?.id || bookingResponse?.id;
-      const finalTotalAmount = totalAmount;
-
-      if (!bookingId) {
-        throw new Error('Impossible de récupérer l\'ID de la réservation');
-      }
-
-      console.log('✅ Réservation créée avec ID:', bookingId);
-      console.log('💰 Montant total à payer (avec 10% de frais):', finalTotalAmount);
-
-      // Mettre à jour les données locales
-      setLocalBookingData({ ...localBookingData, id: bookingId, totalAmount: finalTotalAmount });
-      sessionStorage.setItem('fedapay_booking_data', JSON.stringify({ ...localBookingData, id: bookingId, totalAmount: finalTotalAmount }));
-
-      // ✅ ÉTAPE 3 : Formater le numéro de téléphone pour Fedapay (CORRIGÉ)
       const rawPhone = phoneNumber || guestDetails.phone || '69000000';
       const formattedPhone = formatPhoneForFedapay(rawPhone);
       
@@ -349,7 +520,6 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         isValid: /^\+229[0-9]{8}$/.test(formattedPhone)
       });
 
-      // ✅ Vérifier que le format est valide
       if (!/^\+229[0-9]{8}$/.test(formattedPhone)) {
         setError(`Format de téléphone invalide: ${formattedPhone}`);
         toast.error('❌ Numéro de téléphone invalide');
@@ -357,50 +527,105 @@ export function FedapayPaymentPage({ onNavigate, bookingData }: FedapayPaymentPa
         return;
       }
 
-      // ✅ ÉTAPE 4 : Initier le paiement Fedapay avec le montant total
-   
+      const bookingDataPayload = {
+        property_id: localBookingData.property_id,
+        check_in: localBookingData.check_in,
+        check_out: localBookingData.check_out,
+        guests_count: localBookingData.guests || 1,
+        adults: localBookingData.adults || localBookingData.guests || 1,
+        children: localBookingData.children || 0,
+        babies: localBookingData.babies || 0,
+        pets: localBookingData.pets || 0,
+        payment_method: 'fedapay' as const,
+        guest_details: guestDetails,
+        payment_option: '100' as const,
+        total_amount: totalAmount,
+        payment_amount: totalAmount,
+        nights: localBookingData.nights || 1,
+        special_requests: localBookingData.special_requests || undefined,
+        property_title: localBookingData.property_title || undefined,
+      };
 
-const paymentData = {
-  amount: Math.round(finalTotalAmount),
-  currency: 'XAF' as const,
-  customer: {
-    firstname: guestDetails.full_name.split(' ')[0] || 'Client',
-    lastname: guestDetails.full_name.split(' ').slice(1).join(' ') || 'Client',
-    email: guestDetails.email || 'client@email.com',
-    phone: formattedPhone,
-  },
-  description: `Réservation - ${localBookingData?.property_title || 'Logement'}`,
-  reference: `BOOK-${Date.now()}`,
-  booking_id: bookingId,
-  // ✅ URL CORRECTE pour le callback
-  callback_url: `https://api.bluefin-immo.com/payment/fedapay/callback`,
-  cancel_url: `https://api.bluefin-immo.com/payment/fedapay/cancel`
-};
+      const paymentData = {
+        amount: Math.round(totalAmount),
+        currency: 'XAF' as const,
+        customer: {
+          firstname: guestDetails.full_name.split(' ')[0] || 'Client',
+          lastname: guestDetails.full_name.split(' ').slice(1).join(' ') || 'Client',
+          email: guestDetails.email || 'client@email.com',
+          phone: formattedPhone,
+        },
+        description: `Réservation - ${localBookingData?.property_title || 'Logement'}`,
+        reference: `BOOK-${Date.now()}`,
+        booking_data: bookingDataPayload,
+        callback_url: `${window.location.origin}/fedapay-callback`,
+        cancel_url: `${window.location.origin}/fedapay-cancel`
+      };
 
       console.log('📤 Données Fedapay:', paymentData);
 
-      const response = await fedapayService.initiatePayment(paymentData);
-      
-      if (response.success && response.data?.payment_url) {
-        setTransactionId(response.data.id);
+      const paymentResponse = await v1Api.post('/payments/fedapay/initiate', paymentData);
+      console.log('📥 Réponse paiement:', paymentResponse.data);
+
+      const paymentResult = paymentResponse.data;
+
+      if (paymentResult.success && paymentResult.data?.payment_url) {
+        setTransactionId(paymentResult.data.id);
         setStatus('pending');
         toast.success('✅ Redirection vers Fedapay...');
         
-        sessionStorage.setItem('fedapay_transaction_id', response.data.id);
-        sessionStorage.setItem('fedapay_booking_id', bookingId.toString());
-        sessionStorage.setItem('fedapay_booking_data', JSON.stringify({ ...localBookingData, id: bookingId, totalAmount: finalTotalAmount }));
+        sessionStorage.setItem('fedapay_transaction_id', paymentResult.data.id);
+        sessionStorage.setItem('fedapay_booking_data', JSON.stringify(bookingDataPayload));
+        
+        const redirectUrl = paymentResult.data.payment_url;
+        console.log('🔗 URL de redirection:', redirectUrl);
         
         setTimeout(() => {
-          window.location.href = response.data.payment_url;
+          window.location.href = redirectUrl;
         }, 1500);
       } else {
-        throw new Error(response.message || 'URL de paiement non reçue');
+        throw new Error(paymentResult.data?.message || 'URL de paiement non reçue');
       }
+
     } catch (error: any) {
       console.error('❌ Erreur paiement:', error);
       
-      // ✅ Afficher les erreurs de validation détaillées
       let errorMessage = 'Erreur lors du paiement';
+      
+      // ✅ Gestion des erreurs 401 (Unauthorized)
+      if (error.response?.status === 401) {
+        errorMessage = 'Session expirée. Veuillez vous reconnecter.';
+        toast.error('❌ Session expirée');
+        
+        localStorage.removeItem('user');
+        localStorage.removeItem('userType');
+        
+        setTimeout(() => {
+          if (onNavigate) {
+            onNavigate({ name: 'auth', search: 'redirect=payment&session_expired=true' });
+          } else {
+            window.location.href = '/auth?redirect=payment&session_expired=true';
+          }
+        }, 1000);
+        return;
+      }
+      
+      // ✅ Gestion des erreurs 419 (CSRF)
+      if (error.response?.status === 419 || error.message?.includes('419') || error.message?.includes('CSRF')) {
+        errorMessage = 'Erreur de sécurité (CSRF). Veuillez rafraîchir la page et réessayer.';
+        toast.error('🔄 Erreur CSRF, tentative de récupération...');
+        
+        await refreshCsrfToken();
+        
+        setTimeout(() => {
+          setLoading(false);
+          setStatus('idle');
+          initiatePayment();
+        }, 2000);
+        return;
+      }
+      
+      // ✅ Gestion des erreurs de validation
       if (error.response?.data?.errors) {
         const errors = error.response.data.errors;
         if (typeof errors === 'object') {
@@ -423,7 +648,9 @@ const paymentData = {
     }
   };
 
-  // Rendu du statut de paiement
+  // ============================================
+  // ✅ RENDU DES STATUTS
+  // ============================================
   const renderStatus = () => {
     if (status === 'processing') {
       return (
@@ -495,11 +722,13 @@ const paymentData = {
     return null;
   };
 
-  // Rendu du formulaire de paiement
+  // ============================================
+  // ✅ RENDU DU FORMULAIRE DE PAIEMENT
+  // ============================================
   const renderPaymentForm = () => {
     if (status !== 'idle') return null;
 
-    const pricePerNight = localBookingData?.price_per_night || 0;
+    const pricePerNight = propertyPrice || localBookingData?.price_per_night || 0;
     const nights = localBookingData?.nights || 1;
     const subtotal = pricePerNight * nights;
     const serviceFee = Math.round(subtotal * 0.10);
@@ -550,6 +779,15 @@ const paymentData = {
             <span className="text-red-600 text-xs bg-red-50 px-2 py-0.5 rounded-full">✗ Non disponible</span>
           )}
         </div>
+
+        {/* Informations utilisateur */}
+        {user && (
+          <div className="bg-blue-50 rounded-xl p-3 text-sm">
+            <p className="font-medium text-[#0F2940] mb-1">👤 Vous payez en tant que :</p>
+            <p className="text-gray-600">{user.first_name} {user.last_name}</p>
+            <p className="text-gray-500 text-xs">{user.email}</p>
+          </div>
+        )}
 
         {/* Méthode de paiement */}
         <div>
@@ -628,9 +866,9 @@ const paymentData = {
         {/* Bouton de paiement */}
         <button
           onClick={initiatePayment}
-          disabled={loading || availabilityStatus === 'unavailable'}
+          disabled={loading || availabilityStatus === 'unavailable' || propertyPrice <= 0 || !isAuthenticated}
           className={`w-full py-3 rounded-xl font-semibold transition transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-            availabilityStatus === 'unavailable' 
+            availabilityStatus === 'unavailable' || propertyPrice <= 0 || !isAuthenticated
               ? 'bg-gray-300 text-gray-500' 
               : 'bg-gradient-to-r from-[#00c9a7] to-[#00a887] text-white hover:shadow-lg'
           }`}
@@ -640,8 +878,12 @@ const paymentData = {
               <Loader2 className="w-5 h-5 animate-spin" />
               Chargement...
             </>
+          ) : !isAuthenticated ? (
+            'Veuillez vous connecter'
           ) : availabilityStatus === 'unavailable' ? (
             'Dates non disponibles'
+          ) : propertyPrice <= 0 ? (
+            'Prix non disponible'
           ) : (
             <>
               <Banknote className="w-5 h-5" />
@@ -657,6 +899,9 @@ const paymentData = {
     );
   };
 
+  // ============================================
+  // ✅ RENDU PRINCIPAL
+  // ============================================
   return (
     <div className="min-h-screen bg-[#f4fffe] py-10">
       <div className="max-w-lg mx-auto px-4">
