@@ -470,11 +470,11 @@ const login = async (email: string, password: string, userType: string = 'travel
         await refreshCsrfToken();
         
         const base = publicApi.defaults.baseURL || '';
-        const hasApiInBase = base.includes('/api');
+        const hasApiInBase = (() => { try { return new URL(base, window.location.origin).pathname.includes('/api'); } catch (e) { return false; } })();
 
         const candidatePaths = hasApiInBase
-            ? ['/v1/auth/login', '/traveler/login', '/traveler/login', '/login', '/v1/traveler/login']
-            : ['/api/v1/auth/login', '/api/traveler/login', '/api/traveler/login', '/api/login', '/api/v1/traveler/login'];
+            ? ['/traveler/login', '/v1/auth/login', '/login', '/v1/traveler/login']
+            : ['/api/traveler/login', '/api/v1/auth/login', '/api/login', '/api/v1/traveler/login'];
 
         let response: any = null;
         let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
@@ -614,11 +614,11 @@ const login = async (email: string, password: string, userType: string = 'travel
 
             // ✅ Construire dynamiquement la liste d'endpoints selon la baseURL pour éviter /api/api
             const base = publicApi.defaults.baseURL || '';
-            const hasApiInBase = base.includes('/api');
+            const hasApiInBase = (() => { try { return new URL(base, window.location.origin).pathname.includes('/api'); } catch (e) { return false; } })();
 
             const candidatePaths = hasApiInBase
-                ? ['/v1/auth/register', '/v1/traveler/register', '/traveler/register', '/register', '/auth/register']
-                : ['/api/v1/auth/register', '/api/v1/traveler/register', '/api/traveler/register', '/api/register', '/api/auth/register'];
+                ? ['/traveler/register', '/v1/auth/register', '/register', '/v1/traveler/register']
+                : ['/api/traveler/register', '/api/v1/auth/register', '/api/register', '/api/auth/register'];
 
             let response: any = null;
             let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
