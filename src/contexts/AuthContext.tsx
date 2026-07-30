@@ -211,20 +211,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         checkSession();
 
-        // ✅ Vérification périodique
-        const intervalTime = import.meta.env.DEV ? 60000 : 30000;
-        const interval = setInterval(() => {
-            const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
-            if (!sessionCookie && isAuthenticated && !import.meta.env.DEV) {
-                console.warn('⚠️ Session cookie perdu, déconnexion...');
-                localStorage.removeItem('user');
-                localStorage.removeItem('userType');
-                setUser(null);
-                setIsAuthenticated(false);
-            }
-        }, intervalTime);
-
-        return () => clearInterval(interval);
+        // Vérification périodique désactivée : le cookie de session Sanctum est httpOnly
+                // et invisible en JS (document.cookie), donc cette vérification produisait des
+                // faux positifs qui déconnectaient l'utilisateur à tort quelques secondes après
+                // la connexion. La vraie invalidation de session est gérée par checkSession()
+                // ci-dessus (appel réel à /api/user) et par les réponses 401 des appels API.
     }, []);
 
    // contexts/AuthContext.tsx - Ajoutez cette fonction et modifiez login
