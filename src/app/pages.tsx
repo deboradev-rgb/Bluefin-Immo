@@ -19914,7 +19914,7 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       
       console.log('📥 Chargement des expériences...');
       
-      const response = await fetch('/api/v1/experiences', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/experiences`, {
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache',
@@ -22715,7 +22715,7 @@ export function ServicesPage({ onNavigate }: PageProps) {
       
       console.log('📥 Chargement des services...');
       
-      const response = await fetch('/api/v1/services', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/services`, {
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache',
