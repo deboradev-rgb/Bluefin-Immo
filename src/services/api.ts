@@ -2,14 +2,19 @@
 
 import axios from 'axios';
 
-// ✅ Prioriser la variable d'environnement VITE_API_URL si fournie
-const ENV_API_URL = import.meta.env.VITE_API_URL as string | undefined;
-const BASE_URL = ENV_API_URL ? ENV_API_URL : (import.meta.env.DEV ? '' : 'https://api.bluefin-immo.com');
-const PUBLIC_API_URL = BASE_URL ? BASE_URL : '';
-const V1_API_URL = BASE_URL ? `${BASE_URL}/api/v1` : '/api/v1';
-const CSRF_URL = BASE_URL ? `${BASE_URL}/sanctum/csrf-cookie` : '/sanctum/csrf-cookie';
+axios.defaults.withCredentials = true;
 
-console.log('🌐 Mode:', import.meta.env.DEV ? 'DÉVELOPPEMENT (proxy)' : 'PRODUCTION');
+const isDev = import.meta.env.DEV;
+const API_DOMAIN = (import.meta.env.VITE_API_URL || 'https://api.bluefin-immo.com').replace(/\/$/, '');
+
+// ✅ En développement on garde le proxy Vite pour Sanctum et le backend.
+// En production, on pointe explicitement vers le domaine API Laravel pour éviter les rewrites du front.
+const BASE_URL = isDev ? '' : API_DOMAIN;
+const PUBLIC_API_URL = isDev ? '' : API_DOMAIN;
+const V1_API_URL = isDev ? '/api/v1' : `${API_DOMAIN}/api/v1`;
+const CSRF_URL = isDev ? '/sanctum/csrf-cookie' : `${API_DOMAIN}/sanctum/csrf-cookie`;
+
+console.log('🌐 Mode:', isDev ? 'DÉVELOPPEMENT (proxy)' : 'PRODUCTION');
 console.log('🌐 API BASE URL:', BASE_URL || 'Proxy Vite');
 console.log('🌐 CSRF URL:', CSRF_URL);
 
@@ -21,8 +26,14 @@ export function getCookie(name: string): string | null {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) {
-        const cookie = parts.pop()?.split(';').shift();
-        return cookie || null;
+        const rawCookie = parts.pop()?.split(';').shift();
+        if (!rawCookie) return null;
+
+        try {
+            return decodeURIComponent(rawCookie);
+        } catch {
+            return rawCookie;
+        }
     }
     return null;
 }
@@ -52,6 +63,8 @@ const baseConfig = {
         'X-Requested-With': 'XMLHttpRequest',
     },
     withCredentials: true,
+    xsrfCookieName: 'XSRF-TOKEN',
+    xsrfHeaderName: 'X-XSRF-TOKEN',
     timeout: 30000,
 };
 
@@ -65,21 +78,30 @@ export const v1Api = axios.create({
     ...baseConfig,
 });
 
+let csrfRefreshPromise: Promise<boolean> | null = null;
+
+const isAuthBypassEndpoint = (_url?: string): boolean => {
+    return false;
+};
+
 // ============================================
 // ✅ INTERCEPTEURS
 // ============================================
 
 const addCsrfToken = async (config: any) => {
-    // For FormData, let browser set multipart boundary automatically.
-    if (typeof FormData !== 'undefined' && config?.data instanceof FormData && config?.headers) {
-        delete config.headers['Content-Type'];
-        delete config.headers['content-type'];
+    const skipCsrf = Boolean(config?.skipCsrf) || isAuthBypassEndpoint(config?.url);
+    if (skipCsrf) {
+        return config;
     }
 
-    const xsrfToken = getCookie('XSRF-TOKEN');
-    if (xsrfToken) {
-        config.headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
+    const cookieToken = getCookie('XSRF-TOKEN');
+    if (cookieToken) {
+        return config;
     }
+
+    const refreshed = await refreshCsrfToken();
+    if (refreshed) return config;
+
     return config;
 };
 
@@ -97,10 +119,40 @@ v1Api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// services/api.ts
+const attachCsrfRetryInterceptor = (api: typeof publicApi) => {
+    api.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            const originalRequest = error?.config;
+            const skipCsrf = Boolean(originalRequest?.skipCsrf) || isAuthBypassEndpoint(originalRequest?.url);
+            if (skipCsrf) {
+                return Promise.reject(error);
+            }
+
+            if (error?.response?.status === 419 && originalRequest && !originalRequest._retry) {
+                originalRequest._retry = true;
+                const refreshed = await refreshCsrfToken();
+                if (!refreshed) {
+                    return Promise.reject(error);
+                }
+
+                const token = getCookie('XSRF-TOKEN');
+                if (!token) {
+                    return Promise.reject(error);
+                }
+
+                return api.request(originalRequest);
+            }
+
+            return Promise.reject(error);
+        }
+    );
+};
+
+attachCsrfRetryInterceptor(publicApi);
+attachCsrfRetryInterceptor(v1Api);
 
 export function getCsrfToken(): string {
-    // ✅ Récupérer depuis le meta tag
     const meta = document.querySelector('meta[name="csrf-token"]');
     if (meta) {
         return meta.getAttribute('content') || '';
@@ -112,12 +164,11 @@ export function getCsrfToken(): string {
 // ✅ CSRF TOKEN
 // ============================================
 
-
 export async function refreshCsrfToken(): Promise<boolean> {
+    console.log('🔄 [CSRF] Début refresh avec fetch...');
+
     try {
-        console.log('🔄 Rafraîchissement du token CSRF...');
-        
-        const response = await fetch('/sanctum/csrf-cookie', {
+        const response = await fetch(CSRF_URL, {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -125,18 +176,20 @@ export async function refreshCsrfToken(): Promise<boolean> {
                 'X-Requested-With': 'XMLHttpRequest',
             },
         });
-        
+
+        console.log('✅ [CSRF] Status reçu:', response.status);
+        console.log('📋 Headers:', Object.fromEntries(response.headers));
+
         if (!response.ok) {
-            console.warn('⚠️ Réponse CSRF non OK:', response.status);
-            return false;
+            console.warn('⚠️ Réponse non OK');
         }
-        
-        // ✅ Le cookie est défini par le serveur, pas besoin de le lire en JS
-        console.log('✅ CSRF cookie reçu');
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erreur CSRF:', error);
+
+        const token = getCookie('XSRF-TOKEN');
+        console.log('🔑 Token après fetch:', token ? 'OUI' : 'NON');
+
+        return response.ok;
+    } catch (error: any) {
+        console.error('❌ [CSRF] Erreur fetch:', error.message || error);
         return false;
     }
 }

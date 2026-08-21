@@ -30,16 +30,15 @@ export interface AmenitiesData {
     has_breakfast?: boolean;
 }
 
-// services/host.service.ts
 export interface HostExperienceFormData {
     name: string;
     description: string;
     location: string;
     price: number;
     total_places: number;
-    images: File[]; // ✅ Changé en File[]
+    images: File[];
     steps: string[];
-    step_images: File[]; // ✅ Changé en File[]
+    step_images: File[];
     availability?: any[];
     status?: 'draft' | 'pending' | 'active' | 'inactive' | 'rejected' | 'suspended';
 }
@@ -180,31 +179,23 @@ class HostService {
 
     // ==================== DASHBOARD ====================
     async getDashboard() {
-        // ✅ CORRECTION: Utiliser v1Api
         const response = await v1Api.get('/host/dashboard');
         return response.data;
     }
 
-
-    // services/host.service.ts
-
-
-    // ✅ Récupérer tous les services de l'hôte
-  
-
-async getServices() {
-    try {
-        console.log('📤 Appel API: /host/services');
-        const response = await v1Api.get('/host/services');
-        console.log('📥 Réponse services:', response.data);
-        return response.data; // Retourne { success: true, data: { data: [...] } }
-    } catch (error: any) {
-        console.error('❌ Erreur getServices:', error);
-        throw error;
+    // ==================== SERVICES ====================
+    async getServices() {
+        try {
+            console.log('📤 Appel API: /host/services');
+            const response = await v1Api.get('/host/services');
+            console.log('📥 Réponse services:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Erreur getServices:', error);
+            throw error;
+        }
     }
-}
 
-    // ✅ Créer un service
     async createService(payload: any) {
         try {
             console.log('📤 Création service - payload:', payload);
@@ -244,7 +235,6 @@ async getServices() {
         }
     }
 
-    // ✅ Mettre à jour un service
     async updateService(id: number, payload: any) {
         try {
             const formData = new FormData();
@@ -282,7 +272,6 @@ async getServices() {
         }
     }
 
-    // ✅ Supprimer un service
     async deleteService(id: number) {
         try {
             const response = await v1Api.delete(`/host/services/${id}`);
@@ -293,7 +282,6 @@ async getServices() {
         }
     }
 
-    // ✅ Récupérer le dashboard des services
     async getServiceDashboard() {
         try {
             console.log('📤 Appel API: /host/services/dashboard');
@@ -302,51 +290,26 @@ async getServices() {
             return response.data;
         } catch (error: any) {
             console.error('❌ Erreur getServiceDashboard:', error);
-            
-            // ✅ Fallback: utiliser getServices pour construire le dashboard
-            try {
-                const servicesResponse = await hostService.getServices();
-                const services = servicesResponse.data || [];
-                return {
-                    success: true,
-                    data: services,
-                    stats: {
-                        total: services.length,
-                        active: services.filter((s: any) => s.status === 'active').length,
-                        pending: services.filter((s: any) => s.status === 'pending').length,
-                        completed: services.filter((s: any) => s.status === 'completed').length,
-                        cancelled: services.filter((s: any) => s.status === 'cancelled').length,
-                        total_revenue: services.reduce((sum: number, s: any) => sum + (s.price || 0), 0),
-                        monthly_revenue: services.reduce((sum: number, s: any) => sum + (s.price || 0) * 5, 0),
-                        total_bookings: services.reduce((sum: number, s: any) => sum + (s.stats?.bookings_count || 0), 0),
-                        average_rating: 0,
-                        total_reviews: 0
-                    }
-                };
-            } catch (fallbackError) {
-                console.error('❌ Fallback échoué:', fallbackError);
-                return {
-                    success: true,
-                    data: [],
-                    stats: {
-                        total: 0,
-                        active: 0,
-                        pending: 0,
-                        completed: 0,
-                        cancelled: 0,
-                        total_revenue: 0,
-                        monthly_revenue: 0,
-                        total_bookings: 0,
-                        average_rating: 0,
-                        total_reviews: 0
-                    },
-                    isMock: true
-                };
-            }
+            return {
+                success: true,
+                data: [],
+                stats: {
+                    total: 0,
+                    active: 0,
+                    pending: 0,
+                    completed: 0,
+                    cancelled: 0,
+                    total_revenue: 0,
+                    monthly_revenue: 0,
+                    total_bookings: 0,
+                    average_rating: 0,
+                    total_reviews: 0
+                }
+            };
         }
     }
 
-
+    // ==================== EXPÉRIENCES ====================
     async getExperiences() {
         const response = await v1Api.get('/host/experiences');
         const payload = response.data;
@@ -370,235 +333,183 @@ async getServices() {
         return payload;
     }
 
+    async createExperience(data: any) {
+        console.log('📥 createExperience reçu:', {
+            hasImages: !!data.images,
+            imagesCount: data.images?.length,
+            hasStepImages: !!data.step_images,
+            stepImagesCount: data.step_images?.length
+        });
 
-// Ajoutez une méthode pour uploader les images
-// services/host.service.ts
+        const formData = new FormData();
+        
+        // Champs texte
+        formData.append('name', data.name);
+        formData.append('description', data.description);
+        formData.append('location', data.location);
+        formData.append('price', String(data.price));
+        formData.append('total_places', String(data.total_places));
+        if (data.status) formData.append('status', data.status);
+        
+        // Images de l'expérience
+        if (data.images && Array.isArray(data.images) && data.images.length > 0) {
+            console.log('📤 Ajout des images de l\'expérience:', data.images.length);
+            data.images.forEach((image: File, index: number) => {
+                if (image instanceof File) {
+                    formData.append('images[]', image);
+                    console.log(`  ✅ Image ${index}: ${image.name}`);
+                }
+            });
+        }
+        
+        // Étapes
+        if (data.steps && Array.isArray(data.steps) && data.steps.length > 0) {
+            data.steps.forEach((step: string, index: number) => {
+                formData.append(`steps[${index}]`, step);
+            });
+        }
+        
+        // Images des étapes
+        if (data.step_images && Array.isArray(data.step_images) && data.step_images.length > 0) {
+            console.log('📤 Ajout des images d\'étapes:', data.step_images.length);
+            data.step_images.forEach((image: File, index: number) => {
+                if (image instanceof File) {
+                    formData.append('step_images[]', image);
+                    console.log(`  ✅ Step image ${index}: ${image.name}`);
+                }
+            });
+        }
+        
+        // Disponibilité
+        if (Array.isArray(data.availability) && data.availability.length > 0) {
+            data.availability.forEach((item: any, index: number) => {
+                formData.append(`availability[${index}]`, JSON.stringify(item));
+            });
+        }
+        
+        console.log('📦 FormData final:');
+        for (let pair of formData.entries()) {
+            if (pair[1] instanceof File) {
+                console.log(`  ${pair[0]}: File(${pair[1].name}, ${pair[1].size} bytes)`);
+            } else {
+                console.log(`  ${pair[0]}: ${pair[1]}`);
+            }
+        }
+        
+        const response = await v1Api.post('/host/experiences', formData);
+        return response.data;
+    }
 
-// 1. Uploader les images d'abord
-async uploadImages(files: File[], type: 'experience' | 'step'): Promise<string[]> {
-    const formData = new FormData();
-    files.forEach((file, index) => {
-        formData.append(`images[${index}]`, file);
-    });
-    formData.append('type', type);
-    
-    const response = await v1Api.post('/host/upload-images', formData);
-    
-    return response.data.urls;
-}
-
-
-// Modifiez createExperience pour gérer les images en deux étapes
-// services/host.service.ts
-
-async createExperience(data: any) {
-    console.log('📥 createExperience reçu:', {
-        hasImages: !!data.images,
-        imagesCount: data.images?.length,
-        hasStepImages: !!data.step_images,
-        stepImagesCount: data.step_images?.length
-    });
-
-    const formData = new FormData();
-    
-    // 🎯 Champs texte - SANS CROCHETS
-    formData.append('name', data.name);
-    formData.append('description', data.description);
-    formData.append('location', data.location);
-    formData.append('price', String(data.price));
-    formData.append('total_places', String(data.total_places));
-    if (data.status) formData.append('status', data.status);
-    
-    // 🎯 Laravel attend un tableau de fichiers: images[]
-    if (data.images && Array.isArray(data.images) && data.images.length > 0) {
-        console.log('📤 Ajout des images de l\'expérience:', data.images.length);
-        data.images.forEach((image: File, index: number) => {
-            if (image instanceof File) {
-                formData.append('images[]', image);
-                console.log(`  ✅ Image ${index}: ${image.name}`);
+    async updateExperience(id: number, payload: any): Promise<any> {
+        const formData = new FormData();
+        
+        const textFields = ['name', 'description', 'location', 'price', 'total_places', 'status'];
+        textFields.forEach(field => {
+            if (payload[field] !== undefined && payload[field] !== null && payload[field] !== '') {
+                formData.append(field, String(payload[field]));
             }
         });
-    } else {
-        console.warn('⚠️ Aucune image d\'expérience à envoyer');
-    }
-    
-    // 🎯 Ajouter les étapes - AVEC CROCHETS (car c'est un tableau de strings)
-    if (data.steps && Array.isArray(data.steps) && data.steps.length > 0) {
-        data.steps.forEach((step: string, index: number) => {
-            formData.append(`steps[${index}]`, step);
-        });
-    }
-    
-    // 🎯 Laravel attend un tableau de fichiers: step_images[]
-    if (data.step_images && Array.isArray(data.step_images) && data.step_images.length > 0) {
-        console.log('📤 Ajout des images d\'étapes:', data.step_images.length);
-        data.step_images.forEach((image: File, index: number) => {
-            if (image instanceof File) {
-                formData.append('step_images[]', image);
-                console.log(`  ✅ Step image ${index}: ${image.name}`);
+
+        if (payload.images && Array.isArray(payload.images) && payload.images.length > 0) {
+            payload.images.forEach((file: File) => {
+                if (file instanceof File) {
+                    formData.append('images[]', file);
+                }
+            });
+        }
+
+        if (payload.steps && Array.isArray(payload.steps) && payload.steps.length > 0) {
+            payload.steps.forEach((step: string) => {
+                formData.append('steps[]', step);
+            });
+        }
+
+        if (payload.step_images && Array.isArray(payload.step_images) && payload.step_images.length > 0) {
+            payload.step_images.forEach((file: File) => {
+                if (file instanceof File) {
+                    formData.append('step_images[]', file);
+                }
+            });
+        }
+
+        if (payload.availability !== undefined && payload.availability !== null) {
+            let availabilityData = payload.availability;
+            
+            if (Array.isArray(availabilityData)) {
+                const cleanAvailability = availabilityData
+                    .map(item => {
+                        if (typeof item === 'string') {
+                            try {
+                                return JSON.parse(item);
+                            } catch {
+                                return null;
+                            }
+                        }
+                        return item;
+                    })
+                    .filter(item => item !== null);
+                
+                cleanAvailability.forEach((item, index) => {
+                    if (typeof item === 'object') {
+                        formData.append(`availability[${index}]`, JSON.stringify(item));
+                    } else {
+                        formData.append(`availability[${index}]`, String(item));
+                    }
+                });
+            } else if (typeof availabilityData === 'object') {
+                formData.append('availability', JSON.stringify(availabilityData));
+            } else {
+                formData.append('availability', String(availabilityData));
             }
-        });
-    } else {
-        console.warn('⚠️ Aucune image d\'étape à envoyer');
-    }
-    
-    // 🎯 Disponibilité
-    if (Array.isArray(data.availability) && data.availability.length > 0) {
-        data.availability.forEach((item: any, index: number) => {
-            formData.append(`availability[${index}]`, JSON.stringify(item));
-        });
-    }
-    
-    // 📦 LOG COMPLET
-    console.log('📦 FormData final:');
-    for (let pair of formData.entries()) {
-        if (pair[1] instanceof File) {
-            console.log(`  ${pair[0]}: File(${pair[1].name}, ${pair[1].size} bytes)`);
-        } else {
-            console.log(`  ${pair[0]}: ${pair[1]}`);
+        }
+
+        formData.append('_method', 'PUT');
+
+        console.log('📦 FormData envoyé:');
+        for (let [key, value] of formData.entries()) {
+            if (value instanceof File) {
+                console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`);
+            } else {
+                console.log(`  ${key}: ${String(value).substring(0, 100)}...`);
+            }
+        }
+
+        try {
+            const response = await v1Api.post(`/host/experiences/${id}`, formData);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Erreur updateExperience:', error.response?.data || error.message);
+            throw error;
         }
     }
-    
-    const response = await v1Api.post('/host/experiences', formData);
-    return response.data;
-}
-    async  downloadImage(url: string): Promise<File> {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const filename = url.split('/').pop() || 'image.jpg';
-    return new File([blob], filename, { type: blob.type });
-}
-    
-  
-// host.service.ts - updateExperience
-
-async updateExperience(id: number, payload: any): Promise<any> {
-  const formData = new FormData();
-  
-  // ✅ Champs textuels
-  const textFields = ['name', 'description', 'location', 'price', 'total_places', 'status'];
-  textFields.forEach(field => {
-    if (payload[field] !== undefined && payload[field] !== null && payload[field] !== '') {
-      formData.append(field, String(payload[field]));
-    }
-  });
-
-  // ✅ Images de l'expérience - IMPORTANT: utiliser 'images[]' 
-  if (payload.images && Array.isArray(payload.images) && payload.images.length > 0) {
-    payload.images.forEach((file: File) => {
-      if (file instanceof File) {
-        formData.append('images[]', file);
-      }
-    });
-  }
-
-  // ✅ Étapes
-  if (payload.steps && Array.isArray(payload.steps) && payload.steps.length > 0) {
-    payload.steps.forEach((step: string) => {
-      formData.append('steps[]', step);
-    });
-  }
-
-  // ✅ Images des étapes - IMPORTANT: utiliser 'step_images[]'
-  if (payload.step_images && Array.isArray(payload.step_images) && payload.step_images.length > 0) {
-    payload.step_images.forEach((file: File) => {
-      if (file instanceof File) {
-        formData.append('step_images[]', file);
-      }
-    });
-  }
-
-  // ✅ Disponibilités
-  if (payload.availability !== undefined && payload.availability !== null) {
-    let availabilityData = payload.availability;
-    
-    if (Array.isArray(availabilityData)) {
-      const cleanAvailability = availabilityData
-        .map(item => {
-          if (typeof item === 'string') {
-            try {
-              return JSON.parse(item);
-            } catch {
-              return null;
-            }
-          }
-          return item;
-        })
-        .filter(item => item !== null);
-      
-      cleanAvailability.forEach((item, index) => {
-        if (typeof item === 'object') {
-          formData.append(`availability[${index}]`, JSON.stringify(item));
-        } else {
-          formData.append(`availability[${index}]`, String(item));
-        }
-      });
-    } else if (typeof availabilityData === 'object') {
-      formData.append('availability', JSON.stringify(availabilityData));
-    } else {
-      formData.append('availability', String(availabilityData));
-    }
-  }
-
-  formData.append('_method', 'PUT');
-
-  console.log('📦 FormData envoyé:');
-  for (let [key, value] of formData.entries()) {
-    if (value instanceof File) {
-      console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`);
-    } else {
-      console.log(`  ${key}: ${String(value).substring(0, 100)}...`);
-    }
-  }
-
-  try {
-    const response = await v1Api.post(`/host/experiences/${id}`, formData);
-    return response.data;
-  } catch (error: any) {
-    console.error('❌ Erreur updateExperience:', error.response?.data || error.message);
-    throw error;
-  }
-}
-
-
-
-/**
- * Récupérer les disponibilités d'une expérience
- */
-async getExperienceAvailability(experienceId: number) {
-    const response = await v1Api.get(`/host/experiences/${experienceId}/availability`);
-    return response.data;
-}
-
 
     async deleteExperience(id: number) {
         const response = await v1Api.delete(`/host/experiences/${id}`);
         return response.data;
     }
 
-  /**
- * Mettre à jour les disponibilités d'une expérience
- */
-async setExperienceAvailability(experienceId: number, availability: Array<{ date: string; slots: string[] }>) {
-    const response = await v1Api.put(`/host/experiences/${experienceId}/availability`, { availability });
-    return response.data;
-}
-
-   // services/host.service.ts
-
-// ✅ Utiliser l'URL complète avec v1Api
-async getExperienceConversations() {
-    try {
-        console.log('📥 Récupération des conversations expériences...');
-        // v1Api a déjà /api/v1 comme base
-        const response = await v1Api.get('/host/experiences/messages');
-        console.log('✅ Conversations récupérées:', response.data);
+    async getExperienceAvailability(experienceId: number) {
+        const response = await v1Api.get(`/host/experiences/${experienceId}/availability`);
         return response.data;
-    } catch (error: any) {
-        console.error('❌ Erreur getExperienceConversations:', error.response?.data || error.message);
-        throw error;
     }
-}
+
+    async setExperienceAvailability(experienceId: number, availability: Array<{ date: string; slots: string[] }>) {
+        const response = await v1Api.put(`/host/experiences/${experienceId}/availability`, { availability });
+        return response.data;
+    }
+
+    // ==================== MESSAGES EXPÉRIENCES ====================
+    async getExperienceConversations() {
+        try {
+            console.log('📥 Récupération des conversations expériences...');
+            const response = await v1Api.get('/host/experiences/messages');
+            console.log('✅ Conversations récupérées:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Erreur getExperienceConversations:', error.response?.data || error.message);
+            throw error;
+        }
+    }
 
     async getExperienceMessages(experienceId: number, guestId: number) {
         const response = await v1Api.get(`/host/experiences/messages/${experienceId}/${guestId}`);
@@ -609,8 +520,6 @@ async getExperienceConversations() {
         const response = await v1Api.post(`/host/experiences/messages/${experienceId}/${guestId}`, data);
         return response.data;
     }
-
-    
 
     // ==================== STATISTIQUES ====================
     async getStatistics() {
@@ -651,22 +560,10 @@ async getExperienceConversations() {
         return response.data;
     }
 
-   async getProperty(id: number) {
-    const response = await v1Api.get(`/host/properties/${id}`);
-    return response.data;
-}
-
-// ==================== VÉRIFICATION D'IDENTITÉ ====================
-
-
-async checkVerificationRequired(): Promise<boolean> {
-    try {
-        const status = await this.getVerificationStatus();
-        return status.verification_status !== 'verified';
-    } catch (error) {
-        return true; // En cas d'erreur, on suppose que la vérification est requise
+    async getProperty(id: number) {
+        const response = await v1Api.get(`/host/properties/${id}`);
+        return response.data;
     }
-}
 
     async updateProperty(id: number, data: Partial<HostPropertyData>) {
         const response = await v1Api.put(`/host/properties/${id}`, data);
@@ -712,36 +609,112 @@ async checkVerificationRequired(): Promise<boolean> {
         return response.data;
     }
 
-    // ==================== CALENDRIER ====================
-    // async getCalendar(propertyId: number, year?: number, month?: number) {
-    //     const params = new URLSearchParams();
-    //     if (year) params.append('year', year.toString());
-    //     if (month) params.append('month', month.toString());
-    //     const response = await v1Api.get(`/host/calendar/${propertyId}?${params.toString()}`);
-    //     return response.data;
-    // }
+    // ==================== VÉRIFICATION D'IDENTITÉ ====================
+    async checkVerificationRequired(): Promise<boolean> {
+        try {
+            const status = await this.getVerificationStatus();
+            return status.verification_status !== 'verified';
+        } catch (error) {
+            return true;
+        }
+    }
 
-    // async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number) {
-    //     const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
-    //         start_date: startDate,
-    //         end_date: endDate,
-    //         status,
-    //         special_price: specialPrice
-    //     });
-    //     return response.data;
-    // }
+    async uploadIdentity(document: File, documentType: string) {
+        const formData = new FormData();
+        formData.append('identity_document', document);
+        formData.append('document_type', documentType);
+        const response = await v1Api.post('/host/upload-identity', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    }
 
-    // async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
-    //     const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
-    //         start_date: startDate,
-    //         end_date: endDate,
-    //         price
-    //     });
-    //     return response.data;
-    // }
+    async getVerificationStatus() {
+        const response = await v1Api.get('/host/verification-status');
+        return response.data;
+    }
 
-     // Dans host.service.ts - La méthode existe déjà (getProperty à la ligne 64)
+    // ==================== MESSAGES GÉNÉRAUX ====================
+    async getInquiryMessages(guestId: number) {
+        const response = await v1Api.get(`/host/messages/inquiry/${guestId}`);
+        return response.data;
+    }
 
+    async sendInquiryReply(guestId: number, data: { message: string }) {
+        const response = await v1Api.post(`/host/messages/inquiry/${guestId}`, data);
+        return response.data;
+    }
+
+    // ==================== PROFIL HÔTE ====================
+    async getProfile() {
+        const response = await v1Api.get('/host/profile');
+        return response.data;
+    }
+
+    async updateProfile(data: any) {
+        const response = await v1Api.put('/host/profile', data);
+        return response.data;
+    }
+
+    async uploadProfilePhoto(photo: File) {
+        const formData = new FormData();
+        formData.append('photo', photo);
+        const response = await v1Api.post('/host/profile/photo', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    }
+
+    async changePassword(currentPassword: string, newPassword: string) {
+        const response = await v1Api.post('/host/profile/change-password', {
+            current_password: currentPassword,
+            new_password: newPassword,
+            new_password_confirmation: newPassword
+        });
+        return response.data;
+    }
+
+    async getPaymentInfo() {
+        const response = await v1Api.get('/host/profile/payment-info');
+        return response.data;
+    }
+
+    async getMyPaymentInfo() {
+        const response = await v1Api.get('/host/payments/info');
+        return response.data;
+    }
+
+    async updateMyPaymentInfo(data: {
+        paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
+        fullName: string;
+        phoneNumber?: string;
+        mobileProvider?: 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE';
+        bankName?: string;
+        accountHolder?: string;
+        iban?: string;
+        bic?: string;
+        paypalEmail?: string;
+    }) {
+        const response = await v1Api.post('/host/payments/info', data);
+        return response.data;
+    }
+
+    async getMyPaymentHistory(limit?: number) {
+        const params = new URLSearchParams();
+        if (limit) params.append('limit', limit.toString());
+        const response = await v1Api.get(`/host/payments/history?${params.toString()}`);
+        return response.data;
+    }
+
+    async getMyPaymentStats() {
+        const response = await v1Api.get('/host/payments/stats');
+        return response.data;
+    }
+
+    async updatePaymentInfo(data: any) {
+        const response = await v1Api.put('/host/profile/payment-info', data);
+        return response.data;
+    }
 
     // ==================== RÉSERVATIONS HÔTE ====================
     async getHostBookings() {
@@ -794,116 +767,40 @@ async checkVerificationRequired(): Promise<boolean> {
         return response.data;
     }
 
-    // ==================== VÉRIFICATION D'IDENTITÉ ====================
-    async uploadIdentity(document: File, documentType: string) {
-        const formData = new FormData();
-        formData.append('identity_document', document);
-        formData.append('document_type', documentType);
-        const response = await v1Api.post('/host/upload-identity', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+    // ==================== CALENDRIER ====================
+    async getCalendar(propertyId: number, year: number, month: number) {
+        const response = await v1Api.get(`/host/calendar/${propertyId}`, {
+            params: { year, month }
         });
         return response.data;
     }
 
-    async getVerificationStatus() {
-        const response = await v1Api.get('/host/verification-status');
-        return response.data;
-    }
-
-
-    // Dans host.service.ts
-async getInquiryMessages(guestId: number) {
-    const response = await v1Api.get(`/host/messages/inquiry/${guestId}`);
-    return response.data;
-}
-
-async sendInquiryReply(guestId: number, data: { message: string }) {
-    const response = await v1Api.post(`/host/messages/inquiry/${guestId}`, data);
-    return response.data;
-}
-    // ==================== PROFIL HÔTE ====================
-    async getProfile() {
-        const response = await v1Api.get('/host/profile');
-        return response.data;
-    }
-
-    async updateProfile(data: any) {
-        const response = await v1Api.put('/host/profile', data);
-        return response.data;
-    }
-
-    async uploadProfilePhoto(photo: File) {
-        const formData = new FormData();
-        formData.append('photo', photo);
-        const response = await v1Api.post('/host/profile/photo', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+    async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number | null, reason?: string) {
+        const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
+            start_date: startDate,
+            end_date: endDate,
+            status: status,
+            special_price: specialPrice,
+            reason: reason
         });
         return response.data;
     }
 
-    async changePassword(currentPassword: string, newPassword: string) {
-        const response = await v1Api.post('/host/profile/change-password', {
-            current_password: currentPassword,
-            new_password: newPassword,
-            new_password_confirmation: newPassword
+    async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
+        const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
+            start_date: startDate,
+            end_date: endDate,
+            price: price
         });
         return response.data;
     }
 
-    async getPaymentInfo() {
-        const response = await v1Api.get('/host/profile/payment-info');
-        return response.data;
+    async blockDates(propertyId: number, startDate: string, endDate: string, reason?: string) {
+        return this.updateAvailability(propertyId, startDate, endDate, 'blocked', null, reason);
     }
 
-    
-  /**
-   * Récupère les informations de paiement de l'hôte connecté
-   */
-  async getMyPaymentInfo() {
-    const response = await v1Api.get('/host/payments/info');
-    return response.data;
-  }
-
-  /**
-   * Met à jour les informations de paiement de l'hôte connecté
-   */
-  async updateMyPaymentInfo(data: {
-    paymentMethod: 'MOBILE_MONEY' | 'BANK_TRANSFER' | 'PAYPAL';
-    fullName: string;
-    phoneNumber?: string;
-    mobileProvider?: 'ORANGE' | 'MTN' | 'MOOV' | 'WAVE';
-    bankName?: string;
-    accountHolder?: string;
-    iban?: string;
-    bic?: string;
-    paypalEmail?: string;
-  }) {
-    const response = await v1Api.post('/host/payments/info', data);
-    return response.data;
-  }
-
-  /**
-   * Récupère l'historique des paiements de l'hôte connecté
-   */
-  async getMyPaymentHistory(limit?: number) {
-    const params = new URLSearchParams();
-    if (limit) params.append('limit', limit.toString());
-    const response = await v1Api.get(`/host/payments/history?${params.toString()}`);
-    return response.data;
-  }
-
-  /**
-   * Récupère les statistiques de paiement de l'hôte connecté
-   */
-  async getMyPaymentStats() {
-    const response = await v1Api.get('/host/payments/stats');
-    return response.data;
-  }
-
-
-    async updatePaymentInfo(data: any) {
-        const response = await v1Api.put('/host/profile/payment-info', data);
-        return response.data;
+    async unblockDates(propertyId: number, startDate: string, endDate: string) {
+        return this.updateAvailability(propertyId, startDate, endDate, 'available', null);
     }
 
     // ==================== MESSAGERIE HÔTE ====================
@@ -926,56 +823,6 @@ async sendInquiryReply(guestId: number, data: { message: string }) {
         const response = await v1Api.post(`/host/messages/conversation/${bookingId}/read`);
         return response.data;
     }
-
-
-    
-  async getCalendar(propertyId: number, year: number, month: number) {
-    const response = await v1Api.get(`/host/calendar/${propertyId}`, {
-      params: { year, month }
-    });
-    return response.data;
-  }
-
-  /**
-   * Mettre à jour les disponibilités (bloquer/débloquer une plage de dates)
-   */
-  async updateAvailability(propertyId: number, startDate: string, endDate: string, status: string, specialPrice?: number | null, reason?: string) {
-    const response = await v1Api.post(`/host/calendar/${propertyId}/availability`, {
-      start_date: startDate,
-      end_date: endDate,
-      status: status, // 'available' ou 'blocked'
-      special_price: specialPrice,
-      reason: reason
-    });
-    return response.data;
-  }
-
-  /**
-   * Définir un prix spécial pour une plage de dates
-   */
-  async updateSpecialPrice(propertyId: number, startDate: string, endDate: string, price: number) {
-    const response = await v1Api.post(`/host/calendar/${propertyId}/special-price`, {
-      start_date: startDate,
-      end_date: endDate,
-      price: price
-    });
-    return response.data;
-  }
-
-  /**
-   * Bloquer des dates (alias)
-   */
-  async blockDates(propertyId: number, startDate: string, endDate: string, reason?: string) {
-    return this.updateAvailability(propertyId, startDate, endDate, 'blocked', null, reason);
-  }
-
-  /**
-   * Débloquer des dates (alias)
-   */
-  async unblockDates(propertyId: number, startDate: string, endDate: string) {
-    return this.updateAvailability(propertyId, startDate, endDate, 'available', null);
-  }
-
 
     async getHostUnreadCount() {
         const response = await v1Api.get('/host/messages/unread/count');
@@ -1019,6 +866,25 @@ async sendInquiryReply(guestId: number, data: { message: string }) {
     async logout() {
         const response = await v1Api.post('/host/logout');
         return response.data;
+    }
+
+    // ==================== UPLOAD IMAGES ====================
+    async uploadImages(files: File[], type: 'experience' | 'step'): Promise<string[]> {
+        const formData = new FormData();
+        files.forEach((file, index) => {
+            formData.append(`images[${index}]`, file);
+        });
+        formData.append('type', type);
+        
+        const response = await v1Api.post('/host/upload-images', formData);
+        return response.data.urls;
+    }
+
+    async downloadImage(url: string): Promise<File> {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const filename = url.split('/').pop() || 'image.jpg';
+        return new File([blob], filename, { type: blob.type });
     }
 }
 

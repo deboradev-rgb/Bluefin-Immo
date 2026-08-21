@@ -1,6 +1,6 @@
 // services/auth.service.ts - Version corrigée pour Laravel
 
-import { publicApi, v1Api, getCookie, deleteCookie, refreshCsrfToken, checkAuthStatus } from './api';
+import { publicApi, v1Api, getCookie, deleteCookie, refreshCsrfToken } from './api';
 import toast from 'react-hot-toast';
 
 // ============================================
@@ -147,7 +147,7 @@ class AuthService {
     }
 
     private hasValidSession(): boolean {
-        return !!(getCookie('laravel_session') || getCookie('PHPSESSID') || getCookie('bluefin_session'));
+        return !!(getCookie('laravel_session') || getCookie('PHPSESSID') || getCookie('bluefin_session') || getCookie('bluefin_immo_session'));
     }
 
     private async checkSession() {
@@ -205,13 +205,7 @@ class AuthService {
                 remember: data.remember || false,
             };
             
-                // ✅ Construire le payload
-                const base = publicApi.defaults.baseURL || '';
-                const hasApiInBase = base.includes('/api');
-
-                const candidatePaths = hasApiInBase
-                    ? ['/v1/auth/login', '/v1/traveler/login', '/traveler/login', '/login']
-                    : ['/api/v1/auth/login', '/api/v1/traveler/login', '/api/traveler/login', '/api/login'];
+                const candidatePaths = ['/api/v1/auth/login'];
 
                 let response: any = null;
                 let lastError: any = null;
@@ -222,9 +216,14 @@ class AuthService {
                         break;
                     } catch (err: any) {
                         lastError = err;
-                        const msg = err?.response?.data?.message || '';
-                        if (err?.response?.status === 404 && msg.includes('could not be found')) {
-                            console.warn(`⚠️ Endpoint ${ep} introuvable, essai du suivant...`);
+                        const status = err?.response?.status;
+                        const msg = (err?.response?.data?.message || '').toLowerCase();
+                        if (status === 404 || status === 405 || status === 419) {
+                            console.warn(`⚠️ Endpoint ${ep} en échec (${status}), essai du suivant...`);
+                            continue;
+                        }
+                        if (status === 422 && msg.includes('csrf')) {
+                            console.warn(`⚠️ CSRF rejeté sur ${ep}, essai du suivant...`);
                             continue;
                         }
                         throw err;
@@ -287,7 +286,7 @@ class AuthService {
         console.log('📋 Données:', data);
         
         try {
-            await refreshCsrfToken();
+            // L'inscription est également traitée sans CSRF pour éviter le 419 sur les environnements de production.
             
             // ✅ Construire le payload pour Laravel
             const payload: any = {
@@ -314,13 +313,7 @@ class AuthService {
                 payload.property_type = data.property_type;
             }
             
-            // ✅ Construire dynamiquement la liste d'endpoints selon la baseURL pour éviter /api/api
-            const base = publicApi.defaults.baseURL || '';
-            const hasApiInBase = base.includes('/api');
-
-            const candidatePaths = hasApiInBase
-                ? ['/v1/auth/register', '/v1/traveler/register', '/traveler/register', '/register', '/auth/register']
-                : ['/api/v1/auth/register', '/api/v1/traveler/register', '/api/traveler/register', '/api/register', '/api/auth/register'];
+            const candidatePaths = ['/api/v1/auth/register'];
 
             let response: any = null;
             let lastError: any = null;
@@ -408,9 +401,7 @@ class AuthService {
         console.log(`🚪 Déconnexion...`);
         
         try {
-            const base = publicApi.defaults.baseURL || '';
-            const logoutPath = base.includes('/api') ? '/logout' : '/api/logout';
-            await publicApi.post(logoutPath);
+            await publicApi.post('/api/v1/auth/logout');
             console.log('✅ Déconnexion API réussie');
         } catch (error) {
             console.warn('⚠️ Erreur lors de la déconnexion API:', error);
@@ -440,6 +431,7 @@ class AuthService {
         deleteCookie('PHPSESSID');
         deleteCookie('XSRF-TOKEN');
         deleteCookie('bluefin_session');
+        deleteCookie('bluefin_immo_session');
     }
 
     // ============================================

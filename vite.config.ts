@@ -61,8 +61,8 @@ export default defineConfig({
             // ✅ Ajouter les headers nécessaires
             proxyReq.setHeader('X-Requested-With', 'XMLHttpRequest');
             proxyReq.setHeader('Accept', 'application/json');
-            proxyReq.setHeader('Origin', 'http://localhost:5173');
-            proxyReq.setHeader('Referer', 'http://localhost:5173/');
+            proxyReq.setHeader('Origin', 'https://bluefin-immo.com');
+            proxyReq.setHeader('Referer', 'https://bluefin-immo.com/');
 
             // Preserve incoming content type (especially multipart/form-data with boundary).
             const incomingContentType = req.headers['content-type'];

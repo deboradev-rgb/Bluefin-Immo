@@ -114,9 +114,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // ✅ Fonction pour vérifier si la session est valide
     const hasValidSession = useCallback(() => {
-        const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID') || getCookie('bluefin_session');
-        const hasUser = !!localStorage.getItem('user');
-        return !!(sessionCookie && hasUser);
+        // Les cookies de session peuvent etre HttpOnly et invisibles en JS.
+        return !!localStorage.getItem('user');
     }, []);
 
     // ============================================
@@ -145,24 +144,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     return;
                 }
                 
-                // ✅ CODE ORIGINAL POUR LA PRODUCTION
-                const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
                 const storedUser = localStorage.getItem('user');
                 
                 console.log('🔍 Vérification session:', {
-                    hasSessionCookie: !!sessionCookie,
                     hasStoredUser: !!storedUser,
                 });
 
-                if (!sessionCookie) {
-                    console.log('🔍 Pas de cookie de session');
-                    if (storedUser) {
-                        console.warn('⚠️ User présent mais pas de cookie, nettoyage...');
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('userType');
-                        setUser(null);
-                        setIsAuthenticated(false);
-                    }
+                if (!storedUser) {
+                    console.log('ℹ️ Aucun utilisateur stocké localement');
                     setLoading(false);
                     return;
                 }
@@ -201,6 +190,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     }
                 } catch (error) {
                     console.error('❌ Erreur récupération profil:', error);
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('userType');
+                    setUser(null);
+                    setIsAuthenticated(false);
                 }
             } catch (error) {
                 console.error('❌ Erreur vérification session:', error);
@@ -213,19 +206,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         // ✅ Vérification périodique
         const intervalTime = import.meta.env.DEV ? 60000 : 30000;
-        const interval = setInterval(() => {
-            const sessionCookie = getCookie('laravel_session') || getCookie('PHPSESSID');
-            if (!sessionCookie && isAuthenticated && !import.meta.env.DEV) {
-                console.warn('⚠️ Session cookie perdu, déconnexion...');
-                localStorage.removeItem('user');
-                localStorage.removeItem('userType');
-                setUser(null);
-                setIsAuthenticated(false);
+        const interval = setInterval(async () => {
+            if (!isAuthenticated || import.meta.env.DEV) {
+                return;
+            }
+
+            try {
+                await publicApi.get('/api/user', { withCredentials: true });
+            } catch (error: any) {
+                if (error?.response?.status === 401 || error?.response?.status === 419) {
+                    console.warn('⚠️ Session invalide détectée par l\'API, déconnexion...');
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('userType');
+                    setUser(null);
+                    setIsAuthenticated(false);
+                }
             }
         }, intervalTime);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [isAuthenticated]);
 
    // contexts/AuthContext.tsx - Ajoutez cette fonction et modifiez login
 
@@ -457,49 +457,64 @@ if (redirectAfterLogin === 'messages' && pendingInquiry) {
     return false;
 }, []);
 
+
+// Dans AuthContext.tsx - avant de faire login
+
+function clearOldCookies() {
+    // Supprimer les anciens cookies de session
+    document.cookie = 'bluefin_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.bluefin-immo.com';
+    document.cookie = 'bluefin_immo_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.bluefin-immo.com';
+    document.cookie = 'remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.bluefin-immo.com';
+    console.log('🧹 Cookies legacy nettoyés');
+}
+
 // ============================================
 // ✅ LOGIN - MODIFIÉ
 // ============================================
 // contexts/AuthContext.tsx - Fonction login complète
+
+// contexts/AuthContext.tsx - Fonction login corrigée
 
 const login = async (email: string, password: string, userType: string = 'traveler') => {
     setLoading(true);
     try {
         console.log(`🔐 Tentative de login ${userType}...`);
 
+        clearOldCookies();
+
         await refreshCsrfToken();
-        
-        const base = publicApi.defaults.baseURL || '';
-        const hasApiInBase = base.includes('/api');
 
-        const candidatePaths = hasApiInBase
-            ? ['/v1/auth/login', '/traveler/login', '/traveler/login', '/login', '/v1/traveler/login']
-            : ['/api/v1/auth/login', '/api/traveler/login', '/api/traveler/login', '/api/login', '/api/v1/traveler/login'];
+        const normalizedUserType = userType === 'hote' ? 'hote' : userType === 'admin' ? 'admin' : 'traveler';
 
+        const payload = {
+            email,
+            password,
+            remember: true,
+            user_type: normalizedUserType,
+        };
+
+        const loginEndpoints = ['/api/v1/auth/login'];
         let response: any = null;
         let lastError: any = null;
 
-        for (const ep of candidatePaths) {
+        for (const loginEndpoint of loginEndpoints) {
             try {
-                response = await publicApi.post(ep, {
-                    email,
-                    password,
-                    remember: true,
-                    user_type: userType === 'hote' ? 'hote' : 'traveler',
-                });
+                console.log(`🔄 Essai endpoint login: ${loginEndpoint}`);
+                response = await publicApi.post(loginEndpoint, payload);
                 break;
             } catch (err: any) {
                 lastError = err;
-                const msg = err?.response?.data?.message || '';
-                if (err?.response?.status === 404 && msg.includes('could not be found')) {
-                    console.warn(`⚠️ Endpoint ${ep} introuvable, essai du suivant...`);
+                const status = err?.response?.status;
+                if (status === 404 || status === 405) {
                     continue;
                 }
                 throw err;
             }
         }
 
-        if (!response && lastError) throw lastError;
+        if (!response && lastError) {
+            throw lastError;
+        }
 
         console.log('📊 Réponse login:', response.data);
 
@@ -508,7 +523,7 @@ const login = async (email: string, password: string, userType: string = 'travel
         }
 
         const userData = response.data.user || response.data;
-        
+
         if (userData && userData.id) {
             const resolvedUserType = resolveUserType(userData.user_type, userType);
 
@@ -516,8 +531,8 @@ const login = async (email: string, password: string, userType: string = 'travel
                 throw new Error('Ce compte n\'est pas un compte hôte');
             }
 
-            const finalUser: User = { 
-                ...userData, 
+            const finalUser: User = {
+                ...userData,
                 user_type: resolvedUserType,
                 host_type: userData.host_type || null
             };
@@ -525,41 +540,20 @@ const login = async (email: string, password: string, userType: string = 'travel
             localStorage.setItem('userType', resolvedUserType);
             setUser(finalUser);
             setIsAuthenticated(true);
-            
+
             console.log('✅ Login réussi:', finalUser);
-            console.log('📋 Type utilisateur:', finalUser.user_type);
-            console.log('📋 Type hôte:', finalUser.host_type);
             toast.success('Connexion réussie !');
             window.dispatchEvent(new CustomEvent('authChange', { detail: { user: finalUser } }));
-            
-            // ✅ APPELER LA REDIRECTION APRÈS CONNEXION
+
             const redirected = handlePostLoginRedirect();
-            console.log('📌 Redirection effectuée:', redirected);
-            
             if (!redirected) {
-                // ✅ Si pas de redirection spécifique, rediriger vers le bon dashboard
                 if (resolvedUserType === 'hote') {
-                    // ✅ Déterminer le bon dashboard selon le type d'hôte
-                    const dashboardMap: Record<string, string> = {
-                        'logement': 'host-dashboard',
-                        'experience': 'host-experience-dashboard',
-                        'service': 'host-service-dashboard'
-                    };
-                    const dashboardRoute = dashboardMap[finalUser.host_type || 'logement'] || 'host-dashboard';
-                    const pathMap: Record<string, string> = {
-                        'host-dashboard': '/hote/tableau-de-bord',
-                        'host-experience-dashboard': '/hote/experiences',
-                        'host-service-dashboard': '/hote/services'
-                    };
-                    const path = pathMap[dashboardRoute] || '/hote/tableau-de-bord';
-                    console.log(`📊 Redirection vers dashboard: ${dashboardRoute} (${path})`);
-                    window.location.href = path;
+                    window.location.href = '/hote/tableau-de-bord';
                 } else {
-                    // Voyageur : rediriger vers la page d'accueil
                     window.location.href = '/';
                 }
             }
-            
+
             return response.data;
         } else {
             throw new Error('Données utilisateur invalides');
@@ -593,7 +587,7 @@ const login = async (email: string, password: string, userType: string = 'travel
                 phone: data.phone,
                 password: data.password,
                 password_confirmation: data.password_confirmation,
-                user_type: userType === 'hote' ? 'hote' : 'voyageur',
+                user_type: userType === 'hote' ? 'hote' : 'traveler',
             };
 
             // ✅ Ajouter host_type si l'utilisateur est un hôte
@@ -612,13 +606,7 @@ const login = async (email: string, password: string, userType: string = 'travel
 
             console.log('📦 Payload:', payload);
 
-            // ✅ Construire dynamiquement la liste d'endpoints selon la baseURL pour éviter /api/api
-            const base = publicApi.defaults.baseURL || '';
-            const hasApiInBase = base.includes('/api');
-
-            const candidatePaths = hasApiInBase
-                ? ['/v1/auth/register', '/v1/traveler/register', '/traveler/register', '/register', '/auth/register']
-                : ['/api/v1/auth/register', '/api/v1/traveler/register', '/api/traveler/register', '/api/register', '/api/auth/register'];
+            const candidatePaths = ['/api/v1/auth/register'];
 
             let response: any = null;
             let lastError: any = null;
@@ -696,11 +684,9 @@ const login = async (email: string, password: string, userType: string = 'travel
     const logout = async () => {
         setLoading(true);
         try {
-            const base = publicApi.defaults.baseURL || '';
-            const logoutPath = base.includes('/api') ? '/logout' : '/api/logout';
-            await publicApi.post(logoutPath);
+            await publicApi.post('/api/v1/auth/logout');
             console.log('✅ Déconnexion API réussie');
-            
+
         } catch (error) {
             console.warn('⚠️ Erreur déconnexion API:', error);
         } finally {

@@ -1,0 +1,28 @@
+HTTP/1.1 204 No Content
+Vary: Origin
+set-cookie: XSRF-TOKEN=eyJpdiI6IklPNmRBWVhlTUpZMDE2c0U2M3V3Vnc9PSIsInZhbHVlIjoiczYrQ0R2bnBhYktCaFp5cWdLZkg2S2JUZTFmM2w4MVZjeGRRR2wrVStvZDdXTi9aak5QeDJkSEJ1ZlVIT2hla2xwTGl6NEdDMlFQL0d4NkpQNG9XNzZpR1IrY2wvbFU3SG1jZXVHREJiWEI3dGtkZk4rdDE3UFN1NjFSTVgxY1UiLCJtYWMiOiI1NzFkMDk1NjVlYjJhNjkwYjJmMDIzZmYzOTU3MWE3YjQzMGJlYjAzMDU3ZDYwM2U4ZjM5NTc0MThmN2Q0MWNhIiwidGFnIjoiIn0%3D; expires=Sun, 12 Jul 2026 18:34:54 GMT; Max-Age=7200; path=/; secure; samesite=none
+set-cookie: bluefin_session=eyJpdiI6IkY3ME5xdW9PMTlPMkZVYjA5Vm9sR2c9PSIsInZhbHVlIjoiMWpQVGducXU2QjVoaU9ZZFQ2b0ttQzlaUTAwbkp2UDZKaVBqZlNlTndmNTRJUjhIRDUzNmk4TlpvZlo3NzZZcFFSbFNsLzA4ZGw4QzlqcG1kYWFJUlVoN04yVm1iSWh2V3BTdkhRVjI1NUI3YWtxc21IYm1scTcxOFZRNk1CWEYiLCJtYWMiOiJlMzE4NTFhNGEzZmIyZDY5MjcxNTFjOTJhOGU2MGVkMmJkMGNiMTI4Nzk4MzQwMWE4MzdjNTVkZmZhNWI1YWNkIiwidGFnIjoiIn0%3D; expires=Sun, 12 Jul 2026 18:34:54 GMT; Max-Age=7200; path=/; secure; httponly; samesite=none
+date: Sun, 12 Jul 2026 16:34:54 GMT
+connection: close
+x-powered-by: PHP/8.3.30
+cache-control: no-cache, private
+x-frame-options: DENY
+x-content-type-options: nosniff
+x-xss-protection: 1; mode=block
+referrer-policy: strict-origin-when-cross-origin
+permissions-policy: geolocation=(), microphone=(), camera=()
+content-security-policy: upgrade-insecure-requests
+platform: hostinger
+panel: hpanel
+access-control-allow-origin: https://bluefin-immo.com
+access-control-allow-credentials: true
+access-control-allow-methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+access-control-allow-headers: Origin, Content-Type, X-Requested-With, X-XSRF-TOKEN, X-CSRF-TOKEN, Authorization, Accept, Accept-Language, X-Token-Auth
+access-control-expose-headers: Set-Cookie, X-CSRF-TOKEN, X-XSRF-TOKEN
+access-control-max-age: 86400
+server: hcdn
+alt-svc: h3=":443"; ma=86400
+x-hcdn-request-id: a09ba4bc48ccf0a959c6a498de99574a-int-edge3
+x-hcdn-cache-status: DYNAMIC
+x-hcdn-upstream-rt: 0.045
+

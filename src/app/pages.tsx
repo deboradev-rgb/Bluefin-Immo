@@ -17,8 +17,8 @@ import { useInquiryMessages } from './hooks/useInquiryMessages';
 import { PaymentInfoModal } from './components/PaymentInfoModal';
 import { fedapayService } from '../services/fedapay.service';
 import { useTheme } from '../contexts/ThemeContext';
-import { publicApi } from '../services/api'; 
-import { ExperienceDetailModal } from './components/ExperienceDetailModal';
+import { v1Api } from '../services/api';
+
 
 
 import { IdentityVerification } from './components/IdentityVerification';
@@ -46,7 +46,6 @@ import {
   getItemImages,
   getExperienceSteps,
   getProgramSteps,
-  getAvailableDates,
   PLACEHOLDER_IMAGE 
 } from './utils/imageHelper';
 import messageService, { Conversation, Message } from '../services/message.service';
@@ -6534,7 +6533,7 @@ export function AllPropertiesPage({ onNavigate }: { onNavigate?: (route: Route) 
   // Dans AllPropertiesPage, remplacez la fonction getFirstPropertyImage :
 // Fonction pour récupérer la première photo d'une propriété (photo de couverture)
 const getFirstPropertyImage = (property: any): string => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.bluefin-immo.com';
   
   const normalizeUrl = (url: string): string => {
     if (!url) return '';
@@ -6573,7 +6572,7 @@ const getFirstPropertyImage = (property: any): string => {
   // Transformation des données
  // Dans AllPropertiesPage, remplacez la transformation des données :
 const getAllPropertyImages = (property: any): string[] => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.bluefin-immo.com';
   const images: string[] = [];
   const normalizeUrl = (url: string) => {
     if (!url) return '';
@@ -19891,93 +19890,22 @@ const ExperienceCalendar = ({
   );
 };
 
+
+
 // ============================================
-// PAGE PRINCIPALE
+// MODAL DE DÉTAIL
 // ============================================
-export function ExperiencePage({ onNavigate }: PageProps) {
+
+const ExperienceDetailModal = ({ 
+  exp, 
+  onClose,
+  onNavigate 
+}: { 
+  exp: Experience; 
+  onClose: () => void;
+  onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
+}) => {
   const { isAuthenticated, user } = useAuth();
-  const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
-  const [experiences, setExperiences] = useState<Experience[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const refreshExperiences = () => {
-    console.log('🔄 Rafraîchissement des expériences...');
-    setRefreshKey(prev => prev + 1);
-  };
-
-  const fetchExperiences = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      console.log('📥 Chargement des expériences...');
-      
-      const response = await fetch('/api/v1/experiences', {
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('📥 Expériences récupérées:', data);
-      
-      let experiencesData = [];
-      if (data.data && data.data.data && Array.isArray(data.data.data)) {
-        experiencesData = data.data.data;
-      } else if (data.data && Array.isArray(data.data)) {
-        experiencesData = data.data;
-      } else if (Array.isArray(data)) {
-        experiencesData = data;
-      } else {
-        experiencesData = [];
-      }
-      
-      console.log(`📊 ${experiencesData.length} expériences chargées`);
-      setExperiences(experiencesData);
-    } catch (err) {
-      console.error('❌ Erreur:', err);
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchExperiences();
-  }, [refreshKey]);
-
-  useEffect(() => {
-    const handleExperienceUpdate = () => {
-      console.log('🔄 Événement experience-updated reçu, rechargement...');
-      setTimeout(() => refreshExperiences(), 500);
-    };
-
-    const handleBookingUpdate = () => {
-      console.log('🔄 Événement booking-updated reçu, rechargement...');
-      setTimeout(() => refreshExperiences(), 500);
-    };
-
-    window.addEventListener('experience-updated', handleExperienceUpdate);
-    window.addEventListener('booking-updated', handleBookingUpdate);
-
-    return () => {
-      window.removeEventListener('experience-updated', handleExperienceUpdate);
-      window.removeEventListener('booking-updated', handleBookingUpdate);
-    };
-  }, []);
-
-  // ============================================
-  // MODAL DE DÉTAIL
-  // ============================================
- const ExperienceDetailModal = ({ exp, onClose }: { exp: Experience; onClose: () => void }) => {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [showAllSteps, setShowAllSteps] = useState(false);
@@ -20033,7 +19961,7 @@ export function ExperiencePage({ onNavigate }: PageProps) {
 
   const handleReservation = async () => {
     if (availabilityStatus !== 'available' || selectedDates.length < 2) {
-      alert('Veuillez sélectionner au moins 2 dates disponibles.');
+      toast.error('Veuillez sélectionner au moins 2 dates disponibles.');
       return;
     }
 
@@ -20065,7 +19993,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       };
       
       sessionStorage.setItem('experienceBookingData', JSON.stringify(bookingData));
-      console.log('✅ Données sauvegardées:', bookingData);
       
       if (onNavigate) {
         onNavigate({ name: 'auth', search: 'redirect=experience_booking' });
@@ -20105,7 +20032,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       };
       
       sessionStorage.setItem('experienceBookingData', JSON.stringify(bookingData));
-      console.log('✅ Données sauvegardées:', bookingData);
       window.dispatchEvent(new Event('booking-updated'));
       
       const params = new URLSearchParams();
@@ -20121,8 +20047,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
         params.set('dates', selectedDates.join(','));
       }
       
-      console.log('📤 Redirection vers experience-booking avec params:', params.toString());
-      
       if (onNavigate) {
         onNavigate({ 
           name: 'experience-booking', 
@@ -20134,7 +20058,7 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       }
     } catch (error) {
       console.error('Erreur lors de la réservation:', error);
-      alert('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
+      toast.error('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
     } finally {
       setIsBooking(false);
     }
@@ -20198,7 +20122,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
 
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
         <div className="min-h-screen pb-20">
-          {/* Header sticky */}
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
               <ArrowLeft className="w-5 h-5" />
@@ -20217,11 +20140,9 @@ export function ExperiencePage({ onNavigate }: PageProps) {
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            {/* ✅ Images - Design moderne et présentable */}
+            {/* Images */}
             <div className="mb-6">
-              {/* Image principale + miniatures */}
               <div className="relative">
-                {/* Image principale */}
                 <div 
                   className="relative rounded-2xl overflow-hidden cursor-pointer group aspect-[16/9] bg-gray-100"
                   onClick={() => setIsGalleryOpen(true)}
@@ -20234,7 +20155,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                       (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${exp.id}/1200/800`;
                     }}
                   />
-                  {/* Badge "Voir toutes les photos" */}
                   {images.length > 1 && (
                     <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-black/80 transition">
                       <Image className="w-4 h-4" />
@@ -20243,7 +20163,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                   )}
                 </div>
 
-                {/* Miniatures */}
                 {images.length > 1 && (
                   <div className="grid grid-cols-4 gap-2 mt-2">
                     {images.slice(1, 5).map((img, index) => (
@@ -20265,7 +20184,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                         />
                       </div>
                     ))}
-                    {/* Si plus de 4 images supplémentaires, afficher un compteur */}
                     {images.length > 5 && (
                       <div 
                         className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer bg-black/80 flex items-center justify-center text-white font-bold text-xl hover:bg-black/90 transition"
@@ -20281,7 +20199,7 @@ export function ExperiencePage({ onNavigate }: PageProps) {
 
             {/* Layout principal */}
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-              {/* Colonne gauche - Détails */}
+              {/* Colonne gauche */}
               <div className="flex-1 space-y-6 sm:space-y-8">
                 <div className="border-b pb-4">
                   <div className="text-xs sm:text-sm text-gray-500">
@@ -20359,7 +20277,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
               {/* Colonne droite - Réservation */}
               <div className="lg:w-96 xl:w-[420px] flex-shrink-0">
                 <div className="sticky top-24 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg">
-                  {/* Prix */}
                   <div className="mb-4">
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-bold text-[#0F2940]">
@@ -20372,7 +20289,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                     </div>
                   </div>
 
-                  {/* Calendrier */}
                   <div className="border rounded-xl mb-4 overflow-hidden">
                     <div className="p-3">
                       <ExperienceCalendar
@@ -20386,7 +20302,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                       />
                     </div>
 
-                    {/* Participants */}
                     <div className="p-3 border-t">
                       <div className="text-xs font-bold text-gray-500 uppercase mb-3">Participants</div>
                       
@@ -20461,16 +20376,10 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                           <span className="text-gray-600">Total participants</span>
                           <span className="font-semibold text-[#0F2940]">{totalGuests}</span>
                         </div>
-                        <div className="flex justify-between text-xs text-gray-400 mt-1">
-                          <span>{adults} adulte{adults > 1 ? 's' : ''}</span>
-                          {children > 0 && <span>{children} enfant{children > 1 ? 's' : ''}</span>}
-                          {infants > 0 && <span>{infants} bébé{infants > 1 ? 's' : ''}</span>}
-                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Détails du prix */}
                   {selectedDates.length > 0 && (
                     <div className="space-y-2 mb-4 text-sm">
                       {adults > 0 && (
@@ -20521,7 +20430,6 @@ export function ExperiencePage({ onNavigate }: PageProps) {
                     </div>
                   )}
 
-                  {/* Boutons */}
                   <button 
                     onClick={handleReservation} 
                     disabled={availabilityStatus !== 'available' || selectedDates.length < 2 || isBooking || totalGuests === 0} 
@@ -20599,9 +20507,95 @@ export function ExperiencePage({ onNavigate }: PageProps) {
   );
 };
 
+// ============================================
+// PAGE PRINCIPALE - EXPERIENCE PAGE
+// ============================================
+
+export function ExperiencePage({ onNavigate }: PageProps) {
+  const { isAuthenticated, user } = useAuth();
+  const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshExperiences = () => {
+    console.log('🔄 Rafraîchissement des expériences...');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // ✅ Récupérer les expériences avec v1Api
+  const fetchExperiences = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('📥 Chargement des expériences...');
+      
+      // ✅ Utiliser v1Api au lieu de fetch
+      const response = await v1Api.get('/experiences');
+      const data = response.data;
+      
+      console.log('📥 Expériences récupérées:', data);
+      
+      let experiencesData = [];
+      if (data.data && data.data.data && Array.isArray(data.data.data)) {
+        experiencesData = data.data.data;
+      } else if (data.data && Array.isArray(data.data)) {
+        experiencesData = data.data;
+      } else if (Array.isArray(data)) {
+        experiencesData = data;
+      } else {
+        experiencesData = [];
+      }
+      
+      console.log(`📊 ${experiencesData.length} expériences chargées`);
+      setExperiences(experiencesData);
+    } catch (err: any) {
+      console.error('❌ Erreur:', err);
+      
+      if (err.response) {
+        console.error('📡 Réponse serveur:', err.response.status, err.response.data);
+        setError(`Erreur serveur: ${err.response.status} - ${err.response.data?.message || 'Erreur inconnue'}`);
+      } else if (err.request) {
+        console.error('📡 Pas de réponse du serveur');
+        setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExperiences();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const handleExperienceUpdate = () => {
+      console.log('🔄 Événement experience-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    const handleBookingUpdate = () => {
+      console.log('🔄 Événement booking-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    window.addEventListener('experience-updated', handleExperienceUpdate);
+    window.addEventListener('booking-updated', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('experience-updated', handleExperienceUpdate);
+      window.removeEventListener('booking-updated', handleBookingUpdate);
+    };
+  }, []);
+
   // ============================================
   // RENDU PRINCIPAL
   // ============================================
+  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -20623,8 +20617,14 @@ export function ExperiencePage({ onNavigate }: PageProps) {
           <h1 className="text-xl font-semibold text-[#0F2940]">Expériences au Bénin</h1>
         </div>
         <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-          <p className="text-red-500">{error}</p>
-          <button onClick={fetchExperiences} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+          <div className="text-6xl mb-4">🎭</div>
+          <p className="text-red-500 mb-2">{error}</p>
+          <p className="text-sm text-gray-400 mb-4">Vérifiez votre connexion ou réessayez</p>
+          <button 
+            onClick={fetchExperiences} 
+            className="px-6 py-2.5 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892] transition shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
             Réessayer
           </button>
         </div>
@@ -20634,12 +20634,16 @@ export function ExperiencePage({ onNavigate }: PageProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-4 z-20">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-semibold text-[#0F2940]">Expériences au Bénin</h1>
-        <button onClick={refreshExperiences} className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors" title="Rafraîchir">
+        <button 
+          onClick={refreshExperiences} 
+          className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors"
+          title="Rafraîchir"
+        >
           <RefreshCw className="w-5 h-5 text-gray-500" />
         </button>
       </div>
@@ -20651,29 +20655,36 @@ export function ExperiencePage({ onNavigate }: PageProps) {
         </p>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#0F2940]">
+          <h2 className="text-xl md:text-2xl font-semibold text-[#0F2940] flex items-center gap-2">
             Toutes les expériences
-            <span className="text-sm font-normal text-gray-500 ml-2">
+            <span className="text-sm font-normal text-gray-500 ml-1">
               ({experiences.length})
             </span>
           </h2>
-          <button onClick={refreshExperiences} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
+          <button 
+            onClick={refreshExperiences} 
+            className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1"
+          >
             <RefreshCw className="w-4 h-4" />
             Rafraîchir
           </button>
         </div>
 
         {experiences.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🎭</div>
             <p className="text-gray-500">Aucune expérience disponible pour le moment.</p>
-            <button onClick={refreshExperiences} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+            <button 
+              onClick={refreshExperiences} 
+              className="mt-4 px-6 py-2.5 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892] transition"
+            >
               Actualiser
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {experiences.map(exp => (
               <ExperienceCard 
                 key={exp.id} 
@@ -20688,12 +20699,15 @@ export function ExperiencePage({ onNavigate }: PageProps) {
       {selectedExperience && (
         <ExperienceDetailModal 
           exp={selectedExperience} 
-          onClose={() => setSelectedExperience(null)} 
+          onClose={() => setSelectedExperience(null)}
+          onNavigate={onNavigate}
         />
       )}
     </div>
   );
 }
+
+
 
 // ============================================
 // ExperienceBookingPage
@@ -22232,8 +22246,35 @@ const ServiceCard = ({ service, onClick }: { service: Service; onClick: () => vo
 };
 
 // ============================================
+// SERVICES PAGE - VERSION COMPLÈTE CORRIGÉE
+// ============================================
+
+// ✅ Fonction pour obtenir les dates disponibles
+const getAvailableDates = (service: any): string[] => {
+  if (!service.availability || !Array.isArray(service.availability)) {
+    return [];
+  }
+  
+  const dates: string[] = [];
+  for (const item of service.availability) {
+    try {
+      let parsed = item;
+      if (typeof item === 'string') parsed = JSON.parse(item);
+      if (parsed && typeof parsed === 'object' && parsed.date) {
+        dates.push(parsed.date);
+      }
+    } catch (e) {}
+  }
+  return dates;
+};
+
+
+
+
+// ============================================
 // MODAL DE DÉTAIL
 // ============================================
+
 const ServiceDetailModal = ({ 
   service, 
   onClose,
@@ -22278,7 +22319,7 @@ const ServiceDetailModal = ({
 
   const handleBooking = async () => {
     if (availabilityStatus !== 'available' || selectedDates.length < 1) {
-      alert('Veuillez sélectionner une date disponible.');
+      toast.error('Veuillez sélectionner une date disponible.');
       return;
     }
 
@@ -22330,7 +22371,7 @@ const ServiceDetailModal = ({
       }
     } catch (error) {
       console.error('Erreur lors de la réservation:', error);
-      alert('Une erreur est survenue lors de la réservation. Veuillez réessayer.');
+      toast.error('Une erreur est survenue lors de la réservation.');
     } finally {
       setIsBooking(false);
     }
@@ -22394,7 +22435,6 @@ const ServiceDetailModal = ({
 
       <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
         <div className="min-h-screen pb-20">
-          {/* Header sticky */}
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b px-3 sm:px-4 py-3 flex justify-between items-center">
             <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-all">
               <ArrowLeft className="w-5 h-5" />
@@ -22413,10 +22453,9 @@ const ServiceDetailModal = ({
           </div>
           
           <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6">
-            {/* ✅ Images - Design moderne et présentable (comme ExperienceDetailModal) */}
+            {/* Images */}
             <div className="mb-6">
               <div className="relative">
-                {/* Image principale */}
                 <div 
                   className="relative rounded-2xl overflow-hidden cursor-pointer group aspect-[16/9] bg-gray-100"
                   onClick={() => setIsGalleryOpen(true)}
@@ -22429,7 +22468,6 @@ const ServiceDetailModal = ({
                       (e.target as HTMLImageElement).src = `https://picsum.photos/seed/service-${service.id}/1200/800`;
                     }}
                   />
-                  {/* Badge "Voir toutes les photos" */}
                   {images.length > 1 && (
                     <div className="absolute bottom-4 right-4 bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm flex items-center gap-2 hover:bg-black/80 transition">
                       <Image className="w-4 h-4" />
@@ -22438,7 +22476,6 @@ const ServiceDetailModal = ({
                   )}
                 </div>
 
-                {/* Miniatures */}
                 {images.length > 1 && (
                   <div className="grid grid-cols-4 gap-2 mt-2">
                     {images.slice(1, 5).map((img, index) => (
@@ -22460,7 +22497,6 @@ const ServiceDetailModal = ({
                         />
                       </div>
                     ))}
-                    {/* Si plus de 4 images supplémentaires, afficher un compteur */}
                     {images.length > 5 && (
                       <div 
                         className="aspect-[4/3] rounded-xl overflow-hidden cursor-pointer bg-black/80 flex items-center justify-center text-white font-bold text-xl hover:bg-black/90 transition"
@@ -22476,7 +22512,6 @@ const ServiceDetailModal = ({
 
             {/* Layout principal */}
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-              {/* Colonne gauche */}
               <div className="flex-1 space-y-6 sm:space-y-8">
                 <div className="border-b pb-4">
                   <div className="text-xs sm:text-sm text-gray-500">
@@ -22512,7 +22547,7 @@ const ServiceDetailModal = ({
                       Prestataire : {hostName}
                     </div>
                     <div className="text-sm text-gray-500">
-                       {service.host?.user_type === 'hote' ? 'Hôte professionnel' : 'Prestataire vérifié'}
+                      {service.host?.user_type === 'hote' ? 'Hôte professionnel' : 'Prestataire vérifié'}
                     </div>
                   </div>
                 </div>
@@ -22557,10 +22592,8 @@ const ServiceDetailModal = ({
                 </div>
               </div>
 
-              {/* Colonne droite - Réservation avec calendrier */}
               <div className="lg:w-96 xl:w-[420px] flex-shrink-0">
                 <div className="sticky top-24 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg">
-                  {/* Prix */}
                   <div className="mb-4">
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-bold text-[#0F2940]">
@@ -22573,7 +22606,6 @@ const ServiceDetailModal = ({
                     </div>
                   </div>
 
-                  {/* Calendrier */}
                   <div className="border rounded-xl mb-4 overflow-hidden">
                     <div className="p-3">
                       <ServiceCalendar
@@ -22586,7 +22618,6 @@ const ServiceDetailModal = ({
                     </div>
                   </div>
 
-                  {/* Détails du prix */}
                   <div className="space-y-2 mb-4 text-sm">
                     <div className="flex justify-between text-gray-600">
                       <span>Service</span>
@@ -22645,8 +22676,6 @@ const ServiceDetailModal = ({
                         localStorage.setItem('inquiry_type', 'service');
                         localStorage.setItem('inquiry_data', JSON.stringify(inquiryData));
                         
-                        console.log('🔒 Utilisateur non connecté, sauvegarde inquiry data:', inquiryData);
-                        
                         if (onNavigate) {
                           onNavigate({ name: 'auth', search: 'redirect=messages' });
                         } else {
@@ -22664,8 +22693,6 @@ const ServiceDetailModal = ({
                       if (selectedDates[0]) params.set('date', selectedDates[0]);
                       if (service.location) params.set('location', service.location);
                       if (service.price) params.set('price', service.price.toString());
-                      
-                      console.log('📤 Redirection vers messages avec params:', params.toString());
                       
                       if (onNavigate) {
                         onNavigate({ 
@@ -22693,8 +22720,9 @@ const ServiceDetailModal = ({
 };
 
 // ============================================
-// PAGE PRINCIPALE
+// PAGE PRINCIPALE - SERVICES PAGE
 // ============================================
+
 export function ServicesPage({ onNavigate }: PageProps) {
   const { isAuthenticated, user } = useAuth();
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -22708,6 +22736,7 @@ export function ServicesPage({ onNavigate }: PageProps) {
     setRefreshKey(prev => prev + 1);
   };
 
+  // ✅ Récupérer les services avec v1Api (correction de l'URL)
   const fetchServices = async () => {
     try {
       setIsLoading(true);
@@ -22715,19 +22744,10 @@ export function ServicesPage({ onNavigate }: PageProps) {
       
       console.log('📥 Chargement des services...');
       
-      const response = await fetch('/api/v1/services', {
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
+      // ✅ Utiliser v1Api au lieu de fetch avec URL relative
+      const response = await v1Api.get('/services');
+      const data = response.data;
       
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
-      }
-      
-      const data = await response.json();
       console.log('📥 Services récupérés:', data);
       
       let servicesData = [];
@@ -22743,9 +22763,18 @@ export function ServicesPage({ onNavigate }: PageProps) {
       
       console.log(`📊 ${servicesData.length} services chargés`);
       setServices(servicesData);
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Erreur:', err);
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      
+      if (err.response) {
+        console.error('📡 Réponse serveur:', err.response.status, err.response.data);
+        setError(`Erreur serveur: ${err.response.status} - ${err.response.data?.message || 'Erreur inconnue'}`);
+      } else if (err.request) {
+        console.error('📡 Pas de réponse du serveur');
+        setError('Impossible de contacter le serveur. Vérifiez votre connexion.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -22760,8 +22789,6 @@ export function ServicesPage({ onNavigate }: PageProps) {
       console.log('🔄 Événement service-updated reçu, rechargement...');
       setTimeout(() => refreshServices(), 500);
     };
-
-    
 
     const handleBookingUpdate = () => {
       console.log('🔄 Événement booking-updated reçu, rechargement...');
@@ -22780,6 +22807,7 @@ export function ServicesPage({ onNavigate }: PageProps) {
   // ============================================
   // RENDU PRINCIPAL
   // ============================================
+  
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -22801,8 +22829,14 @@ export function ServicesPage({ onNavigate }: PageProps) {
           <h1 className="text-xl font-semibold text-[#0F2940]">Services au Bénin</h1>
         </div>
         <div className="max-w-7xl mx-auto px-4 py-12 text-center">
-          <p className="text-red-500">{error}</p>
-          <button onClick={fetchServices} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+          <div className="text-6xl mb-4">🔧</div>
+          <p className="text-red-500 mb-2">{error}</p>
+          <p className="text-sm text-gray-400 mb-4">Vérifiez votre connexion ou réessayez</p>
+          <button 
+            onClick={fetchServices} 
+            className="px-6 py-2.5 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892] transition shadow-lg hover:shadow-xl flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
             Réessayer
           </button>
         </div>
@@ -22812,12 +22846,16 @@ export function ServicesPage({ onNavigate }: PageProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="sticky top-0 bg-white border-b px-4 py-3 flex items-center gap-4 z-20">
-        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b px-4 py-3 flex items-center gap-4 z-20">
+        <button onClick={() => onNavigate?.({ name: 'home' })} className="p-2 rounded-full hover:bg-gray-100 transition">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-semibold text-[#0F2940]">Services au Bénin</h1>
-        <button onClick={refreshServices} className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors" title="Rafraîchir">
+        <button 
+          onClick={refreshServices} 
+          className="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors"
+          title="Rafraîchir"
+        >
           <RefreshCw className="w-5 h-5 text-gray-500" />
         </button>
       </div>
@@ -22829,29 +22867,36 @@ export function ServicesPage({ onNavigate }: PageProps) {
         </p>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold text-[#0F2940]">
+          <h2 className="text-xl md:text-2xl font-semibold text-[#0F2940] flex items-center gap-2">
             Tous les services
-            <span className="text-sm font-normal text-gray-500 ml-2">
+            <span className="text-sm font-normal text-gray-500 ml-1">
               ({services.length})
             </span>
           </h2>
-          <button onClick={refreshServices} className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1">
+          <button 
+            onClick={refreshServices} 
+            className="text-sm text-[#00c9a7] hover:underline flex items-center gap-1"
+          >
             <RefreshCw className="w-4 h-4" />
             Rafraîchir
           </button>
         </div>
 
         {services.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🔧</div>
             <p className="text-gray-500">Aucun service disponible pour le moment.</p>
-            <button onClick={refreshServices} className="mt-4 px-6 py-2 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892]">
+            <button 
+              onClick={refreshServices} 
+              className="mt-4 px-6 py-2.5 bg-[#00c9a7] text-white rounded-full hover:bg-[#00b892] transition"
+            >
               Actualiser
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
             {services.map(service => (
               <ServiceCard 
                 key={service.id} 
@@ -22875,6 +22920,8 @@ export function ServicesPage({ onNavigate }: PageProps) {
     </div>
   );
 }
+
+
 
 
 
