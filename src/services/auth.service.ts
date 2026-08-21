@@ -208,11 +208,11 @@ class AuthService {
                 const candidatePaths = ['/api/v1/auth/login'];
 
                 let response: any = null;
-                let lastError: any = null;
+                let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
 
                 for (const ep of candidatePaths) {
                     try {
-                        response = await publicApi.post(ep, payload);
+                        response = await publicApi.post(ep, payload, { headers: csrfHeaders });
                         break;
                     } catch (err: any) {
                         lastError = err;
@@ -316,12 +316,12 @@ class AuthService {
             const candidatePaths = ['/api/v1/auth/register'];
 
             let response: any = null;
-            let lastError: any = null;
+            let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
 
             for (const ep of candidatePaths) {
                 try {
                     console.log(`🔄 Essai endpoint: ${ep}...`);
-                    response = await publicApi.post(ep, payload);
+                    response = await publicApi.post(ep, payload, { headers: csrfHeaders });
                     console.log(`✅ Succès avec ${ep}`);
                     break;
                 } catch (err: any) {

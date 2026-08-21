@@ -204,6 +204,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         checkSession();
 
+<<<<<<< HEAD
         // ✅ Vérification périodique
         const intervalTime = import.meta.env.DEV ? 60000 : 30000;
         const interval = setInterval(async () => {
@@ -226,6 +227,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         return () => clearInterval(interval);
     }, [isAuthenticated]);
+=======
+        // Vérification périodique désactivée : le cookie de session Sanctum est httpOnly
+                // et invisible en JS (document.cookie), donc cette vérification produisait des
+                // faux positifs qui déconnectaient l'utilisateur à tort quelques secondes après
+                // la connexion. La vraie invalidation de session est gérée par checkSession()
+                // ci-dessus (appel réel à /api/user) et par les réponses 401 des appels API.
+    }, []);
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
 
    // contexts/AuthContext.tsx - Ajoutez cette fonction et modifiez login
 
@@ -483,8 +492,18 @@ const login = async (email: string, password: string, userType: string = 'travel
         clearOldCookies();
 
         await refreshCsrfToken();
+<<<<<<< HEAD
 
         const normalizedUserType = userType === 'hote' ? 'hote' : userType === 'admin' ? 'admin' : 'traveler';
+=======
+        
+        const base = publicApi.defaults.baseURL || '';
+        const hasApiInBase = (() => { try { return new URL(base, window.location.origin).pathname.includes('/api'); } catch (e) { return false; } })();
+
+        const candidatePaths = hasApiInBase
+            ? ['/traveler/login', '/v1/auth/login', '/login', '/v1/traveler/login']
+            : ['/api/traveler/login', '/api/v1/auth/login', '/api/login', '/api/v1/traveler/login'];
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
 
         const payload = {
             email,
@@ -495,12 +514,21 @@ const login = async (email: string, password: string, userType: string = 'travel
 
         const loginEndpoints = ['/api/v1/auth/login'];
         let response: any = null;
-        let lastError: any = null;
+        let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
 
         for (const loginEndpoint of loginEndpoints) {
             try {
+<<<<<<< HEAD
                 console.log(`🔄 Essai endpoint login: ${loginEndpoint}`);
                 response = await publicApi.post(loginEndpoint, payload);
+=======
+                response = await publicApi.post(ep, {
+                    email,
+                    password,
+                    remember: true,
+                    user_type: userType === 'hote' ? 'hote' : 'traveler',
+                }, { headers: csrfHeaders });
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
                 break;
             } catch (err: any) {
                 lastError = err;
@@ -606,15 +634,25 @@ const login = async (email: string, password: string, userType: string = 'travel
 
             console.log('📦 Payload:', payload);
 
+<<<<<<< HEAD
             const candidatePaths = ['/api/v1/auth/register'];
+=======
+            // ✅ Construire dynamiquement la liste d'endpoints selon la baseURL pour éviter /api/api
+            const base = publicApi.defaults.baseURL || '';
+            const hasApiInBase = (() => { try { return new URL(base, window.location.origin).pathname.includes('/api'); } catch (e) { return false; } })();
+
+            const candidatePaths = hasApiInBase
+                ? ['/traveler/register', '/v1/auth/register', '/register', '/v1/traveler/register']
+                : ['/api/traveler/register', '/api/v1/auth/register', '/api/register', '/api/auth/register'];
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
 
             let response: any = null;
-            let lastError: any = null;
+            let lastError: any = null; const xsrfToken = getCookie('XSRF-TOKEN'); const csrfHeaders = xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {};
 
             for (const ep of candidatePaths) {
                 try {
                     console.log(`🔄 Essai endpoint: ${ep}...`);
-                    response = await publicApi.post(ep, payload);
+                    response = await publicApi.post(ep, payload, { headers: csrfHeaders });
                     console.log(`✅ Succès avec ${ep}`);
                     break;
                 } catch (err: any) {

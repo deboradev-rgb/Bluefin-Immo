@@ -19906,6 +19906,91 @@ const ExperienceDetailModal = ({
   onNavigate?: (route: { name: string; params?: any; search?: string; id?: string }) => void;
 }) => {
   const { isAuthenticated, user } = useAuth();
+<<<<<<< HEAD
+=======
+  const [selectedExperience, setSelectedExperience] = useState<Experience | null>(null);
+  const [experiences, setExperiences] = useState<Experience[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshExperiences = () => {
+    console.log('🔄 Rafraîchissement des expériences...');
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const fetchExperiences = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('📥 Chargement des expériences...');
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/experiences`, {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📥 Expériences récupérées:', data);
+      
+      let experiencesData = [];
+      if (data.data && data.data.data && Array.isArray(data.data.data)) {
+        experiencesData = data.data.data;
+      } else if (data.data && Array.isArray(data.data)) {
+        experiencesData = data.data;
+      } else if (Array.isArray(data)) {
+        experiencesData = data;
+      } else {
+        experiencesData = [];
+      }
+      
+      console.log(`📊 ${experiencesData.length} expériences chargées`);
+      setExperiences(experiencesData);
+    } catch (err) {
+      console.error('❌ Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchExperiences();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const handleExperienceUpdate = () => {
+      console.log('🔄 Événement experience-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    const handleBookingUpdate = () => {
+      console.log('🔄 Événement booking-updated reçu, rechargement...');
+      setTimeout(() => refreshExperiences(), 500);
+    };
+
+    window.addEventListener('experience-updated', handleExperienceUpdate);
+    window.addEventListener('booking-updated', handleBookingUpdate);
+
+    return () => {
+      window.removeEventListener('experience-updated', handleExperienceUpdate);
+      window.removeEventListener('booking-updated', handleBookingUpdate);
+    };
+  }, []);
+
+  // ============================================
+  // MODAL DE DÉTAIL
+  // ============================================
+ const ExperienceDetailModal = ({ exp, onClose }: { exp: Experience; onClose: () => void }) => {
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [showAllSteps, setShowAllSteps] = useState(false);
@@ -22744,9 +22829,19 @@ export function ServicesPage({ onNavigate }: PageProps) {
       
       console.log('📥 Chargement des services...');
       
+<<<<<<< HEAD
       // ✅ Utiliser v1Api au lieu de fetch avec URL relative
       const response = await v1Api.get('/services');
       const data = response.data;
+=======
+      const response = await fetch(`${API_BASE_URL}/api/v1/services`, {
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+>>>>>>> 8ec1536aad9bbd49b2358c462f9ce024fab56532
       
       console.log('📥 Services récupérés:', data);
       
